@@ -37,23 +37,6 @@
 		{% endif %}
 	</div>
 
-	<!-- Model parameters -->
-	<div class="my-2">
-		<h4>Model parameters</h4>
-		<h5>{{ form.number_trees.label }}</h5>
-		{{ form.number_trees() }}
-		<br>
-		<small class="form-text text-muted">
-			Number of trees that should be used for the random forest. 
-		</small>
-		{% if form.number_trees.errors %}
-		<br>
-			{% for error in form.number_trees.errors %}
-		<span class="text-danger">{{ error }}</span>
-			{% endfor %}
-		{% endif %}
-	</div>
-
 	<div class="row my-4 justify-content-center">
 		<div class="col-5 mt-4 text-center">
 			<div class="d-grid gap-2">

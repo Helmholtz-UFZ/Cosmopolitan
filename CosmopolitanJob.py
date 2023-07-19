@@ -1,11 +1,5 @@
 #!/usr/bin/python3
-"""Module for the class job submission.
-
-This module gives all functionality so that the frontend server can handle the
-job. This includes all communication with the backend. Further each instance can
-be locked so that only one instance can write. To use this you can use the "with
-... as ...:" syntax.
-"""
+"""Module for a Cosmopolitan Job."""
 
 
 import datetime
@@ -62,14 +56,14 @@ class CosmopolitanJob:
         job_id=None,
         form=None,
     ):
-        """Init class either by id or by html form."""
+        """Init class either by id, by html form or make a new one."""
         if job_id:
             vprint(f"Load submission {job_id}", verbose_level=2)
             # TODO Build function that loads existing Job.
             raise NotImplementedError
         elif form:
             vprint("Set from form", verbose_level=2)
-            raise NotImplementedError
+            self._set_from_form(form)
         else:
             vprint("Make blank job", verbose_level=2)
             self._blank_job()
@@ -87,19 +81,25 @@ class CosmopolitanJob:
             break
         self.form = job_form
         self.job_id = job_form.job_id.data
-        self.input = {
-            name: field.data
-            for name, field in job_form._fields.items()
-            if name != "csrf_token"
-        }
 
-    def create_job_form(self):
-        """Create job form."""
-        pass
+    def _set_from_form(self, form):
+        if type(form) is not CosmopolitanJobForm:
+            raise TypeError("Form must be a CosmopolitanJobForm")
+
+        self.form = form
+        self.input = {}
+
+        for name, field in self.form._fields.items():
+            if name == "csrf_token":
+                continue
+            if field.type == "MultipleFileField":
+                self.input[name] = field.checked_files
+            else:
+                self.input[name] = field.data
 
 
 class CosmopolitanJobForm(FlaskForm):
-    """WTF form for Comopolitan input."""
+    """WTF form for Cosmopolitan input."""
 
     job_id = StringField(
         "Job ID",
@@ -126,6 +126,7 @@ class CosmopolitanJobForm(FlaskForm):
 
     def _check_indep_var_files(self, file_names):
         # TODO Dummy
+        vprint("Check if files are identical", verbose_level=3)
         file_content_list = []
         for file_name in file_names:
             with open(
@@ -134,9 +135,10 @@ class CosmopolitanJobForm(FlaskForm):
                 file_content_list.append(f_handle.read())
         return len(set(file_content_list)) == 1
 
-    def upload_file(self):
+    def _check_files(self):
         """Upload files and check integrity."""
         file_names = []
+        vprint("Check files integrity", verbose_level=3)
         for indep_var_file in self.indep_var_files.data:
             file_name = secure_filename(indep_var_file.filename)
             file_names.append(file_name)
@@ -154,6 +156,17 @@ class CosmopolitanJobForm(FlaskForm):
             for file_name in file_names:
                 os.remove(os.path.join(UPLOAD_DIR, file_name))
             self.indep_var_files.errors = ["Uploaded files are not identical."]
+            return False
+
+    def validate_on_submit(self):
+        """Validate the form by the inheritence and than upload files and check.
+
+        Make sure that html form has 'enctype="multipart/form-data' tag.
+        """
+        vprint("Validate form", verbose_level=2)
+        if super().validate_on_submit():
+            return self._check_files()
+        else:
             return False
 
 
