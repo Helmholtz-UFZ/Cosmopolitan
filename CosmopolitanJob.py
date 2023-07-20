@@ -10,10 +10,9 @@ from coolname import generate
 from flask_wtf import FlaskForm
 from werkzeug.utils import secure_filename
 
-# from flask_wtf.csrf import CSRFProtect
-
 from wtforms import StringField, MultipleFileField
 from wtforms.validators import DataRequired, Length, ValidationError, Regexp
+from wtforms.widgets import TextInput
 
 
 def check_verbose_level(verbose_level):
@@ -42,6 +41,24 @@ def job_id_exist(job_id):
     # Just for testing SQL DB will handle job storage
     existing_jobs = ["quaint-manatee-of-illegal-fertility"]
     return job_id in existing_jobs
+
+
+class DynamicSizeTextInput(TextInput):
+    """Generate input field for Text Input."""
+
+    def __call__(self, field, **kwargs):
+        """Generate input field for Text Input."""
+        if len(field.errors) == 0:
+            kwargs["class"] = "form-control"
+        else:
+            kwargs["class"] = "form-control is-invalid"
+
+        kwargs["size"] = 10
+        for validator in field.validators:
+            if hasattr(validator, "max"):
+                kwargs["size"] = validator.max
+                break
+        return super().__call__(field, **kwargs)
 
 
 class CosmopolitanJob:
@@ -104,6 +121,8 @@ class CosmopolitanJobForm(FlaskForm):
     job_id = StringField(
         "Job ID",
         default="_".join(generate(3)),
+        description='Identifier for your submission. Only letters, numbers and "_".',
+        widget=DynamicSizeTextInput(),
         validators=[
             DataRequired(),
             Length(min=8, max=50),

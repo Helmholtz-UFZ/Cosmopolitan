@@ -1,0 +1,33 @@
+{% macro render_field(field) %}
+{%- if field.type == "StringField" -%}
+	{{ render_label(field) }}
+	{{ field() }}
+	{{ render_description(field) }}
+	{{ render_error(field) }}
+{%- elif field.type == "MultipleFileField" -%}
+	{{ render_label(field) }}
+	{{ field(class="form-control-file") }}
+	{{ render_description(field) }}
+	{{ render_error(field) }}
+{%- endif -%}
+{% endmacro %}
+
+{% macro render_error(field) %}
+	{% if field.errors %}
+	<br>
+		{% for error in field.errors %}
+	<span class="text-danger">{{ error }}</span>
+		{% endfor %}
+	{%- endif -%}
+{% endmacro %}
+
+{% macro render_description(field) %}
+	<br>
+	<small class="form-text text-muted">
+		{{ field.description }} 
+	</small>
+{% endmacro %}
+
+{% macro render_label(field) %}
+	<h5>{{ field.label }}</h5>
+{% endmacro %}

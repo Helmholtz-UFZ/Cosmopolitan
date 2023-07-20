@@ -1,3 +1,4 @@
+{% from 'html/input/fields.html' import render_field %}
 {% extends "html/skeleton/base_layout.html" %}
 {% block content %}
 <h2>Input</h2>
@@ -6,35 +7,14 @@
 
 	<!-- Job ID -->
 	<div class="my-2">
-		<h5>{{ form.job_id.label }}</h5>
-		{{ form.job_id(size=50) }}
-		<br>
-		<small class="form-text text-muted">
-			Identifier for your submission. Only letters, numbers and "_". 
-		</small>
-		{% if form.job_id.errors %}
-		<br>
-			{% for error in form.job_id.errors %}
-		<span class="text-danger">{{ error }}</span>
-			{% endfor %}
-		{% endif %}
+		<h4>Query Information</h4>
+		{{ render_field(form.job_id) }}
 	</div>
 
 	<!-- Independent Variables -->
 	<div class="my-2">
 		<h4>Independent variables</h4>
-		<h5>{{ form.indep_var_files.label }}</h5>
-		{{ form.indep_var_files(class="form-control-file") }}
-		<br>
-		<small class="form-text text-muted">
-			Independent variables for the model. 
-		</small>
-		{% if form.indep_var_files.errors %}
-		<br>
-			{% for error in form.indep_var_files.errors %}
-		<span class="text-danger">{{ error }}</span>
-			{% endfor %}
-		{% endif %}
+		{{ render_field(form.indep_var_files) }}
 	</div>
 
 	<div class="row my-4 justify-content-center">
