@@ -9,6 +9,18 @@
 	{{ field(class="form-control-file") }}
 	{{ render_description(field) }}
 	{{ render_error(field) }}
+{%- elif field.type == "BooleanField" -%}
+	{{ field() }}
+	{{ render_label_bool(field) }}
+	{{ render_description(field) }}
+	{{ render_error(field) }}
+{%- elif field.type == "HiddenField" -%}
+	{{ field() }}
+	{%- if field.name == "selected_indep_var_files" -%}
+	{% for file in field.data.split() %}
+	<p>{{ file }}</p>
+	{% endfor %}
+	{%- endif -%}
 {%- endif -%}
 {% endmacro %}
 
@@ -26,8 +38,29 @@
 	<small class="form-text text-muted">
 		{{ field.description }} 
 	</small>
+	<br>
+{% endmacro %}
+
+{% macro render_file_list(field) %}
+	<br>
+	{% if field.data is not none %}
+	{% for file in field.data %}
+	<p>{{ file[0] }}</p>
+	{% endfor %}
+	{% endif %}
 {% endmacro %}
 
 {% macro render_label(field) %}
 	<h5>{{ field.label }}</h5>
+{% endmacro %}
+
+{% macro render_label_bool(field) %}
+	{{ field.label }}
+	{% if field.id is not none %}
+	<div class="my-2 mx-3">
+	{% for file in field.id.split() %}
+	<p class="m-0">{{ file }}</p>
+	{% endfor %}
+	</div>
+	{% endif %}
 {% endmacro %}
