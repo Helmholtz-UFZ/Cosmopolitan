@@ -124,7 +124,6 @@ class CosmopolitanJob:
 
         self.form = form
         self.input = {}
-
         for name, field in self.form._fields.items():
             if name == "csrf_token":
                 continue
@@ -168,7 +167,7 @@ class CosmopolitanJobForm(FlaskForm):
     )
 
     previous_job_id = HiddenField(
-        "Selected files",
+        "Previous job id",
         default="",
     )
 
@@ -188,14 +187,19 @@ class CosmopolitanJobForm(FlaskForm):
     request = None
     input_dir = None
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, new=True):
         """Init."""
-        super().__init__(*args, **kwargs)
-        self.job_id.data = "_".join(generate(3))
-        self.previous_job_id.data = self.job_id.data
+        super().__init__()
+        if new:
+            self.job_id.data = "_".join(generate(3))
+            self.previous_job_id.data = self.job_id.data
 
     def validate_job_id(self, field):
-        """Validate job id."""
+        """Validate job id.
+
+        The function further creates input dir for the job. If the job id was
+        changed the function and moves all previouvly uploaded files into the
+        new input dir."""
         vprint("Check job id", verbose_level=3)
         if job_id_exist(field.data):
             raise ValidationError("Job id already exist")
@@ -204,7 +208,7 @@ class CosmopolitanJobForm(FlaskForm):
             if not os.path.isdir(self.input_dir):
                 os.mkdir(self.input_dir)
 
-            if not re.match(job_id_regex, self.previous_job_id.data):
+            if not re.match(self.job_id_regex, self.previous_job_id.data):
                 vprint("Malicous atack manipulation hidden field!", verbose_level=0)
                 vprint(
                     f"Content hidden field {self.previous_job_id.data}", verbose_level=0
@@ -212,7 +216,8 @@ class CosmopolitanJobForm(FlaskForm):
                 return
 
             previous_input_dir = os.path.join(INPUT_DIR, self.previous_job_id.data)
-            if self.input != self.previous_job_id and os.path.isdir(previous_input_dir):
+
+            if self.job_id.data != self.previous_job_id.data and os.path.isdir(previous_input_dir):
                 for file_name in os.listdir(previous_input_dir):
                     os.replace(
                         os.path.join(previous_input_dir, file_name),

@@ -36,9 +36,8 @@ def input():
         form = job.form
     # If form was submitted validate
     else:
-        form = CosmopolitanJobForm()
-        vprint(request.form)
-        vprint(form.selected_indep_var_files)
+        form = CosmopolitanJobForm(new=False)
+        vprint(form.indep_var_files.data)
         if form.validate_on_submit():
             vprint(form.data)
             form.process()
