@@ -43,7 +43,7 @@ def input():
             form.process()
             vprint(form.data)
             job = CosmopolitanJob(form=form)
-            # job.save()
+            job.save()
             return redirect("/confirm")
         vprint(form.selected_indep_var_files)
     return render_template("html/input/input.html", form=form)

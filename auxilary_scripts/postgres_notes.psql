@@ -1,0 +1,11 @@
+-- Local
+CREATE USER somweb_stage_rw WITH PASSWORD '***';
+CREATE DATABASE somweb_stage
+GRANT CONNECT ON DATABASE somweb_stage TO somweb_stage_rw;
+-- All
+CREATE TABLE jobs (job_id VARCHAR PRIMARY KEY, submission_date DATE, input_data JSONB);
+GRANT INSERT, UPDATE, DELETE ON TABLE jobs TO somweb_stage_rw;
+
+SELECT * FROM jobs
+-- bash
+-- psql -U somweb_stage_adm -p 5432 -h postgres-dev.intranet.ufz.de -d somweb_stage
