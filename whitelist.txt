@@ -1,3 +1,4 @@
+clazz
 sessionmaker
 tablename
 orm

@@ -40,7 +40,7 @@ def input():
         form = CosmopolitanJobForm()
         if form.validate_on_submit():
             job = CosmopolitanJob(form=form)
-            # job.save()
+            job.save()
             return redirect("/confirm")
     return render_template("html/input/input.html", form=form)
 

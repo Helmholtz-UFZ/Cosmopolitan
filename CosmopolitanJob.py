@@ -4,18 +4,16 @@
 
 import datetime
 import os
-import json
 
 from coolname import generate
 
 from flask_wtf import FlaskForm
 from werkzeug.utils import secure_filename
 
-# from flask_wtf.csrf import CSRFProtect
-
 from wtforms import StringField, MultipleFileField
 from wtforms.validators import DataRequired, Length, ValidationError, Regexp
 
+from sql_connection import DataBaseManager, JobTable
 
 
 def check_verbose_level(verbose_level):
@@ -38,12 +36,15 @@ def vprint(msg, verbose_level=0):
             raise NotImplementedError
 
 
-def job_id_exist(job_id):
-    """Check if job id already exist."""
-    # TODO
-    # Just for testing SQL DB will handle job storage
-    existing_jobs = ["quaint-manatee-of-illegal-fertility"]
-    return job_id in existing_jobs
+def get_attributes(clazz):
+    """Retrieve a list of non-method attributes (instance variables) of a class."""
+    return [
+        name
+        for name, attr in clazz.__dict__.items()
+        if not name.startswith("__")
+        and not callable(attr)
+        and not type(attr) is staticmethod
+    ]
 
 
 class CosmopolitanJob:
@@ -53,6 +54,11 @@ class CosmopolitanJob:
     submits jobs to a cluster, and formats the output for the user.
     """
 
+    job_id = None
+    form = None
+    input_data = None
+    submission_date = None
+
     def __init__(
         self,
         job_id=None,
@@ -61,8 +67,7 @@ class CosmopolitanJob:
         """Init class either by id, by html form or make a new one."""
         if job_id:
             vprint(f"Load submission {job_id}", verbose_level=2)
-            # TODO Build function that loads existing Job.
-            raise NotImplementedError
+            self._load_job()
         elif form:
             vprint("Set from form", verbose_level=2)
             self._set_from_form(form)
@@ -74,10 +79,29 @@ class CosmopolitanJob:
         """Represent class as string."""
         return self.job_id
 
+    def _load_job(self, job_id):
+        db_manager = DataBaseManager()
+        class_attributes = get_attributes(CosmopolitanJob)
+        for name, value in db_manager.get_job_columns(job_id):
+            if name not in class_attributes:
+                raise AttributeError(f"CosmopolitanJob has no attribute named {name}")
+            setattr(self, name, value)
+
+        self.form = CosmopolitanJobForm()
+
+        for name, field in self.form._fields.items():
+            if name == "csrf_token":
+                continue
+            if field.type == "MultipleFileField":
+                field.checked_files = self.input_data[name]
+            else:
+                field.data = self.input_data[name]
+
     def _blank_job(self):
+        db_manager = DataBaseManager()
         while True:
             job_form = CosmopolitanJobForm()
-            if job_id_exist(job_form.job_id.data):
+            if db_manager.check_existence(job_form.job_id.data):
                 vprint(f"Job id: {job_form.job_id.data} already exist", verbose_level=3)
                 continue
             break
@@ -89,36 +113,29 @@ class CosmopolitanJob:
             raise TypeError("Form must be a CosmopolitanJobForm")
 
         self.form = form
-        self.input = {}
+        self.input_data = {}
+        self.job_id = self.form.job_id.data
 
         for name, field in self.form._fields.items():
             if name == "csrf_token":
                 continue
             if field.type == "MultipleFileField":
-                self.input[name] = field.checked_files
+                self.input_data[name] = field.checked_files
             else:
-                self.input[name] = field.data
+                self.input_data[name] = field.data
 
     def save(self):
-        """Save the job to data base."""
-        raise NotImplementedError
-        json_data_to_insert = {
-            'key1': 'value1',
-            'key2': 42,
-            'key3': ['item1', 'item2', 'item3']
-        }
+        """Save the job information to the database.
 
-        data_to_insert = {
-            'job_id': 'John_Doe',
-            'submission_date': datetime.date(1990, 7, 15),
-            'form': json_data_to_insert
-        }
-
-        insert_query = DB_TABLE_JOBS.insert().values(data_to_insert)
-
-        # Start a transaction explicitly
-        with DB_ENGINE.begin() as conn:
-            conn.execute(insert_query)
+        This method retrieves the attributes of the current CosmopolitanJob
+        instance. It then uses a DataBaseManager instance to add the collected
+        data as a new entry in the database.
+        """
+        column_names = JobTable.__table__.columns.keys()
+        data_to_insert = {name: getattr(self, name) for name in column_names}
+        vprint(data_to_insert)
+        db_manager = DataBaseManager()
+        db_manager.add_entry(data_to_insert)
 
 
 class CosmopolitanJobForm(FlaskForm):
@@ -144,7 +161,8 @@ class CosmopolitanJobForm(FlaskForm):
 
     def validate_job_id(self, field):
         """Validate job id."""
-        if job_id_exist(field.data):
+        db_manager = DataBaseManager()
+        if db_manager.check_existence(field.data):
             raise ValidationError("Job id already exist")
 
     def _check_indep_var_files(self, file_names):
