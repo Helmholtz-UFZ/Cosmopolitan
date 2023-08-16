@@ -6,5 +6,6 @@ GRANT CONNECT ON DATABASE somweb_stage TO somweb_stage_rw;
 CREATE TABLE jobs (job_id VARCHAR PRIMARY KEY, submission_date DATE, form JSONB);
 GRANT INSERT, UPDATE, DELETE ON TABLE jobs TO somweb_stage_rw;
 
+SELECT * FROM jobs
 -- bash
--- psql -U somweb_stage_adm -p 5432 -h postgres-dev.intranet.ufz.de
+-- psql -U somweb_stage_adm -p 5432 -h postgres-dev.intranet.ufz.de -d somweb_stage
