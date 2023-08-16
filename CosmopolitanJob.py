@@ -16,7 +16,6 @@ from werkzeug.utils import secure_filename
 from wtforms import StringField, MultipleFileField
 from wtforms.validators import DataRequired, Length, ValidationError, Regexp
 
-from sqlalchemy import create_engine, Table, Column, Date, String, MetaData, JSON
 
 
 def check_verbose_level(verbose_level):
@@ -202,22 +201,3 @@ WORK_DIR = "./"
 UPLOAD_DIR = os.path.join(WORK_DIR, "upload")
 # The directory for the input files that have been validated.
 INPUT_DIR = os.path.join(WORK_DIR, "input")
-
-with open("./parameters_flask_intra.json", "r", encoding="UTF-8") as f_handle:
-    PARAMETERS = json.load(f_handle)
-
-# TODO Test connection etc.
-DB_ENGINE = create_engine(
-    f'postgresql+psycopg2://{PARAMETERS["db_user"]}:{PARAMETERS["db_pw"]}@'
-    f'{PARAMETERS["db_host_name"]}:{PARAMETERS["db_port"]}/{PARAMETERS["db"]}'
-)
-
-METADATA = MetaData()
-
-DB_TABLE_JOBS = Table(
-    'jobs',
-    METADATA,
-    Column('job_id', String, primary_key=True),
-    Column('submission_date', Date),
-    Column('form', JSON),
-)
