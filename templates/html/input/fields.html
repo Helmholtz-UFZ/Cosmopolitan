@@ -7,6 +7,12 @@
 {%- elif field.type == "MultipleFileField" -%}
 	{{ render_label(field) }}
 	{{ field(class="form-control-file") }}
+	<br>
+	{{ render_description(field) }}
+	{{ render_error(field) }}
+{%- elif field.type == "IntegerField" -%}
+	{{ render_label(field) }}
+	{{ field() }}
 	{{ render_description(field) }}
 	{{ render_error(field) }}
 {%- elif field.type == "BooleanField" -%}
@@ -17,6 +23,7 @@
 {%- elif field.type == "HiddenField" -%}
 	{{ field() }}
 	{%- if field.name == "selected_indep_var_files" -%}
+	<h5>Choosen files:</h5>
 	{% for file in field.data.split() %}
 	<p>{{ file }}</p>
 	{% endfor %}
@@ -26,7 +33,6 @@
 
 {% macro render_error(field) %}
 	{% if field.errors %}
-	<br>
 		{% for error in field.errors %}
 	<span class="text-danger">{{ error }}</span>
 		{% endfor %}
@@ -34,7 +40,6 @@
 {% endmacro %}
 
 {% macro render_description(field) %}
-	<br>
 	<small class="form-text text-muted">
 		{{ field.description }} 
 	</small>
