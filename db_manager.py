@@ -12,7 +12,7 @@ Classes:
 
 import json
 import datetime
-from sqlalchemy import create_engine, Column, Date, String, JSON
+from sqlalchemy import create_engine, Column, Date, String, JSON, Boolean, Float
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 with open("./parameters_flask_local.json", "r", encoding="UTF-8") as f_handle:
@@ -128,6 +128,12 @@ class JobTable(Base):
     job_id = Column(String, primary_key=True)
     submission_date = Column("submission_date", Date)
     input_data = Column("input_data", JSON)
+    submitted = Column("submitted", Boolean)
+    email = Column("email", String)
+    email_status = Column("email_status", String)
+    err_msg = Column("err_msg", String)
+    finished = Column("finished", Boolean)
+    version = Column("version", Float)
 
 
 def test():
@@ -145,6 +151,12 @@ def test():
         "job_id": job_id,
         "submission_date": datetime.date(1990, 7, 15),
         "input_data": json_data_to_insert,
+        "submitted": True,
+        "email": "wtf@where.some",
+        "email_status": "send",
+        "err_msg": "None",
+        "finished": False,
+        "version": 0.01,
     }
 
     db_manager.add_entry(data_to_insert)

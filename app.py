@@ -21,10 +21,11 @@ def hello_geek():
     return "<h1>Hello from Flask & Docker</h1>"
 
 
-@app.route("/confirm", methods=["GET", "POST"])
-def confirm():
+@app.route("/confirm/<job_id>", methods=["GET", "POST"])
+def confirm(job_id):
     """Confirm input and submit."""
-    return "<h1>All input was valid</h1>"
+    job = CosmopolitanJob(job_id=job_id)
+    return render_template("html/confirm/confirm.html", job=job)
 
 
 @app.route("/input", methods=["GET", "POST"])
@@ -40,8 +41,7 @@ def input():
         if form.validate_on_submit():
             job = CosmopolitanJob(form=form)
             job.save()
-            return redirect("/confirm")
-        vprint(form.selected_indep_var_files)
+            return redirect(f"/confirm/{job.job_id}")
     return render_template("html/input/input.html", form=form)
 
 

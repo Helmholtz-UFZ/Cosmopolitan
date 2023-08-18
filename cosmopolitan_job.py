@@ -68,6 +68,104 @@ def get_attributes(clazz):
     ]
 
 
+class CosmopolitanJob:
+    """This class represents a job submission by the user.
+
+    It handles input from a Flask application, performs input integrity checks,
+    submits jobs to a cluster, and formats the output for the user.
+    """
+
+    job_id = None
+    form = None
+    input_data = None
+    submission_date = None
+    submitted = False
+    email = None
+    email_status = None
+    err_msg = None
+    finished = False
+    version = None
+
+    def __init__(
+        self,
+        job_id=None,
+        form=None,
+    ):
+        """Init class either by id, by html form or make a new one."""
+        if job_id:
+            vprint(f"Load submission {job_id}", verbose_level=2)
+            self._load_job(job_id)
+        elif form:
+            vprint("Set from form", verbose_level=2)
+            self._set_from_form(form)
+        else:
+            vprint("Make blank job", verbose_level=2)
+            self._blank_job()
+
+    def __str__(self):
+        """Represent class as string."""
+        return self.job_id
+
+    def _load_job(self, job_id):
+        db_manager = DataBaseManager()
+        class_attributes = get_attributes(CosmopolitanJob)
+        for name, value in db_manager.get_job_columns(job_id).items():
+            if name not in class_attributes:
+                raise AttributeError(f"CosmopolitanJob has no attribute named {name}")
+            setattr(self, name, value)
+
+        self.form = CosmopolitanJobForm()
+
+        for name, field in self.form._fields.items():
+            if name == "csrf_token":
+                continue
+            if field.type == "MultipleFileField" or name == "previous_job_id":
+                continue
+            else:
+                field.data = self.input_data[name]
+
+        self.form.previous_job_id.data = self.form.job_id.data
+
+    def _blank_job(self):
+        db_manager = DataBaseManager()
+        while True:
+            job_form = CosmopolitanJobForm()
+            if db_manager.check_existence(job_form.job_id.data):
+                vprint(f"Job id: {job_form.job_id.data} already exist", verbose_level=3)
+                continue
+            break
+        self.form = job_form
+        self.job_id = job_form.job_id.data
+
+    def _set_from_form(self, form):
+        if type(form) is not CosmopolitanJobForm:
+            raise TypeError("Form must be a CosmopolitanJobForm")
+
+        self.form = form
+        self.input_data = {}
+        self.job_id = self.form.job_id.data
+
+        for name, field in self.form._fields.items():
+            if name == "csrf_token":
+                continue
+            if field.type == "MultipleFileField" or name == "previous_job_id":
+                continue
+            else:
+                self.input_data[name] = field.data
+
+    def save(self):
+        """Save the job information to the database.
+
+        This method retrieves the attributes of the current CosmopolitanJob
+        instance. It then uses a DataBaseManager instance to add the collected
+        data as a new entry in the database.
+        """
+        column_names = JobTable.__table__.columns.keys()
+        data_to_insert = {name: getattr(self, name) for name in column_names}
+        db_manager = DataBaseManager()
+        db_manager.add_entry(data_to_insert)
+
+
 class DynamicSizeTextInput(TextInput):
     """Generate input field for Text Input."""
 
@@ -108,96 +206,6 @@ class DynamicSizeNumberInput(NumberInput):
                 kwargs["size"] = int(math.log10(validator.max)) + 1
                 break
         return super().__call__(field, **kwargs)
-
-
-class CosmopolitanJob:
-    """This class represents a job submission by the user.
-
-    It handles input from a Flask application, performs input integrity checks,
-    submits jobs to a cluster, and formats the output for the user.
-    """
-
-    job_id = None
-    form = None
-    input_data = None
-    submission_date = None
-
-    def __init__(
-        self,
-        job_id=None,
-        form=None,
-    ):
-        """Init class either by id, by html form or make a new one."""
-        if job_id:
-            vprint(f"Load submission {job_id}", verbose_level=2)
-            self._load_job()
-        elif form:
-            vprint("Set from form", verbose_level=2)
-            self._set_from_form(form)
-        else:
-            vprint("Make blank job", verbose_level=2)
-            self._blank_job()
-
-    def __str__(self):
-        """Represent class as string."""
-        return self.job_id
-
-    def _load_job(self, job_id):
-        db_manager = DataBaseManager()
-        class_attributes = get_attributes(CosmopolitanJob)
-        for name, value in db_manager.get_job_columns(job_id):
-            if name not in class_attributes:
-                raise AttributeError(f"CosmopolitanJob has no attribute named {name}")
-            setattr(self, name, value)
-
-        self.form = CosmopolitanJobForm()
-
-        for name, field in self.form._fields.items():
-            if name == "csrf_token":
-                continue
-            if field.type == "MultipleFileField":
-                field.checked_files = self.input_data[name]
-            else:
-                field.data = self.input_data[name]
-
-    def _blank_job(self):
-        db_manager = DataBaseManager()
-        while True:
-            job_form = CosmopolitanJobForm()
-            if db_manager.check_existence(job_form.job_id.data):
-                vprint(f"Job id: {job_form.job_id.data} already exist", verbose_level=3)
-                continue
-            break
-        self.form = job_form
-        self.job_id = job_form.job_id.data
-
-    def _set_from_form(self, form):
-        if type(form) is not CosmopolitanJobForm:
-            raise TypeError("Form must be a CosmopolitanJobForm")
-
-        self.form = form
-        self.input_data = {}
-        self.job_id = self.form.job_id.data
-
-        for name, field in self.form._fields.items():
-            if name == "csrf_token":
-                continue
-            if field.type == "MultipleFileField":
-                continue
-            else:
-                self.input_data[name] = field.data
-
-    def save(self):
-        """Save the job information to the database.
-
-        This method retrieves the attributes of the current CosmopolitanJob
-        instance. It then uses a DataBaseManager instance to add the collected
-        data as a new entry in the database.
-        """
-        column_names = JobTable.__table__.columns.keys()
-        data_to_insert = {name: getattr(self, name) for name in column_names}
-        db_manager = DataBaseManager()
-        db_manager.add_entry(data_to_insert)
 
 
 class CosmopolitanJobForm(FlaskForm):
@@ -271,6 +279,7 @@ class CosmopolitanJobForm(FlaskForm):
 
     area_x1 = IntegerField(
         "X1",
+        default=1,
         description="Defining the left side of the area.",
         widget=DynamicSizeNumberInput(),
         validators=[InputRequired(), NumberRange(min=0, max=10_000_000)],
@@ -278,6 +287,7 @@ class CosmopolitanJobForm(FlaskForm):
 
     area_x2 = IntegerField(
         "X2",
+        default=2,
         description="Defining the right side of the area.",
         widget=DynamicSizeNumberInput(),
         validators=[InputRequired(), NumberRange(min=0, max=10_000_000)],
@@ -285,6 +295,7 @@ class CosmopolitanJobForm(FlaskForm):
 
     area_y1 = IntegerField(
         "Y1",
+        default=3,
         description="Defining the lower side of the area.",
         widget=DynamicSizeNumberInput(),
         validators=[InputRequired(), NumberRange(min=0, max=10_000_000)],
@@ -292,6 +303,7 @@ class CosmopolitanJobForm(FlaskForm):
 
     area_y2 = IntegerField(
         "Y2",
+        default=4,
         description="Defining the higher side of the area.",
         widget=DynamicSizeNumberInput(),
         validators=[InputRequired(), NumberRange(min=0, max=10_000_000)],
@@ -299,6 +311,7 @@ class CosmopolitanJobForm(FlaskForm):
 
     area_res = IntegerField(
         "Resolution",
+        default=4,
         description="Defining the resolution of the area.",
         widget=DynamicSizeNumberInput(),
         validators=[InputRequired(), NumberRange(min=0)],
@@ -337,7 +350,6 @@ class CosmopolitanJobForm(FlaskForm):
                     f"Content hidden field {self.previous_job_id.data}", verbose_level=0
                 )
                 raise ValidationError("Use normal input field to set job id.")
-                return
 
             previous_input_dir = os.path.join(INPUT_DIR, self.previous_job_id.data)
 
@@ -381,11 +393,11 @@ class CosmopolitanJobForm(FlaskForm):
             return False
 
         if self.area_x1.data >= self.area_x2.data:
-            self.area_x1.errors.append("X1 cannot be higher than X2.")
+            self.area_x1.errors.append("X1 cannot be higher or equal than X2.")
             return False
 
         if self.area_y1.data >= self.area_y2.data:
-            self.area_y1.errors.append("Y1 cannot be higher than Y2.")
+            self.area_y1.errors.append("Y1 cannot be higher or equal than Y2.")
             return False
 
         return True
@@ -399,7 +411,6 @@ class CosmopolitanJobForm(FlaskForm):
         # Check if job id is valid and input dir is defined.
         if self.input_dir is None:
             raise ValidationError("First set a valide job id!")
-            return
 
         for file_name in os.listdir(self.input_dir):
             if input_type in file_name:
@@ -412,7 +423,11 @@ class CosmopolitanJobForm(FlaskForm):
             with open(
                 os.path.join(UPLOAD_DIR, new_filename), "r", encoding="UTF-8"
             ) as f_handle:
-                new_data.append([new_filename, f_handle.read()])
+                try:
+                    new_data.append([new_filename, f_handle.read()])
+                except UnicodeDecodeError:
+                    raise ValidationError("File must be utf-8 encoded.")
+
 
         # Check if all files are well formed
         well_formed, err_msg = self._is_identical(new_data)
@@ -441,7 +456,6 @@ class CosmopolitanJobForm(FlaskForm):
         # Check if job id is valid and input dir is defined.
         if self.input_dir is None:
             raise ValidationError("First set a valide job id!")
-            return
 
         for uploaded_file in field.data.split():
             if not os.path.isfile(os.path.join(self.input_dir, uploaded_file)):
