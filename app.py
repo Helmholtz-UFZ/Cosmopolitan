@@ -5,7 +5,7 @@ import os
 from flask import Flask, render_template, request, redirect
 from flask_wtf.csrf import CSRFProtect
 
-from CosmopolitanJob import CosmopolitanJob, CosmopolitanJobForm, vprint
+from cosmopolitan_job import CosmopolitanJob, CosmopolitanJobForm, vprint
 
 app = Flask(__name__)
 csrf = CSRFProtect(app)
@@ -37,11 +37,7 @@ def input():
     # If form was submitted validate
     else:
         form = CosmopolitanJobForm(new=False)
-        vprint(form.indep_var_files.data)
         if form.validate_on_submit():
-            vprint(form.data)
-            form.process()
-            vprint(form.data)
             job = CosmopolitanJob(form=form)
             job.save()
             return redirect("/confirm")

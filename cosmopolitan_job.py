@@ -4,24 +4,27 @@
 
 import datetime
 import os
-import hashlib
 from collections import OrderedDict
 import re
+import math
 
 from coolname import generate
 
 from flask_wtf import FlaskForm
 from werkzeug.utils import secure_filename
 
-from wtforms import StringField, MultipleFileField, BooleanField, HiddenField
+from wtforms import StringField, MultipleFileField, HiddenField, IntegerField
+from wtforms.widgets import TextInput, NumberInput
 from wtforms.validators import (
     DataRequired,
     Length,
     ValidationError,
     Regexp,
-    StopValidation,
+    InputRequired,
+    NumberRange,
 )
-from wtforms.widgets import TextInput, Input
+
+from db_manager import DataBaseManager, JobTable
 
 
 DEV_MODE = True
@@ -32,8 +35,6 @@ WORK_DIR = "./"
 UPLOAD_DIR = os.path.join(WORK_DIR, "upload")
 # The directory for the input files that have been validated.
 INPUT_DIR = os.path.join(WORK_DIR, "input")
-
-from sql_connection import DataBaseManager, JobTable
 
 
 def check_verbose_level(verbose_level):
@@ -78,9 +79,33 @@ class DynamicSizeTextInput(TextInput):
             kwargs["class"] = "form-control is-invalid"
 
         kwargs["size"] = 10
+        kwargs["style"] = "width: auto;"
+
         for validator in field.validators:
             if hasattr(validator, "max"):
                 kwargs["size"] = validator.max
+                break
+        return super().__call__(field, **kwargs)
+
+
+class DynamicSizeNumberInput(NumberInput):
+    """Generate input field for Integer Input."""
+
+    def __call__(self, field, **kwargs):
+        """Generate input field for Text Input."""
+        if len(field.errors) == 0:
+            kwargs["class"] = "form-control"
+        else:
+            kwargs["class"] = "form-control is-invalid"
+
+        kwargs["size"] = 5
+        kwargs["style"] = "width: auto;"
+
+        for validator in field.validators:
+            if hasattr(validator, "max"):
+                if validator.max is None:
+                    break
+                kwargs["size"] = int(math.log10(validator.max)) + 1
                 break
         return super().__call__(field, **kwargs)
 
@@ -158,7 +183,7 @@ class CosmopolitanJob:
             if name == "csrf_token":
                 continue
             if field.type == "MultipleFileField":
-                self.input_data[name] = field.checked_files
+                continue
             else:
                 self.input_data[name] = field.data
 
@@ -171,7 +196,6 @@ class CosmopolitanJob:
         """
         column_names = JobTable.__table__.columns.keys()
         data_to_insert = {name: getattr(self, name) for name in column_names}
-        vprint(data_to_insert)
         db_manager = DataBaseManager()
         db_manager.add_entry(data_to_insert)
 
@@ -181,7 +205,7 @@ class CosmopolitanJobForm(FlaskForm):
 
     Here all logic for input values is set. Further the strings that display the
     erros and description. The construction of the input fields are shaped here
-    as well either by the defaults of using widgets. The arrangment of the
+    as well either. The arrangment of the
     fields in done in ./templates/html/input/input.html and is defined by the
     dic object "group". The complete structure of the field is defined in
     "./templates/html/input/fields.html".
@@ -190,7 +214,9 @@ class CosmopolitanJobForm(FlaskForm):
     groups = OrderedDict(
         {
             "Query Information": ["job_id", "previous_job_id"],
-            "Independent variables": ["indep_var_files", "selected_indep_var_files"],
+            "Predictor variables": ["pred_files", "selected_pred_files"],
+            "CRN Measurments": ["crn_files", "selected_crn_files"],
+            "Area": ["area_x1", "area_x2", "area_y1", "area_y2", "area_res"],
         }
     )
 
@@ -217,17 +243,65 @@ class CosmopolitanJobForm(FlaskForm):
         default="",
     )
 
-    indep_var_files = MultipleFileField(
-        "Independent variable files",
+    pred_files = MultipleFileField(
+        "Predictor variable files",
         description=(
-            "The independent variables for the modell as files. "
+            "The predictor variables for the modell as files. "
             "Adding new files will over ride the old files."
         ),
     )
 
-    selected_indep_var_files = HiddenField(
-        "Selected files",
+    selected_pred_files = HiddenField(
+        "Selected predictor variable files",
         default="",
+    )
+
+    crn_files = MultipleFileField(
+        "CRN variable files",
+        description=(
+            "The CRN mearsurment for the modell as files. "
+            "Adding new files will over ride the old files."
+        ),
+    )
+
+    selected_crn_files = HiddenField(
+        "Selected CRN files",
+        default="",
+    )
+
+    area_x1 = IntegerField(
+        "X1",
+        description="Defining the left side of the area.",
+        widget=DynamicSizeNumberInput(),
+        validators=[InputRequired(), NumberRange(min=0, max=10_000_000)],
+    )
+
+    area_x2 = IntegerField(
+        "X2",
+        description="Defining the right side of the area.",
+        widget=DynamicSizeNumberInput(),
+        validators=[InputRequired(), NumberRange(min=0, max=10_000_000)],
+    )
+
+    area_y1 = IntegerField(
+        "Y1",
+        description="Defining the lower side of the area.",
+        widget=DynamicSizeNumberInput(),
+        validators=[InputRequired(), NumberRange(min=0, max=10_000_000)],
+    )
+
+    area_y2 = IntegerField(
+        "Y2",
+        description="Defining the higher side of the area.",
+        widget=DynamicSizeNumberInput(),
+        validators=[InputRequired(), NumberRange(min=0, max=10_000_000)],
+    )
+
+    area_res = IntegerField(
+        "Resolution",
+        description="Defining the resolution of the area.",
+        widget=DynamicSizeNumberInput(),
+        validators=[InputRequired(), NumberRange(min=0)],
     )
 
     request = None
@@ -244,8 +318,9 @@ class CosmopolitanJobForm(FlaskForm):
         """Validate job id.
 
         The function further creates input dir for the job. If the job id was
-        changed the function and moves all previouvly uploaded files into the
-        new input dir."""
+        changed the function and moves all previously uploaded files into the
+        new input dir.
+        """
         vprint("Check job id", verbose_level=3)
         db_manager = DataBaseManager()
         if db_manager.check_existence(field.data):
@@ -257,15 +332,18 @@ class CosmopolitanJobForm(FlaskForm):
                 os.mkdir(self.input_dir)
 
             if not re.match(self.job_id_regex, self.previous_job_id.data):
-                vprint("Malicous atack manipulation hidden field!", verbose_level=0)
+                vprint("Malicious attack manipulation hidden field!", verbose_level=0)
                 vprint(
                     f"Content hidden field {self.previous_job_id.data}", verbose_level=0
                 )
+                raise ValidationError("Use normal input field to set job id.")
                 return
 
             previous_input_dir = os.path.join(INPUT_DIR, self.previous_job_id.data)
 
-            if self.job_id.data != self.previous_job_id.data and os.path.isdir(previous_input_dir):
+            if self.job_id.data != self.previous_job_id.data and os.path.isdir(
+                previous_input_dir
+            ):
                 for file_name in os.listdir(previous_input_dir):
                     os.replace(
                         os.path.join(previous_input_dir, file_name),
@@ -273,36 +351,64 @@ class CosmopolitanJobForm(FlaskForm):
                     )
                 os.remove(previous_input_dir)
 
-    def validate_selected_indep_var_files(self, field):
-        """Check if files exist in upload dir."""
-        vprint("Check if selected independent variable files exist.", verbose_level=3)
-        # # Check if job id is valid and input dir is defined.
-        if self.input_dir is None:
-            raise ValidationError("First set a valide job id!")
-            return
-        for file in field.data.split():
-            vprint(os.path.join(self.input_dir, file))
-            if not os.path.isfile(os.path.join(self.input_dir, file)):
-                raise ValidationError("Upload files with form.")
-
-    def validate_indep_var_files(self, field):
+    def validate_pred_files(self, field):
         """Check the content of the files and override data with file name and hash."""
-        vprint("Check independent variable files integrity", verbose_level=3)
-        # Check if form has not file atached.
+        vprint("Check predictor variable files integrity", verbose_level=3)
+        selected_files = self._validate_input_file(field, "pred_")
+        if selected_files is not None:
+            self.selected_pred_files.data = selected_files
+
+    def validate_selected_pred_files(self, field):
+        """Check if files exist in upload dir."""
+        vprint("Check if selected predictor variable files exist.", verbose_level=3)
+        self._validate_selected_input_files(field)
+
+    def validate_crn_files(self, field):
+        """Check the content of the files and override data with file name and hash."""
+        vprint("Check predictor variable files integrity", verbose_level=3)
+        selected_files = self._validate_input_file(field, "crn_")
+        if selected_files is not None:
+            self.selected_pred_files.data = selected_files
+
+    def validate_selected_crn_files(self, field):
+        """Check if files exist in upload dir."""
+        vprint("Check if selected predictor variable files exist.", verbose_level=3)
+        self._validate_selected_input_files(field)
+
+    def validate(self, extra_validators=None):
+        """Perform custom validation to ensure that the area variables are well formed."""
+        if not super().validate():
+            return False
+
+        if self.area_x1.data >= self.area_x2.data:
+            self.area_x1.errors.append("X1 cannot be higher than X2.")
+            return False
+
+        if self.area_y1.data >= self.area_y2.data:
+            self.area_y1.errors.append("Y1 cannot be higher than Y2.")
+            return False
+
+        return True
+
+    def _validate_input_file(self, field, input_type):
+        """Check the content of the files and override data with file name and hash."""
+        # Check if form has not file attached.
         if field.data[0].filename == "":
             vprint("No file send", verbose_level=3)
             return
-        # # Check if job id is valid and input dir is defined.
+        # Check if job id is valid and input dir is defined.
         if self.input_dir is None:
             raise ValidationError("First set a valide job id!")
             return
 
         for file_name in os.listdir(self.input_dir):
-            os.remove(os.path.join(self.input_dir, file_name))
+            if input_type in file_name:
+                os.remove(os.path.join(self.input_dir, file_name))
+
         new_data = []
-        for indep_var_file in field.data:
-            new_filename = secure_filename(indep_var_file.filename)
-            indep_var_file.save(os.path.join(UPLOAD_DIR, new_filename))
+        for input_file in field.data:
+            new_filename = input_type + "_" + secure_filename(input_file.filename)
+            input_file.save(os.path.join(UPLOAD_DIR, new_filename))
             with open(
                 os.path.join(UPLOAD_DIR, new_filename), "r", encoding="UTF-8"
             ) as f_handle:
@@ -328,7 +434,18 @@ class CosmopolitanJobForm(FlaskForm):
         if not well_formed:
             raise ValidationError(err_msg)
         else:
-            self.selected_indep_var_files.data = " ".join([e[0] for e in new_data])
+            return " ".join([e[0] for e in new_data])
+
+    def _validate_selected_input_files(self, field):
+        """Check if files exist in upload dir."""
+        # Check if job id is valid and input dir is defined.
+        if self.input_dir is None:
+            raise ValidationError("First set a valide job id!")
+            return
+
+        for uploaded_file in field.data.split():
+            if not os.path.isfile(os.path.join(self.input_dir, uploaded_file)):
+                raise ValidationError("Upload files with form.")
 
     def _is_identical(self, data):
         vprint("Check if files are identical", verbose_level=3)
