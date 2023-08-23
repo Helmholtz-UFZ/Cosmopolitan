@@ -68,6 +68,12 @@ def get_attributes(clazz):
     ]
 
 
+class InvalidJobID(Exception):
+    """Raised by CosmopolitanJob if init with invalid job id."""
+
+    pass
+
+
 class CosmopolitanJob:
     """This class represents a job submission by the user.
 
@@ -94,7 +100,12 @@ class CosmopolitanJob:
         """Init class either by id, by html form or make a new one."""
         if job_id:
             vprint(f"Load submission {job_id}", verbose_level=2)
-            self._load_job(job_id)
+            form = CosmopolitanJobForm()
+            form.job_id.data = job_id
+            if form.job_id.validate(form):
+                self._load_job(job_id)
+            else:
+                raise InvalidJobID(f"{job_id} is not a valid job_id.")
         elif form:
             vprint("Set from form", verbose_level=2)
             self._set_from_form(form)
@@ -160,10 +171,21 @@ class CosmopolitanJob:
         instance. It then uses a DataBaseManager instance to add the collected
         data as a new entry in the database.
         """
+        vprint(f"Save job {self.job_id}", verbose_level=2)
         column_names = JobTable.__table__.columns.keys()
         data_to_insert = {name: getattr(self, name) for name in column_names}
         db_manager = DataBaseManager()
         db_manager.add_entry(data_to_insert)
+
+    def delete(self):
+        """Delete the job in the data base.
+
+        This method uses a DataBaseManager instance to delete the job entry from
+        the database based on the job's unique identifier ('job_id').
+        """
+        vprint(f"Delet job {self.job_id}", verbose_level=2)
+        db_manager = DataBaseManager()
+        db_manager.delete_job(self.job_id)
 
 
 class DynamicSizeTextInput(TextInput):
@@ -227,6 +249,9 @@ class CosmopolitanJobForm(FlaskForm):
             "Area": ["area_x1", "area_x2", "area_y1", "area_y2", "area_res"],
         }
     )
+
+    # Fields with this name will be shown in input form
+    hidden_file_fields = ["selected_pred_files", "selected_crn_files"]
 
     job_id_regex = r"^\w+$"
 
@@ -366,7 +391,7 @@ class CosmopolitanJobForm(FlaskForm):
     def validate_pred_files(self, field):
         """Check the content of the files and override data with file name and hash."""
         vprint("Check predictor variable files integrity", verbose_level=3)
-        selected_files = self._validate_input_file(field, "pred_")
+        selected_files = self._validate_input_file(field, "pred")
         if selected_files is not None:
             self.selected_pred_files.data = selected_files
 
@@ -378,9 +403,9 @@ class CosmopolitanJobForm(FlaskForm):
     def validate_crn_files(self, field):
         """Check the content of the files and override data with file name and hash."""
         vprint("Check predictor variable files integrity", verbose_level=3)
-        selected_files = self._validate_input_file(field, "crn_")
+        selected_files = self._validate_input_file(field, "crn")
         if selected_files is not None:
-            self.selected_pred_files.data = selected_files
+            self.selected_crn_files.data = selected_files
 
     def validate_selected_crn_files(self, field):
         """Check if files exist in upload dir."""
@@ -391,16 +416,25 @@ class CosmopolitanJobForm(FlaskForm):
         """Perform custom validation to ensure that the area variables are well formed."""
         if not super().validate():
             return False
-
+        
+        form_validt = True
         if self.area_x1.data >= self.area_x2.data:
             self.area_x1.errors.append("X1 cannot be higher or equal than X2.")
-            return False
+            form_validt = False
 
         if self.area_y1.data >= self.area_y2.data:
             self.area_y1.errors.append("Y1 cannot be higher or equal than Y2.")
-            return False
+            form_validt = False
 
-        return True
+        if len(self.selected_pred_files.data) == 0 and self.pred_files.data[0].filename == "":
+            self.pred_files.errors.append("Chose one or more predictor files.")
+            form_validt = False
+
+        if len(self.selected_crn_files.data) == 0 and self.pred_files.data[0].filename == "":
+            self.crn_files.errors.append("Chose one or more CRN Measurment files.")
+            form_validt = False
+
+        return form_validt
 
     def _validate_input_file(self, field, input_type):
         """Check the content of the files and override data with file name and hash."""
@@ -427,7 +461,6 @@ class CosmopolitanJobForm(FlaskForm):
                     new_data.append([new_filename, f_handle.read()])
                 except UnicodeDecodeError:
                     raise ValidationError("File must be utf-8 encoded.")
-
 
         # Check if all files are well formed
         well_formed, err_msg = self._is_identical(new_data)

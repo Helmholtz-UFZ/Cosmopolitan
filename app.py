@@ -6,6 +6,7 @@ from flask import Flask, render_template, request, redirect
 from flask_wtf.csrf import CSRFProtect
 
 from cosmopolitan_job import CosmopolitanJob, CosmopolitanJobForm, vprint
+from db_manager import JobNotFound
 
 app = Flask(__name__)
 csrf = CSRFProtect(app)
@@ -21,11 +22,44 @@ def hello_geek():
     return "<h1>Hello from Flask & Docker</h1>"
 
 
+@app.route("/submission/<job_id>", methods=["GET", "POST"])
+def submission(job_id):
+    """Site for submitting and presenting progress and results of a job."""
+    try:
+        job = CosmopolitanJob(job_id=job_id)
+    except JobNotFound:
+        # TODO maybe error page?
+        return redirect("/input")
+    if not job.submitted:
+        job.submit()
+    return render_template("html/submission/submission.html", job=job)
+
+
 @app.route("/confirm/<job_id>", methods=["GET", "POST"])
 def confirm(job_id):
     """Confirm input and submit."""
-    job = CosmopolitanJob(job_id=job_id)
+    vprint(f"Confirm submisison for job {job_id}", verbose_level=1)
+    try:
+        job = CosmopolitanJob(job_id=job_id)
+    except JobNotFound:
+        # TODO maybe error page?
+        return redirect("/input")
     return render_template("html/confirm/confirm.html", job=job)
+
+
+@app.route("/input/<job_id>", methods=["GET", "POST"])
+def change_input(job_id):
+    """Change input of an unsubmitted job."""
+    vprint(f"Make changes to job {job_id}", verbose_level=1)
+    try:
+        job = CosmopolitanJob(job_id=job_id)
+    except JobNotFound:
+        return redirect("/input")
+    if job.submitted:
+        # TODO
+        return "Error job already submitted."
+    job.delete()
+    return render_template("html/input/input.html", form=job.form)
 
 
 @app.route("/input", methods=["GET", "POST"])
@@ -33,11 +67,13 @@ def input():
     """Input site for the job."""
     # Make new job and form if empty request form
     if len(request.form) == 0:
+        vprint(f"Input for new job", verbose_level=1)
         job = CosmopolitanJob()
         form = job.form
     # If form was submitted validate
     else:
         form = CosmopolitanJobForm(new=False)
+        vprint(f"Check form {form.job_id.data}", verbose_level=1)
         if form.validate_on_submit():
             job = CosmopolitanJob(form=form)
             job.save()

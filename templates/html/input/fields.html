@@ -1,4 +1,4 @@
-{% macro render_field(field) %}
+{% macro render_field(field, hidden_file_fields) %}
 {%- if field.type == "StringField" -%}
 	{{ render_label(field) }}
 	{{ field() }}
@@ -22,7 +22,7 @@
 	{{ render_error(field) }}
 {%- elif field.type == "HiddenField" -%}
 	{{ field() }}
-	{%- if field.name == "selected_indep_var_files" -%}
+	{%- if field.name in hidden_file_fields -%}
 	<h5>Choosen files:</h5>
 	{% for file in field.data.split() %}
 	<p>{{ file }}</p>
