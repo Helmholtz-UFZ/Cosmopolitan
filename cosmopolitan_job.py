@@ -9,6 +9,7 @@ import re
 import math
 
 from coolname import generate
+import csv
 
 from flask_wtf import FlaskForm
 from werkzeug.utils import secure_filename
@@ -35,6 +36,33 @@ WORK_DIR = "./"
 UPLOAD_DIR = os.path.join(WORK_DIR, "upload")
 # The directory for the input files that have been validated.
 INPUT_DIR = os.path.join(WORK_DIR, "input")
+
+
+def parse_crn(file_path):
+    row_length = 8
+    with open(file_path, "r") as csv_file:
+        csv_reader = csv.reader(csv_file)
+        # TODO is the first line a header line?
+        headers = next(csv_reader)
+        if len(headers) != row_length:
+            raise ValidationError(
+                f"Row {headers} has not correct number of columns {row_length}."
+            )
+        # TODO If header line is expected a test like so.
+        if headers[0] == "EPSG_UTM_x":
+            pass
+        else:
+            # Here we need to add the whole logic of the parsing if it was not a
+            # header line
+            pass
+
+        for row_index, row in enumerate(csv_reader, start=1):
+            for col_index, cell in enumerate(row, start=1):
+                try:
+                    # Example: Check if the cell can be converted to an integer
+                    pass
+                except ValueError:
+                    print("ups")
 
 
 def check_verbose_level(verbose_level):
@@ -416,7 +444,7 @@ class CosmopolitanJobForm(FlaskForm):
         """Perform custom validation to ensure that the area variables are well formed."""
         if not super().validate():
             return False
-        
+
         form_validt = True
         if self.area_x1.data >= self.area_x2.data:
             self.area_x1.errors.append("X1 cannot be higher or equal than X2.")
@@ -426,11 +454,17 @@ class CosmopolitanJobForm(FlaskForm):
             self.area_y1.errors.append("Y1 cannot be higher or equal than Y2.")
             form_validt = False
 
-        if len(self.selected_pred_files.data) == 0 and self.pred_files.data[0].filename == "":
+        if (
+            len(self.selected_pred_files.data) == 0
+            and self.pred_files.data[0].filename == ""
+        ):
             self.pred_files.errors.append("Chose one or more predictor files.")
             form_validt = False
 
-        if len(self.selected_crn_files.data) == 0 and self.pred_files.data[0].filename == "":
+        if (
+            len(self.selected_crn_files.data) == 0
+            and self.pred_files.data[0].filename == ""
+        ):
             self.crn_files.errors.append("Chose one or more CRN Measurment files.")
             form_validt = False
 
