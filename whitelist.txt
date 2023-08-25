@@ -1,25 +1,28 @@
+coor
+8
 x1
 x2
 y1
 y2
-
-validator
+x
+y
+crn
 clazz
-sessionmaker
 tablename
 orm
-sqlalchemy
-utils
 indep
 wtf
 csrf
 wtforms
-validators
 coolname
 CSRF
 urandom
-validators
+pred
 
+negativ
+validt
+validator
+validators
 num
 seq
 seqs
@@ -36,7 +39,11 @@ dns
 substring
 centroid
 tmp
+csv
 
+sessionmaker
+sqlalchemy
+utils
 finditer
 maxsplit
 isfile
@@ -57,3 +64,4 @@ smtplib
 addr
 listdir
 intervaltree
+log10

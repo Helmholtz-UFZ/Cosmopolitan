@@ -13,7 +13,7 @@ csrf = CSRFProtect(app)
 
 # CSRF key
 app.config["SECRET_KEY"] = os.urandom(32)
-app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 Mb limit
+app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024  # 500 Mb limit
 
 
 @app.route("/")
