@@ -8,5 +8,6 @@ GRANT INSERT, UPDATE, DELETE ON TABLE jobs TO somweb_stage_rw;
 -- Stuff
 DROP TABLE IF EXISTS jobs;
 SELECT * FROM jobs;
+SELECT job_id FROM jobs;
 -- bash
 -- psql -U somweb_stage_adm -p 5432 -h postgres-dev.intranet.ufz.de -d somweb_stage

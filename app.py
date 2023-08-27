@@ -5,15 +5,20 @@ import os
 from flask import Flask, render_template, request, redirect
 from flask_wtf.csrf import CSRFProtect
 
-from cosmopolitan_job import CosmopolitanJob, CosmopolitanJobForm, vprint
+from cosmopolitan_job import CosmopolitanJob
+from config import vprint
+from cosmopolitan_job_form import CosmopolitanJobForm, json_load_4_jinja
 from db_manager import JobNotFound
 
 app = Flask(__name__)
+
 csrf = CSRFProtect(app)
 
 # CSRF key
 app.config["SECRET_KEY"] = os.urandom(32)
 app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024  # 500 Mb limit
+
+app.jinja_env.globals.update(json_loads=json_load_4_jinja)
 
 
 @app.route("/")
@@ -44,7 +49,7 @@ def confirm(job_id):
     except JobNotFound:
         # TODO maybe error page?
         return redirect("/input")
-    return render_template("html/confirm/confirm.html", job=job)
+    return render_template("html/input/confirm.html", job=job)
 
 
 @app.route("/input/<job_id>", methods=["GET", "POST"])
@@ -67,7 +72,7 @@ def input():
     """Input site for the job."""
     # Make new job and form if empty request form
     if len(request.form) == 0:
-        vprint(f"Input for new job", verbose_level=1)
+        vprint("Input for new job", verbose_level=1)
         job = CosmopolitanJob()
         form = job.form
     # If form was submitted validate
