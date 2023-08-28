@@ -31,12 +31,12 @@
 {% macro render_input_files(field) %}
 	{%- if field.name == "selected_pred_files" -%}
 	<h5>Choosen files:</h5>
-	{% for file in json_loads(field.data) %}
-	<p>{{ file[0] }} type: {{ file[1]["type"] }} unit: {{ file[1]["unit"] }}</p>
+	{% for name, info in json_loads(field.data).items() %}
+	<p>{{ name }} type: {{ info["type"] }} unit: {{ info["unit"] }}</p>
 	{% endfor %}
 	{%- elif field.name == "selected_crn_files" -%}
-	{% for file in json_loads(field.data) %}
-	<p>{{ file[0] }}</p>
+	{% for name in json_loads(field.data) %}
+	<p>{{ name }}</p>
 	{% endfor %}
 	{%- endif -%}
 {% endmacro %}

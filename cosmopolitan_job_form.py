@@ -13,7 +13,13 @@ from flask_wtf import FlaskForm
 from werkzeug.utils import secure_filename
 
 from markupsafe import Markup
-from wtforms import StringField, MultipleFileField, HiddenField, IntegerField, BooleanField
+from wtforms import (
+    StringField,
+    MultipleFileField,
+    HiddenField,
+    IntegerField,
+    BooleanField,
+)
 from wtforms.widgets import TextInput, NumberInput, CheckboxInput
 from wtforms.validators import (
     DataRequired,
@@ -30,7 +36,7 @@ from config import vprint, INPUT_DIR, UPLOAD_DIR
 
 def json_load_4_jinja(string):
     if string == "":
-        return []
+        return {}
     return json.loads(string)
 
 
@@ -204,7 +210,7 @@ class CosmopolitanJobForm(FlaskForm):
         "Monte carlo simulation",
         description="Should a monte carolo simulation be done to evaulate uncertantiy.",
         widget=BooleanInput(),
-        validators=[NumberRange(min=1, max=100)],
+        validators=[],
     )
 
     monte_carlo_iterations = IntegerField(
@@ -304,6 +310,9 @@ class CosmopolitanJobForm(FlaskForm):
     def validate(self, extra_validators=None):
         """Perform custom validation to ensure that the area variables are well formed."""
         if not super().validate():
+            for name, field in self._fields.items():
+                print(name)
+                print(field.errors)
             if self.upload_dir is not None:
                 shutil.rmtree(self.upload_dir)
             return False
@@ -339,7 +348,7 @@ class CosmopolitanJobForm(FlaskForm):
     def _validate_input_file(self, field, input_type):
         """Check the content of the files and override data with file name and hash."""
         well_formed = True
-        input_file_list = []
+        input_file_dic = {}
         # Check if form has not file attached.
         if field.data[0].filename == "":
             vprint("No file send", verbose_level=3)
@@ -371,11 +380,10 @@ class CosmopolitanJobForm(FlaskForm):
                 well_formed = False
                 err_msg = f"File {upload_file.filename} is invalid.<br>" + str(e)
                 break
-            input_file_list.append([new_filename, file_information])
+            input_file_dic[new_filename] = file_information
 
         # Delete uploaded files and if any file was invalid remove all input files.
-        for input_file in input_file_list:
-            file_name = input_file[0]
+        for file_name in input_file_dic:
             os.remove(os.path.join(self.upload_dir, file_name))
             if not well_formed:
                 try:
@@ -386,17 +394,42 @@ class CosmopolitanJobForm(FlaskForm):
         if not well_formed:
             raise ValidationError(Markup(err_msg))
         else:
-            return input_file_list
+            return input_file_dic
 
     def _validate_selected_input_files(self, field):
         """Check if files exist in upload dir."""
         # Check if job id is valid and input dir is defined.
         if self.input_dir is None:
             raise ValidationError("First set a valide job id!")
-        uploaded_files = [info[0] for info in json_load_4_jinja(field.data)]
-        for uploaded_file in uploaded_files:
+
+        for uploaded_file in json_load_4_jinja(field.data):
             if not os.path.isfile(os.path.join(self.input_dir, uploaded_file)):
                 raise ValidationError("Upload files with form.")
+
+    def input_parameters(self):
+        """Return the input parameters for the background model as a dictionary."""
+        parameters = {
+            "Geometry": [
+                self.area_x1.data,
+                self.area_x2.data,
+                self.area_y1.data,
+                self.area_y2.data,
+                self.area_res.data,
+            ],
+            "Predictors": json.loads(self.selected_pred_files.data),
+            "SM": list(json.loads(self.selected_crn_files.data).keys()),
+            "MC": self.monte_carlo_simulation.data,
+            "mci": self.monte_carlo_iterations.data,
+            "what_to_plot": {
+                "predictors": False,
+                "pred_correlation": False,
+                "day_measurements": False,
+                "day_feature_imp": False,
+                "day_prediction_map": True,
+                "alldays_feature_imp": True,
+            },
+        }
+        return parameters
 
 
 class GeomArea:
@@ -557,7 +590,8 @@ class PredParser(InputFileParser):
             row = self._check_row(comments, 1)
         else:
             information = {
-                    info.split("=")[0]: info.split("=")[1] for info in comments[0][2:].split()
+                info.split("=")[0]: info.split("=")[1]
+                for info in comments[0][2:].split()
             }
             if information.keys() != file_information.keys():
                 raise ValidationError(

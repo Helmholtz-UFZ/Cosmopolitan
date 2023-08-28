@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 """Module for a Cosmopolitan Job."""
 
+import json
+
 from db_manager import DataBaseManager, JobTable
 from config import vprint
 from cosmopolitan_job_form import CosmopolitanJobForm
@@ -121,6 +123,7 @@ class CosmopolitanJob:
         data as a new entry in the database.
         """
         vprint(f"Save job {self.job_id}", verbose_level=2)
+        vprint(json.dumps(self.input_data, indent=2))
         column_names = JobTable.__table__.columns.keys()
         data_to_insert = {name: getattr(self, name) for name in column_names}
         db_manager = DataBaseManager()
