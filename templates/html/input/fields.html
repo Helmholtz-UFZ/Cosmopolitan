@@ -16,19 +16,29 @@
 	{{ render_description(field) }}
 	{{ render_error(field) }}
 {%- elif field.type == "BooleanField" -%}
+	<div class="form-check">
 	{{ field() }}
 	{{ render_label_bool(field) }}
+	</div>
 	{{ render_description(field) }}
 	{{ render_error(field) }}
 {%- elif field.type == "HiddenField" -%}
 	{{ field() }}
-	{%- if field.name == "selected_indep_var_files" -%}
+	{{ render_input_files(field) }}
+{%- endif -%}
+{% endmacro %}
+
+{% macro render_input_files(field) %}
+	{%- if field.name == "selected_pred_files" -%}
 	<h5>Choosen files:</h5>
-	{% for file in field.data.split() %}
-	<p>{{ file }}</p>
+	{% for name, info in json_loads(field.data).items() %}
+	<p>{{ name }} type: {{ info["type"] }} unit: {{ info["unit"] }}</p>
+	{% endfor %}
+	{%- elif field.name == "selected_crn_files" -%}
+	{% for name in json_loads(field.data) %}
+	<p>{{ name }}</p>
 	{% endfor %}
 	{%- endif -%}
-{%- endif -%}
 {% endmacro %}
 
 {% macro render_error(field) %}
@@ -61,11 +71,4 @@
 
 {% macro render_label_bool(field) %}
 	{{ field.label }}
-	{% if field.id is not none %}
-	<div class="my-2 mx-3">
-	{% for file in field.id.split() %}
-	<p class="m-0">{{ file }}</p>
-	{% endfor %}
-	</div>
-	{% endif %}
 {% endmacro %}

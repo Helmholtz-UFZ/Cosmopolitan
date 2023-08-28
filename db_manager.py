@@ -12,13 +12,18 @@ Classes:
 
 import json
 import datetime
-from sqlalchemy import create_engine, Column, Date, String, JSON
+from sqlalchemy import create_engine, Column, Date, String, JSON, Boolean, Float
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 with open("./parameters_flask_local.json", "r", encoding="UTF-8") as f_handle:
     PARAMETERS = json.load(f_handle)
 
 Base = declarative_base()
+
+
+class JobNotFound(Exception):
+    """Custom exception for when a job is not found."""
+    pass
 
 
 class DataBaseManager:
@@ -113,8 +118,28 @@ class DataBaseManager:
                 }
                 return job_columns
             else:
-                raise ValueError(f"Job with ID '{job_id}' not found")
+                raise JobNotFound(f"Job with ID '{job_id}' not found")
 
+    def delete_job(self, job_id):
+        """Delete a job entry from the database based on its job ID.
+
+        This method deletes a job entry from the 'jobs' table in the database
+        based on the provided job ID.
+
+        Parameters:
+        job_id (str): The unique identifier for the job to be deleted.
+
+        Raises:
+        JobNotFound: If the job with the provided job ID does not exist.
+        """
+        with self.engine.begin() as conn:
+            session = self.Session(bind=conn)
+            job = session.query(JobTable).filter_by(job_id=job_id).first()
+            if job:
+                session.delete(job)
+                session.commit()
+            else:
+                raise JobNotFound(f"Job with ID '{job_id}' not found")
 
 class JobTable(Base):
     """Represents the 'jobs' table in the database.
@@ -128,6 +153,12 @@ class JobTable(Base):
     job_id = Column(String, primary_key=True)
     submission_date = Column("submission_date", Date)
     input_data = Column("input_data", JSON)
+    submitted = Column("submitted", Boolean)
+    email = Column("email", String)
+    email_status = Column("email_status", String)
+    err_msg = Column("err_msg", String)
+    finished = Column("finished", Boolean)
+    version = Column("version", Float)
 
 
 def test():
@@ -145,6 +176,12 @@ def test():
         "job_id": job_id,
         "submission_date": datetime.date(1990, 7, 15),
         "input_data": json_data_to_insert,
+        "submitted": True,
+        "email": "wtf@where.some",
+        "email_status": "send",
+        "err_msg": "None",
+        "finished": False,
+        "version": 0.01,
     }
 
     db_manager.add_entry(data_to_insert)
