@@ -10,19 +10,18 @@ Classes:
 - JobTable: Represents the 'jobs' table in the database.
 """
 
-import json
 import datetime
 from sqlalchemy import create_engine, Column, Date, String, JSON, Boolean, Float
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-with open("./parameters_flask_local.json", "r", encoding="UTF-8") as f_handle:
-    PARAMETERS = json.load(f_handle)
+from config import DB_NAME, DB_HOST_NAME, DB_PORT, DB_USER, DB_PW
 
 Base = declarative_base()
 
 
 class JobNotFound(Exception):
     """Custom exception for when a job is not found."""
+
     pass
 
 
@@ -48,8 +47,8 @@ class DataBaseManager:
     """
 
     database_url = (
-        f'postgresql+psycopg2://{PARAMETERS["db_user"]}:{PARAMETERS["db_pw"]}@'
-        f'{PARAMETERS["db_host_name"]}:{PARAMETERS["db_port"]}/{PARAMETERS["db"]}'
+        f'postgresql+psycopg2://{ DB_USER }:{ DB_PW }@'
+        f'{ DB_HOST_NAME }:{ DB_PORT }/{ DB_NAME }'
     )
 
     engine = create_engine(database_url)

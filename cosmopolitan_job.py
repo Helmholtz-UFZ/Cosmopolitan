@@ -1,7 +1,8 @@
 #!/usr/bin/python3
 """Module for a Cosmopolitan Job."""
 
-import json
+import subprocess
+from time import sleep
 
 from db_manager import DataBaseManager, JobTable
 from config import vprint
@@ -24,6 +25,10 @@ class InvalidJobID(Exception):
 
     pass
 
+class SshError(Exception):
+    """Raised if ssh call repetidly failed."""
+
+    pass
 
 class CosmopolitanJob:
     """This class represents a job submission by the user.
@@ -123,7 +128,6 @@ class CosmopolitanJob:
         data as a new entry in the database.
         """
         vprint(f"Save job {self.job_id}", verbose_level=2)
-        vprint(json.dumps(self.input_data, indent=2))
         column_names = JobTable.__table__.columns.keys()
         data_to_insert = {name: getattr(self, name) for name in column_names}
         db_manager = DataBaseManager()
@@ -138,3 +142,34 @@ class CosmopolitanJob:
         vprint(f"Delet job {self.job_id}", verbose_level=2)
         db_manager = DataBaseManager()
         db_manager.delete_job(self.job_id)
+
+    def submit(self):
+        """Submit job to cluster."""
+        vprint(f"Submit job {self.job_id}.", verbose_level=2)
+        call_str = f"cluster_api/submit_job.sh {self.job_id}"
+        vprint(call_str, verbose_level=3)
+        out = self._ssh_call(call_str)
+        vprint(out, verbose_level=3)
+        self.submitted = True
+        self.save()
+
+    def _ssh_call(self, call_str):
+        for i in range(1, 4):
+            try:
+                completed_process = subprocess.run(
+                    call_str.split(),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    check=True,
+                )
+                break
+            except subprocess.CalledProcessError as exc:
+                if i < 3:
+                    sleep(2)
+                    continue
+                error_str = (
+                    f"ERROR ssh call\nCommand\n{call_str}\nstdout:\n"
+                    f"{exc.stdout.decode('UTF8')}\nstderr:\n{exc.stderr.decode('UTF8')}"
+                )
+                raise SshError(error_str)
+        return completed_process.stdout.decode("UTF8")

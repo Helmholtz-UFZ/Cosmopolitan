@@ -310,9 +310,6 @@ class CosmopolitanJobForm(FlaskForm):
     def validate(self, extra_validators=None):
         """Perform custom validation to ensure that the area variables are well formed."""
         if not super().validate():
-            for name, field in self._fields.items():
-                print(name)
-                print(field.errors)
             if self.upload_dir is not None:
                 shutil.rmtree(self.upload_dir)
             return False
@@ -340,9 +337,12 @@ class CosmopolitanJobForm(FlaskForm):
             self.crn_files.errors.append("Chose one or more CRN Measurment files.")
             form_validt = False
 
+        if form_validt:
+            self._input_parameters()
+
         if self.upload_dir is not None:
             shutil.rmtree(self.upload_dir)
-        vprint(form_validt)
+
         return form_validt
 
     def _validate_input_file(self, field, input_type):
@@ -406,8 +406,8 @@ class CosmopolitanJobForm(FlaskForm):
             if not os.path.isfile(os.path.join(self.input_dir, uploaded_file)):
                 raise ValidationError("Upload files with form.")
 
-    def input_parameters(self):
-        """Return the input parameters for the background model as a dictionary."""
+    def _input_parameters(self):
+        """Write the input parameters for the background model into the input dir."""
         parameters = {
             "Geometry": [
                 self.area_x1.data,
@@ -429,7 +429,11 @@ class CosmopolitanJobForm(FlaskForm):
                 "alldays_feature_imp": True,
             },
         }
-        return parameters
+        with open(
+            os.path.join(self.input_dir, "parameters.json"), "w", encoding="UTF-8"
+        ) as f_handle:
+            json.dump(parameters, f_handle, indent=4)
+            f_handle.write("\n")
 
 
 class GeomArea:

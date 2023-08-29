@@ -1,4 +1,4 @@
 flask_venv
 __pycache__
-parameters_flask_*.json
+parameters_db_*.json
 parameters_cluster_*.json

@@ -49,6 +49,9 @@ def confirm(job_id):
     except JobNotFound:
         # TODO maybe error page?
         return redirect("/input")
+    if job.submitted:
+        # TODO
+        return "Error job already submitted."
     return render_template("html/input/confirm.html", job=job)
 
 
