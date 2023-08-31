@@ -33,8 +33,7 @@ def submission(job_id):
     try:
         job = CosmopolitanJob(job_id=job_id)
     except JobNotFound:
-        # TODO maybe error page?
-        return redirect("/input")
+        return render_template("html/errors/job_not_found_error.html", job_id=job_id)
     if not job.submitted:
         job.submit()
     return render_template("html/submission/submission.html", job=job)
@@ -47,11 +46,9 @@ def confirm(job_id):
     try:
         job = CosmopolitanJob(job_id=job_id)
     except JobNotFound:
-        # TODO maybe error page?
-        return redirect("/input")
+        return render_template("html/errors/job_not_found_error.html", job_id=job_id)
     if job.submitted:
-        # TODO
-        return "Error job already submitted."
+        return render_template("html/errors/job_submitted_error.html", job_id=job_id)
     return render_template("html/input/confirm.html", job=job)
 
 
@@ -64,8 +61,7 @@ def change_input(job_id):
     except JobNotFound:
         return redirect("/input")
     if job.submitted:
-        # TODO
-        return "Error job already submitted."
+        return render_template("html/errors/job_submitted_error.html", job_id=job_id)
     job.delete()
     return render_template("html/input/input.html", form=job.form)
 
