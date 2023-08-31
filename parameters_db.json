@@ -1,8 +1,7 @@
 {
-    "db": "",
+    "db_name": "",
     "db_host_name": "",
     "db_port": "",
     "db_user": "",
-    "db_pw": "",
-    "last": ""
+    "db_pw": ""
 }
