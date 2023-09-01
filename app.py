@@ -2,11 +2,23 @@
 
 import os
 
-from flask import Flask, render_template, request, redirect
+
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+from flask import Flask, render_template, request, redirect, url_for
 from flask_wtf.csrf import CSRFProtect
 
 from cosmopolitan_job import CosmopolitanJob
-from config import vprint
+from config import (
+    vprint,
+    SMTP_SERVER,
+    SMTP_PORT,
+    SMTP_USERNAME,
+    SMTP_PASSWORD,
+    SENDER_EMAIL,
+)
 from cosmopolitan_job_form import CosmopolitanJobForm, json_load_4_jinja
 from db_manager import JobNotFound
 
@@ -19,6 +31,32 @@ app.config["SECRET_KEY"] = os.urandom(32)
 app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024  # 500 Mb limit
 
 app.jinja_env.globals.update(json_loads=json_load_4_jinja)
+
+
+def send_mail(recipient, subject, content):
+    """Send an email using the provided details."""
+    msg = MIMEMultipart()
+    msg["From"] = SENDER_EMAIL
+    msg["To"] = recipient
+    msg["Subject"] = subject
+
+    body = content
+    msg.attach(MIMEText(body, "plain"))
+
+    server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+    server.starttls()
+    server.login(SMTP_USERNAME, SMTP_PASSWORD)
+    server.sendmail(SENDER_EMAIL, recipient, msg.as_string())
+    server.quit()
+
+
+def send_submission_mail(job):
+    """Send a notification email to the user that the job was submitted."""
+    url = url_for("submission", job_id=job.job_id, _external=True)
+    with open("templates/emails/submission_email.txt", "r", encoding="UTF-8") as f_handle:
+        content = f_handle.read().format(job_id=job.job_id, url=url)
+    if job.email != "":
+        send_mail(job.email, f'Job "{ job.job_id }" submitted', content)
 
 
 @app.route("/")
@@ -36,6 +74,7 @@ def submission(job_id):
         return render_template("html/errors/job_not_found_error.html", job_id=job_id)
     if not job.submitted:
         job.submit()
+        send_submission_mail(job)
     return render_template("html/submission/submission.html", job=job)
 
 
@@ -67,7 +106,7 @@ def change_input(job_id):
 
 
 @app.route("/input", methods=["GET", "POST"])
-def input():
+def input_job():
     """Input site for the job."""
     # Make new job and form if empty request form
     if len(request.form) == 0:

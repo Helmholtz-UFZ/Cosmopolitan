@@ -1,9 +1,14 @@
 {% from 'html/input/fields.html' import render_input_files %}
 {% extends "html/skeleton/base_layout.html" %}
 {% block content %}
+<h2>Query Information</h2>
+<div class="m-2">
+	<p>{{ job.form.job_id.label }}: {{ job.form.job_id.data }}<p>
+	<p>{{ job.form.email.label }}: {{ job.form.email.data }}<p>
+</div>
 <h2>Input</h2>
-{% for group, field_names in job.form.groups.items() %}
-<div class="my-2">
+{% for group, field_names in job.form.groups.items() if group != "Query Information" %}
+<div class="m-2">
 	<h4>{{ group }}</h4>
 	<div class="my-2">
 	{% for field_name in field_names %}

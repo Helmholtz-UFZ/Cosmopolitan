@@ -16,10 +16,8 @@
 	{{ render_description(field) }}
 	{{ render_error(field) }}
 {%- elif field.type == "BooleanField" -%}
-	<div class="form-check">
 	{{ field() }}
 	{{ render_label_bool(field) }}
-	</div>
 	{{ render_description(field) }}
 	{{ render_error(field) }}
 {%- elif field.type == "HiddenField" -%}
@@ -71,4 +69,5 @@
 
 {% macro render_label_bool(field) %}
 	{{ field.label }}
+	<br>
 {% endmacro %}

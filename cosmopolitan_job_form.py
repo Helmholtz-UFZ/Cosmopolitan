@@ -22,6 +22,7 @@ from wtforms import (
 )
 from wtforms.widgets import TextInput, NumberInput, CheckboxInput
 from wtforms.validators import (
+    Email,
     DataRequired,
     Length,
     ValidationError,
@@ -56,6 +57,14 @@ class BooleanInput(CheckboxInput):
 class DynamicSizeTextInput(TextInput):
     """Generate input field for Text Input."""
 
+    size = 10
+
+    def __init__(self, *args, **kwargs):
+        if "size" in kwargs:
+            self.size = kwargs["size"]
+            del kwargs["size"]
+        super().__init__(*args, **kwargs)
+
     def __call__(self, field, **kwargs):
         """Generate input field for Text Input."""
         if len(field.errors) == 0:
@@ -63,7 +72,7 @@ class DynamicSizeTextInput(TextInput):
         else:
             kwargs["class"] = "form-control is-invalid"
 
-        kwargs["size"] = 10
+        kwargs["size"] = self.size
         kwargs["style"] = "width: auto;"
 
         for validator in field.validators:
@@ -94,6 +103,14 @@ class DynamicSizeNumberInput(NumberInput):
                 break
         return super().__call__(field, **kwargs)
 
+class OptionalEmail(Email):
+    """A custom validator that allows for an empty email field or validates the input as an email address."""
+
+    def __call__(self, form, field):
+        print(field.data)
+        if field.data != "":
+            super(OptionalEmail, self).__call__(form, field)
+
 
 class CosmopolitanJobForm(FlaskForm):
     """WTF form for Cosmopolitan input.
@@ -108,7 +125,7 @@ class CosmopolitanJobForm(FlaskForm):
 
     groups = OrderedDict(
         {
-            "Query Information": ["job_id", "previous_job_id"],
+            "Query Information": ["job_id", "previous_job_id", "email"],
             "Area": ["area_x1", "area_x2", "area_y1", "area_y2", "area_res"],
             "Predictor variables": ["pred_files", "selected_pred_files"],
             "CRN Measurments": ["crn_files", "selected_crn_files"],
@@ -137,6 +154,14 @@ class CosmopolitanJobForm(FlaskForm):
     previous_job_id = HiddenField(
         "Previous job id",
         default="",
+    )
+
+    email = StringField(
+        "Email",
+        default="",
+        description='Email address to be notified when job submission is complete.',
+        widget=DynamicSizeTextInput(size=20),
+        validators=[OptionalEmail()]
     )
 
     # Must before input files.

@@ -6,12 +6,20 @@ DEV_MODE = True
 # 0 means silence, 3 is highest level of verbosity
 VERBOSE_LEVEL = 3
 
-
 WORK_DIR = "./"
 # Directory where files are first uploaded and then checked
 UPLOAD_DIR = os.path.join(WORK_DIR, "upload")
 # The directory for the input files that have been validated.
 INPUT_DIR = os.path.join(WORK_DIR, "input")
+
+with open("./parameters_email_local.json", "r", encoding="UTF-8") as f_handle:
+    PARAMETERS_EMAIL = json.load(f_handle)
+
+SMTP_SERVER = PARAMETERS_EMAIL["smtp_server"]
+SMTP_PORT = PARAMETERS_EMAIL["smtp_port"]
+SMTP_USERNAME = PARAMETERS_EMAIL["smtp_username"]
+SMTP_PASSWORD = PARAMETERS_EMAIL["smtp_password"]
+SENDER_EMAIL = PARAMETERS_EMAIL["sender_email"]
 
 with open("./parameters_db_local.json", "r", encoding="UTF-8") as f_handle:
     PARAMETERS_DB = json.load(f_handle)
@@ -30,6 +38,7 @@ PYTHON_ENV_PATH_CLUSTER = PARAMETERS_CLUSTER["python_env_path"]
 REPO_DIR_CLUSTER = PARAMETERS_CLUSTER["repo_dir"]
 USER_CLUSTER = PARAMETERS_CLUSTER["user"]
 MACHINE_CLUSTER = PARAMETERS_CLUSTER["machine"]
+
 
 def check_verbose_level(verbose_level):
     """Check if verbose level is in correct form."""

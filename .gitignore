@@ -2,3 +2,4 @@ flask_venv
 __pycache__
 parameters_db_*.json
 parameters_cluster_*.json
+parameters_email_*.json

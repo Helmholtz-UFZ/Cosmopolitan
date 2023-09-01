@@ -25,10 +25,12 @@ class InvalidJobID(Exception):
 
     pass
 
+
 class SshError(Exception):
     """Raised if ssh call repetidly failed."""
 
     pass
+
 
 class CosmopolitanJob:
     """This class represents a job submission by the user.
@@ -82,11 +84,18 @@ class CosmopolitanJob:
             setattr(self, name, value)
 
         self.form = CosmopolitanJobForm()
+        self.form.job_id.data = self.job_id
+        self.form.previous_job_id.data = self.job_id
+        self.form.email.data = self.email
 
         for name, field in self.form._fields.items():
             if name == "csrf_token":
                 continue
-            if field.type == "MultipleFileField" or name == "previous_job_id":
+            if field.type == "MultipleFileField" or name in [
+                "previous_job_id",
+                "email",
+                "job_id",
+            ]:
                 continue
             else:
                 field.data = self.input_data[name]
@@ -111,11 +120,16 @@ class CosmopolitanJob:
         self.form = form
         self.input_data = {}
         self.job_id = self.form.job_id.data
+        self.email = self.form.email.data
 
         for name, field in self.form._fields.items():
             if name == "csrf_token":
                 continue
-            if field.type == "MultipleFileField" or name == "previous_job_id":
+            if field.type == "MultipleFileField" or name in [
+                "previous_job_id",
+                "email",
+                "job_id",
+            ]:
                 continue
             else:
                 self.input_data[name] = field.data

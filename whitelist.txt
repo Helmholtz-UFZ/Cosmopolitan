@@ -68,3 +68,5 @@ log10
 writerow
 markupsafe
 globals
+starttls
+sendmail
