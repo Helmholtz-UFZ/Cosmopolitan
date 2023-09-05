@@ -519,7 +519,7 @@ class GeomArea:
             return True
         return False
 
-    def contain(self, x, y):
+    def contain(self, x, y, expand_with_res=True):
         """Check if a given point is inside this area.
 
         Parameters:
@@ -529,8 +529,12 @@ class GeomArea:
         Returns:
         - True if the point is inside this area, False otherwise.
         """
-        if self.x1 <= x <= self.x2 and self.y1 <= y <= self.y2:
-            return True
+        if expand_with_res:
+            if self.x1 - self.res <= x <= self.x2 + self.res and self.y1 - self.res <= y <= self.y2 + self.res:
+                return True
+        else:
+            if self.x1 <= x <= self.x2 and self.y1 <= y <= self.y2:
+                return True
         return False
 
     def expand(self, x, y):
@@ -601,8 +605,6 @@ class InputFileParser:
                     csv_writer.writerow(row)
 
         if not self.input_geom_area.cover(self.parse_geom_area):
-            print(f"Input: {self.input_geom_area}")
-            print(f"Parse: {self.parse_geom_area}")
             raise ValidationError(
                 "The file does not cover the user defined area completely"
             )
