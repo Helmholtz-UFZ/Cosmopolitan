@@ -103,6 +103,7 @@ class DynamicSizeNumberInput(NumberInput):
                 break
         return super().__call__(field, **kwargs)
 
+
 class OptionalEmail(Email):
     """A custom validator that allows for an empty email field or validates the input as an email address."""
 

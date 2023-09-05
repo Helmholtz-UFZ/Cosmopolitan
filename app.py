@@ -1,7 +1,8 @@
 """Flask app that handles the Cosmopolitan Webserver."""
 
 import os
-
+from datetime import date, timedelta
+import shutil
 
 import smtplib
 from email.mime.text import MIMEText
@@ -13,14 +14,17 @@ from flask_wtf.csrf import CSRFProtect
 from cosmopolitan_job import CosmopolitanJob
 from config import (
     vprint,
+    ssh_call,
     SMTP_SERVER,
     SMTP_PORT,
     SMTP_USERNAME,
     SMTP_PASSWORD,
     SENDER_EMAIL,
+    INPUT_DIR,
+    UPLOAD_DIR,
 )
 from cosmopolitan_job_form import CosmopolitanJobForm, json_load_4_jinja
-from db_manager import JobNotFound
+from db_manager import DataBaseManager, JobNotFound
 
 app = Flask(__name__)
 
@@ -31,6 +35,50 @@ app.config["SECRET_KEY"] = os.urandom(32)
 app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024  # 500 Mb limit
 
 app.jinja_env.globals.update(json_loads=json_load_4_jinja)
+
+
+def clean_up():
+    """Delete jobs older than a day and older than two months and their directories."""
+    vprint("Start cleaning up.", verbose_level=1)
+    db_manager = DataBaseManager()
+
+    # Define the time thresholds
+    two_day_ago = date.today() - timedelta(days=2)
+    two_months_ago = date.today() - timedelta(days=60)
+
+    jobs = db_manager.list_jobs()
+    kept_jobs = []
+
+    for job_id, (start_date, submitted) in jobs.items():
+        vprint(f"Check job {job_id}.", verbose_level=3)
+        if not submitted and start_date < two_day_ago:
+            vprint("Job was not submit and is older than two days.", verbose_level=3)
+            db_manager.delete_job(job_id)
+        elif start_date < two_months_ago:
+            vprint("Job older than two month.", verbose_level=3)
+            db_manager.delete_job(job_id)
+        else:
+            vprint("Job will be kept.", verbose_level=3)
+            kept_jobs.append(job_id)
+
+    # Delete directorys locally
+    vprint("Clean up directorys locally.", verbose_level=3)
+    for directory in [INPUT_DIR, UPLOAD_DIR]:
+        for dir_name in os.listdir(directory):
+            dir_path = os.path.join(directory, dir_name)
+            if os.path.isdir(dir_path) and dir_name not in kept_jobs:
+                shutil.rmtree(dir_path)
+
+    # Delete work directorys on cluster
+    vprint("Clean up directorys on cluster.", verbose_level=3)
+    old_jobs = [
+        job_id
+        for job_id in ssh_call("list_work_dir.sh").split()
+        if job_id not in kept_jobs
+    ]
+
+    if len(old_jobs) > 0:
+        ssh_call(f"delete_work_dir.sh { ' '.join(old_jobs) }")
 
 
 def send_mail(recipient, subject, content):
@@ -53,7 +101,9 @@ def send_mail(recipient, subject, content):
 def send_submission_mail(job):
     """Send a notification email to the user that the job was submitted."""
     url = url_for("submission", job_id=job.job_id, _external=True)
-    with open("templates/emails/submission_email.txt", "r", encoding="UTF-8") as f_handle:
+    with open(
+        "templates/emails/submission_email.txt", "r", encoding="UTF-8"
+    ) as f_handle:
         content = f_handle.read().format(job_id=job.job_id, url=url)
     if job.email != "":
         send_mail(job.email, f'Job "{ job.job_id }" submitted', content)
@@ -129,6 +179,12 @@ def privacy():
     """Return privacy notes."""
     # TODO
     return render_template("html/content/privacy.html")
+
+
+@app.route("/clean_up")
+def trigger_clean_up():
+    clean_up()
+    return "<h1>Putzen!</h1>"
 
 
 if __name__ == "__main__":

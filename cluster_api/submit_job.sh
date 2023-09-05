@@ -17,4 +17,4 @@ job_id=$1
 
 scp -r "$input_dir/$job_id" "$user@$machine:$work_dir"
 
-ssh "$user"@"$machine" "./start_job_cluster.sh $job_id $work_dir $python_env_path $repo_dir"
+ssh -qT "$user"@"$machine" "./start_job_cluster.sh $job_id $work_dir $python_env_path $repo_dir"

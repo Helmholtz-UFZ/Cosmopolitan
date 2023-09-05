@@ -1,11 +1,9 @@
 #!/usr/bin/python3
 """Module for a Cosmopolitan Job."""
 
-import subprocess
-from time import sleep
-
+from datetime import date
 from db_manager import DataBaseManager, JobTable
-from config import vprint
+from config import vprint, ssh_call
 from cosmopolitan_job_form import CosmopolitanJobForm
 
 
@@ -26,12 +24,6 @@ class InvalidJobID(Exception):
     pass
 
 
-class SshError(Exception):
-    """Raised if ssh call repetidly failed."""
-
-    pass
-
-
 class CosmopolitanJob:
     """This class represents a job submission by the user.
 
@@ -42,7 +34,7 @@ class CosmopolitanJob:
     job_id = None
     form = None
     input_data = None
-    submission_date = None
+    start_date = None
     submitted = False
     email = None
     email_status = None
@@ -112,6 +104,7 @@ class CosmopolitanJob:
             break
         self.form = job_form
         self.job_id = job_form.job_id.data
+        self.start_date = date.today()
 
     def _set_from_form(self, form):
         if type(form) is not CosmopolitanJobForm:
@@ -121,6 +114,7 @@ class CosmopolitanJob:
         self.input_data = {}
         self.job_id = self.form.job_id.data
         self.email = self.form.email.data
+        self.start_date = date.today()
 
         for name, field in self.form._fields.items():
             if name == "csrf_token":
@@ -148,7 +142,8 @@ class CosmopolitanJob:
         db_manager.add_entry(data_to_insert)
 
     def delete(self):
-        """Delete the job in the data base.
+        """
+        Delete the job in the data base.
 
         This method uses a DataBaseManager instance to delete the job entry from
         the database based on the job's unique identifier ('job_id').
@@ -160,30 +155,9 @@ class CosmopolitanJob:
     def submit(self):
         """Submit job to cluster."""
         vprint(f"Submit job {self.job_id}.", verbose_level=2)
-        call_str = f"cluster_api/submit_job.sh {self.job_id}"
+        call_str = f"submit_job.sh {self.job_id}"
         vprint(call_str, verbose_level=3)
-        out = self._ssh_call(call_str)
+        out = ssh_call(call_str)
         vprint(out, verbose_level=3)
         self.submitted = True
         self.save()
-
-    def _ssh_call(self, call_str):
-        for i in range(1, 4):
-            try:
-                completed_process = subprocess.run(
-                    call_str.split(),
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    check=True,
-                )
-                break
-            except subprocess.CalledProcessError as exc:
-                if i < 3:
-                    sleep(2)
-                    continue
-                error_str = (
-                    f"ERROR ssh call\nCommand\n{call_str}\nstdout:\n"
-                    f"{exc.stdout.decode('UTF8')}\nstderr:\n{exc.stderr.decode('UTF8')}"
-                )
-                raise SshError(error_str)
-        return completed_process.stdout.decode("UTF8")

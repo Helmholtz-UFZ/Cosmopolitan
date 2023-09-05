@@ -47,8 +47,8 @@ class DataBaseManager:
     """
 
     database_url = (
-        f'postgresql+psycopg2://{ DB_USER }:{ DB_PW }@'
-        f'{ DB_HOST_NAME }:{ DB_PORT }/{ DB_NAME }'
+        f"postgresql+psycopg2://{ DB_USER }:{ DB_PW }@"
+        f"{ DB_HOST_NAME }:{ DB_PORT }/{ DB_NAME }"
     )
 
     engine = create_engine(database_url)
@@ -140,6 +140,36 @@ class DataBaseManager:
             else:
                 raise JobNotFound(f"Job with ID '{job_id}' not found")
 
+    def list_jobs(self):
+        """List all jobs in the database with their submission date and submission status.
+
+        This method retrieves all job entries from the 'jobs' table in the
+        database and returns a dictionary where the keys are 'job_id', and the
+        values are a tuple containing 'start_date' and 'submitted' status
+        for each job.
+
+        Returns:
+        dict: A dictionary where keys are 'job_id' and values are tuples
+        containing 'start_date' and 'submitted' status.
+
+        Example:
+        {
+        'job1': ('2023-09-01', True),
+        'job2': ('2023-09-02', False),
+        # ...
+        }
+
+        """
+        with self.engine.begin() as conn:
+            session = self.Session(bind=conn)
+            job_rows = session.query(JobTable).all()
+
+            job_info = {}
+            for job_row in job_rows:
+                job_info[job_row.job_id] = (job_row.start_date, job_row.submitted)
+            return job_info
+
+
 class JobTable(Base):
     """Represents the 'jobs' table in the database.
 
@@ -150,7 +180,7 @@ class JobTable(Base):
     __tablename__ = "jobs"
 
     job_id = Column(String, primary_key=True)
-    submission_date = Column("submission_date", Date)
+    start_date = Column("start_date", Date)
     input_data = Column("input_data", JSON)
     submitted = Column("submitted", Boolean)
     email = Column("email", String)
@@ -173,7 +203,7 @@ def test():
 
     data_to_insert = {
         "job_id": job_id,
-        "submission_date": datetime.date(1990, 7, 15),
+        "start_date": datetime.date(1990, 7, 15),
         "input_data": json_data_to_insert,
         "submitted": True,
         "email": "wtf@where.some",
