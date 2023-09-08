@@ -2,9 +2,12 @@
 """Module for a Cosmopolitan Job."""
 
 from datetime import date
+import json
+
 from db_manager import DataBaseManager, JobTable
 from config import vprint, ssh_call
 from cosmopolitan_job_form import CosmopolitanJobForm
+from cosmopolitan_job_output_presentation import CosmopolitanJobOutputPresentation
 
 
 def get_attributes(clazz):
@@ -31,15 +34,17 @@ class CosmopolitanJob:
     submits jobs to a cluster, and formats the output for the user.
     """
 
-    job_id = None
     form = None
-    input_data = None
+    output_presentation = None
+    job_id = None
     start_date = None
+    input_data = None
     submitted = False
+    cluster_job_id = None
     email = None
-    email_status = None
-    err_msg = None
-    finished = False
+    notified_end = False
+    logs = None
+    status = None
     version = None
 
     def __init__(
@@ -62,6 +67,7 @@ class CosmopolitanJob:
         else:
             vprint("Make blank job", verbose_level=2)
             self._blank_job()
+        self.output_presentation = CosmopolitanJobOutputPresentation()
 
     def __str__(self):
         """Represent class as string."""
@@ -90,7 +96,10 @@ class CosmopolitanJob:
             ]:
                 continue
             else:
-                field.data = self.input_data[name]
+                if name in ["selected_pred_files", "selected_crn_files"]:
+                    field.data = json.dumps(self.input_data[name])
+                else:
+                    field.data = self.input_data[name]
 
         self.form.previous_job_id.data = self.form.job_id.data
 
@@ -126,7 +135,10 @@ class CosmopolitanJob:
             ]:
                 continue
             else:
-                self.input_data[name] = field.data
+                if name in ["selected_pred_files", "selected_crn_files"]:
+                    self.input_data[name] = json.loads(field.data)
+                else:
+                    self.input_data[name] = field.data
 
     def save(self):
         """Save the job information to the database.
@@ -138,6 +150,7 @@ class CosmopolitanJob:
         vprint(f"Save job {self.job_id}", verbose_level=2)
         column_names = JobTable.__table__.columns.keys()
         data_to_insert = {name: getattr(self, name) for name in column_names}
+        print(data_to_insert["input_data"])
         db_manager = DataBaseManager()
         db_manager.add_entry(data_to_insert)
 
@@ -156,8 +169,22 @@ class CosmopolitanJob:
         """Submit job to cluster."""
         vprint(f"Submit job {self.job_id}.", verbose_level=2)
         call_str = f"submit_job.sh {self.job_id}"
-        vprint(call_str, verbose_level=3)
         out = ssh_call(call_str)
-        vprint(out, verbose_level=3)
         self.submitted = True
+        self.cluster_job_id = out.split()[-1]
+        self.save()
+
+    def check_status(self):
+        """Check status of job on the cluster."""
+        vprint(f"See progress of job {self.job_id}.", verbose_level=2)
+        if self.status in ["COMPLETED", "FAILED"]:
+            return
+        call_str = f"check_status.sh {self.job_id} {self.cluster_job_id}"
+        out = ssh_call(call_str)
+        self.status = out.split()[0]
+        if self.status == "COMPLETED":
+            call_str = f"get_results.sh {self.job_id}"
+            out = ssh_call(call_str)
+
+        self.logs = "\n".join(out.split("\n")[1:])
         self.save()

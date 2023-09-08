@@ -33,8 +33,9 @@
 	<p>{{ name }} type: {{ info["type"] }} unit: {{ info["unit"] }}</p>
 	{% endfor %}
 	{%- elif field.name == "selected_crn_files" -%}
-	{% for name in json_loads(field.data) %}
-	<p>{{ name }}</p>
+	<h5>Choosen files:</h5>
+	{% for name, days in json_loads(field.data).items() %}
+	<p>{{ name }} days: {{ ", ".join(days) }}</p>
 	{% endfor %}
 	{%- endif -%}
 {% endmacro %}

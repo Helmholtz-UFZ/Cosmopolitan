@@ -13,6 +13,8 @@ WORK_DIR = "./"
 UPLOAD_DIR = os.path.join(WORK_DIR, "upload")
 # The directory for the input files that have been validated.
 INPUT_DIR = os.path.join(WORK_DIR, "input")
+# The directory for the result files.
+OUTPUT_DIR = os.path.join(WORK_DIR, "output")
 
 with open("./parameters_email_local.json", "r", encoding="UTF-8") as f_handle:
     PARAMETERS_EMAIL = json.load(f_handle)

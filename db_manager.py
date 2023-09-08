@@ -183,10 +183,11 @@ class JobTable(Base):
     start_date = Column("start_date", Date)
     input_data = Column("input_data", JSON)
     submitted = Column("submitted", Boolean)
+    cluster_job_id = Column("cluster_job_id", String)
     email = Column("email", String)
-    email_status = Column("email_status", String)
-    err_msg = Column("err_msg", String)
-    finished = Column("finished", Boolean)
+    notified_end = Column("notified_end", Boolean)
+    logs = Column("logs", String)
+    status = Column("status", String)
     version = Column("version", Float)
 
 
