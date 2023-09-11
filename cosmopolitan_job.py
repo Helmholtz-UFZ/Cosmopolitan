@@ -150,7 +150,6 @@ class CosmopolitanJob:
         vprint(f"Save job {self.job_id}", verbose_level=2)
         column_names = JobTable.__table__.columns.keys()
         data_to_insert = {name: getattr(self, name) for name in column_names}
-        print(data_to_insert["input_data"])
         db_manager = DataBaseManager()
         db_manager.add_entry(data_to_insert)
 
@@ -172,6 +171,7 @@ class CosmopolitanJob:
         out = ssh_call(call_str)
         self.submitted = True
         self.cluster_job_id = out.split()[-1]
+        self.status = "RUNNING"
         self.save()
 
     def check_status(self):

@@ -8,7 +8,14 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory
+from flask import (
+    Flask,
+    render_template,
+    request,
+    redirect,
+    url_for,
+    send_from_directory,
+)
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.exceptions import NotFound
 
@@ -129,7 +136,15 @@ def submission(job_id):
         send_submission_mail(job)
     else:
         job.check_status()
-    return render_template("html/submission/submission.html", job=job)
+
+    if job.status == "RUNNING":
+        reload_delay = 30
+    else:
+        reload_delay = None
+
+    return render_template(
+        "html/submission/submission.html", job=job, reload_delay=reload_delay
+    )
 
 
 @app.route("/confirm/<job_id>", methods=["GET", "POST"])

@@ -592,13 +592,16 @@ class InputFileParser:
         return coor
 
     def _check_first_line(self):
-        pass
+        raise NotImplementedError
 
     def _check_row(self):
-        pass
+        raise NotImplementedError
 
     def _get_file_information(self):
-        pass
+        raise NotImplementedError
+
+    def _check_validty_area(self):
+        raise NotImplementedError
 
     def parse(self, file_path, out_file_path):
         with open(file_path, "r") as in_file, open(out_file_path, "w") as out_file:
@@ -623,10 +626,7 @@ class InputFileParser:
                 row = self._check_row(row, row_index)
                 if row:
                     csv_writer.writerow(row)
-        if not self.input_geom_area.covered_by(self.parse_geom_area):
-            raise ValidationError(
-                "The file does not cover the user defined area completely"
-            )
+        self._check_validty_area()
 
         return self._get_file_information()
 
@@ -682,8 +682,16 @@ class PredParser(InputFileParser):
     def _get_file_information(self):
         return self.file_information
 
+    def _check_validty_area(self):
+        if not self.input_geom_area.covered_by(self.parse_geom_area):
+            raise ValidationError(
+                "The file does not cover the user defined area completely"
+            )
+
+
 class CrnParser(InputFileParser):
     days = set()
+    data_points = 0
 
     def _check_first_line(self, headers):
         header_row = [
@@ -753,14 +761,21 @@ class CrnParser(InputFileParser):
         x = self._check_coordinate(row[0], row, row_index)
         y = self._check_coordinate(row[1], row, row_index)
         day = self._check_day(row[2], row, row_index)
-        self.days.add(day.strftime("%Y%m%d"))
         self._check_soil_moisture(row[3], row, row_index, False)
         self._check_soil_moisture(row[4], row, row_index, True)
         self._check_soil_moisture(row[5], row, row_index, False)
 
         if self.input_geom_area.contain(x, y):
             self.parse_geom_area.expand(x, y)
+            self.days.add(day.strftime("%Y%m%d"))
+            self.data_points += 1
             return row
 
     def _get_file_information(self):
         return list(self.days)
+
+    def _check_validty_area(self):
+        if self.data_points == 0:
+            raise ValidationError(
+                "No CRN measurments are in the user defined area!"
+            )
