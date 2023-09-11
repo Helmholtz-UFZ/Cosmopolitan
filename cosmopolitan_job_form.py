@@ -4,7 +4,7 @@ import math
 import csv
 import os
 import shutil
-import datetime
+from datetime import date
 import json
 
 from coolname import generate
@@ -32,7 +32,7 @@ from wtforms.validators import (
 )
 
 from db_manager import DataBaseManager
-from config import vprint, INPUT_DIR, UPLOAD_DIR
+from config import vprint, INPUT_DIR, UPLOAD_DIR, OUTPUT_DIR
 
 
 def json_load_4_jinja(string):
@@ -108,7 +108,6 @@ class OptionalEmail(Email):
     """A custom validator that allows for an empty email field or validates the input as an email address."""
 
     def __call__(self, form, field):
-        print(field.data)
         if field.data != "":
             super(OptionalEmail, self).__call__(form, field)
 
@@ -160,12 +159,12 @@ class CosmopolitanJobForm(FlaskForm):
     email = StringField(
         "Email",
         default="",
-        description='Email address to be notified when job submission is complete.',
+        description="Email address to be notified when job submission is complete.",
         widget=DynamicSizeTextInput(size=20),
-        validators=[OptionalEmail()]
+        validators=[OptionalEmail()],
     )
 
-    # Must before input files.
+    # Must be before input files.
     area_x1 = IntegerField(
         "X1",
         default=630151,
@@ -250,6 +249,7 @@ class CosmopolitanJobForm(FlaskForm):
     request = None
     input_dir = None
     upload_dir = None
+    output_dir = None
     geom_area = None
 
     def __init__(self, new=True):
@@ -273,11 +273,22 @@ class CosmopolitanJobForm(FlaskForm):
 
         if len(field.errors) == 0:
             self.input_dir = os.path.join(INPUT_DIR, self.job_id.data)
-            self.upload_dir = os.path.join(UPLOAD_DIR, self.job_id.data)
             if not os.path.isdir(self.input_dir):
                 os.mkdir(self.input_dir)
+
+            self.upload_dir = os.path.join(UPLOAD_DIR, self.job_id.data)
             if not os.path.isdir(self.upload_dir):
                 os.mkdir(self.upload_dir)
+            else:
+                shutil.rmtree(self.upload_dir)
+                os.mkdir(self.upload_dir)
+
+            self.output_dir = os.path.join(OUTPUT_DIR, self.job_id.data)
+            if not os.path.isdir(self.output_dir):
+                os.mkdir(self.output_dir)
+            else:
+                shutil.rmtree(self.output_dir)
+                os.mkdir(self.output_dir)
 
             if not re.match(self.job_id_regex, self.previous_job_id.data):
                 vprint("Malicious attack manipulation hidden field!", verbose_level=0)
@@ -311,9 +322,9 @@ class CosmopolitanJobForm(FlaskForm):
     def validate_pred_files(self, field):
         """Check the content of the files and override data with file name and hash."""
         vprint("Check predictor variable files integrity", verbose_level=3)
-        selected_files = self._validate_input_file(field, "pred")
-        if selected_files is not None:
-            self.selected_pred_files.data = json.dumps(selected_files)
+        input_file_dic = self._validate_input_file(field, "pred")
+        if input_file_dic is not None:
+            self.selected_pred_files.data = json.dumps(input_file_dic)
 
     def validate_selected_pred_files(self, field):
         """Check if files exist in upload dir."""
@@ -323,9 +334,9 @@ class CosmopolitanJobForm(FlaskForm):
     def validate_crn_files(self, field):
         """Check the content of the files and override data with file name and hash."""
         vprint("Check crn variable files integrity", verbose_level=3)
-        selected_files = self._validate_input_file(field, "crn")
-        if selected_files is not None:
-            self.selected_crn_files.data = json.dumps(selected_files)
+        input_file_dic = self._validate_input_file(field, "crn")
+        if input_file_dic is not None:
+            self.selected_crn_files.data = json.dumps(input_file_dic)
 
     def validate_selected_crn_files(self, field):
         """Check if files exist in upload dir."""
@@ -338,6 +349,8 @@ class CosmopolitanJobForm(FlaskForm):
         if not super().validate():
             if self.upload_dir is not None:
                 shutil.rmtree(self.upload_dir)
+            # for field in self._fields:
+            #     print(getattr(self, field).errors)
             return False
 
         form_validt = True
@@ -369,6 +382,8 @@ class CosmopolitanJobForm(FlaskForm):
         if self.upload_dir is not None:
             shutil.rmtree(self.upload_dir)
 
+        # for field in self._fields:
+        #     print(getattr(self, field).errors)
         return form_validt
 
     def _validate_input_file(self, field, input_type):
@@ -443,7 +458,7 @@ class CosmopolitanJobForm(FlaskForm):
                 self.area_res.data,
             ],
             "Predictors": json.loads(self.selected_pred_files.data),
-            "SM": list(json.loads(self.selected_crn_files.data).keys()),
+            "SM": json.loads(self.selected_crn_files.data),
             "MC": self.monte_carlo_simulation.data,
             "mci": self.monte_carlo_iterations.data,
             "what_to_plot": {
@@ -500,7 +515,7 @@ class GeomArea:
     def __str__(self):
         return f"x1:{self.x1}, x2:{self.x2}, y1:{self.y1}, y2:{self.y2}"
 
-    def cover(self, other):
+    def covered_by(self, other):
         """Check if this area is completely covered by another area.
 
         Parameters:
@@ -519,7 +534,7 @@ class GeomArea:
             return True
         return False
 
-    def contain(self, x, y, expand_with_res=True):
+    def contain(self, x, y, margin_multi_res=5):
         """Check if a given point is inside this area.
 
         Parameters:
@@ -529,12 +544,12 @@ class GeomArea:
         Returns:
         - True if the point is inside this area, False otherwise.
         """
-        if expand_with_res:
-            if self.x1 - self.res <= x <= self.x2 + self.res and self.y1 - self.res <= y <= self.y2 + self.res:
-                return True
-        else:
-            if self.x1 <= x <= self.x2 and self.y1 <= y <= self.y2:
-                return True
+        margin = self.res * margin_multi_res
+        if (
+            self.x1 - margin <= x <= self.x2 + margin
+            and self.y1 - margin <= y <= self.y2 + margin
+        ):
+            return True
         return False
 
     def expand(self, x, y):
@@ -551,6 +566,8 @@ class GeomArea:
 
 
 class InputFileParser:
+    file_information = None
+
     def __init__(self, geom_area):
         self.input_geom_area = geom_area
         self.parse_geom_area = GeomArea(
@@ -574,11 +591,17 @@ class InputFileParser:
 
         return coor
 
-    def _check_first_line():
-        pass
+    def _check_first_line(self):
+        raise NotImplementedError
 
-    def _check_row():
-        pass
+    def _check_row(self):
+        raise NotImplementedError
+
+    def _get_file_information(self):
+        raise NotImplementedError
+
+    def _check_validty_area(self):
+        raise NotImplementedError
 
     def parse(self, file_path, out_file_path):
         with open(file_path, "r") as in_file, open(out_file_path, "w") as out_file:
@@ -595,7 +618,7 @@ class InputFileParser:
             csv_writer = csv.writer(out_file)
             first_line = next(csv_reader)
 
-            row, file_information = self._check_first_line(first_line)
+            row = self._check_first_line(first_line)
             if row:
                 out_file.write(",".join(row))
 
@@ -603,21 +626,15 @@ class InputFileParser:
                 row = self._check_row(row, row_index)
                 if row:
                     csv_writer.writerow(row)
+        self._check_validty_area()
 
-        if not self.input_geom_area.cover(self.parse_geom_area):
-            raise ValidationError(
-                "The file does not cover the user defined area completely"
-            )
-
-        return file_information
+        return self._get_file_information()
 
 
 class PredParser(InputFileParser):
-    pred_type = None
-    unit = None
+    file_information = {"type": "", "unit": ""}
 
     def _check_first_line(self, comments):
-        file_information = {"type": "None", "unit": "None"}
         if not comments[0][0] == "#":
             row = self._check_row(comments, 1)
         else:
@@ -625,15 +642,15 @@ class PredParser(InputFileParser):
                 info.split("=")[0]: info.split("=")[1]
                 for info in comments[0][2:].split()
             }
-            if information.keys() != file_information.keys():
+            if information.keys() != self.file_information.keys():
                 raise ValidationError(
                     f"Unkown predictor information in comment line.<br>{comments}"
                 )
             else:
-                file_information = information
+                self.file_information = information
             row = None
 
-        return row, file_information
+        return row
 
     def _check_row_length(self, row, row_index):
         row_length = 3
@@ -658,12 +675,24 @@ class PredParser(InputFileParser):
         y = self._check_coordinate(row[1], row, row_index)
         self._check_predictor(row[2], row, row_index)
 
-        self.parse_geom_area.expand(x, y)
         if self.input_geom_area.contain(x, y):
+            self.parse_geom_area.expand(x, y)
             return row
+
+    def _get_file_information(self):
+        return self.file_information
+
+    def _check_validty_area(self):
+        if not self.input_geom_area.covered_by(self.parse_geom_area):
+            raise ValidationError(
+                "The file does not cover the user defined area completely"
+            )
 
 
 class CrnParser(InputFileParser):
+    days = set()
+    data_points = 0
+
     def _check_first_line(self, headers):
         header_row = [
             "EPSG_UTM_x",
@@ -679,7 +708,7 @@ class CrnParser(InputFileParser):
         else:
             row = headers
 
-        return row, {}
+        return row
 
     def _check_row_length(self, row, row_index):
         row_length = 6
@@ -717,7 +746,7 @@ class CrnParser(InputFileParser):
                 f"Row number {row_index} '{','.join(row)}'."
             )
         try:
-            day = datetime.datetime(
+            day = date(
                 int(row[2][0:4]), int(row[2][4:6]), int(row[2][6:8])
             )
         except ValueError:
@@ -731,11 +760,22 @@ class CrnParser(InputFileParser):
         self._check_row_length(row, row_index)
         x = self._check_coordinate(row[0], row, row_index)
         y = self._check_coordinate(row[1], row, row_index)
-        self._check_day(row[2], row, row_index)
+        day = self._check_day(row[2], row, row_index)
         self._check_soil_moisture(row[3], row, row_index, False)
         self._check_soil_moisture(row[4], row, row_index, True)
         self._check_soil_moisture(row[5], row, row_index, False)
 
-        self.parse_geom_area.expand(x, y)
         if self.input_geom_area.contain(x, y):
+            self.parse_geom_area.expand(x, y)
+            self.days.add(day.strftime("%Y%m%d"))
+            self.data_points += 1
             return row
+
+    def _get_file_information(self):
+        return list(self.days)
+
+    def _check_validty_area(self):
+        if self.data_points == 0:
+            raise ValidationError(
+                "No CRN measurments are in the user defined area!"
+            )
