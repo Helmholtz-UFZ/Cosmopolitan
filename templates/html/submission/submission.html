@@ -1,8 +1,38 @@
 {% extends "html/skeleton/base_layout.html" %}
 {% block content %}
 <h2>Submission</h2>
+{% if job.status is none %}
 <h3>Loading</h3>
 <div class="my-2">
 	<img src="{{ url_for('static', filename='loading.webp')}}"/>
 </div>
+{% else %}
+<div class="my-2">
+	<h3>Status:</h3>
+	<h4>{{ job.status }}</h4>
+	<div>
+		<button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#expandableContent" aria-expanded="false" aria-controls="expandableContent">
+			Show logs
+		</button>
+		<div class="collapse mt-3" id="expandableContent">
+			<div class="card card-body">
+				<p>{{ job.logs | replace("\n", "</p><p>") | safe}}</p>
+			</div>
+		</div>
+	</div>
+</div>
+{% if job.status == "COMPLETED" %}
+<div class="my-2">
+	<h3>Result:</h3>
+	<h4>Feature importance vs days</h4>
+	<img src="{{ url_for('result_file', job_id=job.job_id, file_name='feature_importance_vs_days.svg') }}" alt="feature_importance_vs_days">
+	<h4>Soil moisture prediction per day</h4>
+	{% for crn_file, days in job.input_data["selected_crn_files"].items() %}
+	{% for day in days %}
+	<img src="{{ url_for('result_file', job_id=job.job_id, file_name='RF_prediction_' + day + '.svg') }}" alt="soi moisture at {{ day }}">
+	{% endfor %}
+	{% endfor %}
+</div>
+{% endif %}
+{% endif %}
 {% endblock %}

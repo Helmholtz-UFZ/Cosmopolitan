@@ -9,9 +9,16 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-from flask import Flask, render_template, request, redirect, url_for
+from flask import (
+    Flask,
+    render_template,
+    request,
+    redirect,
+    url_for,
+    send_from_directory,
+)
 from flask_wtf.csrf import CSRFProtect
-from werkzeug.exceptions import HTTPException
+from werkzeug.exceptions import HTTPException, NotFound
 
 from logger import logger
 from config import (
@@ -24,6 +31,7 @@ from config import (
     SENDER_EMAIL,
     INPUT_DIR,
     UPLOAD_DIR,
+    OUTPUT_DIR,
 )
 from cosmopolitan_job import CosmopolitanJob
 from cosmopolitan_job_form import CosmopolitanJobForm, json_load_4_jinja
@@ -35,7 +43,7 @@ csrf = CSRFProtect(app)
 
 # CSRF key
 app.config["SECRET_KEY"] = os.urandom(32)
-app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024  # 500 Mb limit
+app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024 * 1024  # 5 Gb limit
 
 app.jinja_env.globals.update(json_loads=json_load_4_jinja)
 
@@ -85,7 +93,7 @@ def clean_up():
 
     # Delete directorys locally
     vprint("Clean up directorys locally.", verbose_level=3)
-    for directory in [INPUT_DIR, UPLOAD_DIR]:
+    for directory in [INPUT_DIR, UPLOAD_DIR, OUTPUT_DIR]:
         for dir_name in os.listdir(directory):
             dir_path = os.path.join(directory, dir_name)
             if os.path.isdir(dir_path) and dir_name not in kept_jobs:
@@ -148,7 +156,17 @@ def submission(job_id):
     if not job.submitted:
         job.submit()
         send_submission_mail(job)
-    return render_template("html/submission/submission.html", job=job)
+    else:
+        job.check_status()
+
+    if job.status == "RUNNING":
+        reload_delay = 30
+    else:
+        reload_delay = None
+
+    return render_template(
+        "html/submission/submission.html", job=job, reload_delay=reload_delay
+    )
 
 
 @app.route("/confirm/<job_id>", methods=["GET", "POST"])
@@ -208,6 +226,17 @@ def privacy():
 def trigger_clean_up():
     clean_up()
     return "<h1>Putzen!</h1>"
+
+
+@app.route("/results/<job_id>/<file_name>")
+def result_file(job_id, file_name):
+    """Serve result files."""
+    vprint(f"Visiting /results/{job_id}/{file_name} to result_file()", verbose_level=1)
+    try:
+        output_dir = os.path.join(OUTPUT_DIR, job_id)
+        return send_from_directory(output_dir, file_name)
+    except NotFound:
+        return render_template("html/errors/file_not_found.html")
 
 
 if __name__ == "__main__":

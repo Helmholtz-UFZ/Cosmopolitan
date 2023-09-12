@@ -3,11 +3,12 @@ CREATE USER somweb_stage_rw WITH PASSWORD '***';
 CREATE DATABASE somweb_stage
 GRANT CONNECT ON DATABASE somweb_stage TO somweb_stage_rw;
 -- All
-CREATE TABLE jobs (job_id VARCHAR PRIMARY KEY, start_date DATE, input_data JSONB, submitted BOOL, email VARCHAR, email_status VARCHAR, err_msg VARCHAR, finished BOOL, version DECIMAL);
+CREATE TABLE jobs (job_id VARCHAR PRIMARY KEY, start_date DATE, input_data JSONB, submitted BOOL, cluster_job_id VARCHAR, email VARCHAR, notified_end VARCHAR, logs VARCHAR, status VARCHAR, version DECIMAL);
 GRANT INSERT, UPDATE, DELETE ON TABLE jobs TO somweb_stage_rw;
 -- Stuff
 DROP TABLE IF EXISTS jobs;
 SELECT * FROM jobs;
 SELECT job_id, start_date FROM jobs;
+SELECT job_id, cluster_job_id FROM jobs;
 -- bash
 -- psql -U somweb_stage_adm -p 5432 -h postgres-dev.intranet.ufz.de -d somweb_stage
