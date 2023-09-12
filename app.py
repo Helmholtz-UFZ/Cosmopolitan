@@ -20,9 +20,8 @@ from flask import (
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.exceptions import HTTPException, NotFound
 
-from logger import logger
+from logger import get_logger
 from config import (
-    vprint,
     ssh_call,
     SMTP_SERVER,
     SMTP_PORT,
@@ -47,9 +46,13 @@ app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024 * 1024  # 5 Gb limit
 
 app.jinja_env.globals.update(json_loads=json_load_4_jinja)
 
+logger = get_logger(app.debug)
 
 @app.errorhandler(Exception)
 def handle_exception(e):
+    if app.debug:
+        raise e
+
     if isinstance(e, HTTPException):
         return e
 
@@ -69,7 +72,7 @@ def handle_exception(e):
 
 def clean_up():
     """Delete jobs older than a day and older than two months and their directories."""
-    vprint("Start cleaning up.", verbose_level=1)
+    logger.info("Start cleaning up.")
     db_manager = DataBaseManager()
 
     # Define the time thresholds
@@ -80,19 +83,19 @@ def clean_up():
     kept_jobs = []
 
     for job_id, (start_date, submitted) in jobs.items():
-        vprint(f"Check job {job_id}.", verbose_level=3)
+        logger.debug(f"Check job {job_id}.")
         if not submitted and start_date < two_day_ago:
-            vprint("Job was not submit and is older than two days.", verbose_level=3)
+            logger.debug("Job was not submit and is older than two days.")
             db_manager.delete_job(job_id)
         elif start_date < two_months_ago:
-            vprint("Job older than two month.", verbose_level=3)
+            logger.debug("Job older than two month.")
             db_manager.delete_job(job_id)
         else:
-            vprint("Job will be kept.", verbose_level=3)
+            logger.debug("Job will be kept.")
             kept_jobs.append(job_id)
 
     # Delete directorys locally
-    vprint("Clean up directorys locally.", verbose_level=3)
+    logger.info("Clean up directorys locally.")
     for directory in [INPUT_DIR, UPLOAD_DIR, OUTPUT_DIR]:
         for dir_name in os.listdir(directory):
             dir_path = os.path.join(directory, dir_name)
@@ -100,7 +103,7 @@ def clean_up():
                 shutil.rmtree(dir_path)
 
     # Delete work directorys on cluster
-    vprint("Clean up directorys on cluster.", verbose_level=3)
+    logger.debug("Clean up directorys on cluster.")
     old_jobs = [
         job_id
         for job_id in ssh_call("list_work_dir.sh").split()
@@ -142,7 +145,6 @@ def send_submission_mail(job):
 @app.route("/")
 def hello_geek():
     """Hello world."""
-    raise ValueError
     return "<h1>Hello from Flask & Docker</h1>"
 
 
@@ -150,7 +152,7 @@ def hello_geek():
 def submission(job_id):
     """Site for submitting and presenting progress and results of a job."""
     try:
-        job = CosmopolitanJob(job_id=job_id)
+        job = CosmopolitanJob(logger, job_id=job_id)
     except JobNotFound:
         return render_template("html/errors/job_not_found_error.html", job_id=job_id)
     if not job.submitted:
@@ -159,7 +161,7 @@ def submission(job_id):
     else:
         job.check_status()
 
-    if job.status == "RUNNING":
+    if job.status in ["RUNNING", "PENDING"]:
         reload_delay = 30
     else:
         reload_delay = None
@@ -172,9 +174,9 @@ def submission(job_id):
 @app.route("/confirm/<job_id>", methods=["GET", "POST"])
 def confirm(job_id):
     """Confirm input and submit."""
-    vprint(f"Confirm submisison for job {job_id}", verbose_level=1)
+    logger.info(f"Confirm submisison for job {job_id}")
     try:
-        job = CosmopolitanJob(job_id=job_id)
+        job = CosmopolitanJob(logger, job_id=job_id)
     except JobNotFound:
         return render_template("html/errors/job_not_found_error.html", job_id=job_id)
     if job.submitted:
@@ -185,9 +187,9 @@ def confirm(job_id):
 @app.route("/input/<job_id>", methods=["GET", "POST"])
 def change_input(job_id):
     """Change input of an unsubmitted job."""
-    vprint(f"Make changes to job {job_id}", verbose_level=1)
+    logger.info(f"Make changes to job {job_id}")
     try:
-        job = CosmopolitanJob(job_id=job_id)
+        job = CosmopolitanJob(logger, job_id=job_id)
     except JobNotFound:
         return redirect("/input")
     if job.submitted:
@@ -201,15 +203,15 @@ def input_job():
     """Input site for the job."""
     # Make new job and form if empty request form
     if len(request.form) == 0:
-        vprint("Input for new job", verbose_level=1)
-        job = CosmopolitanJob()
+        logger.info("Input for new job")
+        job = CosmopolitanJob(logger)
         form = job.form
     # If form was submitted validate
     else:
-        form = CosmopolitanJobForm(new=False)
-        vprint(f"Check form {form.job_id.data}", verbose_level=1)
+        form = CosmopolitanJobForm(logger, new=False)
+        logger.info(f"Check form {form.job_id.data}")
         if form.validate_on_submit():
-            job = CosmopolitanJob(form=form)
+            job = CosmopolitanJob(logger, form=form)
             job.save()
             return redirect(f"/confirm/{job.job_id}")
     return render_template("html/input/input.html", form=form)
@@ -231,7 +233,7 @@ def trigger_clean_up():
 @app.route("/results/<job_id>/<file_name>")
 def result_file(job_id, file_name):
     """Serve result files."""
-    vprint(f"Visiting /results/{job_id}/{file_name} to result_file()", verbose_level=1)
+    logger.info(f"Visiting /results/{job_id}/{file_name} to result_file()")
     try:
         output_dir = os.path.join(OUTPUT_DIR, job_id)
         return send_from_directory(output_dir, file_name)

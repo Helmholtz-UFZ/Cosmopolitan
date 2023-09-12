@@ -32,7 +32,7 @@ from wtforms.validators import (
 )
 
 from db_manager import DataBaseManager
-from config import vprint, INPUT_DIR, UPLOAD_DIR, OUTPUT_DIR
+from config import INPUT_DIR, UPLOAD_DIR, OUTPUT_DIR
 
 
 def json_load_4_jinja(string):
@@ -251,10 +251,12 @@ class CosmopolitanJobForm(FlaskForm):
     upload_dir = None
     output_dir = None
     geom_area = None
+    logger = None
 
-    def __init__(self, new=True):
+    def __init__(self, logger, new=True):
         """Init."""
         super().__init__()
+        self.logger = logger
         if new:
             self.job_id.data = "_".join(generate(3))
             self.previous_job_id.data = self.job_id.data
@@ -266,7 +268,7 @@ class CosmopolitanJobForm(FlaskForm):
         changed the function and moves all previously uploaded files into the
         new input dir.
         """
-        vprint("Check job id", verbose_level=3)
+        self.logger.debug("Check job id")
         db_manager = DataBaseManager()
         if db_manager.check_existence(field.data):
             raise ValidationError("Job id already exist")
@@ -291,8 +293,8 @@ class CosmopolitanJobForm(FlaskForm):
                 os.mkdir(self.output_dir)
 
             if not re.match(self.job_id_regex, self.previous_job_id.data):
-                vprint("Malicious attack manipulation hidden field!", verbose_level=0)
-                vprint(
+                self.logger.warning("Malicious attack manipulation hidden field!", verbose_level=0)
+                self.logger.warning(
                     f"Content hidden field {self.previous_job_id.data}", verbose_level=0
                 )
                 raise ValidationError("Use normal input field to set job id.")
@@ -321,26 +323,26 @@ class CosmopolitanJobForm(FlaskForm):
 
     def validate_pred_files(self, field):
         """Check the content of the files and override data with file name and hash."""
-        vprint("Check predictor variable files integrity", verbose_level=3)
+        self.logger.debug("Check predictor variable files integrity")
         input_file_dic = self._validate_input_file(field, "pred")
         if input_file_dic is not None:
             self.selected_pred_files.data = json.dumps(input_file_dic)
 
     def validate_selected_pred_files(self, field):
         """Check if files exist in upload dir."""
-        vprint("Check if selected predictor variable files exist.", verbose_level=3)
+        self.logger.debug("Check if selected predictor variable files exist.")
         self._validate_selected_input_files(field)
 
     def validate_crn_files(self, field):
         """Check the content of the files and override data with file name and hash."""
-        vprint("Check crn variable files integrity", verbose_level=3)
+        self.logger.debug("Check crn variable files integrity")
         input_file_dic = self._validate_input_file(field, "crn")
         if input_file_dic is not None:
             self.selected_crn_files.data = json.dumps(input_file_dic)
 
     def validate_selected_crn_files(self, field):
         """Check if files exist in upload dir."""
-        vprint("Check if selected predictor variable files exist.", verbose_level=3)
+        self.logger.debug("Check if selected predictor variable files exist.")
 
         self._validate_selected_input_files(field)
 
@@ -392,7 +394,7 @@ class CosmopolitanJobForm(FlaskForm):
         input_file_dic = {}
         # Check if form has not file attached.
         if field.data[0].filename == "":
-            vprint("No file send", verbose_level=3)
+            self.logger.debug("No file send")
             return
         # Check if job id is valid and input dir is defined.
         if self.input_dir is None:

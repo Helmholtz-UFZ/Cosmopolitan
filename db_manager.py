@@ -11,7 +11,15 @@ Classes:
 """
 
 import datetime
-from sqlalchemy import create_engine, Column, Date, String, JSON, Boolean, Float
+from sqlalchemy import (
+    create_engine,
+    Column,
+    Date,
+    String,
+    JSON,
+    Boolean,
+    Float,
+)
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 from config import DB_NAME, DB_HOST_NAME, DB_PORT, DB_USER, DB_PW
