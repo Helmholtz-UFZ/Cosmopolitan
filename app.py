@@ -3,6 +3,7 @@
 import os
 from datetime import date, timedelta
 import shutil
+import traceback
 
 import smtplib
 from email.mime.text import MIMEText
@@ -10,8 +11,9 @@ from email.mime.multipart import MIMEMultipart
 
 from flask import Flask, render_template, request, redirect, url_for
 from flask_wtf.csrf import CSRFProtect
+from werkzeug.exceptions import HTTPException
 
-from cosmopolitan_job import CosmopolitanJob
+from logger import logger
 from config import (
     vprint,
     ssh_call,
@@ -23,6 +25,7 @@ from config import (
     INPUT_DIR,
     UPLOAD_DIR,
 )
+from cosmopolitan_job import CosmopolitanJob
 from cosmopolitan_job_form import CosmopolitanJobForm, json_load_4_jinja
 from db_manager import DataBaseManager, JobNotFound
 
@@ -35,6 +38,25 @@ app.config["SECRET_KEY"] = os.urandom(32)
 app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024  # 500 Mb limit
 
 app.jinja_env.globals.update(json_loads=json_load_4_jinja)
+
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    if isinstance(e, HTTPException):
+        return e
+
+    route = request.url_rule
+    route_function = request.endpoint
+
+    logger.info("Handle exception")
+    error = traceback.format_exc()
+    content = (
+        f"Unexpected error in { route } using { route_function }:\n"
+        f"{error}\n"
+        f"PID={os.getpid()}\n"
+    )
+    logger.error(content)
+    return render_template("html/errors/internal_error.html"), 500
 
 
 def clean_up():
@@ -112,6 +134,7 @@ def send_submission_mail(job):
 @app.route("/")
 def hello_geek():
     """Hello world."""
+    raise ValueError
     return "<h1>Hello from Flask & Docker</h1>"
 
 

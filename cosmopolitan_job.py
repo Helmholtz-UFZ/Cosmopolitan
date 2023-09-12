@@ -2,6 +2,8 @@
 """Module for a Cosmopolitan Job."""
 
 from datetime import date
+
+from logger import logger
 from db_manager import DataBaseManager, JobTable
 from config import vprint, ssh_call
 from cosmopolitan_job_form import CosmopolitanJobForm
@@ -60,7 +62,7 @@ class CosmopolitanJob:
             vprint("Set from form", verbose_level=2)
             self._set_from_form(form)
         else:
-            vprint("Make blank job", verbose_level=2)
+            logger.info("Make blank job")
             self._blank_job()
 
     def __str__(self):
