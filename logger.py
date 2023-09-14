@@ -1,7 +1,7 @@
-import logging
 from datetime import datetime
-
+import logging
 from logging.config import dictConfig
+
 from sqlalchemy import (
     create_engine,
     Column,
@@ -11,7 +11,18 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-from config import DB_NAME, DB_HOST_NAME, DB_PORT, DB_USER, DB_PW
+from config import (
+    DB_NAME,
+    DB_HOST_NAME,
+    DB_PORT,
+    DB_USER,
+    DB_PW,
+    SMTP_SERVER,
+    SMTP_PORT,
+    SMTP_USERNAME,
+    SMTP_PASSWORD,
+    SENDER_EMAIL,
+)
 
 Base = declarative_base()
 
@@ -90,12 +101,23 @@ def get_logger(debug):
             "sqlalchemy": {
                 "class": "logger.SQLAlchemyHandler",
                 "db_url": database_url,
-                "level": "DEBUG",
+                "level": "INFO",
                 "formatter": "default",
             },
             "wsgi": {
                 "class": "logging.StreamHandler",
                 "stream": "ext://flask.logging.wsgi_errors_stream",
+                "formatter": "default",
+            },
+            "mail_handler": {
+                "class": "logging.handlers.SMTPHandler",
+                "level": "ERROR",
+                "mailhost": (SMTP_SERVER, SMTP_PORT),
+                "fromaddr": SENDER_EMAIL,
+                "credentials": (SMTP_USERNAME, SMTP_PASSWORD),
+                "toaddrs": ["john-eric.anders@ufz.de"],
+                "subject": "Application Error",
+                "secure": (),
                 "formatter": "default",
             },
         },
@@ -104,9 +126,11 @@ def get_logger(debug):
             "level": "DEBUG",
         },
     }
+
     if debug:
-        logging_config["root"]["handlers"] = ["wsgi"]
+        logging_config["root"]["handlers"] = ["wsgi", "mail_handler"]
     else:
         logging_config["root"]["handlers"] = ["sqlalchemy"]
+
     dictConfig(logging_config)
     return logging.getLogger()

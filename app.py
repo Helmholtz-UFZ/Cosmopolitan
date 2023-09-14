@@ -145,6 +145,7 @@ def send_submission_mail(job):
 @app.route("/")
 def hello_geek():
     """Hello world."""
+    raise ValueError
     return "<h1>Hello from Flask & Docker</h1>"
 
 
