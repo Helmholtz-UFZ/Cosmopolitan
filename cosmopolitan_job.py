@@ -1,13 +1,13 @@
 #!/usr/bin/python3
 """Module for a Cosmopolitan Job."""
 
-from datetime import date
 import json
+from datetime import date
 
-from db_manager import DataBaseManager, JobTable
 from config import ssh_call
 from cosmopolitan_job_form import CosmopolitanJobForm
 from cosmopolitan_job_output_presentation import CosmopolitanJobOutputPresentation
+from db_manager import DataBaseManager, JobTable
 
 
 def get_attributes(clazz):
@@ -23,8 +23,6 @@ def get_attributes(clazz):
 
 class InvalidJobID(Exception):
     """Raised by CosmopolitanJob if init with invalid job id."""
-
-    pass
 
 
 class CosmopolitanJob:
@@ -100,11 +98,10 @@ class CosmopolitanJob:
                 "job_id",
             ]:
                 continue
+            if name in ["selected_pred_files", "selected_crn_files"]:
+                field.data = json.dumps(self.input_data[name])
             else:
-                if name in ["selected_pred_files", "selected_crn_files"]:
-                    field.data = json.dumps(self.input_data[name])
-                else:
-                    field.data = self.input_data[name]
+                field.data = self.input_data[name]
 
         self.form.previous_job_id.data = self.form.job_id.data
 
@@ -113,7 +110,9 @@ class CosmopolitanJob:
         while True:
             job_form = CosmopolitanJobForm(self.logger)
             if db_manager.check_existence(job_form.job_id.data):
-                self.logger.debug(f"Job id: {job_form.job_id.data} already exist", verbose_level=3)
+                self.logger.debug(
+                    f"Job id: {job_form.job_id.data} already exist", verbose_level=3
+                )
                 continue
             break
         self.form = job_form
@@ -139,11 +138,10 @@ class CosmopolitanJob:
                 "job_id",
             ]:
                 continue
+            if name in ["selected_pred_files", "selected_crn_files"]:
+                self.input_data[name] = json.loads(field.data)
             else:
-                if name in ["selected_pred_files", "selected_crn_files"]:
-                    self.input_data[name] = json.loads(field.data)
-                else:
-                    self.input_data[name] = field.data
+                self.input_data[name] = field.data
 
     def save(self):
         """Save the job information to the database.

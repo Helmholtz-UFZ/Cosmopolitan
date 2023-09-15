@@ -1,3 +1,6 @@
+"""Module defines all functionality to plot jobs."""
+
+
 class CosmopolitanJobOutputPresentation:
     """Class holds all functionallity to show plot of a finished job."""
 

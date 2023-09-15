@@ -1,40 +1,39 @@
 """Flask app that handles the Cosmopolitan Webserver."""
 
 import os
-from datetime import date, timedelta
 import shutil
-import traceback
-
 import smtplib
-from email.mime.text import MIMEText
+import traceback
+from datetime import date, timedelta
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 from flask import (
     Flask,
+    redirect,
     render_template,
     request,
-    redirect,
-    url_for,
     send_from_directory,
+    url_for,
 )
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.exceptions import HTTPException, NotFound
 
-from logger import get_logger
 from config import (
-    ssh_call,
-    SMTP_SERVER,
-    SMTP_PORT,
-    SMTP_USERNAME,
-    SMTP_PASSWORD,
-    SENDER_EMAIL,
     INPUT_DIR,
-    UPLOAD_DIR,
     OUTPUT_DIR,
+    SENDER_EMAIL,
+    SMTP_PASSWORD,
+    SMTP_PORT,
+    SMTP_SERVER,
+    SMTP_USERNAME,
+    UPLOAD_DIR,
+    ssh_call,
 )
 from cosmopolitan_job import CosmopolitanJob
 from cosmopolitan_job_form import CosmopolitanJobForm, json_load_4_jinja
 from db_manager import DataBaseManager, JobNotFound
+from logger import get_logger
 
 app = Flask(__name__)
 
@@ -48,8 +47,30 @@ app.jinja_env.globals.update(json_loads=json_load_4_jinja)
 
 logger = get_logger(app.debug)
 
+
 @app.errorhandler(Exception)
 def handle_exception(e):
+    """
+    Handle exceptions gracefully within the Flask application.
+
+    This function is an error handler for Exception types and takes appropriate action
+    based on the type of exception encountered. It logs the error and returns an HTTP
+    response accordingly. In depug mode it simply reraises the error and allows
+    werkzeuge to handle the error.
+
+
+    Parameters:
+        e (Exception): The exception that triggered this handler.
+
+    Returns:
+        HTTPException or tuple: Depending on the type of exception, this function
+        returns an appropriate HTTPException or a tuple containing a rendered error
+        template and a 500 status code.
+
+    Note:
+        This function should be registered as an error handler in the Flask app
+        using `@app.errorhandler(Exception)`.
+    """
     if app.debug:
         raise e
 
@@ -94,7 +115,7 @@ def clean_up():
             logger.debug("Job will be kept.")
             kept_jobs.append(job_id)
 
-    # Delete directorys locally
+    # Delete directories locally
     logger.info("Clean up directorys locally.")
     for directory in [INPUT_DIR, UPLOAD_DIR, OUTPUT_DIR]:
         for dir_name in os.listdir(directory):
@@ -102,7 +123,7 @@ def clean_up():
             if os.path.isdir(dir_path) and dir_name not in kept_jobs:
                 shutil.rmtree(dir_path)
 
-    # Delete work directorys on cluster
+    # Delete work directories on cluster
     logger.debug("Clean up directorys on cluster.")
     old_jobs = [
         job_id
@@ -227,6 +248,8 @@ def privacy():
 
 @app.route("/clean_up")
 def trigger_clean_up():
+    """Trigger clean up."""
+    # TODO
     clean_up()
     return "<h1>Putzen!</h1>"
 

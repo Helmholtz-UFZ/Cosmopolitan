@@ -1,41 +1,63 @@
-from collections import OrderedDict
-import re
-import math
+"""The main class is CosmopolitanJobForm and handels the input data.
+
+It includes form definitions, input validation, and a class for managing
+geometric areas.
+
+Classes:
+- CosmopolitanJobForm: WTF form for Cosmopolitan input, used for job submissions.
+# Widgets for displaying form fields.
+- BooleanInput: Generate input field for boolean input.
+- DynamicSizeTextInput: Generate input field for Text Input.
+- DynamicSizeNumberInput: Generate input field for Integer Input.
+- OptionalEmail: A custom validator that allows for an empty email field.
+# More complex validation of input files
+- GeomArea: A class representing a geometric area defined by coordinates.
+- InputFileParser: This abstract base class defines the common methods for parsing an
+input file.
+- PredParser: Parses an input file containing predictor data.
+- CrnParser: Parses an input file containing CRN measurements.
+
+This module is an integral part of the Cosmopolitan application and is used to
+manage user inputs, validate data, and define the geometric areas for data
+processing of input files.
+"""
 import csv
-import os
-import shutil
-from datetime import date
 import json
+import math
+import os
+import re
+import shutil
+from collections import OrderedDict
+from datetime import date
 
 from coolname import generate
-
 from flask_wtf import FlaskForm
-from werkzeug.utils import secure_filename
-
 from markupsafe import Markup
+from werkzeug.utils import secure_filename
 from wtforms import (
-    StringField,
-    MultipleFileField,
+    BooleanField,
     HiddenField,
     IntegerField,
-    BooleanField,
+    MultipleFileField,
+    StringField,
 )
-from wtforms.widgets import TextInput, NumberInput, CheckboxInput
 from wtforms.validators import (
-    Email,
     DataRequired,
-    Length,
-    ValidationError,
-    Regexp,
+    Email,
     InputRequired,
+    Length,
     NumberRange,
+    Regexp,
+    ValidationError,
 )
+from wtforms.widgets import CheckboxInput, NumberInput, TextInput
 
+from config import INPUT_DIR, OUTPUT_DIR, UPLOAD_DIR
 from db_manager import DataBaseManager
-from config import INPUT_DIR, UPLOAD_DIR, OUTPUT_DIR
 
 
 def json_load_4_jinja(string):
+    """Wrap json.load to always return a dic, needed for selected input files."""
     if string == "":
         return {}
     return json.loads(string)
@@ -60,6 +82,7 @@ class DynamicSizeTextInput(TextInput):
     size = 10
 
     def __init__(self, *args, **kwargs):
+        """Remove size from kwarsgs before init."""
         if "size" in kwargs:
             self.size = kwargs["size"]
             del kwargs["size"]
@@ -105,9 +128,10 @@ class DynamicSizeNumberInput(NumberInput):
 
 
 class OptionalEmail(Email):
-    """A custom validator that allows for an empty email field or validates the input as an email address."""
+    """A custom validator that allows for an empty email field."""
 
     def __call__(self, form, field):
+        """Only validate with content."""
         if field.data != "":
             super(OptionalEmail, self).__call__(form, field)
 
@@ -293,7 +317,9 @@ class CosmopolitanJobForm(FlaskForm):
                 os.mkdir(self.output_dir)
 
             if not re.match(self.job_id_regex, self.previous_job_id.data):
-                self.logger.warning("Malicious attack manipulation hidden field!", verbose_level=0)
+                self.logger.warning(
+                    "Malicious attack manipulation hidden field!", verbose_level=0
+                )
                 self.logger.warning(
                     f"Content hidden field {self.previous_job_id.data}", verbose_level=0
                 )
@@ -312,7 +338,7 @@ class CosmopolitanJobForm(FlaskForm):
                 os.remove(previous_input_dir)
 
     def validate_area_res(self, field):
-        """Will build make an instance GeomArea for the form to validate the input files."""
+        """Give instance a GeomArea to validate the input files."""
         self.geom_area = GeomArea(
             self.area_x1.data,
             self.area_x2.data,
@@ -347,7 +373,18 @@ class CosmopolitanJobForm(FlaskForm):
         self._validate_selected_input_files(field)
 
     def validate(self, extra_validators=None):
-        """Perform custom validation to ensure that the area variables are well formed."""
+        """
+        Validate the form data and perform custom validation checks.
+
+        Returns:
+            bool: True if the form data is valid; False otherwise.
+
+        This method validates the form data and performs custom validation
+        checks. It checks that the areas (X1, Y1, X2, Y2) are in the correct
+        order, ensures that predictor files and CRN measurement files are
+        selected, and handles file cleanup. Additional validation functions can
+        be provided through the `extra_validators` parameter.
+        """
         if not super().validate():
             if self.upload_dir is not None:
                 shutil.rmtree(self.upload_dir)
@@ -484,9 +521,9 @@ class GeomArea:
 
     This class allows you to define a 2D rectangular area using its bottom-left
     (x1, y1) and top-right (x2, y2) coordinates. The resolution of the area can
-    also be specified. It provides methods to determine if another area covers it
-    completely, if a point is contained within it, and to expand the area to include
-    additional points.
+    also be specified. It provides methods to determine if another area covers
+    it completely, if a point is contained within it, and to expand the area to
+    include additional points.
 
     Attributes:
     - x1, y1: The x and y coordinates of the bottom-left corner of the area.
@@ -494,7 +531,8 @@ class GeomArea:
     - res: The resolution of the area.
 
     Methods:
-    - __init__(x1, x2, y1, y2, res): Initialize a new GeomArea instance with given coordinates and resolution.
+    - __init__(x1, x2, y1, y2, res): Initialize a new GeomArea instance with
+    given coordinates and resolution.
     - cover(other): Check if this area is completely covered by another area.
     - contain(x, y): Check if a given point is inside this area.
     - expand(x, y): Expand the area to include a specified point.
@@ -515,6 +553,7 @@ class GeomArea:
         self.res = res
 
     def __str__(self):
+        """Print nice."""
         return f"x1:{self.x1}, x2:{self.x2}, y1:{self.y1}, y2:{self.y2}"
 
     def covered_by(self, other):
@@ -568,9 +607,12 @@ class GeomArea:
 
 
 class InputFileParser:
+    """This abstract base class defines the common methods for parsing an input file."""
+
     file_information = None
 
     def __init__(self, geom_area):
+        """Set parse_geom_area so that every point added expands area."""
         self.input_geom_area = geom_area
         self.parse_geom_area = GeomArea(
             float("inf"), -float("inf"), float("inf"), -float("inf"), 0
@@ -583,11 +625,13 @@ class InputFileParser:
             coor = float(cell)
         except ValueError:
             raise ValidationError(
-                f"Cell ''{cell}'' is not a decimal number. Row number {row_index} '{','.join(row)}'."
+                f"Cell ''{cell}'' is not a decimal number."
+                f"Row number {row_index} '{','.join(row)}'."
             )
         if coor < min_coordinate or coor >= max_coordinate:
             raise ValidationError(
-                f"Cell '{cell}' needs to be between {min_coordinate} and {max_coordinate}."
+                f"Cell '{cell}' needs to be between {min_coordinate} "
+                f"and {max_coordinate}."
                 f"Row number {row_index} '{','.join(row)}'."
             )
 
@@ -606,6 +650,7 @@ class InputFileParser:
         raise NotImplementedError
 
     def parse(self, file_path, out_file_path):
+        """Parse the input file and write valid rows to the output file."""
         with open(file_path, "r") as in_file, open(out_file_path, "w") as out_file:
             # Guess the delimiter
             sniffer = csv.Sniffer()
@@ -634,6 +679,24 @@ class InputFileParser:
 
 
 class PredParser(InputFileParser):
+    """
+    Parses an input file containing predictor data.
+
+    This class extends InputFileParser and provides specific functionality for
+    validation of predictor data. At the end, a global check is performed so
+    that the predictor file must cover the input GeomArea completely, including
+    a margin.
+
+    Methods:
+        parse(file_path, out_file_path):
+            Parses the input file and writes valid predictor data to
+            the output file.
+
+    Attributes:
+        file_information (dict):
+            Information about the file contents (type and unit).
+    """
+
     file_information = {"type": "", "unit": ""}
 
     def _check_first_line(self, comments):
@@ -658,7 +721,8 @@ class PredParser(InputFileParser):
         row_length = 3
         if len(row) != row_length:
             raise ValidationError(
-                f"Row number {row_index} '{','.join(row)}' has not correct number of columns {row_length}."
+                f"Row number {row_index} '{','.join(row)}' has not correct number "
+                f"of columns {row_length}."
             )
 
     def _check_predictor(self, cell, row, row_index):
@@ -666,7 +730,8 @@ class PredParser(InputFileParser):
             predictor = float(cell)
         except ValueError:
             raise ValidationError(
-                f"Cell '{cell}' is not a decimal number. Row number {row_index} '{','.join(row)}'."
+                f"Cell '{cell}' is not a decimal number. "
+                f"Row number {row_index} '{','.join(row)}'."
             )
 
         return predictor
@@ -692,6 +757,24 @@ class PredParser(InputFileParser):
 
 
 class CrnParser(InputFileParser):
+    """
+    Parses an input file containing CRN measurements.
+
+    This class extends InputFileParser and provides specific functionality for
+    CRN measurements validation.
+
+    Attributes:
+        days (set):
+            Set of unique days in the input file.
+        data_points (int):
+            Number of valid data points in the user-defined area.
+
+    Methods:
+        parse(file_path, out_file_path):
+            Parses the input file and writes valid CRN measurements to
+            the output file.
+    """
+
     days = set()
     data_points = 0
 
@@ -716,7 +799,8 @@ class CrnParser(InputFileParser):
         row_length = 6
         if len(row) != row_length:
             raise ValidationError(
-                f"Row number {row_index} '{','.join(row)}' has not correct number of columns {row_length}."
+                f"Row number {row_index} '{','.join(row)}' has not correct number "
+                f"of columns {row_length}."
             )
 
     def _check_soil_moisture(self, cell, row, row_index, negativ):
@@ -731,11 +815,13 @@ class CrnParser(InputFileParser):
             soil_moisture = float(cell)
         except ValueError:
             raise ValidationError(
-                f"Cell '{cell}' is not a decimal number. Row number {row_index} '{','.join(row)}'."
+                f"Cell '{cell}' is not a decimal number. "
+                f"Row number {row_index} '{','.join(row)}'."
             )
         if soil_moisture < min_soil_moisture or soil_moisture >= max_soil_moisture:
             raise ValidationError(
-                f"Cell '{cell}' needs to be between {min_soil_moisture} and {max_soil_moisture}. "
+                f"Cell '{cell}' needs to be between {min_soil_moisture} and"
+                f"{max_soil_moisture}. "
                 f"Row number {row_index} '{','.join(row)}'."
             )
 
@@ -748,9 +834,7 @@ class CrnParser(InputFileParser):
                 f"Row number {row_index} '{','.join(row)}'."
             )
         try:
-            day = date(
-                int(row[2][0:4]), int(row[2][4:6]), int(row[2][6:8])
-            )
+            day = date(int(row[2][0:4]), int(row[2][4:6]), int(row[2][6:8]))
         except ValueError:
             raise ValidationError(
                 f"Cell '{row[2]}' is not a day in the format like:'20220323'.<br>"
@@ -778,6 +862,4 @@ class CrnParser(InputFileParser):
 
     def _check_validty_area(self):
         if self.data_points == 0:
-            raise ValidationError(
-                "No CRN measurments are in the user defined area!"
-            )
+            raise ValidationError("No CRN measurments are in the user defined area!")

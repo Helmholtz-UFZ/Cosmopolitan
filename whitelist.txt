@@ -20,6 +20,7 @@ urandom
 pred
 
 negativ
+validty
 validt
 validator
 validators
@@ -40,6 +41,7 @@ substring
 centroid
 tmp
 csv
+levelname
 
 sessionmaker
 sqlalchemy
@@ -70,3 +72,4 @@ markupsafe
 globals
 starttls
 sendmail
+errorhandler

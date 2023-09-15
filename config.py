@@ -1,8 +1,9 @@
-import os
+"""This module defines variables, dir structure and includes widely used functions."""
+
 import json
+import os
 import subprocess
 from time import sleep
-
 
 DEV_MODE = True
 # 0 means silence, 3 is highest level of verbosity

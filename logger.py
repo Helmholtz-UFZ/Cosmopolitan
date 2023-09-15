@@ -1,27 +1,40 @@
-from datetime import datetime
+"""
+This module defines a logging system for recording application events in a database.
+
+It includes the following components:
+
+1. `Logs` class: Represents a log entry in the database.
+
+2. `SQLAlchemyHandler` class: A custom logging handler that stores log entries in a
+   SQLAlchemy database.
+
+3. `get_logger` function: Retrieves a logger instance for logging application events.
+     - `debug` (bool): Set to True to enable debugging mode (logs to console), False to
+       log to a database and send errors via email.
+
+Note: Configure the database connection and email settings in 'config.py' for proper
+functionality.
+"""
+
+
 import logging
+from datetime import datetime
 from logging.config import dictConfig
 
-from sqlalchemy import (
-    create_engine,
-    Column,
-    String,
-    Integer,
-    DateTime,
-)
+from sqlalchemy import Column, DateTime, Integer, String, create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from config import (
-    DB_NAME,
     DB_HOST_NAME,
+    DB_NAME,
     DB_PORT,
-    DB_USER,
     DB_PW,
-    SMTP_SERVER,
-    SMTP_PORT,
-    SMTP_USERNAME,
-    SMTP_PASSWORD,
+    DB_USER,
     SENDER_EMAIL,
+    SMTP_PASSWORD,
+    SMTP_PORT,
+    SMTP_SERVER,
+    SMTP_USERNAME,
 )
 
 Base = declarative_base()
@@ -83,6 +96,15 @@ class SQLAlchemyHandler(logging.Handler):
 
 
 def get_logger(debug):
+    """
+    Get a logger instance for logging application events.
+
+    Set debug to True to enable debugging mode, which logs to console; False to
+    log to a database and sends error to email.
+
+    Returns:
+        logging.Logger: A logger instance configured based on the input.
+    """
     database_url = (
         f"postgresql+psycopg2://{ DB_USER }:{ DB_PW }@"
         f"{ DB_HOST_NAME }:{ DB_PORT }/{ DB_NAME }"
@@ -128,9 +150,9 @@ def get_logger(debug):
     }
 
     if debug:
-        logging_config["root"]["handlers"] = ["wsgi", "mail_handler"]
+        logging_config["root"]["handlers"] = ["wsgi"]
     else:
-        logging_config["root"]["handlers"] = ["sqlalchemy"]
+        logging_config["root"]["handlers"] = ["sqlalchemy", "mail_handler"]
 
     dictConfig(logging_config)
     return logging.getLogger()
