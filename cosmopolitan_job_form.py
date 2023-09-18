@@ -17,9 +17,9 @@ input file.
 - PredParser: Parses an input file containing predictor data.
 - CrnParser: Parses an input file containing CRN measurements.
 
-This module is an integral part of the Cosmopolitan application and is used to
-manage user inputs, validate data, and define the geometric areas for data
-processing of input files.
+This module is an integral part of the Cosmopolitan application and is used to manage
+user inputs, validate data, and define the geometric areas for data processing of input
+files.
 """
 import csv
 import json
@@ -52,7 +52,7 @@ from wtforms.validators import (
 )
 from wtforms.widgets import CheckboxInput, NumberInput, TextInput
 
-from config import INPUT_DIR, OUTPUT_DIR, UPLOAD_DIR
+from config import WEB_INPUT_DIR, WEB_OUTPUT_DIR, WEB_UPLOAD_DIR
 from db_manager import DataBaseManager
 
 
@@ -298,18 +298,18 @@ class CosmopolitanJobForm(FlaskForm):
             raise ValidationError("Job id already exist")
 
         if len(field.errors) == 0:
-            self.input_dir = os.path.join(INPUT_DIR, self.job_id.data)
+            self.input_dir = os.path.join(WEB_INPUT_DIR, self.job_id.data)
             if not os.path.isdir(self.input_dir):
                 os.mkdir(self.input_dir)
 
-            self.upload_dir = os.path.join(UPLOAD_DIR, self.job_id.data)
+            self.upload_dir = os.path.join(WEB_UPLOAD_DIR, self.job_id.data)
             if not os.path.isdir(self.upload_dir):
                 os.mkdir(self.upload_dir)
             else:
                 shutil.rmtree(self.upload_dir)
                 os.mkdir(self.upload_dir)
 
-            self.output_dir = os.path.join(OUTPUT_DIR, self.job_id.data)
+            self.output_dir = os.path.join(WEB_OUTPUT_DIR, self.job_id.data)
             if not os.path.isdir(self.output_dir):
                 os.mkdir(self.output_dir)
             else:
@@ -325,7 +325,7 @@ class CosmopolitanJobForm(FlaskForm):
                 )
                 raise ValidationError("Use normal input field to set job id.")
 
-            previous_input_dir = os.path.join(INPUT_DIR, self.previous_job_id.data)
+            previous_input_dir = os.path.join(WEB_INPUT_DIR, self.previous_job_id.data)
 
             if self.job_id.data != self.previous_job_id.data and os.path.isdir(
                 previous_input_dir

@@ -30,11 +30,11 @@ from config import (
     DB_PORT,
     DB_PW,
     DB_USER,
-    SENDER_EMAIL,
-    SMTP_PASSWORD,
-    SMTP_PORT,
-    SMTP_SERVER,
-    SMTP_USERNAME,
+    EMAIL_PASSWORD,
+    EMAIL_PORT,
+    EMAIL_SENDER,
+    EMAIL_SERVER,
+    EMAIL_USERNAME,
 )
 
 Base = declarative_base()
@@ -134,9 +134,9 @@ def get_logger(debug):
             "mail_handler": {
                 "class": "logging.handlers.SMTPHandler",
                 "level": "ERROR",
-                "mailhost": (SMTP_SERVER, SMTP_PORT),
-                "fromaddr": SENDER_EMAIL,
-                "credentials": (SMTP_USERNAME, SMTP_PASSWORD),
+                "mailhost": (EMAIL_SERVER, EMAIL_PORT),
+                "fromaddr": EMAIL_SENDER,
+                "credentials": (EMAIL_USERNAME, EMAIL_PASSWORD),
                 "toaddrs": ["john-eric.anders@ufz.de"],
                 "subject": "Application Error",
                 "secure": (),

@@ -1,7 +1,0 @@
-{
-    smtp_server: "",
-    smtp_port: "",
-    smtp_username: "",
-    smtp_password: "",
-    sender_email: ""
-}

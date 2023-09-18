@@ -1,48 +1,24 @@
 """This module defines variables, dir structure and includes widely used functions."""
 
-import json
 import os
 import subprocess
 from time import sleep
 
-DEV_MODE = True
-# 0 means silence, 3 is highest level of verbosity
-VERBOSE_LEVEL = 3
+from dotenv import load_dotenv
 
-WORK_DIR = "./"
-# Directory where files are first uploaded and then checked
-UPLOAD_DIR = os.path.join(WORK_DIR, "upload")
-# The directory for the input files that have been validated.
-INPUT_DIR = os.path.join(WORK_DIR, "input")
-# The directory for the result files.
-OUTPUT_DIR = os.path.join(WORK_DIR, "output")
 
-with open("./parameters_email_local.json", "r", encoding="UTF-8") as f_handle:
-    PARAMETERS_EMAIL = json.load(f_handle)
+def getenv(name):
+    """
+    Retrieve the value of an environment variable.
 
-SMTP_SERVER = PARAMETERS_EMAIL["smtp_server"]
-SMTP_PORT = PARAMETERS_EMAIL["smtp_port"]
-SMTP_USERNAME = PARAMETERS_EMAIL["smtp_username"]
-SMTP_PASSWORD = PARAMETERS_EMAIL["smtp_password"]
-SENDER_EMAIL = PARAMETERS_EMAIL["sender_email"]
-
-with open("./parameters_db_local.json", "r", encoding="UTF-8") as f_handle:
-    PARAMETERS_DB = json.load(f_handle)
-
-DB_NAME = PARAMETERS_DB["db_name"]
-DB_HOST_NAME = PARAMETERS_DB["db_host_name"]
-DB_PORT = PARAMETERS_DB["db_port"]
-DB_USER = PARAMETERS_DB["db_user"]
-DB_PW = PARAMETERS_DB["db_pw"]
-
-with open("./parameters_cluster_local.json", "r", encoding="UTF-8") as f_handle:
-    PARAMETERS_CLUSTER = json.load(f_handle)
-
-WORK_DIR_CLUSTER = PARAMETERS_CLUSTER["work_dir"]
-PYTHON_ENV_PATH_CLUSTER = PARAMETERS_CLUSTER["python_env_path"]
-REPO_DIR_CLUSTER = PARAMETERS_CLUSTER["repo_dir"]
-USER_CLUSTER = PARAMETERS_CLUSTER["user"]
-MACHINE_CLUSTER = PARAMETERS_CLUSTER["machine"]
+    This function is a wrapper around the `os.getenv` function and provides additional
+    error handling by raising a `ValueError` if the requested environment variable is
+    not set.
+    """
+    value = os.getenv(name)
+    if value is None:
+        raise ValueError(f"Enviroment variable {name} not set.")
+    return value
 
 
 class SshError(Exception):
@@ -87,3 +63,33 @@ def ssh_call(call_str):
             raise SshError(error_str)
 
     return completed_process.stdout.decode("UTF8")
+
+
+DEV_MODE = True
+
+load_dotenv()
+
+try:
+    # s/=.*//g |'<,'> s/^.*$/& = getenv("&")/g | noh
+    WEB_UPLOAD_DIR = getenv("WEB_UPLOAD_DIR")
+    WEB_INPUT_DIR = getenv("WEB_INPUT_DIR")
+    WEB_OUTPUT_DIR = getenv("WEB_OUTPUT_DIR")
+    EMAIL_SERVER = getenv("EMAIL_SERVER")
+    EMAIL_PORT = getenv("EMAIL_PORT")
+    EMAIL_USERNAME = getenv("EMAIL_USERNAME")
+    EMAIL_PASSWORD = getenv("EMAIL_PASSWORD")
+    EMAIL_SENDER = getenv("EMAIL_SENDER")
+    CLUSTER_WORK_DIR = getenv("CLUSTER_WORK_DIR")
+    CLUSTER_PYTHON_ENV_PATH = getenv("CLUSTER_PYTHON_ENV_PATH")
+    CLUSTER_REPO_DIR = getenv("CLUSTER_REPO_DIR")
+    CLUSTER_USER = getenv("CLUSTER_USER")
+    CLUSTER_MACHINE = getenv("CLUSTER_MACHINE")
+    DB_NAME = getenv("DB_NAME")
+    DB_HOST_NAME = getenv("DB_HOST_NAME")
+    DB_PORT = getenv("DB_PORT")
+    DB_USER = getenv("DB_USER")
+    DB_PW = getenv("DB_PW")
+except ValueError as error:
+    print("Can not start flask")
+    print(error)
+    exit(1)

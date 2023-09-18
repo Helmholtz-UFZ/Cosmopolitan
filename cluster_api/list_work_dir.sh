@@ -2,12 +2,6 @@
 
 set -e
 
-load_param() {
-    python3 -c "import config; print(config.$1)"
-}
+source .env
 
-user=$(load_param "USER_CLUSTER")
-machine=$(load_param "MACHINE_CLUSTER")
-work_dir=$(load_param "WORK_DIR_CLUSTER")
-
-ssh -qT "$user"@"$machine" "ls $work_dir"
+ssh -qT "$CLUSTER_USER"@"$CLUSTER_MACHINE" "ls $CLUSTER_WORK_DIR"

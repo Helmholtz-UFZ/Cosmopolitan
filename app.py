@@ -20,14 +20,14 @@ from flask_wtf.csrf import CSRFProtect
 from werkzeug.exceptions import HTTPException, NotFound
 
 from config import (
-    INPUT_DIR,
-    OUTPUT_DIR,
-    SENDER_EMAIL,
-    SMTP_PASSWORD,
-    SMTP_PORT,
-    SMTP_SERVER,
-    SMTP_USERNAME,
-    UPLOAD_DIR,
+    EMAIL_PASSWORD,
+    EMAIL_PORT,
+    EMAIL_SENDER,
+    EMAIL_SERVER,
+    EMAIL_USERNAME,
+    WEB_INPUT_DIR,
+    WEB_OUTPUT_DIR,
+    WEB_UPLOAD_DIR,
     ssh_call,
 )
 from cosmopolitan_job import CosmopolitanJob
@@ -117,7 +117,7 @@ def clean_up():
 
     # Delete directories locally
     logger.info("Clean up directorys locally.")
-    for directory in [INPUT_DIR, UPLOAD_DIR, OUTPUT_DIR]:
+    for directory in [WEB_INPUT_DIR, WEB_UPLOAD_DIR, WEB_OUTPUT_DIR]:
         for dir_name in os.listdir(directory):
             dir_path = os.path.join(directory, dir_name)
             if os.path.isdir(dir_path) and dir_name not in kept_jobs:
@@ -138,17 +138,17 @@ def clean_up():
 def send_mail(recipient, subject, content):
     """Send an email using the provided details."""
     msg = MIMEMultipart()
-    msg["From"] = SENDER_EMAIL
+    msg["From"] = EMAIL_SENDER
     msg["To"] = recipient
     msg["Subject"] = subject
 
     body = content
     msg.attach(MIMEText(body, "plain"))
 
-    server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+    server = smtplib.SMTP(EMAIL_SERVER, EMAIL_PORT)
     server.starttls()
-    server.login(SMTP_USERNAME, SMTP_PASSWORD)
-    server.sendmail(SENDER_EMAIL, recipient, msg.as_string())
+    server.login(EMAIL_USERNAME, EMAIL_PASSWORD)
+    server.sendmail(EMAIL_SENDER, recipient, msg.as_string())
     server.quit()
 
 
@@ -259,7 +259,7 @@ def result_file(job_id, file_name):
     """Serve result files."""
     logger.info(f"Visiting /results/{job_id}/{file_name} to result_file()")
     try:
-        output_dir = os.path.join(OUTPUT_DIR, job_id)
+        output_dir = os.path.join(WEB_OUTPUT_DIR, job_id)
         return send_from_directory(output_dir, file_name)
     except NotFound:
         return render_template("html/errors/file_not_found.html")
