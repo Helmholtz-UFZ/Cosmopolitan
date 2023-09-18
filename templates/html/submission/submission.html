@@ -16,7 +16,7 @@
 		</button>
 		<div class="collapse mt-3" id="expandableContent">
 			<div class="card card-body">
-				<p>{{ job.logs | replace("\n", "</p><p>") | safe}}</p>
+				<p class="m-0">{{ job.logs | replace("\n", "</p><p class=\"m-0\">") | safe}}</p>
 			</div>
 		</div>
 	</div>

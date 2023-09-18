@@ -505,9 +505,10 @@ class CosmopolitanJobForm(FlaskForm):
                 "pred_correlation": False,
                 "day_measurements": False,
                 "day_feature_imp": False,
-                "day_prediction_map": True,
-                "alldays_feature_imp": True,
+                "day_prediction_map": False,
+                "alldays_feature_imp": False,
             },
+            "save_results": True,
         }
         with open(
             os.path.join(self.input_dir, "parameters.json"), "w", encoding="UTF-8"
