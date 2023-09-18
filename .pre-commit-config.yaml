@@ -1,0 +1,35 @@
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.3.0
+    hooks:
+    -   id: check-yaml
+        files: '\.py$'  # Run on Python files in all directories
+    -   id: end-of-file-fixer
+        files: '\.py$'
+    -   id: trailing-whitespace
+        files: '\.py$'
+-   repo: https://github.com/pycqa/isort
+    rev: 5.12.0
+    hooks:
+    -   id: isort
+        args: ["--profile", "black"]
+        name: isort (python)
+        files: '\.py$'
+-   repo: https://github.com/psf/black
+    rev: 22.10.0
+    hooks:
+    -   id: black
+        files: '\.py$'
+-   repo: https://github.com/PyCQA/flake8
+    rev: 6.1.0
+    hooks:
+    -   id: flake8
+        args: ['--max-line-length', '88']
+        additional_dependencies: [
+            'flake8-blind-except',
+            'flake8-docstrings',
+            'flake8-comprehensions',
+            'flake8-docstrings',
+            'flake8-implicit-str-concat',
+        ]
+        files: '\.py$'

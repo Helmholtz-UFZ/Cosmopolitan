@@ -11,10 +11,11 @@ Classes:
 """
 
 import datetime
-from sqlalchemy import create_engine, Column, Date, String, JSON, Boolean, Float
-from sqlalchemy.orm import sessionmaker, declarative_base
 
-from config import DB_NAME, DB_HOST_NAME, DB_PORT, DB_USER, DB_PW
+from sqlalchemy import JSON, Boolean, Column, Date, Float, String, create_engine
+from sqlalchemy.orm import declarative_base, sessionmaker
+
+from config import DB_HOST_NAME, DB_NAME, DB_PORT, DB_PW, DB_USER
 
 Base = declarative_base()
 
@@ -141,7 +142,7 @@ class DataBaseManager:
                 raise JobNotFound(f"Job with ID '{job_id}' not found")
 
     def list_jobs(self):
-        """List all jobs in the database with their submission date and submission status.
+        """List all jobs in the database with their submission date and status.
 
         This method retrieves all job entries from the 'jobs' table in the
         database and returns a dictionary where the keys are 'job_id', and the

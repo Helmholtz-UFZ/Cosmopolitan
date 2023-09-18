@@ -1,6 +1,7 @@
-import datetime
-import os
+"""This module defines variables, dir structure and includes widely used functions."""
+
 import json
+import os
 import subprocess
 from time import sleep
 
@@ -44,26 +45,6 @@ USER_CLUSTER = PARAMETERS_CLUSTER["user"]
 MACHINE_CLUSTER = PARAMETERS_CLUSTER["machine"]
 
 
-def check_verbose_level(verbose_level):
-    """Check if verbose level is in correct form."""
-    if not isinstance(verbose_level, int):
-        raise ValueError("verbose level must be an integer")
-    if 0 > verbose_level > 3:
-        raise ValueError("verbose level must be between 0 and 3")
-
-
-def vprint(msg, verbose_level=0):
-    """Print to verbose."""
-    check_verbose_level(verbose_level)
-    msg = datetime.datetime.today().strftime("[%d/%b/%Y %H:%M:%S] - - ") + str(msg)
-    if verbose_level <= VERBOSE_LEVEL:
-        if DEV_MODE:
-            print(msg)
-        else:
-            # TODO Logging
-            raise NotImplementedError
-
-
 class SshError(Exception):
     """Raised if ssh call repetidly failed."""
 
@@ -81,7 +62,9 @@ def ssh_call(call_str):
     """
     ssh_dir = "cluster_api"
     if not os.path.isdir(ssh_dir):
-        raise FileNotFoundError(f"Directory for ssh-scripts { ssh_dir } is not available")
+        raise FileNotFoundError(
+            f"Directory for ssh-scripts { ssh_dir } is not available"
+        )
     call_str = os.path.join(ssh_dir, call_str)
 
     for i in range(1, 4):
