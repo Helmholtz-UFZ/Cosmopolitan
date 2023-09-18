@@ -28,8 +28,8 @@ class InvalidJobID(Exception):
 class CosmopolitanJob:
     """This class represents a job submission by the user.
 
-    It handles input from a Flask application, performs input integrity checks,
-    submits jobs to a cluster, and formats the output for the user.
+    It handles input from a Flask application, performs input integrity checks, submits
+    jobs to a cluster, and formats the output for the user.
     """
 
     # Logger passed by app
@@ -175,6 +175,7 @@ class CosmopolitanJob:
         self.submitted = True
         self.cluster_job_id = out.split()[-1]
         self.status = "PENDING"
+        self.logs = ""
         self.save()
 
     def check_status(self):
