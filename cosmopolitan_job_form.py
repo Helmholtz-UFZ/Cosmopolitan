@@ -52,7 +52,7 @@ from wtforms.validators import (
 )
 from wtforms.widgets import CheckboxInput, NumberInput, TextInput
 
-from config import WEB_INPUT_DIR, WEB_OUTPUT_DIR, WEB_UPLOAD_DIR
+from config import WEB_INPUT_DIR, WEB_UPLOAD_DIR
 from db_manager import DataBaseManager
 
 
@@ -308,13 +308,6 @@ class CosmopolitanJobForm(FlaskForm):
             else:
                 shutil.rmtree(self.upload_dir)
                 os.mkdir(self.upload_dir)
-
-            self.output_dir = os.path.join(WEB_OUTPUT_DIR, self.job_id.data)
-            if not os.path.isdir(self.output_dir):
-                os.mkdir(self.output_dir)
-            else:
-                shutil.rmtree(self.output_dir)
-                os.mkdir(self.output_dir)
 
             if not re.match(self.job_id_regex, self.previous_job_id.data):
                 self.logger.warning(

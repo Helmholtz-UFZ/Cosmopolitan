@@ -29,7 +29,7 @@
 	<h4>Soil moisture prediction per day</h4>
 	{% for crn_file, days in job.input_data["selected_crn_files"].items() %}
 	{% for day in days %}
-	<img src="{{ url_for('result_file', job_id=job.job_id, file_name='RF_prediction_' + day + '.svg') }}" alt="soi moisture at {{ day }}">
+	<img src="{{ url_for('result_file', job_id=job.job_id, file_name='RF_prediction_' + day + '.svg') }}" alt="soil moisture at {{ day }}">
 	{% endfor %}
 	{% endfor %}
 </div>

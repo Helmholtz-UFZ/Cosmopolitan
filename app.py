@@ -26,7 +26,6 @@ from config import (
     EMAIL_SERVER,
     EMAIL_USERNAME,
     WEB_INPUT_DIR,
-    WEB_OUTPUT_DIR,
     WEB_UPLOAD_DIR,
     ssh_call,
 )
@@ -117,7 +116,7 @@ def clean_up():
 
     # Delete directories locally
     logger.info("Clean up directorys locally.")
-    for directory in [WEB_INPUT_DIR, WEB_UPLOAD_DIR, WEB_OUTPUT_DIR]:
+    for directory in [WEB_INPUT_DIR, WEB_UPLOAD_DIR]:
         for dir_name in os.listdir(directory):
             dir_path = os.path.join(directory, dir_name)
             if os.path.isdir(dir_path) and dir_name not in kept_jobs:
@@ -259,7 +258,7 @@ def result_file(job_id, file_name):
     """Serve result files."""
     logger.info(f"Visiting /results/{job_id}/{file_name} to result_file()")
     try:
-        output_dir = os.path.join(WEB_OUTPUT_DIR, job_id)
+        output_dir = os.path.join(WEB_INPUT_DIR, job_id)
         return send_from_directory(output_dir, file_name)
     except NotFound:
         return render_template("html/errors/file_not_found.html")

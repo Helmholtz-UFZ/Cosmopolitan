@@ -73,7 +73,6 @@ try:
     # s/=.*//g |'<,'> s/^.*$/& = getenv("&")/g | noh
     WEB_UPLOAD_DIR = getenv("WEB_UPLOAD_DIR")
     WEB_INPUT_DIR = getenv("WEB_INPUT_DIR")
-    WEB_OUTPUT_DIR = getenv("WEB_OUTPUT_DIR")
     EMAIL_SERVER = getenv("EMAIL_SERVER")
     EMAIL_PORT = getenv("EMAIL_PORT")
     EMAIL_USERNAME = getenv("EMAIL_USERNAME")
