@@ -16,7 +16,8 @@ from flask import (
     send_from_directory,
     url_for,
 )
-from flask_wtf.csrf import CSRFProtect
+
+# from flask_wtf.csrf import CSRFProtect
 from werkzeug.exceptions import HTTPException, NotFound
 
 from config import (
@@ -36,15 +37,22 @@ from logger import get_logger
 
 app = Flask(__name__)
 
-csrf = CSRFProtect(app)
+# TODO Dash
+# csrf = CSRFProtect(app)
 
 # CSRF key
 app.config["SECRET_KEY"] = os.urandom(32)
+
 app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024 * 1024  # 5 Gb limit
 
 app.jinja_env.globals.update(json_loads=json_load_4_jinja)
 
 logger = get_logger(app.debug)
+
+with app.app_context():
+    import cosmopolitan_job_output_presentation
+
+    app = cosmopolitan_job_output_presentation.init_dash(app)
 
 
 @app.errorhandler(Exception)
@@ -165,7 +173,6 @@ def send_submission_mail(job):
 @app.route("/")
 def hello_geek():
     """Hello world."""
-    raise ValueError
     return "<h1>Hello from Flask & Docker</h1>"
 
 
@@ -265,4 +272,5 @@ def result_file(job_id, file_name):
 
 
 if __name__ == "__main__":
-    app.run()
+    app.run(host="0.0.0.0", debug=True, port=8080)
+    # app.run()

@@ -65,8 +65,6 @@ def ssh_call(call_str):
     return completed_process.stdout.decode("UTF8")
 
 
-DEV_MODE = True
-
 load_dotenv()
 
 try:

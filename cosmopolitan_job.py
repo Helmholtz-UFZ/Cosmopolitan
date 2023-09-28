@@ -6,7 +6,6 @@ from datetime import date
 
 from config import ssh_call
 from cosmopolitan_job_form import CosmopolitanJobForm
-from cosmopolitan_job_output_presentation import CosmopolitanJobOutputPresentation
 from db_manager import DataBaseManager, JobTable
 
 
@@ -36,7 +35,6 @@ class CosmopolitanJob:
     logger = None
 
     form = None
-    output_presentation = None
     job_id = None
     start_date = None
     input_data = None
@@ -70,7 +68,6 @@ class CosmopolitanJob:
         else:
             self.logger.debug("Make blank job")
             self._blank_job()
-        self.output_presentation = CosmopolitanJobOutputPresentation()
 
     def __str__(self):
         """Represent class as string."""
