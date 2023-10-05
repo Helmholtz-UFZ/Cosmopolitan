@@ -21,9 +21,6 @@ import logging
 from datetime import datetime
 from logging.config import dictConfig
 
-from sqlalchemy import Column, DateTime, Integer, String, create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
-
 from config import (
     DB_HOST_NAME,
     DB_NAME,
@@ -36,6 +33,8 @@ from config import (
     EMAIL_SERVER,
     EMAIL_USERNAME,
 )
+from sqlalchemy import Column, DateTime, Integer, String, create_engine
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 Base = declarative_base()
 
@@ -95,6 +94,16 @@ class SQLAlchemyHandler(logging.Handler):
             session.commit()
 
 
+class ExcludeDebugMatplotLibFilter(logging.Filter):
+    """Exclude debug logs from font manager."""
+
+    def filter(self, record):
+        """Filter."""
+        return not (
+            record.name.startswith("matplotlib") and record.levelno == logging.DEBUG
+        )
+
+
 def get_logger(debug):
     """
     Get a logger instance for logging application events.
@@ -125,11 +134,13 @@ def get_logger(debug):
                 "db_url": database_url,
                 "level": "INFO",
                 "formatter": "default",
+                "filters": ["exclude_debug_matplotlib"],
             },
             "wsgi": {
                 "class": "logging.StreamHandler",
                 "stream": "ext://flask.logging.wsgi_errors_stream",
                 "formatter": "default",
+                "filters": ["exclude_debug_matplotlib"],
             },
             "mail_handler": {
                 "class": "logging.handlers.SMTPHandler",
@@ -141,12 +152,15 @@ def get_logger(debug):
                 "subject": "Application Error",
                 "secure": (),
                 "formatter": "default",
+                "filters": ["exclude_debug_matplotlib"],
             },
         },
         "root": {
             "handlers": [],
             "level": "DEBUG",
+            "filters": ["exclude_debug_matplotlib"],
         },
+        "filters": {"exclude_debug_matplotlib": {"()": ExcludeDebugMatplotLibFilter}},
     }
 
     if debug:

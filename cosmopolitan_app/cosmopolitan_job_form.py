@@ -30,7 +30,9 @@ import shutil
 from collections import OrderedDict
 from datetime import date
 
+from config import WEB_INPUT_DIR, WEB_UPLOAD_DIR
 from coolname import generate
+from db_manager import DataBaseManager
 from flask_wtf import FlaskForm
 from markupsafe import Markup
 from werkzeug.utils import secure_filename
@@ -51,9 +53,6 @@ from wtforms.validators import (
     ValidationError,
 )
 from wtforms.widgets import CheckboxInput, NumberInput, TextInput
-
-from config import WEB_INPUT_DIR, WEB_UPLOAD_DIR
-from db_manager import DataBaseManager
 
 
 def json_load_4_jinja(string):

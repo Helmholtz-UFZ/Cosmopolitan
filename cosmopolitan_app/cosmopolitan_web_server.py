@@ -20,7 +20,7 @@ from flask import (
 # from flask_wtf.csrf import CSRFProtect
 from werkzeug.exceptions import HTTPException, NotFound
 
-from config import (
+from cosmopolitan_app.config import (
     EMAIL_PASSWORD,
     EMAIL_PORT,
     EMAIL_SENDER,
@@ -30,10 +30,14 @@ from config import (
     WEB_UPLOAD_DIR,
     ssh_call,
 )
-from cosmopolitan_job import CosmopolitanJob
-from cosmopolitan_job_form import CosmopolitanJobForm, json_load_4_jinja
-from db_manager import DataBaseManager, JobNotFound
-from logger import get_logger
+from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
+from cosmopolitan_app.cosmopolitan_job_form import (
+    CosmopolitanJobForm,
+    json_load_4_jinja,
+)
+from cosmopolitan_app.dash_component.dash_component import init_dash
+from cosmopolitan_app.db_manager import DataBaseManager, JobNotFound
+from cosmopolitan_app.logger import get_logger
 
 app = Flask(__name__)
 
@@ -50,9 +54,9 @@ app.jinja_env.globals.update(json_loads=json_load_4_jinja)
 logger = get_logger(app.debug)
 
 with app.app_context():
-    import cosmopolitan_job_output_presentation
+    from cosmopolitan_app.dash_component import dynamic_plots
 
-    app = cosmopolitan_job_output_presentation.init_dash(app)
+    app = init_dash(app, dynamic_plots.globals_module(), dynamic_plots.app_layout)
 
 
 @app.errorhandler(Exception)
@@ -78,6 +82,10 @@ def handle_exception(e):
         This function should be registered as an error handler in the Flask app
         using `@app.errorhandler(Exception)`.
     """
+    print(repr(e))
+    if isinstance(e, TypeError):
+        print("A")
+        return render_template("html/errors/job_not_found_error.html", job_id="a"), 500
     if app.debug:
         raise e
 
