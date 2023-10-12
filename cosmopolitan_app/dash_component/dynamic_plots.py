@@ -1,13 +1,12 @@
 """Dash app that presents results."""
 
-import json
-import os
 from collections import OrderedDict
+from functools import lru_cache
+from time import time
 
 import dash_bootstrap_components as dbc
-from dash import MATCH, Dash, Input, Output, State, dcc, html
-
-# from flask import current_app as app
+from dash import MATCH, Input, Output, State, ctx, dcc, html
+from flask import current_app as app
 from plot_functions import (
     plot_measurements,
     plot_predictor_importance,
@@ -18,10 +17,14 @@ from plot_functions import (
 )
 from RFoPrediction import RFoPrediction
 
-from cosmopolitan_app.config import WEB_INPUT_DIR
-from cosmopolitan_app.dash_component.dash_component import Callback, init_callbacks
-
-# TODO rfo_prediction variable cachen
+from cosmopolitan_app.config import DEBUG
+from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob, InvalidJobID
+from cosmopolitan_app.dash_component.dash_component import (
+    Callback,
+    list_callbacks,
+    stand_alone,
+)
+from cosmopolitan_app.db_manager import JobNotFound
 
 
 def globals_module():
@@ -29,15 +32,23 @@ def globals_module():
     return globals()
 
 
-def load_rfo_prediction(job_id):
+def get_ttl_hash(seconds=3600):
+    """Return the same value withing `seconds` time period."""
+    return round(time() / seconds)
+
+
+@lru_cache()
+def load_rfo_prediction(job_id, ttl_hash=None):
     """Load job model for plotting."""
-    # TODO API
-    working_dir = os.path.join(WEB_INPUT_DIR, job_id)
-
-    with open(os.path.join(working_dir, "parameters.json"), "r") as f_handle:
-        input_data = json.loads(f_handle.read())
-
-    return RFoPrediction(input_data, working_dir, load_results=True)
+    del ttl_hash
+    app.logger.debug(f"Load rfo prediction for {job_id}.")
+    cosmopolitan_job = CosmopolitanJob(job_id=str(job_id))
+    (
+        input_data,
+        working_dir,
+        load_results,
+    ) = cosmopolitan_job.get_paratameters_rfo_prediction()
+    return RFoPrediction(input_data, working_dir, load_results=True, verbose=DEBUG)
 
 
 def create_slider(plot_id, rfo_prediction):
@@ -84,33 +95,33 @@ def create_content(plot_id, rfo_prediction, header, slider, plot_function):
     return html.Div(element_list)
 
 
-PLOT_PARAMETER = OrderedDict()
-PLOT_PARAMETER["sm-pred"] = [
+plot_parameter = OrderedDict()
+plot_parameter["sm-pred"] = [
     "Soil Moisture Prediction",
     True,
     plot_rf_prediction,
 ]
-PLOT_PARAMETER["crn"] = [
+plot_parameter["crn"] = [
     "Measurements",
     True,
     plot_measurements,
 ]
-PLOT_PARAMETER["pred"] = [
+plot_parameter["pred"] = [
     "Predictors",
     False,
     plot_predictors,
 ]
-PLOT_PARAMETER["pred-corr"] = [
+plot_parameter["pred-corr"] = [
     "Predictor Correlation",
     False,
     pred_corr_matrix,
 ]
-PLOT_PARAMETER["pred-imp"] = [
+plot_parameter["pred-imp"] = [
     "Predictor Importance",
     True,
     plot_predictor_importance,
 ]
-PLOT_PARAMETER["pred-imp-ot"] = [
+plot_parameter["pred-imp-ot"] = [
     "Predictor Importance over time",
     False,
     predictor_importance_along_days,
@@ -119,37 +130,27 @@ PLOT_PARAMETER["pred-imp-ot"] = [
 app_layout = html.Div(
     [
         dcc.Location(id="url"),
-        dbc.Card(
-            [
-                dbc.CardHeader(
-                    dbc.Tabs(
-                        [
-                            dbc.Tab(label="Soil Moisture Prediction", tab_id="sm-pred"),
-                            dbc.Tab(label="Measurements", tab_id="crn"),
-                            dbc.Tab(label="Predictors", tab_id="pred"),
-                            dbc.Tab(
-                                label="Predictor Correlation",
-                                label_class_name="fs-7",
-                                tab_id="pred-corr",
-                            ),
-                            dbc.Tab(
-                                label="Predictor Importance",
-                                label_class_name="fs-7",
-                                tab_id="pred-imp",
-                            ),
-                            dbc.Tab(
-                                label="Predictor Importance over time",
-                                label_class_name="fs-9",
-                                tab_id="pred-imp-ot",
-                            ),
-                        ],
-                        id="plot-tabs",
-                        active_tab="sm-pred",
-                    )
+        dbc.DropdownMenu(
+            label="Select plot",
+            children=[
+                dbc.DropdownMenuItem(
+                    "Soil Moisture Prediction", id="sm-pred-menu", n_clicks=0
                 ),
-                dbc.CardBody(html.Div(id="plot-content")),
-            ]
+                dbc.DropdownMenuItem("Measurements", id="crn-menu", n_clicks=0),
+                dbc.DropdownMenuItem("Predictors", id="pred-menu", n_clicks=0),
+                dbc.DropdownMenuItem(
+                    "Predictor Correlation", id="pred-corr-menu", n_clicks=0
+                ),
+                dbc.DropdownMenuItem(
+                    "Predictor Importance", id="pred-imp-menu", n_clicks=0
+                ),
+                dbc.DropdownMenuItem(
+                    "Predictor Importance over time", id="pred-imp-ot-menu", n_clicks=0
+                ),
+            ],
         ),
+        dcc.Input(id="plot-id", value="", type="hidden"),
+        html.Div(id="plot-content"),
     ]
 )
 
@@ -159,22 +160,38 @@ class RenderContent(Callback):
 
     in_out_state = (
         Output("plot-content", "children"),
-        Input("plot-tabs", "active_tab"),
-        Input("url", "pathname"),
+        Output("plot-id", "value"),
+        State("url", "pathname"),
+        Input("sm-pred-menu", "n_clicks"),
+        Input("crn-menu", "n_clicks"),
+        Input("pred-menu", "n_clicks"),
+        Input("pred-corr-menu", "n_clicks"),
+        Input("pred-imp-menu", "n_clicks"),
+        Input("pred-imp-ot-menu", "n_clicks"),
     )
 
     parameters = {}
 
     @staticmethod
-    def function(plot_id, pathname):
-        """Render content on tab select."""
+    def function(pathname, *menu):
+        """Render content on menu select."""
         job_id = pathname.split("/")[-1]
+        menu_clicked = ctx.triggered_id
+        if menu_clicked is None:
+            plot_id = next(iter(plot_parameter))
+        else:
+            plot_id = menu_clicked.replace("-menu", "")
+
+        app.logger.debug(f"Render content for {job_id}.")
         try:
-            rfo_prediction = load_rfo_prediction(job_id)
-        except FileNotFoundError:
+            rfo_prediction = load_rfo_prediction(job_id, ttl_hash=get_ttl_hash())
+        except (InvalidJobID, JobNotFound):
             return dbc.Alert("Error: Job id not found", color="danger")
 
-        return create_content(plot_id, rfo_prediction, *PLOT_PARAMETER[plot_id])
+        return (
+            create_content(plot_id, rfo_prediction, *plot_parameter[plot_id]),
+            plot_id,
+        )
 
 
 class GeneratePlotPerDay(Callback):
@@ -183,8 +200,8 @@ class GeneratePlotPerDay(Callback):
     in_out_state = (
         Output({"type": "plot-img", "plot_id": MATCH}, "src"),
         Input({"type": "slider-days", "plot_id": MATCH}, "value"),
-        State("plot-tabs", "active_tab"),
-        Input("url", "pathname"),
+        State("plot-id", "value"),
+        State("url", "pathname"),
     )
 
     parameters = {
@@ -194,23 +211,20 @@ class GeneratePlotPerDay(Callback):
     @staticmethod
     def function(day, plot_id_tab, pathname):
         """Generate plot for day passed by slider."""
-        day -= 1
         job_id = pathname.split("/")[-1]
-        rfo_prediction = load_rfo_prediction(job_id)
+        app.logger.debug(f"Generate plot for {job_id} on day {day}.")
+        day -= 1
+        try:
+            rfo_prediction = load_rfo_prediction(job_id, ttl_hash=get_ttl_hash())
+        except (InvalidJobID, JobNotFound):
+            return
         plot_id = plot_id_tab.replace("-tab", "")
-        plot_function = PLOT_PARAMETER[plot_id][-1]
+        plot_function = plot_parameter[plot_id][-1]
         content = plot_function(rfo_prediction, day, return_base64_img=True)
         return f"data:image/svg+xml;base64,{content}"
 
 
-def main():
-    """For testing and devolpment."""
-    app = Dash(__name__, suppress_callback_exceptions=True)
-    app.layout = app_layout
-
-    init_callbacks(app, globals())
-    app.run_server(debug=True)
-
+callbacks = list_callbacks(globals())
 
 if __name__ == "__main__":
-    main()
+    stand_alone(app_layout, callbacks)

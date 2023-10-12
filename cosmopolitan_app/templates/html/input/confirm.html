@@ -23,20 +23,12 @@
 	</div>
 </div>
 {% endfor %}
-<div class="row justify-content-center">
-	<form action="/submission/{{ job.job_id }}" method="post">
-		{{ job.form.csrf_token }}
-		<div class="col text-center">
-			<input type="submit" class="btn btn-primary mt-2" value="Submit">
-		</div>
-	</form>
-</div>
-<div class="row p-2 justify-content-center">
-	<form action="/input/{{ job.job_id }}" method="post">
-		{{ job.form.csrf_token }}
-		<div class="col text-center">
-			<input type="submit" class="btn btn-primary mt-2" value="Make changes to submission">
-		</div>
-	</form>
-</div>
+<form action="/submission/{{ job.job_id }}" method="post">
+	{{ job.form.csrf_token }}
+	<input type="submit" class="btn btn-primary mt-2" value="Submit">
+</form>
+<form action="/input/{{ job.job_id }}" method="post">
+	{{ job.form.csrf_token }}
+	<input type="submit" class="btn btn-primary mt-2" value="Make changes to submission">
+</form>
 {% endblock %}

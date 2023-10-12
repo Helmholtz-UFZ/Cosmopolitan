@@ -22,8 +22,6 @@ Base = declarative_base()
 class JobNotFound(Exception):
     """Custom exception for when a job is not found."""
 
-    pass
-
 
 class DataBaseManager:
     """Class for interacting with the 'jobs' table in the database.

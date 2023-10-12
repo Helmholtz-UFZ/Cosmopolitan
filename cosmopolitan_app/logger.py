@@ -8,7 +8,7 @@ It includes the following components:
 2. `SQLAlchemyHandler` class: A custom logging handler that stores log entries in a
    SQLAlchemy database.
 
-3. `get_logger` function: Retrieves a logger instance for logging application events.
+3. `get_logger` function: Get the config dic for the flask logger.
      - `debug` (bool): Set to True to enable debugging mode (logs to console), False to
        log to a database and send errors via email.
 
@@ -19,7 +19,6 @@ functionality.
 
 import logging
 from datetime import datetime
-from logging.config import dictConfig
 
 from config import (
     DB_HOST_NAME,
@@ -104,15 +103,15 @@ class ExcludeDebugMatplotLibFilter(logging.Filter):
         )
 
 
-def get_logger(debug):
+def get_logger_config(debug):
     """
-    Get a logger instance for logging application events.
+    Get the config dic for the flask logger.
 
     Set debug to True to enable debugging mode, which logs to console; False to
     log to a database and sends error to email.
 
     Returns:
-        logging.Logger: A logger instance configured based on the input.
+        dic: Dictinoray for dictConfig.
     """
     database_url = (
         f"postgresql+psycopg2://{ DB_USER }:{ DB_PW }@"
@@ -168,5 +167,4 @@ def get_logger(debug):
     else:
         logging_config["root"]["handlers"] = ["sqlalchemy", "mail_handler"]
 
-    dictConfig(logging_config)
-    return logging.getLogger()
+    return logging_config

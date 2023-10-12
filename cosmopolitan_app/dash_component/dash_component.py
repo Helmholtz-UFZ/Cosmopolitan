@@ -45,6 +45,19 @@ class Callback:
     pass
 
 
+def list_callbacks(globals_module):
+    """Add callbacks to dash app."""
+    return [
+        callback
+        for callback in globals_module.values()
+        if (
+            isinstance(callback, type)
+            and issubclass(callback, Callback)
+            and callback is not Callback
+        )
+    ]
+
+
 def init_callbacks(dash_app, globals_module):
     """Add callbacks to dash app."""
     for callback in globals_module.values():
@@ -58,6 +71,15 @@ def init_callbacks(dash_app, globals_module):
             )
 
     return dash_app
+
+
+def stand_alone(app_layout, callbacks):
+    """For testing and devolpment."""
+    app = dash.Dash()
+    app.layout = app_layout
+
+    init_callbacks(app, callbacks)
+    app.run_server(debug=True)
 
 
 def init_dash(server, globals_module, app_layout):

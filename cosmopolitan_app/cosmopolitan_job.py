@@ -2,11 +2,15 @@
 """Module for a Cosmopolitan Job."""
 
 import json
+import os
 from datetime import date
 
-from config import ssh_call
-from cosmopolitan_job_form import CosmopolitanJobForm
-from db_manager import DataBaseManager, JobTable
+from flask import current_app as app
+
+from cosmopolitan_app.config import WEB_INPUT_DIR
+from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
+from cosmopolitan_app.db_manager import DataBaseManager, JobTable
+from cosmopolitan_app.utils import ssh_call
 
 
 def get_attributes(clazz):
@@ -31,9 +35,6 @@ class CosmopolitanJob:
     jobs to a cluster, and formats the output for the user.
     """
 
-    # Logger passed by app
-    logger = None
-
     form = None
     job_id = None
     start_date = None
@@ -48,25 +49,23 @@ class CosmopolitanJob:
 
     def __init__(
         self,
-        logger,
         job_id=None,
         form=None,
     ):
         """Init class either by id, by html form or make a new one."""
-        self.logger = logger
-        if job_id:
-            self.logger.debug(f"Load submission {job_id}")
-            form = CosmopolitanJobForm(self.logger)
+        if job_id is not None:
+            app.logger.debug(f"Load submission {job_id}")
+            form = CosmopolitanJobForm()
             form.job_id.data = job_id
             if form.job_id.validate(form):
                 self._load_job(job_id)
             else:
                 raise InvalidJobID(f"{job_id} is not a valid job_id.")
-        elif form:
-            self.logger.debug("Set from form")
+        elif form is not None:
+            app.logger.debug("Set from form")
             self._set_from_form(form)
         else:
-            self.logger.debug("Make blank job")
+            app.logger.debug("Make blank job")
             self._blank_job()
 
     def __str__(self):
@@ -81,7 +80,7 @@ class CosmopolitanJob:
                 raise AttributeError(f"CosmopolitanJob has no attribute named {name}")
             setattr(self, name, value)
 
-        self.form = CosmopolitanJobForm(self.logger)
+        self.form = CosmopolitanJobForm()
         self.form.job_id.data = self.job_id
         self.form.previous_job_id.data = self.job_id
         self.form.email.data = self.email
@@ -105,9 +104,9 @@ class CosmopolitanJob:
     def _blank_job(self):
         db_manager = DataBaseManager()
         while True:
-            job_form = CosmopolitanJobForm(self.logger)
+            job_form = CosmopolitanJobForm()
             if db_manager.check_existence(job_form.job_id.data):
-                self.logger.debug(
+                app.logger.debug(
                     f"Job id: {job_form.job_id.data} already exist", verbose_level=3
                 )
                 continue
@@ -147,7 +146,7 @@ class CosmopolitanJob:
         instance. It then uses a DataBaseManager instance to add the collected
         data as a new entry in the database.
         """
-        self.logger.debug(f"Save job {self.job_id}")
+        app.logger.debug(f"Save job {self.job_id}")
         column_names = JobTable.__table__.columns.keys()
         data_to_insert = {name: getattr(self, name) for name in column_names}
         db_manager = DataBaseManager()
@@ -160,13 +159,13 @@ class CosmopolitanJob:
         This method uses a DataBaseManager instance to delete the job entry from
         the database based on the job's unique identifier ('job_id').
         """
-        self.logger.debug(f"Delete job {self.job_id}")
+        app.logger.debug(f"Delete job {self.job_id}")
         db_manager = DataBaseManager()
         db_manager.delete_job(self.job_id)
 
     def submit(self):
         """Submit job to cluster."""
-        self.logger.debug(f"Submit job {self.job_id}.")
+        app.logger.debug(f"Submit job {self.job_id}.")
         call_str = f"submit_job.sh {self.job_id}"
         out = ssh_call(call_str)
         self.submitted = True
@@ -177,15 +176,24 @@ class CosmopolitanJob:
 
     def check_status(self):
         """Check status of job on the cluster."""
-        self.logger.debug(f"See progress of job {self.job_id}.")
+        app.logger.info(f"See progress of job {self.job_id}.")
         if self.status in ["COMPLETED", "FAILED"]:
             return
         call_str = f"check_status.sh {self.job_id} {self.cluster_job_id}"
         out = ssh_call(call_str)
         self.status = out.split()[0]
+        self.logs = "\n".join(out.split("\n")[1:])
         if self.status == "COMPLETED":
+            app.logger.debug("Job completed.")
             call_str = f"get_results.sh {self.job_id}"
             out = ssh_call(call_str)
-
-        self.logs = "\n".join(out.split("\n")[1:])
         self.save()
+
+    def get_paratameters_rfo_prediction(self):
+        """Return parameter to load a RFo prediction model."""
+        working_dir = os.path.join(WEB_INPUT_DIR, self.job_id)
+
+        with open(os.path.join(working_dir, "parameters.json"), "r") as f_handle:
+            input_data = json.loads(f_handle.read())
+
+        return input_data, working_dir, True
