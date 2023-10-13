@@ -7,24 +7,24 @@ from logging.config import dictConfig
 from flask import Flask, render_template, request
 from werkzeug.exceptions import HTTPException
 
+from cosmopolitan_app.config import DEBUG
+from cosmopolitan_app.cosmopolitan_job_form import json_load_4_jinja
+from cosmopolitan_app.dash_component import dynamic_plots
+from cosmopolitan_app.dash_component.dash_component import init_dash
+from cosmopolitan_app.db_manager import JobNotFound
+from cosmopolitan_app.logger import get_logger_config
+
 # TODO Dash
 # from flask_wtf.csrf import CSRFProtect
+
 
 app = Flask(__name__)
 
 with app.app_context():
     # Only import for loading routes
     import cosmopolitan_app.routes  # noqa
-    from cosmopolitan_app.config import DEBUG
-    from cosmopolitan_app.cosmopolitan_job_form import json_load_4_jinja
 
-    # Dash components
-    from cosmopolitan_app.dash_component import dynamic_plots
-    from cosmopolitan_app.dash_component.dash_component import init_dash
-    from cosmopolitan_app.db_manager import JobNotFound
-    from cosmopolitan_app.logger import get_logger_config
-
-    app = init_dash(app, dynamic_plots.globals_module(), dynamic_plots.app_layout)
+app = init_dash(app, dynamic_plots.callbacks, dynamic_plots.app_layout)
 
 # TODO Dash
 # csrf = CSRFProtect(app)

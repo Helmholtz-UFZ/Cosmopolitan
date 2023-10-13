@@ -6,6 +6,8 @@ import dash_bootstrap_components as dbc
 from flask import render_template
 from markupsafe import Markup
 
+from cosmopolitan_app.logger import ExcludeDebugMatplotLibFilter
+
 
 class DashComponent(dash.Dash):
     """Class extends dash main class to be added to be served by flask."""
@@ -58,9 +60,9 @@ def list_callbacks(globals_module):
     ]
 
 
-def init_callbacks(dash_app, globals_module):
+def init_callbacks(dash_app, callbacks):
     """Add callbacks to dash app."""
-    for callback in globals_module.values():
+    for callback in callbacks:
         if (
             isinstance(callback, type)
             and issubclass(callback, Callback)
@@ -75,7 +77,7 @@ def init_callbacks(dash_app, globals_module):
 
 def stand_alone(app_layout, callbacks):
     """For testing and devolpment."""
-    app = dash.Dash()
+    app = dash.Dash(external_stylesheets=[dbc.themes.FLATLY])
     app.layout = app_layout
 
     init_callbacks(app, callbacks)
@@ -87,17 +89,41 @@ def init_dash(server, globals_module, app_layout):
 
     Usage:
     from dash_component import init_dash
+    from cosmopolitan_app.dash_component import some_component
 
-    with app.app_context():
-        from cosmopolitan_app.dash_component import some_component
-        app = init_dash(app, some_component.globals_module(), some_component.app_layout)
+    app = init_dash(app, some_component.callbacks, some_component.app_layout)
     """
     dash_app = DashComponent(
         server=server,
         url_base_pathname="/results/",
-        external_stylesheets=[dbc.themes.FLATLY]
-        # routes_pathname_prefix="/results/",
+        external_stylesheets=[dbc.themes.FLATLY],
     )
     dash_app.layout = app_layout
     init_callbacks(dash_app, globals_module)
     return dash_app.server
+
+
+logging_config = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "default": {
+            "format": "[%(asctime)s] %(levelname)s in %(module)s: %(message)s",
+        },
+    },
+    "handlers": {
+        "default": {
+            "level": "DEBUG",
+            "formatter": "default",
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stdout",  # Default is stderr
+            "filters": ["exclude_debug_matplotlib"],
+        },
+    },
+    "root": {
+        "handlers": ["default"],
+        "level": "DEBUG",
+        "filters": ["exclude_debug_matplotlib"],
+    },
+    "filters": {"exclude_debug_matplotlib": {"()": ExcludeDebugMatplotLibFilter}},
+}

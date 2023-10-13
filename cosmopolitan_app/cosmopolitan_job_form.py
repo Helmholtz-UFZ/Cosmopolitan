@@ -24,6 +24,7 @@ files.
 
 import csv
 import json
+import logging
 import math
 import os
 import re
@@ -31,10 +32,7 @@ import shutil
 from collections import OrderedDict
 from datetime import date
 
-from config import WEB_INPUT_DIR, WEB_UPLOAD_DIR
 from coolname import generate
-from db_manager import DataBaseManager
-from flask import current_app as app
 from flask_wtf import FlaskForm
 from markupsafe import Markup
 from werkzeug.utils import secure_filename
@@ -55,6 +53,9 @@ from wtforms.validators import (
     ValidationError,
 )
 from wtforms.widgets import CheckboxInput, NumberInput, TextInput
+
+from cosmopolitan_app.config import WEB_INPUT_DIR, WEB_UPLOAD_DIR
+from cosmopolitan_app.db_manager import DataBaseManager
 
 
 def json_load_4_jinja(string):
@@ -279,7 +280,7 @@ class CosmopolitanJobForm(FlaskForm):
 
     def __init__(self, new=True):
         """Init."""
-        super().__init__()
+        super().__init__(meta={"csrf": False})
         if new:
             self.job_id.data = "_".join(generate(3))
             self.previous_job_id.data = self.job_id.data
@@ -291,7 +292,7 @@ class CosmopolitanJobForm(FlaskForm):
         changed the function and moves all previously uploaded files into the
         new input dir.
         """
-        app.logger.debug("Check job id")
+        logging.debug("Check job id")
         db_manager = DataBaseManager()
         if db_manager.check_existence(field.data):
             raise ValidationError("Job id already exist")
@@ -309,10 +310,10 @@ class CosmopolitanJobForm(FlaskForm):
                 os.mkdir(self.upload_dir)
 
             if not re.match(self.job_id_regex, self.previous_job_id.data):
-                app.logger.warning(
+                logging.warning(
                     "Malicious attack manipulation hidden field!", verbose_level=0
                 )
-                app.logger.warning(
+                logging.warning(
                     f"Content hidden field {self.previous_job_id.data}", verbose_level=0
                 )
                 raise ValidationError("Use normal input field to set job id.")
@@ -341,26 +342,26 @@ class CosmopolitanJobForm(FlaskForm):
 
     def validate_pred_files(self, field):
         """Check the content of the files and override data with file name and hash."""
-        app.logger.debug("Check predictor variable files integrity")
+        logging.debug("Check predictor variable files integrity")
         input_file_dic = self._validate_input_file(field, "pred")
         if input_file_dic is not None:
             self.selected_pred_files.data = json.dumps(input_file_dic)
 
     def validate_selected_pred_files(self, field):
         """Check if files exist in upload dir."""
-        app.logger.debug("Check if selected predictor variable files exist.")
+        logging.debug("Check if selected predictor variable files exist.")
         self._validate_selected_input_files(field)
 
     def validate_crn_files(self, field):
         """Check the content of the files and override data with file name and hash."""
-        app.logger.debug("Check crn variable files integrity")
+        logging.debug("Check crn variable files integrity")
         input_file_dic = self._validate_input_file(field, "crn")
         if input_file_dic is not None:
             self.selected_crn_files.data = json.dumps(input_file_dic)
 
     def validate_selected_crn_files(self, field):
         """Check if files exist in upload dir."""
-        app.logger.debug("Check if selected predictor variable files exist.")
+        logging.debug("Check if selected predictor variable files exist.")
 
         self._validate_selected_input_files(field)
 
@@ -423,7 +424,7 @@ class CosmopolitanJobForm(FlaskForm):
         input_file_dic = {}
         # Check if form has not file attached.
         if field.data[0].filename == "":
-            app.logger.debug("No file send")
+            logging.debug("No file send")
             return
         # Check if job id is valid and input dir is defined.
         if self.input_dir is None:

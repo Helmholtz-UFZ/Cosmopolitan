@@ -1,12 +1,13 @@
 """Dash app that presents results."""
 
+import logging
 from collections import OrderedDict
 from functools import lru_cache
+from logging.config import dictConfig
 from time import time
 
 import dash_bootstrap_components as dbc
 from dash import MATCH, Input, Output, State, ctx, dcc, html
-from flask import current_app as app
 from plot_functions import (
     plot_measurements,
     plot_predictor_importance,
@@ -22,14 +23,10 @@ from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob, InvalidJobID
 from cosmopolitan_app.dash_component.dash_component import (
     Callback,
     list_callbacks,
+    logging_config,
     stand_alone,
 )
 from cosmopolitan_app.db_manager import JobNotFound
-
-
-def globals_module():
-    """Get globals from this module, needed for init_dash in dash_component."""
-    return globals()
 
 
 def get_ttl_hash(seconds=3600):
@@ -41,7 +38,7 @@ def get_ttl_hash(seconds=3600):
 def load_rfo_prediction(job_id, ttl_hash=None):
     """Load job model for plotting."""
     del ttl_hash
-    app.logger.debug(f"Load rfo prediction for {job_id}.")
+    logging.debug(f"Load rfo prediction for {job_id}.")
     cosmopolitan_job = CosmopolitanJob(job_id=str(job_id))
     (
         input_data,
@@ -182,11 +179,12 @@ class RenderContent(Callback):
         else:
             plot_id = menu_clicked.replace("-menu", "")
 
-        app.logger.debug(f"Render content for {job_id}.")
+        logging.debug(f"Render content for {job_id}.")
         try:
             rfo_prediction = load_rfo_prediction(job_id, ttl_hash=get_ttl_hash())
         except (InvalidJobID, JobNotFound):
-            return dbc.Alert("Error: Job id not found", color="danger")
+            logging.warning(f"'{job_id}' is not a valid job.")
+            return (dbc.Alert("Error: Job id not found", color="danger"), "")
 
         return (
             create_content(plot_id, rfo_prediction, *plot_parameter[plot_id]),
@@ -212,7 +210,7 @@ class GeneratePlotPerDay(Callback):
     def function(day, plot_id_tab, pathname):
         """Generate plot for day passed by slider."""
         job_id = pathname.split("/")[-1]
-        app.logger.debug(f"Generate plot for {job_id} on day {day}.")
+        logging.debug(f"Generate plot for {job_id} on day {day}.")
         day -= 1
         try:
             rfo_prediction = load_rfo_prediction(job_id, ttl_hash=get_ttl_hash())
@@ -225,6 +223,6 @@ class GeneratePlotPerDay(Callback):
 
 
 callbacks = list_callbacks(globals())
-
 if __name__ == "__main__":
+    dictConfig(logging_config)
     stand_alone(app_layout, callbacks)

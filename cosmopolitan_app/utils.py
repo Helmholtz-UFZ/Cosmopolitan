@@ -1,5 +1,6 @@
 """Utility functions for the web service."""
 
+import logging
 import os
 import shutil
 import smtplib
@@ -9,7 +10,6 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from time import sleep
 
-from flask import current_app as app
 from flask import url_for
 
 from cosmopolitan_app.config import (
@@ -21,14 +21,12 @@ from cosmopolitan_app.config import (
     WEB_INPUT_DIR,
     WEB_UPLOAD_DIR,
 )
-
-with app.app_context():
-    from cosmopolitan_app.db_manager import DataBaseManager
+from cosmopolitan_app.db_manager import DataBaseManager
 
 
 def clean_up():
     """Delete jobs older than a day and older than two months and their directories."""
-    app.logger.info("Start cleaning up.")
+    logging.info("Start cleaning up.")
     db_manager = DataBaseManager()
 
     # Define the time thresholds
@@ -39,19 +37,19 @@ def clean_up():
     kept_jobs = []
 
     for job_id, (start_date, submitted) in jobs.items():
-        app.logger.debug(f"Check job {job_id}.")
+        logging.debug(f"Check job {job_id}.")
         if not submitted and start_date < two_day_ago:
-            app.logger.debug("Job was not submit and is older than two days.")
+            logging.debug("Job was not submit and is older than two days.")
             db_manager.delete_job(job_id)
         elif start_date < two_months_ago:
-            app.logger.debug("Job older than two month.")
+            logging.debug("Job older than two month.")
             db_manager.delete_job(job_id)
         else:
-            app.logger.debug("Job will be kept.")
+            logging.debug("Job will be kept.")
             kept_jobs.append(job_id)
 
     # Delete directories locally
-    app.logger.info("Clean up directorys locally.")
+    logging.info("Clean up directorys locally.")
     for directory in [WEB_INPUT_DIR, WEB_UPLOAD_DIR]:
         for dir_name in os.listdir(directory):
             dir_path = os.path.join(directory, dir_name)
@@ -59,7 +57,7 @@ def clean_up():
                 shutil.rmtree(dir_path)
 
     # Delete work directories on cluster
-    app.logger.debug("Clean up directorys on cluster.")
+    logging.debug("Clean up directorys on cluster.")
     old_jobs = [
         job_id
         for job_id in ssh_call("list_work_dir.sh").split()
@@ -119,7 +117,7 @@ def ssh_call(call_str):
             f"Directory for ssh-scripts { ssh_dir } is not available"
         )
     call_str = os.path.join(ssh_dir, call_str)
-    app.logger.info(f"SSH call:\n{ call_str }")
+    logging.info(f"SSH call:\n{ call_str }")
 
     for i in range(1, 4):
         try:
@@ -131,7 +129,7 @@ def ssh_call(call_str):
             )
             break
         except subprocess.CalledProcessError as exc:
-            app.logger.debug(f"SSH call failed:\n{ exc }")
+            logging.debug(f"SSH call failed:\n{ exc }")
             if i < 3:
                 sleep(2)
                 continue
@@ -142,5 +140,5 @@ def ssh_call(call_str):
             raise SshError(error_str)
 
     out = completed_process.stdout.decode("UTF8")
-    app.logger.debug(f"SSH call succesfull:\n{ out }")
+    logging.debug(f"SSH call succesfull:\n{ out }")
     return out

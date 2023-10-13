@@ -20,7 +20,10 @@ functionality.
 import logging
 from datetime import datetime
 
-from config import (
+from sqlalchemy import Column, DateTime, Integer, String, create_engine
+from sqlalchemy.orm import declarative_base, sessionmaker
+
+from cosmopolitan_app.config import (
     DB_HOST_NAME,
     DB_NAME,
     DB_PORT,
@@ -32,8 +35,6 @@ from config import (
     EMAIL_SERVER,
     EMAIL_USERNAME,
 )
-from sqlalchemy import Column, DateTime, Integer, String, create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
 
 Base = declarative_base()
 

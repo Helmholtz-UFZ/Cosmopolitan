@@ -1,5 +1,6 @@
 """All routes of cosmopolitan."""
 
+import logging
 import os
 
 from flask import current_app as app
@@ -7,12 +8,10 @@ from flask import redirect, render_template, request, send_from_directory
 from werkzeug.exceptions import NotFound
 
 from cosmopolitan_app.config import WEB_INPUT_DIR
+from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
+from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
+from cosmopolitan_app.db_manager import JobNotFound
 from cosmopolitan_app.utils import clean_up, send_submission_mail
-
-with app.app_context():
-    from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
-    from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
-    from cosmopolitan_app.db_manager import JobNotFound
 
 
 @app.route("/")
@@ -47,7 +46,7 @@ def submission(job_id):
 @app.route("/confirm/<job_id>", methods=["GET", "POST"])
 def confirm(job_id):
     """Confirm input and submit."""
-    app.logger.info(f"Confirm submisison for job {job_id}")
+    logging.info(f"Confirm submisison for job {job_id}")
     try:
         job = CosmopolitanJob(job_id=job_id)
     except JobNotFound:
@@ -60,7 +59,7 @@ def confirm(job_id):
 @app.route("/input/<job_id>", methods=["GET", "POST"])
 def change_input(job_id):
     """Change input of an unsubmitted job."""
-    app.logger.info(f"Make changes to job {job_id}")
+    logging.info(f"Make changes to job {job_id}")
     try:
         job = CosmopolitanJob(job_id=job_id)
     except JobNotFound:
@@ -76,13 +75,13 @@ def input_job():
     """Input site for the job."""
     # Make new job and form if empty request form
     if len(request.form) == 0:
-        app.logger.info("Input for new job")
+        logging.info("Input for new job")
         job = CosmopolitanJob()
         form = job.form
     # If form was submitted validate
     else:
         form = CosmopolitanJobForm(new=False)
-        app.logger.info(f"Check form {form.job_id.data}")
+        logging.info(f"Check form {form.job_id.data}")
         if form.validate_on_submit():
             job = CosmopolitanJob(form=form)
             job.save()
@@ -108,7 +107,7 @@ def trigger_clean_up():
 @app.route("/results/<job_id>/<file_name>")
 def result_file(job_id, file_name):
     """Serve result files."""
-    app.logger.info(f"Visiting /results/{job_id}/{file_name} to result_file()")
+    logging.info(f"Visiting /results/{job_id}/{file_name} to result_file()")
     try:
         output_dir = os.path.join(WEB_INPUT_DIR, job_id)
         return send_from_directory(output_dir, file_name)
