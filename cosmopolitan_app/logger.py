@@ -8,7 +8,7 @@ It includes the following components:
 2. `SQLAlchemyHandler` class: A custom logging handler that stores log entries in a
    SQLAlchemy database.
 
-3. `get_logger` function: Retrieves a logger instance for logging application events.
+3. `get_logger` function: Get the config dic for the flask logger.
      - `debug` (bool): Set to True to enable debugging mode (logs to console), False to
        log to a database and send errors via email.
 
@@ -19,12 +19,11 @@ functionality.
 
 import logging
 from datetime import datetime
-from logging.config import dictConfig
 
 from sqlalchemy import Column, DateTime, Integer, String, create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-from config import (
+from cosmopolitan_app.config import (
     DB_HOST_NAME,
     DB_NAME,
     DB_PORT,
@@ -95,15 +94,25 @@ class SQLAlchemyHandler(logging.Handler):
             session.commit()
 
 
-def get_logger(debug):
+class ExcludeDebugMatplotLibFilter(logging.Filter):
+    """Exclude debug logs from font manager."""
+
+    def filter(self, record):
+        """Filter."""
+        return not (
+            record.name.startswith("matplotlib") and record.levelno == logging.DEBUG
+        )
+
+
+def get_logger_config(debug):
     """
-    Get a logger instance for logging application events.
+    Get the config dic for the flask logger.
 
     Set debug to True to enable debugging mode, which logs to console; False to
     log to a database and sends error to email.
 
     Returns:
-        logging.Logger: A logger instance configured based on the input.
+        dic: Dictinoray for dictConfig.
     """
     database_url = (
         f"postgresql+psycopg2://{ DB_USER }:{ DB_PW }@"
@@ -125,11 +134,13 @@ def get_logger(debug):
                 "db_url": database_url,
                 "level": "INFO",
                 "formatter": "default",
+                "filters": ["exclude_debug_matplotlib"],
             },
             "wsgi": {
                 "class": "logging.StreamHandler",
                 "stream": "ext://flask.logging.wsgi_errors_stream",
                 "formatter": "default",
+                "filters": ["exclude_debug_matplotlib"],
             },
             "mail_handler": {
                 "class": "logging.handlers.SMTPHandler",
@@ -141,12 +152,15 @@ def get_logger(debug):
                 "subject": "Application Error",
                 "secure": (),
                 "formatter": "default",
+                "filters": ["exclude_debug_matplotlib"],
             },
         },
         "root": {
             "handlers": [],
             "level": "DEBUG",
+            "filters": ["exclude_debug_matplotlib"],
         },
+        "filters": {"exclude_debug_matplotlib": {"()": ExcludeDebugMatplotLibFilter}},
     }
 
     if debug:
@@ -154,5 +168,4 @@ def get_logger(debug):
     else:
         logging_config["root"]["handlers"] = ["sqlalchemy", "mail_handler"]
 
-    dictConfig(logging_config)
-    return logging.getLogger()
+    return logging_config

@@ -21,8 +21,10 @@ This module is an integral part of the Cosmopolitan application and is used to m
 user inputs, validate data, and define the geometric areas for data processing of input
 files.
 """
+
 import csv
 import json
+import logging
 import math
 import os
 import re
@@ -52,8 +54,8 @@ from wtforms.validators import (
 )
 from wtforms.widgets import CheckboxInput, NumberInput, TextInput
 
-from config import WEB_INPUT_DIR, WEB_OUTPUT_DIR, WEB_UPLOAD_DIR
-from db_manager import DataBaseManager
+from cosmopolitan_app.config import WEB_INPUT_DIR, WEB_UPLOAD_DIR
+from cosmopolitan_app.db_manager import DataBaseManager
 
 
 def json_load_4_jinja(string):
@@ -275,12 +277,10 @@ class CosmopolitanJobForm(FlaskForm):
     upload_dir = None
     output_dir = None
     geom_area = None
-    logger = None
 
-    def __init__(self, logger, new=True):
+    def __init__(self, new=True):
         """Init."""
-        super().__init__()
-        self.logger = logger
+        super().__init__(meta={"csrf": False})
         if new:
             self.job_id.data = "_".join(generate(3))
             self.previous_job_id.data = self.job_id.data
@@ -292,7 +292,7 @@ class CosmopolitanJobForm(FlaskForm):
         changed the function and moves all previously uploaded files into the
         new input dir.
         """
-        self.logger.debug("Check job id")
+        logging.debug("Check job id")
         db_manager = DataBaseManager()
         if db_manager.check_existence(field.data):
             raise ValidationError("Job id already exist")
@@ -309,18 +309,11 @@ class CosmopolitanJobForm(FlaskForm):
                 shutil.rmtree(self.upload_dir)
                 os.mkdir(self.upload_dir)
 
-            self.output_dir = os.path.join(WEB_OUTPUT_DIR, self.job_id.data)
-            if not os.path.isdir(self.output_dir):
-                os.mkdir(self.output_dir)
-            else:
-                shutil.rmtree(self.output_dir)
-                os.mkdir(self.output_dir)
-
             if not re.match(self.job_id_regex, self.previous_job_id.data):
-                self.logger.warning(
+                logging.warning(
                     "Malicious attack manipulation hidden field!", verbose_level=0
                 )
-                self.logger.warning(
+                logging.warning(
                     f"Content hidden field {self.previous_job_id.data}", verbose_level=0
                 )
                 raise ValidationError("Use normal input field to set job id.")
@@ -349,26 +342,26 @@ class CosmopolitanJobForm(FlaskForm):
 
     def validate_pred_files(self, field):
         """Check the content of the files and override data with file name and hash."""
-        self.logger.debug("Check predictor variable files integrity")
+        logging.debug("Check predictor variable files integrity")
         input_file_dic = self._validate_input_file(field, "pred")
         if input_file_dic is not None:
             self.selected_pred_files.data = json.dumps(input_file_dic)
 
     def validate_selected_pred_files(self, field):
         """Check if files exist in upload dir."""
-        self.logger.debug("Check if selected predictor variable files exist.")
+        logging.debug("Check if selected predictor variable files exist.")
         self._validate_selected_input_files(field)
 
     def validate_crn_files(self, field):
         """Check the content of the files and override data with file name and hash."""
-        self.logger.debug("Check crn variable files integrity")
+        logging.debug("Check crn variable files integrity")
         input_file_dic = self._validate_input_file(field, "crn")
         if input_file_dic is not None:
             self.selected_crn_files.data = json.dumps(input_file_dic)
 
     def validate_selected_crn_files(self, field):
         """Check if files exist in upload dir."""
-        self.logger.debug("Check if selected predictor variable files exist.")
+        logging.debug("Check if selected predictor variable files exist.")
 
         self._validate_selected_input_files(field)
 
@@ -431,7 +424,7 @@ class CosmopolitanJobForm(FlaskForm):
         input_file_dic = {}
         # Check if form has not file attached.
         if field.data[0].filename == "":
-            self.logger.debug("No file send")
+            logging.debug("No file send")
             return
         # Check if job id is valid and input dir is defined.
         if self.input_dir is None:
@@ -505,9 +498,10 @@ class CosmopolitanJobForm(FlaskForm):
                 "pred_correlation": False,
                 "day_measurements": False,
                 "day_feature_imp": False,
-                "day_prediction_map": True,
-                "alldays_feature_imp": True,
+                "day_prediction_map": False,
+                "alldays_feature_imp": False,
             },
+            "save_results": True,
         }
         with open(
             os.path.join(self.input_dir, "parameters.json"), "w", encoding="UTF-8"

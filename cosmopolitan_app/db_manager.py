@@ -15,15 +15,13 @@ import datetime
 from sqlalchemy import JSON, Boolean, Column, Date, Float, String, create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-from config import DB_HOST_NAME, DB_NAME, DB_PORT, DB_PW, DB_USER
+from cosmopolitan_app.config import DB_HOST_NAME, DB_NAME, DB_PORT, DB_PW, DB_USER
 
 Base = declarative_base()
 
 
 class JobNotFound(Exception):
     """Custom exception for when a job is not found."""
-
-    pass
 
 
 class DataBaseManager:
