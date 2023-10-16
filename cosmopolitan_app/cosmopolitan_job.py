@@ -26,6 +26,11 @@ def get_attributes(clazz):
 class InvalidJobID(Exception):
     """Raised by CosmopolitanJob if init with invalid job id."""
 
+    def __init__(self, job_id):
+        """Add job id as attribute and format error message."""
+        self.job_id = job_id
+        super().__init__(f"{job_id} is not a valid job_id.")
+
 
 class CosmopolitanJob:
     """This class represents a job submission by the user.
@@ -59,7 +64,7 @@ class CosmopolitanJob:
             if form.job_id.validate(form):
                 self._load_job(job_id)
             else:
-                raise InvalidJobID(f"{job_id} is not a valid job_id.")
+                raise InvalidJobID(job_id)
         elif form is not None:
             logging.debug("Set from form")
             self._set_from_form(form)

@@ -5,12 +5,10 @@ import os
 
 from flask import current_app as app
 from flask import redirect, render_template, request, send_from_directory
-from werkzeug.exceptions import NotFound
 
 from cosmopolitan_app.config import WEB_INPUT_DIR
 from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
 from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
-from cosmopolitan_app.db_manager import JobNotFound
 from cosmopolitan_app.utils import clean_up, send_submission_mail
 
 
@@ -23,16 +21,12 @@ def hello_geek():
 @app.route("/submission/<job_id>", methods=["GET", "POST"])
 def submission(job_id):
     """Site for submitting and presenting progress and results of a job."""
-    try:
-        job = CosmopolitanJob(job_id=job_id)
-    except JobNotFound:
-        return render_template("html/errors/job_not_found_error.html", job_id=job_id)
+    job = CosmopolitanJob(job_id=job_id)
     if not job.submitted:
         job.submit()
         send_submission_mail(job)
     else:
         job.check_status()
-    print(job.logs)
     if job.status in ["RUNNING", "PENDING"]:
         reload_delay = 5
     else:
@@ -47,10 +41,7 @@ def submission(job_id):
 def confirm(job_id):
     """Confirm input and submit."""
     logging.info(f"Confirm submisison for job {job_id}")
-    try:
-        job = CosmopolitanJob(job_id=job_id)
-    except JobNotFound:
-        return render_template("html/errors/job_not_found_error.html", job_id=job_id)
+    job = CosmopolitanJob(job_id=job_id)
     if job.submitted:
         return render_template("html/errors/job_submitted_error.html", job_id=job_id)
     return render_template("html/input/confirm.html", job=job)
@@ -60,10 +51,7 @@ def confirm(job_id):
 def change_input(job_id):
     """Change input of an unsubmitted job."""
     logging.info(f"Make changes to job {job_id}")
-    try:
-        job = CosmopolitanJob(job_id=job_id)
-    except JobNotFound:
-        return redirect("/input")
+    job = CosmopolitanJob(job_id=job_id)
     if job.submitted:
         return render_template("html/errors/job_submitted_error.html", job_id=job_id)
     job.delete()
@@ -108,8 +96,5 @@ def trigger_clean_up():
 def result_file(job_id, file_name):
     """Serve result files."""
     logging.info(f"Visiting /results/{job_id}/{file_name} to result_file()")
-    try:
-        output_dir = os.path.join(WEB_INPUT_DIR, job_id)
-        return send_from_directory(output_dir, file_name)
-    except NotFound:
-        return render_template("html/errors/file_not_found.html")
+    output_dir = os.path.join(WEB_INPUT_DIR, job_id)
+    return send_from_directory(output_dir, file_name)
