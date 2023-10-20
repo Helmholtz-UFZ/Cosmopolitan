@@ -1,20 +1,42 @@
 {% from 'html/input/fields.html' import render_field %}
-{% extends "html/skeleton/base_layout.html" %}
-{% block content %}
-<h2>Input</h2>
+{% from 'html/common_elements.html' import header %}
+{% extends "html/skeleton/content_layout.html" %}
+{% block head %}
+{{ header("Input", "Define new input", "") }}
+{% endblock head %}
+
+{% block content_page %}
 <form method="POST" action="/input" enctype="multipart/form-data">
 
 	{{ form.csrf_token }}
 
 	{% for group, field_names in form.groups.items() %}
-	<div class="my-2">
-		<h4>{{ group }}</h4>
-		{% for field_name in field_names %}
-		{{ render_field(form[field_name]) }}
-		{% endfor %}
+	<div class="card m-1">
+  <div class="card-header">
+    {{ group }}
+  </div>
+  <ul class="list-group list-group-flush">
+			<li class="list-group-item">
+				{% if group == "Area" %}
+				<div class="row">
+				{% endif %}
+
+				{% for field_name in field_names %}
+				{% if group == "Area" and loop.index % 2 == 1 %}
+				</div>
+				<div class="row">
+				{% endif %}
+				{{ render_field(form[field_name]) }}
+				{% endfor %}
+
+				{% if group == "Area" %}
+				</div>
+				{% endif %}
+			</li>
+  </ul>
 	</div>
 	{% endfor %}
 
 	<input type="submit" class="btn btn-primary btn-block" value="Check Query">
 </form>
-{% endblock %}
+{% endblock content_page %}

@@ -4,7 +4,8 @@ import logging
 import os
 
 from flask import current_app as app
-from flask import redirect, render_template, request, send_from_directory
+from flask import redirect, render_template, request, send_from_directory, url_for
+from werkzeug.exceptions import BadRequestKeyError
 
 from cosmopolitan_app.config import WEB_INPUT_DIR
 from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
@@ -13,14 +14,26 @@ from cosmopolitan_app.utils import clean_up, send_submission_mail
 
 
 @app.route("/")
-def hello_geek():
-    """Hello world."""
-    return "<h1>Hello from Flask & Docker</h1>"
+def start():
+    """Start page."""
+    return render_template("html/content/start.html")
 
 
+@app.route("/submission", methods=["GET", "POST"])
+def search_submission():
+    """Route to be accessed by navbar search form."""
+    logging.info("Search submisison")
+    try:
+        return redirect(url_for("submission", job_id=request.form["job_id"]))
+    except BadRequestKeyError:
+        return redirect(url_for("submission", job_id=""))
+
+
+@app.route("/submission/", defaults={"job_id": ""})
 @app.route("/submission/<job_id>", methods=["GET", "POST"])
 def submission(job_id):
     """Site for submitting and presenting progress and results of a job."""
+    logging.info("Submisison site")
     job = CosmopolitanJob(job_id=job_id)
     if not job.submitted:
         job.submit()
@@ -37,7 +50,7 @@ def submission(job_id):
     )
 
 
-@app.route("/confirm/<job_id>", methods=["GET", "POST"])
+@app.route("/confirm/<job_id>")
 def confirm(job_id):
     """Confirm input and submit."""
     logging.info(f"Confirm submisison for job {job_id}")

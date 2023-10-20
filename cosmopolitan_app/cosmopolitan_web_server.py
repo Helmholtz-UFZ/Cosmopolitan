@@ -62,6 +62,7 @@ def error_response(e):
 
     if isinstance(e, NotFound):
         app.logger.info("Handle NotFound exception")
+        log_error()
         return render_template("html/errors/file_not_found.html"), 404
 
 

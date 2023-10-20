@@ -1,8 +1,12 @@
-{% extends "html/skeleton/base_layout.html" %}
-{% block content %}
-<h2>Submission</h2>
+{% from 'html/common_elements.html' import header %}
+{% extends "html/skeleton/content_layout.html" %}
+{% block head %}
+{{ header("Submission", job.job_id, job.status) }}
+{% endblock head %}
+
+{% block content_page %}
 {% if job.status is none %}
-<h3>Loading</h3>
+<h3 class="text-center">Loading</h3>
 <div class="my-2">
 	<img src="{{ url_for('static', filename='loading.webp')}}"/>
 </div>
@@ -31,4 +35,4 @@
 </div>
 {% endif %}
 {% endif %}
-{% endblock %}
+{% endblock content_page %}

@@ -50,13 +50,22 @@ def load_rfo_prediction(job_id, ttl_hash=None):
 
 def create_slider(plot_id, rfo_prediction):
     """Create dash slider for days."""
-    return dcc.Slider(
-        id={"type": "slider-days", "plot_id": f"{plot_id}"},
-        min=1,
-        max=rfo_prediction.input_data.n_days,
-        step=1,
-        value=1,
-        marks={i: str(i) for i in range(1, 11)},
+    number_days = rfo_prediction.input_data.n_days
+    size_slider = min(max(int(number_days * 0.6), 1), 12)
+
+    return html.Div(
+        html.Div(
+            dcc.Slider(
+                id={"type": "slider-days", "plot_id": f"{plot_id}"},
+                min=1,
+                max=number_days,
+                step=1,
+                value=1,
+                marks={i: str(i) for i in range(1, number_days + 1)},
+            ),
+            className=f"mt-4 col-{ size_slider }",
+        ),
+        className="row justify-content-center",
     )
 
 
@@ -78,15 +87,18 @@ def create_content(plot_id, rfo_prediction, header, slider, plot_function):
 
     element_list.append(
         html.Div(
-            [
-                html.Img(
-                    id={"type": "plot-img", "plot_id": f"{plot_id}"},
-                    src=f"data:image/svg+xml;base64,{content}",
-                    width="60%",
-                )
-            ],
-            style={"textAlign": "center"},
-        )
+            html.Div(
+                [
+                    html.Img(
+                        id={"type": "plot-img", "plot_id": f"{plot_id}"},
+                        src=f"data:image/svg+xml;base64,{content}",
+                        width="100%",
+                    )
+                ],
+                className="col-12 col-xl-9",
+            ),
+            className="row justify-content-center",
+        ),
     )
 
     return html.Div(element_list)
@@ -127,27 +139,72 @@ plot_parameter["pred-imp-ot"] = [
 app_layout = html.Div(
     [
         dcc.Location(id="url"),
-        dbc.DropdownMenu(
-            label="Select plot",
-            children=[
-                dbc.DropdownMenuItem(
-                    "Soil Moisture Prediction", id="sm-pred-menu", n_clicks=0
-                ),
-                dbc.DropdownMenuItem("Measurements", id="crn-menu", n_clicks=0),
-                dbc.DropdownMenuItem("Predictors", id="pred-menu", n_clicks=0),
-                dbc.DropdownMenuItem(
-                    "Predictor Correlation", id="pred-corr-menu", n_clicks=0
-                ),
-                dbc.DropdownMenuItem(
-                    "Predictor Importance", id="pred-imp-menu", n_clicks=0
-                ),
-                dbc.DropdownMenuItem(
-                    "Predictor Importance over time", id="pred-imp-ot-menu", n_clicks=0
-                ),
+        html.Div(
+            [
+                html.H2("Results", className="text-center"),
+                html.H3(id="job-id", className="text-center"),
             ],
+            className="bg-success rounded-top py-2",
         ),
-        dcc.Input(id="plot-id", value="", type="hidden"),
-        html.Div(id="plot-content"),
+        dbc.Card(
+            [
+                dbc.CardHeader(
+                    [
+                        html.H3("Select Plot"),
+                        dbc.ButtonGroup(
+                            [
+                                dbc.Button(
+                                    "Soil Moisture Prediction",
+                                    id="sm-pred-pill",
+                                    n_clicks=0,
+                                    outline=True,
+                                    color="primary",
+                                ),
+                                dbc.Button(
+                                    "Measurements",
+                                    id="crn-pill",
+                                    n_clicks=0,
+                                    outline=True,
+                                    color="primary",
+                                ),
+                                dbc.Button(
+                                    "Predictors",
+                                    id="pred-pill",
+                                    n_clicks=0,
+                                    outline=True,
+                                    color="primary",
+                                ),
+                                dbc.Button(
+                                    "Predictor Correlation",
+                                    id="pred-corr-pill",
+                                    n_clicks=0,
+                                    outline=True,
+                                    color="primary",
+                                ),
+                                dbc.Button(
+                                    "Predictor Importance",
+                                    id="pred-imp-pill",
+                                    n_clicks=0,
+                                    outline=True,
+                                    color="primary",
+                                ),
+                                dbc.Button(
+                                    "Predictor Importance over time",
+                                    id="pred-imp-ot-pill",
+                                    n_clicks=0,
+                                    outline=True,
+                                    color="primary",
+                                ),
+                            ],
+                        ),
+                    ],
+                    className="text-center",
+                ),
+                dcc.Input(id="plot-id", value="", type="hidden"),
+                dbc.CardBody(html.Div(id="plot-content")),
+            ],
+            className="rounded-0",
+        ),
     ]
 )
 
@@ -156,37 +213,38 @@ class RenderContent(Callback):
     """Generate plot for day passed by slider."""
 
     in_out_state = (
+        Output("job-id", "children"),
         Output("plot-content", "children"),
         Output("plot-id", "value"),
         State("url", "pathname"),
-        Input("sm-pred-menu", "n_clicks"),
-        Input("crn-menu", "n_clicks"),
-        Input("pred-menu", "n_clicks"),
-        Input("pred-corr-menu", "n_clicks"),
-        Input("pred-imp-menu", "n_clicks"),
-        Input("pred-imp-ot-menu", "n_clicks"),
+        Input("sm-pred-pill", "n_clicks"),
+        Input("crn-pill", "n_clicks"),
+        Input("pred-pill", "n_clicks"),
+        Input("pred-corr-pill", "n_clicks"),
+        Input("pred-imp-pill", "n_clicks"),
+        Input("pred-imp-ot-pill", "n_clicks"),
     )
 
     parameters = {}
 
     @staticmethod
-    def function(pathname, *menu):
-        """Render content on menu select."""
+    def function(pathname, *pill):
+        """Render content on pill select."""
         job_id = pathname.split("/")[-1]
-        menu_clicked = ctx.triggered_id
-        if menu_clicked is None:
+        pill_clicked = ctx.triggered_id
+        if pill_clicked is None:
             plot_id = next(iter(plot_parameter))
         else:
-            plot_id = menu_clicked.replace("-menu", "")
-
+            plot_id = pill_clicked.replace("-pill", "")
         logging.debug(f"Render content for {job_id}.")
         try:
             rfo_prediction = load_rfo_prediction(job_id, ttl_hash=get_ttl_hash())
         except (InvalidJobID, JobNotFound):
             logging.warning(f"'{job_id}' is not a valid job.")
-            return (dbc.Alert("Error: Job id not found", color="danger"), "")
+            return ("", dbc.Alert("Error: Job id not found", color="danger"), "")
 
         return (
+            job_id,
             create_content(plot_id, rfo_prediction, *plot_parameter[plot_id]),
             plot_id,
         )

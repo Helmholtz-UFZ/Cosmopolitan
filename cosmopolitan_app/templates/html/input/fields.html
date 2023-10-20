@@ -5,16 +5,18 @@
 	{{ render_description(field) }}
 	{{ render_error(field) }}
 {%- elif field.type == "MultipleFileField" -%}
-	{{ render_label(field) }}
+	{{ render_label_bool(field) }}
 	{{ field(class="form-control-file") }}
 	<br>
 	{{ render_description(field) }}
 	{{ render_error(field) }}
 {%- elif field.type == "IntegerField" -%}
+<div class="col">
 	{{ render_label(field) }}
 	{{ field() }}
 	{{ render_description(field) }}
 	{{ render_error(field) }}
+</div>
 {%- elif field.type == "BooleanField" -%}
 	{{ field() }}
 	{{ render_label_bool(field) }}
@@ -24,6 +26,7 @@
 	{{ field() }}
 	{{ render_input_files(field) }}
 {%- endif -%}
+
 {% endmacro %}
 
 {% macro render_input_files(field) %}
@@ -65,7 +68,7 @@
 {% endmacro %}
 
 {% macro render_label(field) %}
-	<h5>{{ field.label }}</h5>
+	{{ field.label }}
 {% endmacro %}
 
 {% macro render_label_bool(field) %}

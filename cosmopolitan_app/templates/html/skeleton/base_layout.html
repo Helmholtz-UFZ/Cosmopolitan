@@ -13,6 +13,7 @@
 				href="https://cdn.jsdelivr.net/npm/bootswatch@5.2.3/dist/flatly/bootstrap.min.css"
 				integrity="sha256-+omx7xYvI+/C0kfnQmjAIW8dDbTweWpbYHWzveX4ii4="
 				crossorigin="anonymous">
+	<link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}">
 	<link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico')}}" />
 	<script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 	<script type="text/javascript"
@@ -39,14 +40,14 @@
 <body class="d-flex flex-column min-vh-100 bg-light">
 	<div class="container-fluid">
 		<!-- Topbar -->
-		<div class="row bg-dark mb-2">
+		<div class="row">
 {% include "html/skeleton/topbar.html" %}
 		</div>
 		<!-- End Topbar -->
 
 		<!-- Content -->
-		<div class="row justify-content-center p-1">
-			<div class="col-md-11 col-lg-10 col-xl-9 bg-white border border-dark rounded px-5 py-2">
+		<div class="row justify-content-center pt-2">
+			<div class="col-md-11 col-lg-10 col-xl-9 bg-white border border-dark rounded p-0">
 {% block content %}
 {% endblock %}
 			</div>
