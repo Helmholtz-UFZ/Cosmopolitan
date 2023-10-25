@@ -90,11 +90,10 @@ def input_job():
     return render_template("html/input/input.html", form=form)
 
 
-@app.route("/privacy")
-def privacy():
-    """Return privacy notes."""
-    # TODO
-    return render_template("html/content/privacy.html")
+@app.route("/documentation")
+def documentation():
+    """Show documentation."""
+    return render_template("html/content/documentation.html")
 
 
 @app.route("/clean_up")

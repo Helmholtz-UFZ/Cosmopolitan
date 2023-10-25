@@ -6,10 +6,19 @@ import logging
 import os
 from datetime import date
 
-from cosmopolitan_app.config import WEB_INPUT_DIR
+from cosmopolitan_app.config import (
+    DAYS_DELETE_NOT_SUMBITTED,
+    DAYS_DELETE_SUMBITTED,
+    WEB_INPUT_DIR,
+)
 from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
 from cosmopolitan_app.db_manager import DataBaseManager, JobTable
-from cosmopolitan_app.utils import ssh_call
+from cosmopolitan_app.utils import (
+    InvalidJobID,
+    NotFinishedException,
+    NotSubmittedException,
+    ssh_call,
+)
 
 
 def get_attributes(clazz):
@@ -21,15 +30,6 @@ def get_attributes(clazz):
         and not callable(attr)
         and not type(attr) is staticmethod
     ]
-
-
-class InvalidJobID(Exception):
-    """Raised by CosmopolitanJob if init with invalid job id."""
-
-    def __init__(self, job_id):
-        """Add job id as attribute and format error message."""
-        self.job_id = job_id
-        super().__init__(f"{job_id} is not a valid job_id.")
 
 
 class CosmopolitanJob:
@@ -77,13 +77,13 @@ class CosmopolitanJob:
         return self.job_id
 
     def _load_job(self, job_id):
+        logging.debug("Load job")
         db_manager = DataBaseManager()
         class_attributes = get_attributes(CosmopolitanJob)
         for name, value in db_manager.get_job_columns(job_id).items():
             if name not in class_attributes:
                 raise AttributeError(f"CosmopolitanJob has no attribute named {name}")
             setattr(self, name, value)
-
         self.form = CosmopolitanJobForm()
         self.form.job_id.data = self.job_id
         self.form.previous_job_id.data = self.job_id
@@ -195,9 +195,23 @@ class CosmopolitanJob:
 
     def get_paratameters_rfo_prediction(self):
         """Return parameter to load a RFo prediction model."""
+        if not self.submitted:
+            raise NotSubmittedException(self.job_id)
+
+        if self.status != "COMPLETED":
+            raise NotFinishedException(self.job_id)
+
         working_dir = os.path.join(WEB_INPUT_DIR, self.job_id)
 
         with open(os.path.join(working_dir, "parameters.json"), "r") as f_handle:
             input_data = json.loads(f_handle.read())
 
         return input_data, working_dir, True
+
+    def time_to_life(self):
+        """Return the number of days after which this job will be deleted."""
+        days_passed = (date.today() - self.start_date).days
+        if not self.submitted:
+            return DAYS_DELETE_SUMBITTED - days_passed
+        else:
+            return DAYS_DELETE_NOT_SUMBITTED - days_passed

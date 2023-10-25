@@ -109,7 +109,7 @@ class DataBaseManager:
         specified job.
 
         Raises:
-        ValueError: If the job with the provided job ID does not exist.
+        JobNotFound: If the job with the provided job ID does not exist.
         """
         with self.engine.begin() as conn:
             session = self.Session(bind=conn)
@@ -121,7 +121,7 @@ class DataBaseManager:
                 }
                 return job_columns
             else:
-                raise JobNotFound(f"Job with ID '{job_id}' not found")
+                raise JobNotFound(job_id)
 
     def delete_job(self, job_id):
         """Delete a job entry from the database based on its job ID.
@@ -142,7 +142,7 @@ class DataBaseManager:
                 session.delete(job)
                 session.commit()
             else:
-                raise JobNotFound(f"Job with ID '{job_id}' not found")
+                raise JobNotFound(job_id)
 
     def list_jobs(self):
         """List all jobs in the database with their submission date and status.

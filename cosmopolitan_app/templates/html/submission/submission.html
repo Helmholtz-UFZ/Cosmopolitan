@@ -1,38 +1,50 @@
 {% from 'html/common_elements.html' import header %}
+{% from 'html/input/fields.html' import render_input %}
 {% extends "html/skeleton/content_layout.html" %}
 {% block head %}
 {{ header("Submission", job.job_id, job.status) }}
 {% endblock head %}
 
 {% block content_page %}
-{% if job.status is none %}
-<h3 class="text-center">Loading</h3>
-<div class="my-2">
-	<img src="{{ url_for('static', filename='loading.webp')}}"/>
-</div>
-{% else %}
-<div class="my-2">
-	<h3>Status:</h3>
-	<h4>{{ job.status }}</h4>
-	<div>
-		<button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#expandableContent" aria-expanded="false" aria-controls="expandableContent">
-			Show logs
-		</button>
-		<div class="collapse mt-3" id="expandableContent">
-			<div class="card card-body">
-				<p class="m-0">{{ job.logs | replace("\n", "</p><p class=\"m-0\">") | safe}}</p>
+<div class="row my-2">
+	<h3 class="text-center">Status:</h3>
+	<h4 class="text-center">{{ job.status }}</h4>
+	<h5 class="text-center text-warning">The job will be deleted in {{ job.time_to_life() }} days.</h4>
+	<div class="accordion" id="accordionExample">
+		<div class="accordion-item">
+			<h2 class="accordion-header" id="headingOne">
+				<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+					Show logs
+				</button>
+			</h2>
+			<div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#accordionExample">
+				<div class="accordion-body">
+					<p class="m-0">{{ job.logs | replace("\n", "</p><p class=\"m-0\">") | safe}}</p>
+				</div>
+			</div>
+		</div>
+		<div class="accordion-item">
+			<h2 class="accordion-header" id="headingTwo">
+				<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+					Show input
+				</button>
+			</h2>
+			<div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo" data-bs-parent="#accordionExample">
+				<div class="accordion-body">
+				{{ render_input(job.form, False) }}
+				</div>
 			</div>
 		</div>
 	</div>
-</div>
 {% if job.status == "COMPLETED" %}
-<div class="my-2">
-	<h3>See results</h3>
+<div class="row my-2">
+	<h3 class="text-center">See results</h3>
 	<form action="/results/{{ job.job_id }}" method="get">
 		{{ job.form.csrf_token }}
-		<input type="submit" class="btn btn-primary mt-2" value="See results">
+		<div class="d-grid m-2 col-6 mx-auto">
+			<input type="submit" class="btn btn-success mt-2" value="See results">
+		</div>
 	</form>
 </div>
-{% endif %}
 {% endif %}
 {% endblock content_page %}

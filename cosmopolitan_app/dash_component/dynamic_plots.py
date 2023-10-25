@@ -17,11 +17,18 @@ from plot_functions import (
     predictor_importance_along_days,
 )
 from RFoPrediction import RFoPrediction
+from sqlalchemy.exc import OperationalError
 
 from cosmopolitan_app.config import DEBUG
-from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob, InvalidJobID
+from cosmopolitan_app.cosmopolitan_job import (
+    CosmopolitanJob,
+    InvalidJobID,
+    NotFinishedException,
+    NotSubmittedException,
+)
 from cosmopolitan_app.dash_component.dash_component import (
     Callback,
+    error_response_dash,
     list_callbacks,
     logging_config,
     stand_alone,
@@ -239,9 +246,15 @@ class RenderContent(Callback):
         logging.debug(f"Render content for {job_id}.")
         try:
             rfo_prediction = load_rfo_prediction(job_id, ttl_hash=get_ttl_hash())
-        except (InvalidJobID, JobNotFound):
-            logging.warning(f"'{job_id}' is not a valid job.")
-            return ("", dbc.Alert("Error: Job id not found", color="danger"), "")
+        except (
+            InvalidJobID,
+            JobNotFound,
+            NotFinishedException,
+            NotSubmittedException,
+            OperationalError,
+        ) as e:
+            # return ("", dbc.Alert("Error: Job id not found", color="danger"), "")
+            return ("", error_response_dash(e), "")
 
         return (
             job_id,
@@ -272,7 +285,13 @@ class GeneratePlotPerDay(Callback):
         day -= 1
         try:
             rfo_prediction = load_rfo_prediction(job_id, ttl_hash=get_ttl_hash())
-        except (InvalidJobID, JobNotFound):
+        except (
+            InvalidJobID,
+            JobNotFound,
+            NotFinishedException,
+            NotSubmittedException,
+            OperationalError,
+        ):
             return
         plot_id = plot_id_tab.replace("-tab", "")
         plot_function = plot_parameter[plot_id][-1]

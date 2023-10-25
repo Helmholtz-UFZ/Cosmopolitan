@@ -8,7 +8,7 @@
 {% endif %}
 <h2 class="text-center">{{ title }}</h2>
 {% if subtitle != "" %}
-<h3 class="text-center">{{ subtitle }}</h2>
+<h3 class="text-center">{{ subtitle|safe }}</h2>
 {% endif %}
 </div>
 {% endmacro %}
