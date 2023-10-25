@@ -384,7 +384,6 @@ class CosmopolitanJobForm(FlaskForm):
             # for field in self._fields:
             #     print(getattr(self, field).errors)
             return False
-
         form_validt = True
         if self.area_x1.data >= self.area_x2.data:
             self.area_x1.errors.append("X1 cannot be higher or equal than X2.")
@@ -474,7 +473,6 @@ class CosmopolitanJobForm(FlaskForm):
         # Check if job id is valid and input dir is defined.
         if self.input_dir is None:
             raise ValidationError("First set a valide job id!")
-
         for uploaded_file in json_load_4_jinja(field.data):
             if not os.path.isfile(os.path.join(self.input_dir, uploaded_file)):
                 raise ValidationError("Upload files with form.")

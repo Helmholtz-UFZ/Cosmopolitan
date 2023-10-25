@@ -1,43 +1,112 @@
-{% macro render_field(field) %}
+{% macro render_input(form, input) %}
+
+{% for group, field_names in form.groups.items() %}
+{% if group != "CRN Measurments" %}
+<div class="row my-2">
+{% endif %}
+	{% if group in ["Predictor variables", "CRN Measurments"] %}
+	<div class="col-6">
+	{% else %}
+	<div class="col-12">
+	{% endif %}
+		<div class="card">
+			<h5 class="card-header">
+				{{ group }}
+			</h5>
+			<div class="card-body">
+				{% if group == "Area" %}
+				<div class="row">
+				{% endif %}
+
+				{% for field_name in field_names %}
+				{% if group == "Area" and loop.index % 2 == 1 %}
+				</div>
+				<div class="row">
+				{% endif %}
+				{{ render_field(form[field_name], input) }}
+				{% endfor %}
+
+				{% if group == "Area" %}
+				</div>
+				{% endif %}
+			</div>
+		</div>
+	</div>
+{% if group != "Predictor variables" %}
+</div>
+{% endif %}
+{% endfor %}
+
+{% endmacro %}
+{% macro render_field(field, input) %}
 {%- if field.type == "StringField" -%}
 	{{ render_label(field) }}
+	{%- if input -%}
 	{{ field() }}
+	{%- else -%}
+	: {{ field.data }} <br>
+	{%- endif -%}
 	{{ render_description(field) }}
 	{{ render_error(field) }}
 {%- elif field.type == "MultipleFileField" -%}
-	{{ render_label(field) }}
+	{%- if input -%}
+	{{ render_label_bool(field) }}
 	{{ field(class="form-control-file") }}
 	<br>
+	{%- endif -%}
 	{{ render_description(field) }}
 	{{ render_error(field) }}
 {%- elif field.type == "IntegerField" -%}
+<div class="col">
 	{{ render_label(field) }}
+	{%- if input -%}
 	{{ field() }}
+	{%- else -%}
+	: {{ field.data }} <br>
+	{%- endif -%}
 	{{ render_description(field) }}
 	{{ render_error(field) }}
+</div>
 {%- elif field.type == "BooleanField" -%}
+	{%- if input -%}
 	{{ field() }}
+	{%- else -%}
+	{%- if field.data == 1 -%}
+		<input class="form-check-input" type="checkbox" value="" id="flexCheckCheckedDisabled" checked disabled>
+	{%- else -%}
+		<input class="form-check-input" type="checkbox" value="" id="flexCheckCheckedDisabled" disabled>
+	{%- endif -%}
+	{%- endif -%}
 	{{ render_label_bool(field) }}
 	{{ render_description(field) }}
 	{{ render_error(field) }}
 {%- elif field.type == "HiddenField" -%}
+	{%- if input -%}
 	{{ field() }}
+	{%- endif -%}
+	{%- if field.name in ["selected_pred_files", "selected_crn_files"]  -%}
 	{{ render_input_files(field) }}
+	{%- endif -%}
 {%- endif -%}
+
 {% endmacro %}
 
 {% macro render_input_files(field) %}
-	{%- if field.name == "selected_pred_files" -%}
 	<h5>Choosen files:</h5>
+	<ol class="list-group list-group-numbered list-group-flush">
 	{% for name, info in json_loads(field.data).items() %}
-	<p>{{ name }} type: {{ info["type"] }} unit: {{ info["unit"] }}</p>
+		<li class="list-group-item d-flex justify-content-between align-items-start">
+			<div class="ms-2 me-auto">
+				<div class="fw-bold">{{ name }} </div>
+				{%- if field.name == "selected_pred_files" -%}
+				type: {{ info["type"] }} <br> unit: {{ info["unit"] }}
+				{%- elif field.name == "selected_crn_files" -%}
+				days: {{ ", ".join(info) }}
+				{%- endif -%}
+			</div>
+		</li>
 	{% endfor %}
-	{%- elif field.name == "selected_crn_files" -%}
-	<h5>Choosen files:</h5>
-	{% for name, days in json_loads(field.data).items() %}
-	<p>{{ name }} days: {{ ", ".join(days) }}</p>
-	{% endfor %}
-	{%- endif -%}
+	</ol>
 {% endmacro %}
 
 {% macro render_error(field) %}
@@ -65,7 +134,7 @@
 {% endmacro %}
 
 {% macro render_label(field) %}
-	<h5>{{ field.label }}</h5>
+	{{ field.label }}
 {% endmacro %}
 
 {% macro render_label_bool(field) %}

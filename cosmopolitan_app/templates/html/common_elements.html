@@ -1,0 +1,14 @@
+{% macro header(title, subtitle, status) %}
+{% if status == "COMPLETED" %}
+<div class="bg-success rounded-top py-2">
+{% elif status == "FAILED" %}
+<div class="bg-danger rounded-top py-2">
+{% else %}
+<div class="bg-info rounded-top py-2">
+{% endif %}
+<h2 class="text-center">{{ title }}</h2>
+{% if subtitle != "" %}
+<h3 class="text-center">{{ subtitle|safe }}</h2>
+{% endif %}
+</div>
+{% endmacro %}

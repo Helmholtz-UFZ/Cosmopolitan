@@ -1,20 +1,17 @@
 """Flask app that handles the Cosmopolitan Webserver."""
 
 import os
-import traceback
 from logging.config import dictConfig
 
-import sqlalchemy
-from flask import Flask, render_template, request
-from werkzeug.exceptions import HTTPException, NotFound
+from flask import Flask, render_template
+from werkzeug.exceptions import HTTPException
 
 from cosmopolitan_app.config import DEBUG
-from cosmopolitan_app.cosmopolitan_job import InvalidJobID
 from cosmopolitan_app.cosmopolitan_job_form import json_load_4_jinja
 from cosmopolitan_app.dash_component import dynamic_plots
 from cosmopolitan_app.dash_component.dash_component import init_dash
-from cosmopolitan_app.db_manager import JobNotFound
 from cosmopolitan_app.logger import get_logger_config
+from cosmopolitan_app.utils import error_response_args, log_error
 
 # TODO Dash
 # from flask_wtf.csrf import CSRFProtect
@@ -39,48 +36,20 @@ app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024 * 1024  # 5 Gb limit
 app.jinja_env.globals.update(json_loads=json_load_4_jinja)
 
 
-def error_response(e):
-    """Handle standard errors."""
-    if isinstance(e, JobNotFound):
-        app.logger.info("Handle JobNotFound exception")
-        return (
-            render_template("html/errors/job_not_found_error.html", job_id=e.job_id),
-            500,
-        )
-
-    if isinstance(e, InvalidJobID):
-        app.logger.info("Handle InvalidJobID exception")
-        return (
-            render_template("html/errors/job_not_found_error.html", job_id=e.job_id),
-            500,
-        )
-
-    if isinstance(e, sqlalchemy.exc.OperationalError):
-        app.logger.info("Handle sqlalchemy.exc.OperationalError exception")
+def error_response_flask(e):
+    """Handle standard errors on flask site."""
+    template_kwargs, html_error_code, log_it = error_response_args(e)
+    app.logger.info(f"Handle { e.__class__.__name__ }")
+    if log_it:
         log_error()
-        return render_template("html/errors/db_no_connection_error.html"), 500
 
-    if isinstance(e, NotFound):
-        app.logger.info("Handle NotFound exception")
-        return render_template("html/errors/file_not_found.html"), 404
-
-
-def log_error():
-    """
-    Log error with traceback.
-
-    In production this will trigger an email, see logger.py.
-    """
-    route = request.url_rule
-    route_function = request.endpoint
-
-    error = traceback.format_exc()
-    content = (
-        f"Unexpected error in { route } using { route_function }:\n"
-        f"{error}\n"
-        f"PID={os.getpid()}\n"
+    return (
+        render_template(
+            "html/errors/error_skeleton.html",
+            **template_kwargs,
+        ),
+        html_error_code,
     )
-    app.logger.error(content)
 
 
 @app.errorhandler(Exception)
@@ -107,10 +76,10 @@ def handle_exception(e):
         using `@app.errorhandler(Exception)`.
     """
     app.logger.info("Handle exception")
-    handled_response = error_response(e)
+    handled_response = error_response_args(e)
 
     if handled_response:
-        return handled_response
+        return error_response_flask(e)
 
     if app.debug:
         raise e
@@ -119,7 +88,13 @@ def handle_exception(e):
         return e
 
     log_error()
-    return render_template("html/errors/internal_error.html"), 500
+    return (
+        render_template(
+            "html/errors/error_skeleton.html",
+            error_page="html/errors/internal_error.html",
+        ),
+        500,
+    )
 
 
 if __name__ == "__main__":

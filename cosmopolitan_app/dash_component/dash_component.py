@@ -1,12 +1,16 @@
 """Module that extends dash main class to be added to be served by flask."""
 
+import logging
+from logging.config import dictConfig
 
 import dash
 import dash_bootstrap_components as dbc
+from dash_dangerously_set_inner_html import DangerouslySetInnerHTML
 from flask import render_template
 from markupsafe import Markup
 
 from cosmopolitan_app.logger import ExcludeDebugMatplotLibFilter
+from cosmopolitan_app.utils import error_response_args
 
 
 class DashComponent(dash.Dash):
@@ -103,6 +107,18 @@ def init_dash(server, globals_module, app_layout):
     return dash_app.server
 
 
+def error_response_dash(e):
+    """Handle standard errors on flask site."""
+    template_kwargs, html_error_code, log_it = error_response_args(e)
+    logging.info(f"Dash handle { e.__class__.__name__ }")
+    return DangerouslySetInnerHTML(
+        render_template(
+            template_kwargs["error_page"],
+            **{k: v for k, v in template_kwargs.items() if k != "error_page"},
+        )
+    )
+
+
 logging_config = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -127,3 +143,5 @@ logging_config = {
     },
     "filters": {"exclude_debug_matplotlib": {"()": ExcludeDebugMatplotLibFilter}},
 }
+
+dictConfig(logging_config)

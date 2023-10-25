@@ -5,14 +5,19 @@ import os
 import shutil
 import smtplib
 import subprocess
+import traceback
 from datetime import date, timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from time import sleep
 
-from flask import url_for
+from flask import request, url_for
+from sqlalchemy.exc import OperationalError
+from werkzeug.exceptions import NotFound
 
 from cosmopolitan_app.config import (
+    DAYS_DELETE_NOT_SUMBITTED,
+    DAYS_DELETE_SUMBITTED,
     EMAIL_PASSWORD,
     EMAIL_PORT,
     EMAIL_SENDER,
@@ -21,7 +26,86 @@ from cosmopolitan_app.config import (
     WEB_INPUT_DIR,
     WEB_UPLOAD_DIR,
 )
-from cosmopolitan_app.db_manager import DataBaseManager
+from cosmopolitan_app.db_manager import DataBaseManager, JobNotFound
+
+
+def error_response_args(e):
+    """Serve required arguments for error handling for both flask and dash."""
+    if isinstance(e, NotFinishedException):
+        return (
+            {
+                "error_page": "html/errors/job_not_finished_exception.html",
+                "job_id": e.job_id,
+            },
+            500,
+            False,
+        )
+
+    if isinstance(e, NotSubmittedException):
+        return (
+            {
+                "error_page": "html/errors/job_not_submitted_exception.html",
+                "job_id": e.job_id,
+            },
+            500,
+            False,
+        )
+
+    if isinstance(e, JobNotFound):
+        return (
+            {
+                "error_page": "html/errors/job_not_found_error.html",
+                "job_id": e.job_id,
+            },
+            500,
+            False,
+        )
+
+    if isinstance(e, InvalidJobID):
+        return (
+            {
+                "error_page": "html/errors/job_not_found_error.html",
+                "job_id": e.job_id,
+            },
+            500,
+            False,
+        )
+
+    if isinstance(e, OperationalError):
+        return (
+            {
+                "error_page": "html/errors/db_no_connection_error.html",
+            },
+            500,
+            True,
+        )
+
+    if isinstance(e, NotFound):
+        return (
+            {
+                "error_page": "html/errors/file_not_found.html",
+            },
+            404,
+            True,
+        )
+
+
+def log_error():
+    """
+    Log error with traceback.
+
+    In production this will trigger an email, see logging.py.
+    """
+    route = request.url_rule
+    route_function = request.endpoint
+
+    error = traceback.format_exc()
+    content = (
+        f"Unexpected error in { route } using { route_function }:\n"
+        f"{error}\n"
+        f"PID={os.getpid()}\n"
+    )
+    logging.error(content)
 
 
 def clean_up():
@@ -30,8 +114,8 @@ def clean_up():
     db_manager = DataBaseManager()
 
     # Define the time thresholds
-    two_day_ago = date.today() - timedelta(days=2)
-    two_months_ago = date.today() - timedelta(days=60)
+    two_day_ago = date.today() - timedelta(days=DAYS_DELETE_NOT_SUMBITTED)
+    two_months_ago = date.today() - timedelta(days=DAYS_DELETE_SUMBITTED)
 
     jobs = db_manager.list_jobs()
     kept_jobs = []
@@ -142,3 +226,30 @@ def ssh_call(call_str):
     out = completed_process.stdout.decode("UTF8")
     logging.debug(f"SSH call succesfull:\n{ out }")
     return out
+
+
+class InvalidJobID(Exception):
+    """Raised by CosmopolitanJob if init with invalid job id."""
+
+    def __init__(self, job_id):
+        """Add job id as attribute and format error message."""
+        self.job_id = job_id
+        super().__init__(f"{job_id} is not a valid job_id.")
+
+
+class NotSubmittedException(Exception):
+    """Raised when calling a method that requires a job to be submitted."""
+
+    def __init__(self, job_id):
+        """Add job id as attribute and format error message."""
+        self.job_id = job_id
+        super().__init__(f"The job {job_id} was not yet submitted.")
+
+
+class NotFinishedException(Exception):
+    """Raised when calling a method that requires a job to be submitted."""
+
+    def __init__(self, job_id):
+        """Add job id as attribute and format error message."""
+        self.job_id = job_id
+        super().__init__(f"The job {job_id} is not yet finished.")
