@@ -30,7 +30,7 @@ from cosmopolitan_app.db_manager import DataBaseManager, JobNotFound
 
 
 def error_response_args(e):
-    """Handle standard errors."""
+    """Serve required arguments for error handling for both flask and dash."""
     if isinstance(e, NotFinishedException):
         return (
             {
