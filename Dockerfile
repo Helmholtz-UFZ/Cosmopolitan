@@ -4,11 +4,13 @@ FROM python:3.10-slim-bookworm
 
 WORKDIR /python-docker
 
-RUN apt-get update 
+RUN apt-get update
+RUN apt-get -y upgrade
 RUN apt-get -y install libpq-dev gcc
 COPY requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt
 
 COPY . .
+COPY .env_dep .env
 
 CMD [ "python3", "-m" , "flask", "run", "--host=0.0.0.0"]

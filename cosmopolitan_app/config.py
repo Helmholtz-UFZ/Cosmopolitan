@@ -19,14 +19,15 @@ def getenv(name):
     return value
 
 
+DAYS_DELETE_SUMBITTED = 2
+DAYS_DELETE_NOT_SUMBITTED = 60
+
 load_dotenv()
 
 try:
     # s/=.*//g |'<,'> s/^.*$/& = getenv("&")/g | noh
     WEB_UPLOAD_DIR = getenv("WEB_UPLOAD_DIR")
     WEB_INPUT_DIR = getenv("WEB_INPUT_DIR")
-    DAYS_DELETE_NOT_SUMBITTED = int(getenv("DAYS_DELETE_NOT_SUMBITTED"))
-    DAYS_DELETE_SUMBITTED = int(getenv("DAYS_DELETE_SUMBITTED"))
     EMAIL_SERVER = getenv("EMAIL_SERVER")
     EMAIL_PORT = getenv("EMAIL_PORT")
     EMAIL_USERNAME = getenv("EMAIL_USERNAME")
