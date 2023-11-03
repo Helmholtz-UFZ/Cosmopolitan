@@ -12,7 +12,17 @@ Classes:
 
 import datetime
 
-from sqlalchemy import JSON, Boolean, Column, Date, Float, String, create_engine
+from sqlalchemy import (
+    ARRAY,
+    JSON,
+    Binary,
+    Boolean,
+    Column,
+    Date,
+    Float,
+    String,
+    create_engine,
+)
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from cosmopolitan_app.config import DB_HOST_NAME, DB_NAME, DB_PORT, DB_PW, DB_USER
@@ -85,14 +95,26 @@ class DataBaseManager:
         Parameters:
         data_to_insert (dict): A dictionary containing job information with keys
         equivalent to the cloumns ins JobTable.
-
-        Returns:
-        None
         """
         with self.engine.begin() as conn:
             session = self.Session(bind=conn)
             job_row = JobTable(**data_to_insert)
             session.merge(job_row)
+            session.commit()
+
+    def update_column(self, job_id, column_dic):
+        """Update a specific column in the 'JobTable' for a given job ID.
+
+        Raises:
+        JobNotFound: If the job with the provided job ID does not exist.
+        """
+        with self.engine.begin() as conn:
+            session = self.Session(bind=conn)
+            job = session.query(JobTable).filter_by(job_id=job_id).first()
+            if job is None:
+                raise JobNotFound(job_id)
+            for column_name, column_value in column_dic.items():
+                setattr(job, column_name, column_value)
             session.commit()
 
     def get_job_columns(self, job_id):
@@ -186,6 +208,8 @@ class JobTable(Base):
     job_id = Column(String, primary_key=True)
     start_date = Column("start_date", Date)
     input_data = Column("input_data", JSON)
+    files = Column("files", ARRAY(Binary))
+    file_names = Column("file_names", ARRAY(String))
     submitted = Column("submitted", Boolean)
     cluster_job_id = Column("cluster_job_id", String)
     email = Column("email", String)

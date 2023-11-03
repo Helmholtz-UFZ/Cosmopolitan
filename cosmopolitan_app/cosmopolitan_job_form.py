@@ -54,7 +54,7 @@ from wtforms.validators import (
 )
 from wtforms.widgets import CheckboxInput, NumberInput, TextInput
 
-from cosmopolitan_app.config import WEB_INPUT_DIR, WEB_UPLOAD_DIR
+from cosmopolitan_app.config import WEB_UPLOAD_DIR, WEB_WORK_DIR
 from cosmopolitan_app.db_manager import DataBaseManager
 
 
@@ -298,7 +298,7 @@ class CosmopolitanJobForm(FlaskForm):
             raise ValidationError("Job id already exist")
 
         if len(field.errors) == 0:
-            self.input_dir = os.path.join(WEB_INPUT_DIR, self.job_id.data)
+            self.input_dir = os.path.join(WEB_WORK_DIR, self.job_id.data)
             if not os.path.isdir(self.input_dir):
                 os.mkdir(self.input_dir)
 
@@ -318,7 +318,7 @@ class CosmopolitanJobForm(FlaskForm):
                 )
                 raise ValidationError("Use normal input field to set job id.")
 
-            previous_input_dir = os.path.join(WEB_INPUT_DIR, self.previous_job_id.data)
+            previous_input_dir = os.path.join(WEB_WORK_DIR, self.previous_job_id.data)
 
             if self.job_id.data != self.previous_job_id.data and os.path.isdir(
                 previous_input_dir

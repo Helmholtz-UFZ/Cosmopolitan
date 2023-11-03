@@ -6,10 +6,17 @@ import logging
 import os
 from datetime import date
 
+import requests
+
 from cosmopolitan_app.config import (
+    CLUSTER_BASE_URL,
+    CLUSTER_WORK_DIR,
+    COMPUTATION_SCRIPT_TEMPLATE,
     DAYS_DELETE_NOT_SUMBITTED,
     DAYS_DELETE_SUMBITTED,
-    WEB_INPUT_DIR,
+    WEB_WORK_DIR,
+    slurm_default_parameters,
+    slurm_header,
 )
 from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
 from cosmopolitan_app.db_manager import DataBaseManager, JobTable
@@ -17,8 +24,9 @@ from cosmopolitan_app.utils import (
     InvalidJobID,
     NotFinishedException,
     NotSubmittedException,
-    ssh_call,
 )
+
+LOG_FILE_NAME = "logs"
 
 
 def get_attributes(clazz):
@@ -143,6 +151,47 @@ class CosmopolitanJob:
             else:
                 self.input_data[name] = field.data
 
+    def _get_column_data(self, name, work_dir_base=WEB_WORK_DIR):
+        working_dir = os.path.join(work_dir_base, self.job_id)
+        if name == "file_names":
+            print(list(os.listdir(working_dir)))
+            return list(os.listdir(working_dir))
+        if name == "files":
+            value = []
+            for f_name in os.listdir(working_dir):
+                with open(os.path.join(working_dir, f_name), "rb") as f_handle:
+                    value.append(f_handle.read())
+            return value
+
+        return getattr(self, name)
+
+    def get_results(self):
+        """Get results after job finished.
+
+        WARNING! designed to be execute on the computing cluster not on the webserver.
+
+        This method reads all current file in from the work dir and overrides the
+        previously stored files. And read the logs. Is designed to work on cluster to
+        update files after job complition.
+        """
+        logging.debug(f"Get results for job {self.job_id}")
+        column_dic = {}
+        column_dic["file_names"] = self._get_column_data(
+            "file_names", work_dir_base=CLUSTER_WORK_DIR
+        )
+        column_dic["files"] = self._get_column_data(
+            "files", work_dir_base=CLUSTER_WORK_DIR
+        )
+        try:
+            column_dic["logs"] = column_dic["files"][
+                column_dic["file_names"].index("logs")
+            ].decode()
+        except ValueError:
+            logging.debug("No logs were found")
+            column_dic["logs"] = "No logs found"
+        db_manager = DataBaseManager()
+        db_manager.update_column(self.job_id, column_dic)
+
     def save(self):
         """Save the job information to the database.
 
@@ -152,7 +201,7 @@ class CosmopolitanJob:
         """
         logging.debug(f"Save job {self.job_id}")
         column_names = JobTable.__table__.columns.keys()
-        data_to_insert = {name: getattr(self, name) for name in column_names}
+        data_to_insert = {name: self._get_column_data(name) for name in column_names}
         db_manager = DataBaseManager()
         db_manager.add_entry(data_to_insert)
 
@@ -170,12 +219,24 @@ class CosmopolitanJob:
     def submit(self):
         """Submit job to cluster."""
         logging.debug(f"Submit job {self.job_id}.")
-        call_str = f"submit_job.sh {self.job_id}"
-        out = ssh_call(call_str)
+        url = f"{CLUSTER_BASE_URL}/job/submit"
+        job_para = slurm_default_parameters
+        job_para["job"]["current_working_directory"] += f"/{self.job_id}"
+        job_para["job"]["standard_output"] += f"/{LOG_FILE_NAME}"
+        job_para["job"]["standard_error"] = job_para["job"]["standard_output"]
+        job_para["script"] = COMPUTATION_SCRIPT_TEMPLATE.format(job_id=self.job_id)
+        response = requests.post(url, json=job_para, headers=slurm_header)
         self.submitted = True
-        self.cluster_job_id = out.split()[-1]
-        self.status = "PENDING"
-        self.logs = ""
+        print(json.dumps(response.json(), indent=2))
+        if response.status_code == 200:
+            self.status = "PENDING"
+            self.logs = ""
+            self.cluster_job_id = response.json()["job_id"]
+        else:
+            self.status = "FAILED"
+            self.logs = f"""Slurm error:
+            {json.dumps(response.json()['errors'], indent=2)}"""
+
         self.save()
 
     def check_status(self):
@@ -183,15 +244,24 @@ class CosmopolitanJob:
         logging.info(f"See progress of job {self.job_id}.")
         if self.status in ["COMPLETED", "FAILED"]:
             return
-        call_str = f"check_status.sh {self.job_id} {self.cluster_job_id}"
-        out = ssh_call(call_str)
-        self.status = out.split()[0]
-        self.logs = "\n".join(out.split("\n")[1:])
-        if self.status == "COMPLETED":
-            logging.debug("Job completed.")
-            call_str = f"get_results.sh {self.job_id}"
-            out = ssh_call(call_str)
-        self.save()
+        url = f"{CLUSTER_BASE_URL}/job/{self.job_id}"
+        response = requests.post(url, headers=slurm_header)
+        self.submitted = True
+        logging.debug("Response")
+        logging.debug(json.dumps(response.json(), indent=2))
+        if response.status_code == 200:
+            self.status = "PENDING"
+            self.logs = ""
+            self.cluster_job_id = response.json()["job_id"]
+        else:
+            self.status = "FAILED"
+            self.logs = f"""Slurm error:
+            {json.dumps(response.json()['errors'], indent=2)}"""
+
+        self.status = response.json()["status"]
+        column_dic = {"status": self.status}
+        db_manager = DataBaseManager()
+        db_manager.update_column(self.job_id, column_dic)
 
     def get_paratameters_rfo_prediction(self):
         """Return parameter to load a RFo prediction model."""
@@ -201,7 +271,7 @@ class CosmopolitanJob:
         if self.status != "COMPLETED":
             raise NotFinishedException(self.job_id)
 
-        working_dir = os.path.join(WEB_INPUT_DIR, self.job_id)
+        working_dir = os.path.join(WEB_WORK_DIR, self.job_id)
 
         with open(os.path.join(working_dir, "parameters.json"), "r") as f_handle:
             input_data = json.loads(f_handle.read())

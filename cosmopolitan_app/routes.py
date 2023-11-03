@@ -7,7 +7,7 @@ from flask import current_app as app
 from flask import redirect, render_template, request, send_from_directory, url_for
 from werkzeug.exceptions import BadRequestKeyError
 
-from cosmopolitan_app.config import WEB_INPUT_DIR
+from cosmopolitan_app.config import WEB_WORK_DIR
 from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
 from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
 from cosmopolitan_app.utils import clean_up, send_submission_mail
@@ -108,5 +108,5 @@ def trigger_clean_up():
 def result_file(job_id, file_name):
     """Serve result files."""
     logging.info(f"Visiting /results/{job_id}/{file_name} to result_file()")
-    output_dir = os.path.join(WEB_INPUT_DIR, job_id)
+    output_dir = os.path.join(WEB_WORK_DIR, job_id)
     return send_from_directory(output_dir, file_name)

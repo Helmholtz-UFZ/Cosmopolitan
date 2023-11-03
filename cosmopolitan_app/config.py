@@ -24,7 +24,7 @@ load_dotenv()
 try:
     # s/=.*//g |'<,'> s/^.*$/& = getenv("&")/g | noh
     WEB_UPLOAD_DIR = getenv("WEB_UPLOAD_DIR")
-    WEB_INPUT_DIR = getenv("WEB_INPUT_DIR")
+    WEB_WORK_DIR = getenv("WEB_WORK_DIR")
     DAYS_DELETE_NOT_SUMBITTED = int(getenv("DAYS_DELETE_NOT_SUMBITTED"))
     DAYS_DELETE_SUMBITTED = int(getenv("DAYS_DELETE_SUMBITTED"))
     EMAIL_SERVER = getenv("EMAIL_SERVER")
@@ -37,6 +37,8 @@ try:
     CLUSTER_REPO_DIR = getenv("CLUSTER_REPO_DIR")
     CLUSTER_USER = getenv("CLUSTER_USER")
     CLUSTER_MACHINE = getenv("CLUSTER_MACHINE")
+    CLUSTER_TOKEN = getenv("CLUSTER_TOKEN")
+    CLUSTER_BASE_URL = getenv("CLUSTER_BASE_URL")
     DB_NAME = getenv("DB_NAME")
     DB_HOST_NAME = getenv("DB_HOST_NAME")
     DB_PORT = getenv("DB_PORT")
@@ -47,3 +49,35 @@ except ValueError as error:
     print("Can not start flask")
     print(error)
     exit(1)
+
+
+slurm_default_parameters = {
+    "job": {
+        "name": None,
+        "ntasks": 1,
+        "nodes": 1,
+        "current_working_directory": CLUSTER_WORK_DIR,
+        "standard_input": "/dev/null",
+        "standard_output": CLUSTER_WORK_DIR,
+        "standard_error": CLUSTER_WORK_DIR,
+        "time_limit": "1:00:00",
+        "memory_per_cpu": "1G",
+        "environment": {
+            "PATH": "/usr/local/bin:/usr/bin",
+        },
+    },
+    "script": None,
+}
+
+slurm_header = {
+    "X-SLURM-USER-NAME": CLUSTER_USER,
+    "X-SLURM-USER-TOKEN": CLUSTER_TOKEN,
+}
+
+
+COMPUTATION_SCRIPT_TEMPLATE = f"""#!/bin/bash
+cd { CLUSTER_WORK_DIR }/{{ job_id }}
+module load foss/2022b Python/3.10.8
+source { CLUSTER_PYTHON_ENV_PATH }/bin/activate
+python3 { CLUSTER_REPO_DIR }/SM_prediction_main.py -wd { CLUSTER_WORK_DIR }/{{ job_id }}
+"""
