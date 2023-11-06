@@ -10,7 +10,7 @@ from werkzeug.exceptions import BadRequestKeyError
 from cosmopolitan_app.config import WEB_WORK_DIR
 from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
 from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
-from cosmopolitan_app.utils import clean_up, send_submission_mail
+from cosmopolitan_app.utils import SubmittedException, clean_up, send_submission_mail
 
 
 @app.route("/")
@@ -46,7 +46,7 @@ def submission(job_id):
         reload_delay = None
 
     return render_template(
-        "html/submission/submission.html", job=job, reload_delay=reload_delay
+        "html/job/submission.html", job=job, reload_delay=reload_delay
     )
 
 
@@ -56,8 +56,8 @@ def confirm(job_id):
     logging.info(f"Confirm submisison for job {job_id}")
     job = CosmopolitanJob(job_id=job_id)
     if job.submitted:
-        return render_template("html/errors/job_submitted_error.html", job_id=job_id)
-    return render_template("html/input/confirm.html", job=job)
+        raise SubmittedException
+    return render_template("html/job/confirm.html", job=job)
 
 
 @app.route("/input/<job_id>", methods=["GET", "POST"])
@@ -66,9 +66,9 @@ def change_input(job_id):
     logging.info(f"Make changes to job {job_id}")
     job = CosmopolitanJob(job_id=job_id)
     if job.submitted:
-        return render_template("html/errors/job_submitted_error.html", job_id=job_id)
+        raise SubmittedException
     job.delete()
-    return render_template("html/input/input.html", form=job.form)
+    return render_template("html/job/input.html", form=job.form)
 
 
 @app.route("/input", methods=["GET", "POST"])
@@ -87,7 +87,7 @@ def input_job():
             job = CosmopolitanJob(form=form)
             job.save()
             return redirect(f"/confirm/{job.job_id}")
-    return render_template("html/input/input.html", form=form)
+    return render_template("html/job/input.html", form=form)
 
 
 @app.route("/documentation")

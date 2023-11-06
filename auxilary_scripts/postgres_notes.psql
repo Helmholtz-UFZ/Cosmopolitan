@@ -15,7 +15,7 @@ CREATE TABLE jobs (
     notified_end VARCHAR,
     logs VARCHAR,
     status VARCHAR,
-    version DECIMAL,
+    version DECIMAL
 );
 CREATE TABLE logs (
     log_id SERIAL PRIMARY KEY,

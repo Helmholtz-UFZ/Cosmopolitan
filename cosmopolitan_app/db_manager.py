@@ -15,11 +15,11 @@ import datetime
 from sqlalchemy import (
     ARRAY,
     JSON,
-    Binary,
     Boolean,
     Column,
     Date,
     Float,
+    LargeBinary,
     String,
     create_engine,
 )
@@ -208,7 +208,7 @@ class JobTable(Base):
     job_id = Column(String, primary_key=True)
     start_date = Column("start_date", Date)
     input_data = Column("input_data", JSON)
-    files = Column("files", ARRAY(Binary))
+    files = Column("files", ARRAY(LargeBinary))
     file_names = Column("file_names", ARRAY(String))
     submitted = Column("submitted", Boolean)
     cluster_job_id = Column("cluster_job_id", String)

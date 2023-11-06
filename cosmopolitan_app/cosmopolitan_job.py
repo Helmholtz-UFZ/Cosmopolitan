@@ -4,6 +4,7 @@
 import json
 import logging
 import os
+import shutil
 from datetime import date
 
 import requests
@@ -19,14 +20,14 @@ from cosmopolitan_app.config import (
     slurm_header,
 )
 from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
-from cosmopolitan_app.db_manager import DataBaseManager, JobTable
+from cosmopolitan_app.db_manager import DataBaseManager, JobNotFound, JobTable
 from cosmopolitan_app.utils import (
     InvalidJobID,
     NotFinishedException,
     NotSubmittedException,
 )
 
-LOG_FILE_NAME = "logs"
+LOG_SUFFIX = "logs"
 
 
 def get_attributes(clazz):
@@ -58,6 +59,7 @@ class CosmopolitanJob:
     logs = None
     status = None
     version = None
+    file_names = None
 
     def __init__(
         self,
@@ -87,11 +89,26 @@ class CosmopolitanJob:
     def _load_job(self, job_id):
         logging.debug("Load job")
         db_manager = DataBaseManager()
+
         class_attributes = get_attributes(CosmopolitanJob)
         for name, value in db_manager.get_job_columns(job_id).items():
+            if name == "files":
+                files = value
+                continue
             if name not in class_attributes:
                 raise AttributeError(f"CosmopolitanJob has no attribute named {name}")
             setattr(self, name, value)
+
+        working_dir = os.path.join(WEB_WORK_DIR, self.job_id)
+        if not os.path.isdir(working_dir):
+            os.mkdir(working_dir)
+
+        for f_name in self.file_names:
+            if f_name in os.listdir(working_dir):
+                continue
+            with open(os.path.join(working_dir, f_name), "bw") as f_handle:
+                f_handle.write(files[self.file_names.index(f_name)])
+
         self.form = CosmopolitanJobForm()
         self.form.job_id.data = self.job_id
         self.form.previous_job_id.data = self.job_id
@@ -154,7 +171,6 @@ class CosmopolitanJob:
     def _get_column_data(self, name, work_dir_base=WEB_WORK_DIR):
         working_dir = os.path.join(work_dir_base, self.job_id)
         if name == "file_names":
-            print(list(os.listdir(working_dir)))
             return list(os.listdir(working_dir))
         if name == "files":
             value = []
@@ -192,6 +208,23 @@ class CosmopolitanJob:
         db_manager = DataBaseManager()
         db_manager.update_column(self.job_id, column_dic)
 
+    def save_attribute(self, attribute_list):
+        """Save specicif job information to the database.
+
+        This method takes a list of attributes, collects the current information of
+        these attributes. It then uses a DataBaseManager instance to add the collected
+        data as to the respective column in the database.
+        If the job can not be found in data base safe all
+        """
+        logging.debug(f"Save job {self.job_id}")
+        column_names = JobTable.__table__.columns.keys()
+        data_to_insert = {name: self._get_column_data(name) for name in column_names}
+        db_manager = DataBaseManager()
+        try:
+            db_manager.add_entry(data_to_insert)
+        except JobNotFound:
+            self.save()
+
     def save(self):
         """Save the job information to the database.
 
@@ -213,6 +246,8 @@ class CosmopolitanJob:
         the database based on the job's unique identifier ('job_id').
         """
         logging.debug(f"Delete job {self.job_id}")
+        working_dir = os.path.join(WEB_WORK_DIR, self.job_id)
+        shutil.rmtree(working_dir)
         db_manager = DataBaseManager()
         db_manager.delete_job(self.job_id)
 
@@ -221,13 +256,15 @@ class CosmopolitanJob:
         logging.debug(f"Submit job {self.job_id}.")
         url = f"{CLUSTER_BASE_URL}/job/submit"
         job_para = slurm_default_parameters
-        job_para["job"]["current_working_directory"] += f"/{self.job_id}"
-        job_para["job"]["standard_output"] += f"/{LOG_FILE_NAME}"
+        job_para["job"]["name"] = self.job_id
+        job_para["job"]["standard_output"] += f"{self.job_id}.{LOG_SUFFIX}"
         job_para["job"]["standard_error"] = job_para["job"]["standard_output"]
         job_para["script"] = COMPUTATION_SCRIPT_TEMPLATE.format(job_id=self.job_id)
+        print(json.dumps(job_para, indent=2))
         response = requests.post(url, json=job_para, headers=slurm_header)
         self.submitted = True
-        print(json.dumps(response.json(), indent=2))
+        logging.debug("Response")
+        logging.debug(json.dumps(response.json(), indent=2))
         if response.status_code == 200:
             self.status = "PENDING"
             self.logs = ""
@@ -244,11 +281,12 @@ class CosmopolitanJob:
         logging.info(f"See progress of job {self.job_id}.")
         if self.status in ["COMPLETED", "FAILED"]:
             return
-        url = f"{CLUSTER_BASE_URL}/job/{self.job_id}"
-        response = requests.post(url, headers=slurm_header)
+        url = f"{CLUSTER_BASE_URL}/job/{self.cluster_job_id}"
+        response = requests.get(url, headers=slurm_header)
         self.submitted = True
         logging.debug("Response")
         logging.debug(json.dumps(response.json(), indent=2))
+        return
         if response.status_code == 200:
             self.status = "PENDING"
             self.logs = ""
@@ -258,7 +296,7 @@ class CosmopolitanJob:
             self.logs = f"""Slurm error:
             {json.dumps(response.json()['errors'], indent=2)}"""
 
-        self.status = response.json()["status"]
+        self.status = response.json()["job"]["job_state"]
         column_dic = {"status": self.status}
         db_manager = DataBaseManager()
         db_manager.update_column(self.job_id, column_dic)

@@ -51,6 +51,16 @@ def error_response_args(e):
             False,
         )
 
+    if isinstance(e, SubmittedException):
+        return (
+            {
+                "error_page": "html/errors/job_submitted_exception.html",
+                "job_id": e.job_id,
+            },
+            500,
+            False,
+        )
+
     if isinstance(e, JobNotFound):
         return (
             {
@@ -237,6 +247,15 @@ class InvalidJobID(Exception):
         super().__init__(f"{job_id} is not a valid job_id.")
 
 
+class SubmittedException(Exception):
+    """Raised when calling a method that requires a job not to be submitted."""
+
+    def __init__(self, job_id):
+        """Add job id as attribute and format error message."""
+        self.job_id = job_id
+        super().__init__(f"The job {job_id} was not yet submitted.")
+
+
 class NotSubmittedException(Exception):
     """Raised when calling a method that requires a job to be submitted."""
 
@@ -247,7 +266,7 @@ class NotSubmittedException(Exception):
 
 
 class NotFinishedException(Exception):
-    """Raised when calling a method that requires a job to be submitted."""
+    """Raised when calling a method that requires a job to be finished."""
 
     def __init__(self, job_id):
         """Add job id as attribute and format error message."""

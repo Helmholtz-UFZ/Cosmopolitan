@@ -76,8 +76,8 @@ slurm_header = {
 
 
 COMPUTATION_SCRIPT_TEMPLATE = f"""#!/bin/bash
-cd { CLUSTER_WORK_DIR }/{{ job_id }}
+mkdir { CLUSTER_WORK_DIR }{{job_id}}
+cd { CLUSTER_WORK_DIR }{{job_id}}
 module load foss/2022b Python/3.10.8
 source { CLUSTER_PYTHON_ENV_PATH }/bin/activate
-python3 { CLUSTER_REPO_DIR }/SM_prediction_main.py -wd { CLUSTER_WORK_DIR }/{{ job_id }}
-"""
+python3 { CLUSTER_REPO_DIR }/SM_prediction_main.py -wd { CLUSTER_WORK_DIR }{{job_id}}"""
