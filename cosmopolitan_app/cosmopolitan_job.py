@@ -208,7 +208,7 @@ class CosmopolitanJob:
         db_manager = DataBaseManager()
         db_manager.update_column(self.job_id, column_dic)
 
-    def save_attribute(self, attribute_list):
+    def save_attributes(self, attribute_list):
         """Save specicif job information to the database.
 
         This method takes a list of attributes, collects the current information of
@@ -216,12 +216,13 @@ class CosmopolitanJob:
         data as to the respective column in the database.
         If the job can not be found in data base safe all
         """
-        logging.debug(f"Save job {self.job_id}")
-        column_names = JobTable.__table__.columns.keys()
-        data_to_insert = {name: self._get_column_data(name) for name in column_names}
+        logging.debug(
+            f"Save attributes {', '.join(attribute_list)} to job {self.job_id}"
+        )
+        data_to_insert = {name: self._get_column_data(name) for name in attribute_list}
         db_manager = DataBaseManager()
         try:
-            db_manager.add_entry(data_to_insert)
+            db_manager.update_column(self.job_id, data_to_insert)
         except JobNotFound:
             self.save()
 
@@ -260,7 +261,6 @@ class CosmopolitanJob:
         job_para["job"]["standard_output"] += f"{self.job_id}.{LOG_SUFFIX}"
         job_para["job"]["standard_error"] = job_para["job"]["standard_output"]
         job_para["script"] = COMPUTATION_SCRIPT_TEMPLATE.format(job_id=self.job_id)
-        print(json.dumps(job_para, indent=2))
         response = requests.post(url, json=job_para, headers=slurm_header)
         self.submitted = True
         logging.debug("Response")
@@ -282,24 +282,16 @@ class CosmopolitanJob:
         if self.status in ["COMPLETED", "FAILED"]:
             return
         url = f"{CLUSTER_BASE_URL}/job/{self.cluster_job_id}"
+        logging.debug(f"URL: {url}")
         response = requests.get(url, headers=slurm_header)
-        self.submitted = True
         logging.debug("Response")
         logging.debug(json.dumps(response.json(), indent=2))
-        return
         if response.status_code == 200:
-            self.status = "PENDING"
-            self.logs = ""
-            self.cluster_job_id = response.json()["job_id"]
+            self.status = response.json()["jobs"][0]["job_state"]
         else:
-            self.status = "FAILED"
-            self.logs = f"""Slurm error:
-            {json.dumps(response.json()['errors'], indent=2)}"""
+            response.raise_for_status()
 
-        self.status = response.json()["job"]["job_state"]
-        column_dic = {"status": self.status}
-        db_manager = DataBaseManager()
-        db_manager.update_column(self.job_id, column_dic)
+        self.save_attributes(["status"])
 
     def get_paratameters_rfo_prediction(self):
         """Return parameter to load a RFo prediction model."""

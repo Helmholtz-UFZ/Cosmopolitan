@@ -40,7 +40,7 @@ def submission(job_id):
         send_submission_mail(job)
     else:
         job.check_status()
-    if job.status in ["RUNNING", "PENDING"]:
+    if job.status not in ["FAILED", "COMPLETED"]:
         reload_delay = 5
     else:
         reload_delay = None

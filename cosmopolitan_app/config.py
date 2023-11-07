@@ -56,6 +56,7 @@ slurm_default_parameters = {
         "name": None,
         "ntasks": 1,
         "nodes": 1,
+        "partition": "rocky-9",
         "current_working_directory": CLUSTER_WORK_DIR,
         "standard_input": "/dev/null",
         "standard_output": CLUSTER_WORK_DIR,
@@ -75,9 +76,10 @@ slurm_header = {
 }
 
 
-COMPUTATION_SCRIPT_TEMPLATE = f"""#!/bin/bash
+COMPUTATION_SCRIPT_TEMPLATE = f"""#!/bin/bash --login
 mkdir { CLUSTER_WORK_DIR }{{job_id}}
 cd { CLUSTER_WORK_DIR }{{job_id}}
 module load foss/2022b Python/3.10.8
 source { CLUSTER_PYTHON_ENV_PATH }/bin/activate
+echo $LD_LIBRARY_PATH
 python3 { CLUSTER_REPO_DIR }/SM_prediction_main.py -wd { CLUSTER_WORK_DIR }{{job_id}}"""
