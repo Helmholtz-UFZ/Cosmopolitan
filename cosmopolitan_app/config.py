@@ -34,7 +34,8 @@ try:
     EMAIL_SENDER = getenv("EMAIL_SENDER")
     CLUSTER_WORK_DIR = getenv("CLUSTER_WORK_DIR")
     CLUSTER_PYTHON_ENV_PATH = getenv("CLUSTER_PYTHON_ENV_PATH")
-    CLUSTER_REPO_DIR = getenv("CLUSTER_REPO_DIR")
+    CLUSTER_COSMOPOLITAN_REPO = getenv("CLUSTER_COSMOPOLITAN_REPO")
+    CLUSTER_SM_REPO = getenv("CLUSTER_SM_REPO")
     CLUSTER_USER = getenv("CLUSTER_USER")
     CLUSTER_MACHINE = getenv("CLUSTER_MACHINE")
     CLUSTER_TOKEN = getenv("CLUSTER_TOKEN")
@@ -65,6 +66,7 @@ slurm_default_parameters = {
         "memory_per_cpu": "1G",
         "environment": {
             "PATH": "/usr/local/bin:/usr/bin",
+            "PYTHONPATH": CLUSTER_SM_REPO,
         },
     },
     "script": None,
@@ -81,5 +83,4 @@ mkdir { CLUSTER_WORK_DIR }{{job_id}}
 cd { CLUSTER_WORK_DIR }{{job_id}}
 module load foss/2022b Python/3.10.8
 source { CLUSTER_PYTHON_ENV_PATH }/bin/activate
-echo $LD_LIBRARY_PATH
-python3 { CLUSTER_REPO_DIR }/SM_prediction_main.py -wd { CLUSTER_WORK_DIR }{{job_id}}"""
+python3 { CLUSTER_COSMOPOLITAN_REPO }/SM_prediction_main.py -wd { CLUSTER_WORK_DIR }{{job_id}}"""  # noqa
