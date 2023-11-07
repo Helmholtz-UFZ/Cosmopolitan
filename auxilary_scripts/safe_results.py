@@ -2,7 +2,12 @@
 
 import sys
 
+from flask import Flask
+
 from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
 
-cosmopolitan_job = CosmopolitanJob(job_id=sys.argv[1])
-cosmopolitan_job.get_results()
+# Create a minimal Flask app for the context of CosmopolitanJobForm
+app = Flask(__name__)
+with app.app_context():
+    cosmopolitan_job = CosmopolitanJob(job_id=sys.argv[1])
+    cosmopolitan_job.get_results()
