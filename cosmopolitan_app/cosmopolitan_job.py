@@ -11,10 +11,10 @@ import requests
 
 from cosmopolitan_app.config import (
     CLUSTER_BASE_URL,
-    CLUSTER_WORK_DIR,
     COMPUTATION_SCRIPT_TEMPLATE,
     DAYS_DELETE_NOT_SUMBITTED,
     DAYS_DELETE_SUMBITTED,
+    LOAD_SCRIPT_TEMPLATE,
     WEB_WORK_DIR,
     slurm_default_parameters,
     slurm_header,
@@ -181,33 +181,6 @@ class CosmopolitanJob:
 
         return getattr(self, name)
 
-    def get_results(self):
-        """Get results after job finished.
-
-        WARNING! designed to be execute on the computing cluster not on the webserver.
-
-        This method reads all current file in from the work dir and overrides the
-        previously stored files. And read the logs. Is designed to work on cluster to
-        update files after job complition.
-        """
-        logging.debug(f"Get results for job {self.job_id}")
-        column_dic = {}
-        column_dic["file_names"] = self._get_column_data(
-            "file_names", work_dir_base=CLUSTER_WORK_DIR
-        )
-        column_dic["files"] = self._get_column_data(
-            "files", work_dir_base=CLUSTER_WORK_DIR
-        )
-        try:
-            column_dic["logs"] = column_dic["files"][
-                column_dic["file_names"].index("logs")
-            ].decode()
-        except ValueError:
-            logging.debug("No logs were found")
-            column_dic["logs"] = "No logs found"
-        db_manager = DataBaseManager()
-        db_manager.update_column(self.job_id, column_dic)
-
     def save_attributes(self, attribute_list):
         """Save specicif job information to the database.
 
@@ -252,29 +225,51 @@ class CosmopolitanJob:
         db_manager = DataBaseManager()
         db_manager.delete_job(self.job_id)
 
-    def submit(self):
-        """Submit job to cluster."""
-        logging.debug(f"Submit job {self.job_id}.")
+    def _submit_comp(self, mode, depends_on=None):
+        logging.debug(f"Submit {mode}.")
         url = f"{CLUSTER_BASE_URL}/job/submit"
         job_para = slurm_default_parameters
-        job_para["job"]["name"] = self.job_id
-        job_para["job"]["standard_output"] += f"{self.job_id}.{LOG_SUFFIX}"
+        name = f"{self.job_id}-{mode}"
+        job_para["job"]["name"] = name
+        job_para["job"]["standard_output"] += f"{name}.{LOG_SUFFIX}"
         job_para["job"]["standard_error"] = job_para["job"]["standard_output"]
-        job_para["script"] = COMPUTATION_SCRIPT_TEMPLATE.format(job_id=self.job_id)
+        if mode == "comp":
+            job_para["script"] = COMPUTATION_SCRIPT_TEMPLATE.format(job_id=self.job_id)
+            job_para["partition"] = "rocky-9"
+        elif mode in ["load", "safe"]:
+            job_para["script"] = LOAD_SCRIPT_TEMPLATE.format(job_id=self.job_id)
+            job_para["partition"] = "transfer"
+        else:
+            raise ValueError("The submission mode can be 'comp', 'load', 'safe'")
+
+        if depends_on is not None:
+            job_para["dependency"] = f"after:{depends_on}"
+
         response = requests.post(url, json=job_para, headers=slurm_header)
-        self.submitted = True
-        logging.debug("Response")
-        logging.debug(json.dumps(response.json(), indent=2))
         if response.status_code == 200:
             self.status = "PENDING"
             self.logs = ""
-            self.cluster_job_id = response.json()["job_id"]
+            return response.json()["job_id"]
         else:
+            logging.debug("Slurm submit failed.")
+            logging.debug(f"URL: {url}")
+            logging.debug(json.dumps(response.json(), indent=2))
             self.status = "FAILED"
             self.logs = f"""Slurm error:
             {json.dumps(response.json()['errors'], indent=2)}"""
+            return None
 
-        self.save()
+    def submit(self):
+        """Submit job to cluster."""
+        logging.debug(f"Submit job {self.job_id}.")
+        self.submitted = True
+        cluster_job_id = self._submit_slurm("load")
+        if cluster_job_id is not None:
+            cluster_job_id = self._submit_slurm("comp", depends_on=cluster_job_id)
+        if cluster_job_id is not None:
+            self.cluster_job_id = self._submit_slurm("safe", depends_on=cluster_job_id)
+
+        self.save_attributes(["status", "logs", "submitted", "cluster_job_id"])
 
     def check_status(self):
         """Check status of job on the cluster."""

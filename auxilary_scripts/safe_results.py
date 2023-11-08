@@ -10,4 +10,5 @@ from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
 app = Flask(__name__)
 with app.app_context():
     cosmopolitan_job = CosmopolitanJob(job_id=sys.argv[1])
-    cosmopolitan_job.get_results()
+    if sys.argv[2] == "save":
+        cosmopolitan_job.save()
