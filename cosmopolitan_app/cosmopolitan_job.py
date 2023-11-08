@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import shutil
+from copy import deepcopy
 from datetime import date
 
 import requests
@@ -225,26 +226,33 @@ class CosmopolitanJob:
         db_manager = DataBaseManager()
         db_manager.delete_job(self.job_id)
 
-    def _submit_comp(self, mode, depends_on=None):
+    def _submit_slurm(self, mode, depends_on=None):
+        """Submit job using slurm rest api.
+
+        The method build the url and json to send with the request. The method takes a
+        mode "load", "comp", "safe" and a slurm job id to build the correct request.
+        """
         logging.debug(f"Submit {mode}.")
-        url = f"{CLUSTER_BASE_URL}/job/submit"
-        job_para = slurm_default_parameters
+        url = f"{CLUSTER_BASE_URL}/slurm/v0.0.38/job/submit"
+        job_para = deepcopy(slurm_default_parameters)
         name = f"{self.job_id}-{mode}"
         job_para["job"]["name"] = name
         job_para["job"]["standard_output"] += f"{name}.{LOG_SUFFIX}"
         job_para["job"]["standard_error"] = job_para["job"]["standard_output"]
         if mode == "comp":
             job_para["script"] = COMPUTATION_SCRIPT_TEMPLATE.format(job_id=self.job_id)
-            job_para["partition"] = "rocky-9"
-        elif mode in ["load", "safe"]:
-            job_para["script"] = LOAD_SCRIPT_TEMPLATE.format(job_id=self.job_id)
-            job_para["partition"] = "transfer"
+            job_para["job"]["partition"] = "compute"
+        elif mode in ["load", "save"]:
+            job_para["script"] = LOAD_SCRIPT_TEMPLATE.format(
+                job_id=self.job_id, mode=mode
+            )
+            job_para["job"]["partition"] = "transfer"
         else:
-            raise ValueError("The submission mode can be 'comp', 'load', 'safe'")
+            raise ValueError("The submission mode can be 'comp', 'load', 'save'")
 
         if depends_on is not None:
             job_para["dependency"] = f"after:{depends_on}"
-
+        logging.debug(json.dumps(job_para, indent=2))
         response = requests.post(url, json=job_para, headers=slurm_header)
         if response.status_code == 200:
             self.status = "PENDING"
@@ -253,6 +261,7 @@ class CosmopolitanJob:
         else:
             logging.debug("Slurm submit failed.")
             logging.debug(f"URL: {url}")
+            logging.debug(json.dumps(job_para, indent=2))
             logging.debug(json.dumps(response.json(), indent=2))
             self.status = "FAILED"
             self.logs = f"""Slurm error:
@@ -263,11 +272,12 @@ class CosmopolitanJob:
         """Submit job to cluster."""
         logging.debug(f"Submit job {self.job_id}.")
         self.submitted = True
+        self.cluster_job_id = None
         cluster_job_id = self._submit_slurm("load")
         if cluster_job_id is not None:
-            cluster_job_id = self._submit_slurm("comp", depends_on=cluster_job_id)
-        if cluster_job_id is not None:
-            self.cluster_job_id = self._submit_slurm("safe", depends_on=cluster_job_id)
+            self.cluster_job_id = self._submit_slurm("comp", depends_on=cluster_job_id)
+        if self.cluster_job_id is not None:
+            self._submit_slurm("save", depends_on=cluster_job_id)
 
         self.save_attributes(["status", "logs", "submitted", "cluster_job_id"])
 
@@ -276,14 +286,16 @@ class CosmopolitanJob:
         logging.info(f"See progress of job {self.job_id}.")
         if self.status in ["COMPLETED", "FAILED"]:
             return
-        url = f"{CLUSTER_BASE_URL}/job/{self.cluster_job_id}"
-        logging.debug(f"URL: {url}")
+        url = f"{CLUSTER_BASE_URL}/slurm/v0.0.38/job/{self.cluster_job_id}"
         response = requests.get(url, headers=slurm_header)
-        logging.debug("Response")
-        logging.debug(json.dumps(response.json(), indent=2))
         if response.status_code == 200:
             self.status = response.json()["jobs"][0]["job_state"]
         else:
+            logging.debug("Check status failed.")
+            logging.debug(f"Status code: {response.status_code}")
+            logging.debug(f"URL: {url}")
+            logging.debug("Response")
+            logging.debug(json.dumps(response.json(), indent=2))
             response.raise_for_status()
 
         self.save_attributes(["status"])
