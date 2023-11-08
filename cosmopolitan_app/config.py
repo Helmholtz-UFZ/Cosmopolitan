@@ -66,7 +66,7 @@ slurm_default_parameters = {
         "memory_per_cpu": "1G",
         "environment": {
             "PATH": "/usr/local/bin:/usr/bin",
-            "PYTHONPATH": CLUSTER_SM_REPO,
+            "PYTHONPATH": f"{CLUSTER_SM_REPO}:{CLUSTER_COSMOPOLITAN_REPO}",
         },
     },
     "script": None,
