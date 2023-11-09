@@ -127,10 +127,9 @@ def clean_up():
     two_day_ago = date.today() - timedelta(days=DAYS_DELETE_NOT_SUMBITTED)
     two_months_ago = date.today() - timedelta(days=DAYS_DELETE_SUMBITTED)
 
-    jobs = db_manager.list_jobs()
     kept_jobs = []
 
-    for job_id, (start_date, submitted) in jobs.items():
+    for job_id, (start_date, submitted) in db_manager.list_jobs():
         logging.debug(f"Check job {job_id}.")
         if not submitted and start_date < two_day_ago:
             logging.debug("Job was not submit and is older than two days.")

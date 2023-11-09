@@ -178,6 +178,11 @@ class CosmopolitanJob:
                 with open(os.path.join(working_dir, f_name), "rb") as f_handle:
                     value.append(f_handle.read())
             return value
+        if name == "logs":
+            log_file = os.path.join(working_dir, LOG_SUFFIX)
+            if os.path.isfile(log_file):
+                with open(os.path.join(working_dir, LOG_SUFFIX), "r") as f_handle:
+                    return f_handle.read()
 
         return getattr(self, name)
 
