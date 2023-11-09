@@ -12,7 +12,7 @@ CREATE TABLE jobs (
     submitted BOOL,
     cluster_job_id VARCHAR,
     email VARCHAR,
-    notified_end VARCHAR,
+    notified_end BOOL,
     logs VARCHAR,
     status VARCHAR,
     version DECIMAL

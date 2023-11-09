@@ -10,7 +10,12 @@ from werkzeug.exceptions import BadRequestKeyError
 from cosmopolitan_app.config import WEB_WORK_DIR
 from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
 from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
-from cosmopolitan_app.utils import SubmittedException, clean_up, send_submission_mail
+from cosmopolitan_app.utils import (
+    SubmittedException,
+    clean_up,
+    send_finished_mail,
+    send_submission_mail,
+)
 
 
 @app.route("/")
@@ -43,6 +48,7 @@ def submission(job_id):
     if job.status not in ["FAILED", "COMPLETED"]:
         reload_delay = 5
     else:
+        send_finished_mail(job)
         reload_delay = None
 
     return render_template(

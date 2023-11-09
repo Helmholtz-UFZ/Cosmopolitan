@@ -51,6 +51,7 @@ except ValueError as error:
     print(error)
     exit(1)
 
+LOG_CLUSTER_DIR_NAME = "load_save_logs_jobs"
 
 slurm_default_parameters = {
     "job": {
@@ -80,13 +81,19 @@ slurm_header = {
 CLUSTER_PYTHON_ENV_TRANSFER_PATH = "/home/soncosmo/py_env_transfer"
 
 COMPUTATION_SCRIPT_TEMPLATE = f"""#!/bin/bash --login
-mkdir { CLUSTER_WORK_DIR }{{job_id}}
+date
 cd { CLUSTER_WORK_DIR }{{job_id}}
 module load foss/2022b Python/3.10.8
 source { CLUSTER_PYTHON_ENV_PATH }/bin/activate
-python3 { CLUSTER_SM_REPO }/SM_prediction_main.py -wd { CLUSTER_WORK_DIR }{{job_id}}"""
+python3 { CLUSTER_SM_REPO }/SM_prediction_main.py -wd { CLUSTER_WORK_DIR }{{job_id}}
+date
+"""
 
 LOAD_SCRIPT_TEMPLATE = f"""#!/bin/bash --login
+date
+sleep 8
 module load foss/2022b Python/3.10.8
-source { CLUSTER_PYTHON_ENV_TRANSFER_PATH }/bin/activate
-python3 { CLUSTER_COSMOPOLITAN_REPO }/auxilary_scripts/safe_results.py {{job_id}} {{mode}}"""  # noqa
+source {CLUSTER_PYTHON_ENV_TRANSFER_PATH}/bin/activate
+python3 {CLUSTER_COSMOPOLITAN_REPO}/auxilary_scripts/safe_results.py {{job_id}} {{mode}}
+date
+"""

@@ -16,6 +16,7 @@ from cosmopolitan_app.config import (
     DAYS_DELETE_NOT_SUMBITTED,
     DAYS_DELETE_SUMBITTED,
     LOAD_SCRIPT_TEMPLATE,
+    LOG_DIR,
     WEB_WORK_DIR,
     slurm_default_parameters,
     slurm_header,
@@ -129,8 +130,6 @@ class CosmopolitanJob:
             else:
                 field.data = self.input_data[name]
 
-        self.form.previous_job_id.data = self.form.job_id.data
-
     def _blank_job(self):
         db_manager = DataBaseManager()
         while True:
@@ -151,9 +150,9 @@ class CosmopolitanJob:
 
         self.form = form
         self.input_data = {}
+        self.start_date = date.today()
         self.job_id = self.form.job_id.data
         self.email = self.form.email.data
-        self.start_date = date.today()
 
         for name, field in self.form._fields.items():
             if name == "csrf_token":
@@ -237,12 +236,14 @@ class CosmopolitanJob:
         job_para = deepcopy(slurm_default_parameters)
         name = f"{self.job_id}-{mode}"
         job_para["job"]["name"] = name
-        job_para["job"]["standard_output"] += f"{name}.{LOG_SUFFIX}"
-        job_para["job"]["standard_error"] = job_para["job"]["standard_output"]
         if mode == "comp":
+            job_para["job"]["standard_output"] += f"{self.job_id}/{LOG_SUFFIX}"
+            job_para["job"]["standard_error"] = job_para["job"]["standard_output"]
             job_para["script"] = COMPUTATION_SCRIPT_TEMPLATE.format(job_id=self.job_id)
             job_para["job"]["partition"] = "compute"
         elif mode in ["load", "save"]:
+            job_para["job"]["standard_output"] += f"{LOG_DIR}/{name}.{LOG_SUFFIX}"
+            job_para["job"]["standard_error"] = job_para["job"]["standard_output"]
             job_para["script"] = LOAD_SCRIPT_TEMPLATE.format(
                 job_id=self.job_id, mode=mode
             )
@@ -251,8 +252,8 @@ class CosmopolitanJob:
             raise ValueError("The submission mode can be 'comp', 'load', 'save'")
 
         if depends_on is not None:
-            job_para["dependency"] = f"after:{depends_on}"
-        logging.debug(json.dumps(job_para, indent=2))
+            job_para["job"]["dependency"] = f"afterany:{depends_on}"
+
         response = requests.post(url, json=job_para, headers=slurm_header)
         if response.status_code == 200:
             self.status = "PENDING"
@@ -277,7 +278,7 @@ class CosmopolitanJob:
         if cluster_job_id is not None:
             self.cluster_job_id = self._submit_slurm("comp", depends_on=cluster_job_id)
         if self.cluster_job_id is not None:
-            self._submit_slurm("save", depends_on=cluster_job_id)
+            self._submit_slurm("save", depends_on=self.cluster_job_id)
 
         self.save_attributes(["status", "logs", "submitted", "cluster_job_id"])
 
@@ -299,6 +300,10 @@ class CosmopolitanJob:
             response.raise_for_status()
 
         self.save_attributes(["status"])
+
+        if self.status in ["COMPLETED", "FAILED"]:
+            # Reload to get results
+            self._load_job(self.job_id)
 
     def get_paratameters_rfo_prediction(self):
         """Return parameter to load a RFo prediction model."""

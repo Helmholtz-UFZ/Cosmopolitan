@@ -179,15 +179,35 @@ def send_mail(recipient, subject, content):
     server.quit()
 
 
+def send_finished_mail(job):
+    """Send a notification email to the user that the job finished."""
+    if job.email == "" or job.notified_end:
+        return
+    logging.info("Send mail about finished job.")
+    url = url_for("submission", job_id=job.job_id, _external=True)
+    with open(
+        "cosmopolitan_app/templates/emails/job_finished_email.txt",
+        "r",
+        encoding="UTF-8",
+    ) as f_handle:
+        content = f_handle.read().format(job_id=job.job_id, url=url, status=job.status)
+
+    send_mail(job.email, f'Job "{ job.job_id }" finished', content)
+    job.notified_end = True
+    job.save_attributes(["notified_end"])
+
+
 def send_submission_mail(job):
     """Send a notification email to the user that the job was submitted."""
+    if job.email == "":
+        return
+    logging.info("Send mail about submitted job.")
     url = url_for("submission", job_id=job.job_id, _external=True)
     with open(
         "cosmopolitan_app/templates/emails/submission_email.txt", "r", encoding="UTF-8"
     ) as f_handle:
         content = f_handle.read().format(job_id=job.job_id, url=url)
-    if job.email != "":
-        send_mail(job.email, f'Job "{ job.job_id }" submitted', content)
+    send_mail(job.email, f'Job "{ job.job_id }" submitted', content)
 
 
 class SshError(Exception):
