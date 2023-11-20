@@ -1,3 +1,7 @@
 flask_venv
 __pycache__
 .env
+./cosmopolitan_app/work_dir/*
+./backend_env
+*swp
+*swo

@@ -7,10 +7,15 @@ from flask import current_app as app
 from flask import redirect, render_template, request, send_from_directory, url_for
 from werkzeug.exceptions import BadRequestKeyError
 
-from cosmopolitan_app.config import WEB_INPUT_DIR
+from cosmopolitan_app.config import WEB_WORK_DIR
 from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
 from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
-from cosmopolitan_app.utils import clean_up, send_submission_mail
+from cosmopolitan_app.utils import (
+    SubmittedException,
+    clean_up,
+    send_finished_mail,
+    send_submission_mail,
+)
 
 
 @app.route("/")
@@ -40,13 +45,14 @@ def submission(job_id):
         send_submission_mail(job)
     else:
         job.check_status()
-    if job.status in ["RUNNING", "PENDING"]:
+    if job.status not in ["FAILED", "COMPLETED"]:
         reload_delay = 5
     else:
+        send_finished_mail(job)
         reload_delay = None
 
     return render_template(
-        "html/submission/submission.html", job=job, reload_delay=reload_delay
+        "html/job/submission.html", job=job, reload_delay=reload_delay
     )
 
 
@@ -56,8 +62,8 @@ def confirm(job_id):
     logging.info(f"Confirm submisison for job {job_id}")
     job = CosmopolitanJob(job_id=job_id)
     if job.submitted:
-        return render_template("html/errors/job_submitted_error.html", job_id=job_id)
-    return render_template("html/input/confirm.html", job=job)
+        raise SubmittedException
+    return render_template("html/job/confirm.html", job=job)
 
 
 @app.route("/input/<job_id>", methods=["GET", "POST"])
@@ -66,9 +72,9 @@ def change_input(job_id):
     logging.info(f"Make changes to job {job_id}")
     job = CosmopolitanJob(job_id=job_id)
     if job.submitted:
-        return render_template("html/errors/job_submitted_error.html", job_id=job_id)
+        raise SubmittedException
     job.delete()
-    return render_template("html/input/input.html", form=job.form)
+    return render_template("html/job/input.html", form=job.form)
 
 
 @app.route("/input", methods=["GET", "POST"])
@@ -87,7 +93,7 @@ def input_job():
             job = CosmopolitanJob(form=form)
             job.save()
             return redirect(f"/confirm/{job.job_id}")
-    return render_template("html/input/input.html", form=form)
+    return render_template("html/job/input.html", form=form)
 
 
 @app.route("/documentation")
@@ -108,5 +114,5 @@ def trigger_clean_up():
 def result_file(job_id, file_name):
     """Serve result files."""
     logging.info(f"Visiting /results/{job_id}/{file_name} to result_file()")
-    output_dir = os.path.join(WEB_INPUT_DIR, job_id)
+    output_dir = os.path.join(WEB_WORK_DIR, job_id)
     return send_from_directory(output_dir, file_name)
