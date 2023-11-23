@@ -27,8 +27,6 @@ COPY requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt
 COPY . cosmopolitan/
 COPY .env_dep cosmopolitan/.env
-# VOLUME /python-docker
-# docker run -v /local/path:/python-docker -e DEBUG=True
 
 CMD if [ "$env_gunicorn" = 1 ] ; then \
         gunicorn -w 4 -b 0.0.0.0:$env_port cosmopolitan_app.cosmopolitan_web_server:app; \

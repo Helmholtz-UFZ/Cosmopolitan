@@ -18,6 +18,7 @@ docker build --build-arg GIT_PAT_SM="$GIT_PAT_SM" \
     . 
 
 docker run --name cosmopolitan-test \
+    -v "$(pwd)/cosmopolitan_app:/python_docker/cosmopolitan/cosmopolitan_app" \
     -e EMAIL_PASSWORD="$EMAIL_PASSWORD" \
     -e DB_PW="$DB_PW" \
     -e CLUSTER_TOKEN="$CLUSTER_TOKEN" \
