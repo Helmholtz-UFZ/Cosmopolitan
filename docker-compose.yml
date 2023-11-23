@@ -1,0 +1,17 @@
+version: "3.8"
+
+services:
+  cosmopolitan-test:
+    build:
+      context: .
+      args:
+        GIT_PAT_SM: $GIT_PAT_SM
+        GUNICORN: $GUNICORN
+        PORT: $PORT
+    environment:
+      - EMAIL_PASSWORD=$EMAIL_PASSWORD
+      - DB_PW=$DB_PW
+      - CLUSTER_TOKEN=$CLUSTER_TOKEN
+      - FLASK_DEBUG=$FLASK_DEBUG
+    ports:
+      - "${PORT}:${PORT}"

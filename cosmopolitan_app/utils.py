@@ -23,7 +23,6 @@ from cosmopolitan_app.config import (
     EMAIL_SENDER,
     EMAIL_SERVER,
     EMAIL_USERNAME,
-    WEB_UPLOAD_DIR,
     WEB_WORK_DIR,
 )
 from cosmopolitan_app.db_manager import DataBaseManager, JobNotFound
@@ -143,11 +142,10 @@ def clean_up():
 
     # Delete directories locally
     logging.info("Clean up directorys locally.")
-    for directory in [WEB_WORK_DIR, WEB_UPLOAD_DIR]:
-        for dir_name in os.listdir(directory):
-            dir_path = os.path.join(directory, dir_name)
-            if os.path.isdir(dir_path) and dir_name not in kept_jobs:
-                shutil.rmtree(dir_path)
+    for job_dir in os.listdir(WEB_WORK_DIR):
+        job_path = os.path.join(WEB_WORK_DIR, job_dir)
+        if os.path.isdir(job_path) and job_dir not in kept_jobs:
+            shutil.rmtree(job_path)
 
     # Delete work directories on cluster
     logging.debug("Clean up directorys on cluster.")

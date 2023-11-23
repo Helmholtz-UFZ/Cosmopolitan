@@ -12,11 +12,11 @@ import requests
 
 from cosmopolitan_app.config import (
     CLUSTER_BASE_URL,
+    CLUSTER_LOG_DIR,
     COMPUTATION_SCRIPT_TEMPLATE,
     DAYS_DELETE_NOT_SUMBITTED,
     DAYS_DELETE_SUMBITTED,
     LOAD_SCRIPT_TEMPLATE,
-    LOG_DIR,
     WEB_WORK_DIR,
     slurm_default_parameters,
     slurm_header,
@@ -247,7 +247,9 @@ class CosmopolitanJob:
             job_para["script"] = COMPUTATION_SCRIPT_TEMPLATE.format(job_id=self.job_id)
             job_para["job"]["partition"] = "compute"
         elif mode in ["load", "save"]:
-            job_para["job"]["standard_output"] += f"{LOG_DIR}/{name}.{LOG_SUFFIX}"
+            job_para["job"][
+                "standard_output"
+            ] += f"{CLUSTER_LOG_DIR}/{name}.{LOG_SUFFIX}"
             job_para["job"]["standard_error"] = job_para["job"]["standard_output"]
             job_para["script"] = LOAD_SCRIPT_TEMPLATE.format(
                 job_id=self.job_id, mode=mode

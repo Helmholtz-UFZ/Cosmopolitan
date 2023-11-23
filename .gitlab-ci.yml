@@ -1,11 +1,11 @@
-#!/bin/bash
+stages:
+  - build
 
-set -e
+build_image:
+  stage: build
+  script:
+    - docker build --build-arg GIT_PAT_SM="$GIT_PAT_SM" \
+                   --build-arg GUNICORN=1 \
+                   --build-arg PORT=8080 \
+                   -t cosmopolitan-test .
 
-version="0.0.1"
-# sudo docker login git.ufz.de:4567
-
-sudo docker build --no-cache .
-# sudo docker build --no-cache -t git.ufz.de:4567/andersj/som-web:latest -t "git.ufz.de:4567/andersj/som-web:$version" .
-# sudo docker push git.ufz.de:4567/andersj/som-web:latest 
-# sudo docker push "git.ufz.de:4567/andersj/som-web:$version"

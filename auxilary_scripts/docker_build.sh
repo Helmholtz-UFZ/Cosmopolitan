@@ -4,12 +4,23 @@ set -e
 
 . .env
 
-docker rm "$(docker ps -all | tail -n 1 | awk '{print $1}')"
+container_name="$(docker ps -all | grep cosmopolitan-test | awk '{print $1}')"
+if [ -n "$container_name" ]; then
+    docker rm "$container_name"
+fi
 
-docker build --progress plain --no-cache -t cosmopolitan-test . 
+    # --no-cache \
+docker build --build-arg GIT_PAT_SM="$GIT_PAT_SM" \
+    --build-arg GUNICORN="$GUNICORN" \
+    --build-arg PORT=$PORT \
+    --progress plain \
+    -t cosmopolitan-test \
+    . 
 
 docker run --name cosmopolitan-test \
     -e EMAIL_PASSWORD="$EMAIL_PASSWORD" \
     -e DB_PW="$DB_PW" \
     -e CLUSTER_TOKEN="$CLUSTER_TOKEN" \
+    -e FLASK_DEBUG="$FLASK_DEBUG" \
+    -p $PORT:$PORT \
     cosmopolitan-test

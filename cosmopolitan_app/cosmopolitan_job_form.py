@@ -28,7 +28,6 @@ import logging
 import math
 import os
 import re
-import shutil
 from collections import OrderedDict
 from datetime import date
 
@@ -54,7 +53,7 @@ from wtforms.validators import (
 )
 from wtforms.widgets import CheckboxInput, NumberInput, TextInput
 
-from cosmopolitan_app.config import WEB_UPLOAD_DIR, WEB_WORK_DIR
+from cosmopolitan_app.config import WEB_WORK_DIR
 from cosmopolitan_app.db_manager import DataBaseManager
 
 
@@ -274,7 +273,6 @@ class CosmopolitanJobForm(FlaskForm):
 
     request = None
     input_dir = None
-    upload_dir = None
     output_dir = None
     geom_area = None
 
@@ -301,13 +299,6 @@ class CosmopolitanJobForm(FlaskForm):
             self.input_dir = os.path.join(WEB_WORK_DIR, self.job_id.data)
             if not os.path.isdir(self.input_dir):
                 os.mkdir(self.input_dir)
-
-            self.upload_dir = os.path.join(WEB_UPLOAD_DIR, self.job_id.data)
-            if not os.path.isdir(self.upload_dir):
-                os.mkdir(self.upload_dir)
-            else:
-                shutil.rmtree(self.upload_dir)
-                os.mkdir(self.upload_dir)
 
             if not re.match(self.job_id_regex, self.previous_job_id.data):
                 logging.warning(
@@ -379,8 +370,6 @@ class CosmopolitanJobForm(FlaskForm):
         be provided through the `extra_validators` parameter.
         """
         if not super().validate():
-            if self.upload_dir is not None:
-                shutil.rmtree(self.upload_dir)
             # for field in self._fields:
             #     print(getattr(self, field).errors)
             return False
@@ -409,9 +398,6 @@ class CosmopolitanJobForm(FlaskForm):
 
         if form_validt:
             self._input_parameters()
-
-        if self.upload_dir is not None:
-            shutil.rmtree(self.upload_dir)
 
         # for field in self._fields:
         #     print(getattr(self, field).errors)
@@ -442,22 +428,21 @@ class CosmopolitanJobForm(FlaskForm):
         # Upload file and parse
         for upload_file in field.data:
             new_filename = input_type + "_" + secure_filename(upload_file.filename)
-            upload_file_path = os.path.join(self.upload_dir, new_filename)
             input_file_path = os.path.join(self.input_dir, new_filename)
-            upload_file.save(upload_file_path)
             try:
                 # Will generate the input file and check file integrity.
-                file_information = parser.parse(upload_file_path, input_file_path)
+                file_information = parser.parse(
+                    upload_file.data.stream, input_file_path
+                )
             except ValidationError as e:
                 well_formed = False
-                err_msg = f"File {upload_file.filename} is invalid.<br>" + str(e)
+                err_msg = f"File {new_filename} is invalid.<br>" + str(e)
                 break
             input_file_dic[new_filename] = file_information
 
-        # Delete uploaded files and if any file was invalid remove all input files.
-        for file_name in input_file_dic:
-            os.remove(os.path.join(self.upload_dir, file_name))
-            if not well_formed:
+        # If any file was invalid remove all input files.
+        if not well_formed:
+            for file_name in input_file_dic:
                 try:
                     os.remove(os.path.join(self.input_dir, file_name))
                 except FileNotFoundError:
@@ -641,19 +626,20 @@ class InputFileParser:
     def _check_validty_area(self):
         raise NotImplementedError
 
-    def parse(self, file_path, out_file_path):
+    def parse(self, in_file_stream, out_file_path):
         """Parse the input file and write valid rows to the output file."""
-        with open(file_path, "r") as in_file, open(out_file_path, "w") as out_file:
+        in_file_stream.seek(0)
+        with open(out_file_path, "w") as out_file:
             # Guess the delimiter
             sniffer = csv.Sniffer()
             try:
-                dialect = sniffer.sniff(in_file.read(10 * 1024))
+                dialect = sniffer.sniff(in_file_stream.read(10 * 1024))
             except csv.Error as e:
                 if str(e) == "Could not determine delimiter":
                     raise ValidationError(str(e))
-            in_file.seek(0)
+            in_file_stream.seek(0)
 
-            csv_reader = csv.reader(in_file, dialect=dialect)
+            csv_reader = csv.reader(in_file_stream, dialect=dialect)
             csv_writer = csv.writer(out_file)
             first_line = next(csv_reader)
 
