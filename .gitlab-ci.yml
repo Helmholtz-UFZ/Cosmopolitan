@@ -6,3 +6,4 @@ build_image:
   image: docker:latest
   script:
     - docker build --build-arg GIT_PAT_SM="$GIT_PAT_SM"  --build-arg GUNICORN=1 --build-arg PORT=8080 -t cosmopolitan-test .
+  privileged: true
