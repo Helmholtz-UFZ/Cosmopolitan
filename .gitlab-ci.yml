@@ -9,5 +9,3 @@ build_image:
                    --build-arg GUNICORN=1 \
                    --build-arg PORT=8080 \
                    -t cosmopolitan-test .
-  tags:
-    - hifis-runner-manager-1
