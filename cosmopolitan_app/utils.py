@@ -23,8 +23,7 @@ from cosmopolitan_app.config import (
     EMAIL_SENDER,
     EMAIL_SERVER,
     EMAIL_USERNAME,
-    WEB_INPUT_DIR,
-    WEB_UPLOAD_DIR,
+    WEB_WORK_DIR,
 )
 from cosmopolitan_app.db_manager import DataBaseManager, JobNotFound
 
@@ -45,6 +44,16 @@ def error_response_args(e):
         return (
             {
                 "error_page": "html/errors/job_not_submitted_exception.html",
+                "job_id": e.job_id,
+            },
+            500,
+            False,
+        )
+
+    if isinstance(e, SubmittedException):
+        return (
+            {
+                "error_page": "html/errors/job_submitted_exception.html",
                 "job_id": e.job_id,
             },
             500,
@@ -117,10 +126,9 @@ def clean_up():
     two_day_ago = date.today() - timedelta(days=DAYS_DELETE_NOT_SUMBITTED)
     two_months_ago = date.today() - timedelta(days=DAYS_DELETE_SUMBITTED)
 
-    jobs = db_manager.list_jobs()
     kept_jobs = []
 
-    for job_id, (start_date, submitted) in jobs.items():
+    for job_id, (start_date, submitted) in db_manager.list_jobs():
         logging.debug(f"Check job {job_id}.")
         if not submitted and start_date < two_day_ago:
             logging.debug("Job was not submit and is older than two days.")
@@ -134,11 +142,10 @@ def clean_up():
 
     # Delete directories locally
     logging.info("Clean up directorys locally.")
-    for directory in [WEB_INPUT_DIR, WEB_UPLOAD_DIR]:
-        for dir_name in os.listdir(directory):
-            dir_path = os.path.join(directory, dir_name)
-            if os.path.isdir(dir_path) and dir_name not in kept_jobs:
-                shutil.rmtree(dir_path)
+    for job_dir in os.listdir(WEB_WORK_DIR):
+        job_path = os.path.join(WEB_WORK_DIR, job_dir)
+        if os.path.isdir(job_path) and job_dir not in kept_jobs:
+            shutil.rmtree(job_path)
 
     # Delete work directories on cluster
     logging.debug("Clean up directorys on cluster.")
@@ -169,15 +176,35 @@ def send_mail(recipient, subject, content):
     server.quit()
 
 
+def send_finished_mail(job):
+    """Send a notification email to the user that the job finished."""
+    if job.email == "" or job.notified_end:
+        return
+    logging.info("Send mail about finished job.")
+    url = url_for("submission", job_id=job.job_id, _external=True)
+    with open(
+        "cosmopolitan_app/templates/emails/job_finished_email.txt",
+        "r",
+        encoding="UTF-8",
+    ) as f_handle:
+        content = f_handle.read().format(job_id=job.job_id, url=url, status=job.status)
+
+    send_mail(job.email, f'Job "{ job.job_id }" finished', content)
+    job.notified_end = True
+    job.save_attributes(["notified_end"])
+
+
 def send_submission_mail(job):
     """Send a notification email to the user that the job was submitted."""
+    if job.email == "":
+        return
+    logging.info("Send mail about submitted job.")
     url = url_for("submission", job_id=job.job_id, _external=True)
     with open(
         "cosmopolitan_app/templates/emails/submission_email.txt", "r", encoding="UTF-8"
     ) as f_handle:
         content = f_handle.read().format(job_id=job.job_id, url=url)
-    if job.email != "":
-        send_mail(job.email, f'Job "{ job.job_id }" submitted', content)
+    send_mail(job.email, f'Job "{ job.job_id }" submitted', content)
 
 
 class SshError(Exception):
@@ -237,6 +264,15 @@ class InvalidJobID(Exception):
         super().__init__(f"{job_id} is not a valid job_id.")
 
 
+class SubmittedException(Exception):
+    """Raised when calling a method that requires a job not to be submitted."""
+
+    def __init__(self, job_id):
+        """Add job id as attribute and format error message."""
+        self.job_id = job_id
+        super().__init__(f"The job {job_id} was not yet submitted.")
+
+
 class NotSubmittedException(Exception):
     """Raised when calling a method that requires a job to be submitted."""
 
@@ -247,7 +283,7 @@ class NotSubmittedException(Exception):
 
 
 class NotFinishedException(Exception):
-    """Raised when calling a method that requires a job to be submitted."""
+    """Raised when calling a method that requires a job to be finished."""
 
     def __init__(self, job_id):
         """Add job id as attribute and format error message."""

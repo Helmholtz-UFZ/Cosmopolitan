@@ -4,21 +4,32 @@
 import json
 import logging
 import os
+import shutil
+from copy import deepcopy
 from datetime import date
 
+import requests
+
 from cosmopolitan_app.config import (
+    CLUSTER_BASE_URL,
+    CLUSTER_LOG_DIR,
+    COMPUTATION_SCRIPT_TEMPLATE,
     DAYS_DELETE_NOT_SUMBITTED,
     DAYS_DELETE_SUMBITTED,
-    WEB_INPUT_DIR,
+    LOAD_SCRIPT_TEMPLATE,
+    WEB_WORK_DIR,
+    slurm_default_parameters,
+    slurm_header,
 )
 from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
-from cosmopolitan_app.db_manager import DataBaseManager, JobTable
+from cosmopolitan_app.db_manager import DataBaseManager, JobNotFound, JobTable
 from cosmopolitan_app.utils import (
     InvalidJobID,
     NotFinishedException,
     NotSubmittedException,
-    ssh_call,
 )
+
+LOG_SUFFIX = "logs"
 
 
 def get_attributes(clazz):
@@ -50,6 +61,7 @@ class CosmopolitanJob:
     logs = None
     status = None
     version = None
+    file_names = None
 
     def __init__(
         self,
@@ -79,11 +91,26 @@ class CosmopolitanJob:
     def _load_job(self, job_id):
         logging.debug("Load job")
         db_manager = DataBaseManager()
+
         class_attributes = get_attributes(CosmopolitanJob)
         for name, value in db_manager.get_job_columns(job_id).items():
+            if name == "files":
+                files = value
+                continue
             if name not in class_attributes:
                 raise AttributeError(f"CosmopolitanJob has no attribute named {name}")
             setattr(self, name, value)
+
+        working_dir = os.path.join(WEB_WORK_DIR, self.job_id)
+        if not os.path.isdir(working_dir):
+            os.mkdir(working_dir)
+
+        for f_name in self.file_names:
+            if f_name in os.listdir(working_dir):
+                continue
+            with open(os.path.join(working_dir, f_name), "bw") as f_handle:
+                f_handle.write(files[self.file_names.index(f_name)])
+
         self.form = CosmopolitanJobForm()
         self.form.job_id.data = self.job_id
         self.form.previous_job_id.data = self.job_id
@@ -102,8 +129,6 @@ class CosmopolitanJob:
                 field.data = json.dumps(self.input_data[name])
             else:
                 field.data = self.input_data[name]
-
-        self.form.previous_job_id.data = self.form.job_id.data
 
     def _blank_job(self):
         db_manager = DataBaseManager()
@@ -125,9 +150,9 @@ class CosmopolitanJob:
 
         self.form = form
         self.input_data = {}
+        self.start_date = date.today()
         self.job_id = self.form.job_id.data
         self.email = self.form.email.data
-        self.start_date = date.today()
 
         for name, field in self.form._fields.items():
             if name == "csrf_token":
@@ -143,6 +168,42 @@ class CosmopolitanJob:
             else:
                 self.input_data[name] = field.data
 
+    def _get_column_data(self, name, work_dir_base=WEB_WORK_DIR):
+        working_dir = os.path.join(work_dir_base, self.job_id)
+        if name == "file_names":
+            return list(os.listdir(working_dir))
+        if name == "files":
+            value = []
+            for f_name in os.listdir(working_dir):
+                with open(os.path.join(working_dir, f_name), "rb") as f_handle:
+                    value.append(f_handle.read())
+            return value
+        if name == "logs":
+            log_file = os.path.join(working_dir, LOG_SUFFIX)
+            if os.path.isfile(log_file):
+                with open(os.path.join(working_dir, LOG_SUFFIX), "r") as f_handle:
+                    return f_handle.read()
+
+        return getattr(self, name)
+
+    def save_attributes(self, attribute_list):
+        """Save specicif job information to the database.
+
+        This method takes a list of attributes, collects the current information of
+        these attributes. It then uses a DataBaseManager instance to add the collected
+        data as to the respective column in the database.
+        If the job can not be found in data base safe all
+        """
+        logging.debug(
+            f"Save attributes {', '.join(attribute_list)} to job {self.job_id}"
+        )
+        data_to_insert = {name: self._get_column_data(name) for name in attribute_list}
+        db_manager = DataBaseManager()
+        try:
+            db_manager.update_column(self.job_id, data_to_insert)
+        except JobNotFound:
+            self.save()
+
     def save(self):
         """Save the job information to the database.
 
@@ -152,7 +213,7 @@ class CosmopolitanJob:
         """
         logging.debug(f"Save job {self.job_id}")
         column_names = JobTable.__table__.columns.keys()
-        data_to_insert = {name: getattr(self, name) for name in column_names}
+        data_to_insert = {name: self._get_column_data(name) for name in column_names}
         db_manager = DataBaseManager()
         db_manager.add_entry(data_to_insert)
 
@@ -164,34 +225,92 @@ class CosmopolitanJob:
         the database based on the job's unique identifier ('job_id').
         """
         logging.debug(f"Delete job {self.job_id}")
+        working_dir = os.path.join(WEB_WORK_DIR, self.job_id)
+        shutil.rmtree(working_dir)
         db_manager = DataBaseManager()
         db_manager.delete_job(self.job_id)
+
+    def _submit_slurm(self, mode, depends_on=None):
+        """Submit job using slurm rest api.
+
+        The method build the url and json to send with the request. The method takes a
+        mode "load", "comp", "safe" and a slurm job id to build the correct request.
+        """
+        logging.debug(f"Submit {mode}.")
+        url = f"{CLUSTER_BASE_URL}/slurm/v0.0.38/job/submit"
+        job_para = deepcopy(slurm_default_parameters)
+        name = f"{self.job_id}-{mode}"
+        job_para["job"]["name"] = name
+        if mode == "comp":
+            job_para["job"]["standard_output"] += f"{self.job_id}/{LOG_SUFFIX}"
+            job_para["job"]["standard_error"] = job_para["job"]["standard_output"]
+            job_para["script"] = COMPUTATION_SCRIPT_TEMPLATE.format(job_id=self.job_id)
+            job_para["job"]["partition"] = "compute"
+        elif mode in ["load", "save"]:
+            job_para["job"][
+                "standard_output"
+            ] += f"{CLUSTER_LOG_DIR}/{name}.{LOG_SUFFIX}"
+            job_para["job"]["standard_error"] = job_para["job"]["standard_output"]
+            job_para["script"] = LOAD_SCRIPT_TEMPLATE.format(
+                job_id=self.job_id, mode=mode
+            )
+            job_para["job"]["partition"] = "transfer"
+        else:
+            raise ValueError("The submission mode can be 'comp', 'load', 'save'")
+
+        if depends_on is not None:
+            job_para["job"]["dependency"] = f"afterany:{depends_on}"
+
+        response = requests.post(url, json=job_para, headers=slurm_header)
+        if response.status_code == 200:
+            self.status = "PENDING"
+            self.logs = ""
+            return response.json()["job_id"]
+        else:
+            logging.debug("Slurm submit failed.")
+            logging.debug(f"URL: {url}")
+            logging.debug(json.dumps(job_para, indent=2))
+            logging.debug(json.dumps(response.json(), indent=2))
+            self.status = "FAILED"
+            self.logs = f"""Slurm error:
+            {json.dumps(response.json()['errors'], indent=2)}"""
+            return None
 
     def submit(self):
         """Submit job to cluster."""
         logging.debug(f"Submit job {self.job_id}.")
-        call_str = f"submit_job.sh {self.job_id}"
-        out = ssh_call(call_str)
         self.submitted = True
-        self.cluster_job_id = out.split()[-1]
-        self.status = "PENDING"
-        self.logs = ""
-        self.save()
+        self.cluster_job_id = None
+        cluster_job_id = self._submit_slurm("load")
+        if cluster_job_id is not None:
+            self.cluster_job_id = self._submit_slurm("comp", depends_on=cluster_job_id)
+        if self.cluster_job_id is not None:
+            self._submit_slurm("save", depends_on=self.cluster_job_id)
+
+        self.save_attributes(["status", "logs", "submitted", "cluster_job_id"])
 
     def check_status(self):
         """Check status of job on the cluster."""
         logging.info(f"See progress of job {self.job_id}.")
         if self.status in ["COMPLETED", "FAILED"]:
             return
-        call_str = f"check_status.sh {self.job_id} {self.cluster_job_id}"
-        out = ssh_call(call_str)
-        self.status = out.split()[0]
-        self.logs = "\n".join(out.split("\n")[1:])
-        if self.status == "COMPLETED":
-            logging.debug("Job completed.")
-            call_str = f"get_results.sh {self.job_id}"
-            out = ssh_call(call_str)
-        self.save()
+        url = f"{CLUSTER_BASE_URL}/slurm/v0.0.38/job/{self.cluster_job_id}"
+        response = requests.get(url, headers=slurm_header)
+        if response.status_code == 200:
+            self.status = response.json()["jobs"][0]["job_state"]
+        else:
+            logging.debug("Check status failed.")
+            logging.debug(f"Status code: {response.status_code}")
+            logging.debug(f"URL: {url}")
+            logging.debug("Response")
+            logging.debug(json.dumps(response.json(), indent=2))
+            response.raise_for_status()
+
+        self.save_attributes(["status"])
+
+        if self.status in ["COMPLETED", "FAILED"]:
+            # Reload to get results
+            self._load_job(self.job_id)
 
     def get_paratameters_rfo_prediction(self):
         """Return parameter to load a RFo prediction model."""
@@ -201,7 +320,7 @@ class CosmopolitanJob:
         if self.status != "COMPLETED":
             raise NotFinishedException(self.job_id)
 
-        working_dir = os.path.join(WEB_INPUT_DIR, self.job_id)
+        working_dir = os.path.join(WEB_WORK_DIR, self.job_id)
 
         with open(os.path.join(working_dir, "parameters.json"), "r") as f_handle:
             input_data = json.loads(f_handle.read())

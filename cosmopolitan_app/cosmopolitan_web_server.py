@@ -1,12 +1,13 @@
 """Flask app that handles the Cosmopolitan Webserver."""
 
+import logging
 import os
 from logging.config import dictConfig
 
 from flask import Flask, render_template
 from werkzeug.exceptions import HTTPException
 
-from cosmopolitan_app.config import DEBUG
+from cosmopolitan_app.config import DEBUG, PORT
 from cosmopolitan_app.cosmopolitan_job_form import json_load_4_jinja
 from cosmopolitan_app.dash_component import dynamic_plots
 from cosmopolitan_app.dash_component.dash_component import init_dash
@@ -15,7 +16,6 @@ from cosmopolitan_app.utils import error_response_args, log_error
 
 # TODO Dash
 # from flask_wtf.csrf import CSRFProtect
-
 
 app = Flask(__name__)
 
@@ -27,7 +27,6 @@ app = init_dash(app, dynamic_plots.callbacks, dynamic_plots.app_layout)
 
 # TODO Dash
 # csrf = CSRFProtect(app)
-
 dictConfig(get_logger_config(DEBUG))
 app.config["SECRET_KEY"] = os.urandom(32)
 
@@ -98,4 +97,9 @@ def handle_exception(e):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", debug=app.debug, port=8080)
+    app.run(host="0.0.0.0", debug=app.debug, port=PORT)
+else:
+    # Assumes if not main is run by gunicorn
+    gunicorn_logger = logging.getLogger("gunicorn.error")
+    app.logger.handlers = gunicorn_logger.handlers
+    app.logger.setLevel(gunicorn_logger.level)

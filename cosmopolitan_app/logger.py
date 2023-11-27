@@ -130,7 +130,7 @@ def get_logger_config(debug):
         },
         "handlers": {
             "sqlalchemy": {
-                "class": "logger.SQLAlchemyHandler",
+                "class": "cosmopolitan_app.logger.SQLAlchemyHandler",
                 "db_url": database_url,
                 "level": "INFO",
                 "formatter": "default",

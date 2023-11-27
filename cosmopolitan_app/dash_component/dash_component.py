@@ -32,7 +32,7 @@ class DashComponent(dash.Dash):
         # prevent Jinja from
         # escaping the Dash-rendered markup
         return render_template(
-            "html/results/results.html",
+            "html/skeleton/dash_small_entry.html",
             metas=Markup(metas),
             css=Markup(css),
             # config is mapped to dash_config
