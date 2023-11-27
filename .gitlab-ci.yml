@@ -1,5 +1,14 @@
 stages:
+  - setup
   - build
+
+setup:
+  stage: setup
+  image: ubuntu:20.04
+  script:
+    - apt-get update -qy
+    - apt-get install -y docker.io
+    - docker --version
 
 build_image:
   stage: build
@@ -8,4 +17,3 @@ build_image:
                    --build-arg GUNICORN=1 \
                    --build-arg PORT=8080 \
                    -t cosmopolitan-test .
-

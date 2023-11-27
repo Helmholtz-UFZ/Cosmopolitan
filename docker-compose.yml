@@ -1,11 +1,11 @@
 version: "3.8"
 
 services:
-  cosmopolitan-test:
+  cosmopolitan-local:
     build:
       context: .
       args:
-        GIT_PAT_SM: $GIT_PAT_SM
+        GIT_PAT_SM: "UfjwfdJ7E8S7XrK7TJcb"
         GUNICORN: $GUNICORN
         PORT: $PORT
     environment:
