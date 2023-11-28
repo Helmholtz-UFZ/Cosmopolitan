@@ -1,9 +1,16 @@
 #!/bin/bash
 
-export FLASK_DEBUG=1
+set -e
 
-export PYTHONPATH=$PYTHONPATH:../sm_prediction/
+. .env
+
+export PYTHONPATH=$PYTHONPATH:$SM_REPO
+
 # shellcheck disable=SC1091
-source "./flask_venv/bin/activate"
-# python ./cosmopolitan_app/cosmopolitan_web_server.py
-gunicorn -w 4 -b 0.0.0.0:8080 cosmopolitan_app.cosmopolitan_web_server:app
+source "$PYTHON_VENV/bin/activate"
+
+if [ $GUNICORN = 1 ]; then
+    gunicorn -w 4 -b "0.0.0.0:$PORT" cosmopolitan_app.cosmopolitan_web_server:app
+else
+    python ./cosmopolitan_app/cosmopolitan_web_server.py
+fi
