@@ -8,10 +8,14 @@ services:
         GIT_PAT_SM: "UfjwfdJ7E8S7XrK7TJcb"
         GUNICORN: $GUNICORN
         PORT: $PORT
+    image: cosmopolitan-local
+    container_name: cosmopolitan-local
+    volumes:
+      - "./cosmopolitan_app:/python_docker/cosmopolitan/cosmopolitan_app"
     environment:
-      - EMAIL_PASSWORD=$EMAIL_PASSWORD
-      - DB_PW=$DB_PW
-      - CLUSTER_TOKEN=$CLUSTER_TOKEN
-      - FLASK_DEBUG=$FLASK_DEBUG
+      - EMAIL_PASSWORD=${EMAIL_PASSWORD}
+      - DB_PW=${DB_PW}
+      - CLUSTER_TOKEN=${CLUSTER_TOKEN}
+      - FLASK_DEBUG=${FLASK_DEBUG}
     ports:
       - "${PORT}:${PORT}"
