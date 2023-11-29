@@ -294,7 +294,7 @@ class CosmopolitanJob:
         logging.info(f"See progress of job {self.job_id}.")
         if self.status in ["COMPLETED", "FAILED"]:
             return
-        url = f"{CLUSTER_BASE_URL}/slurm/v0.0.38/job/{self.cluster_job_id}"
+        url = f"{CLUSTER_BASE_URL}/slurmdb/v0.0.38/job/{self.cluster_job_id}"
         response = requests.get(url, headers=slurm_header)
         if response.status_code == 200:
             self.status = response.json()["jobs"][0]["job_state"]

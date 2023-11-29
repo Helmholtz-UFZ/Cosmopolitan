@@ -29,7 +29,7 @@ done
 
 # Validate version using regex
 version_regex="^(latest|[0-9]+\.[0-9]+\.[0-9]+)$"
-if ! [[ "$version" =~ "$version_regex" ]]; then
+if ! [[ "$version" =~ $version_regex ]]; then
     echo "Error: Invalid version format. Please provide a valid version number or 'latest'."
     usage
 fi

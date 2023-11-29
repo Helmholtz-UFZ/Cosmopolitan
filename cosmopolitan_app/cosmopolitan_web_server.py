@@ -34,7 +34,6 @@ app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024 * 1024  # 5 Gb limit
 
 app.jinja_env.globals.update(json_loads=json_load_4_jinja)
 
-
 def error_response_flask(e):
     """Handle standard errors on flask site."""
     template_kwargs, html_error_code, log_it = error_response_args(e)
