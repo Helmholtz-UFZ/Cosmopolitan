@@ -1,6 +1,8 @@
 <h1 align="center">COSMOPOLITAN</h1>
 <h2 align="center"><strong>COS</strong><small>mic ray based soil </small><strong>MO</strong><small>isture </small><strong>P</strong><small>redicti</small><strong>O</strong><small>n </small><strong>LI</strong><small>ve descicion </small><strong>T</strong><small>ree </small><strong>AN</strong><small>alysis</small></h2>
-<img src="cosmopolitan_app/static/start_banner.webp" alt="Welcome" style="width: 33.33%; margin: auto; display: block;">
+<p align="center">
+	<img src="cosmopolitan_app/static/start_banner.png" alt="Welcome" width="30%">
+</p>
 
 This is a web service for analysing cosmic ray data to predict soil moisture
 content. The prediction is based on a random forest model and aims to become a
@@ -8,8 +10,6 @@ to become a live soil moisture map of Germany.
 
 The model was developed by Ségolène Dega and the scripts are available in this
 [repository](https://git.ufz.de/dega/sm_prediction).
-
-![Welcome](cosmopolitan_app/static/start_banner.webp)
 
 ### Framework
 
