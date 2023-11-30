@@ -21,7 +21,7 @@ This module is an integral part of the Cosmopolitan application and is used to m
 user inputs, validate data, and define the geometric areas for data processing of input
 files.
 """
-
+import io
 import csv
 import json
 import logging
@@ -429,10 +429,12 @@ class CosmopolitanJobForm(FlaskForm):
         for upload_file in field.data:
             new_filename = input_type + "_" + secure_filename(upload_file.filename)
             input_file_path = os.path.join(self.input_dir, new_filename)
+            io_buffer = io.BufferedReader(upload_file.stream)
+            text_stream = io.TextIOWrapper(io_buffer, encoding='utf-8', newline='')
             try:
                 # Will generate the input file and check file integrity.
                 file_information = parser.parse(
-                    upload_file.data.stream, input_file_path
+                    text_stream, input_file_path
                 )
             except ValidationError as e:
                 well_formed = False
@@ -587,6 +589,7 @@ class InputFileParser:
     """This abstract base class defines the common methods for parsing an input file."""
 
     file_information = None
+    comment_char = "#"
 
     def __init__(self, geom_area):
         """Set parse_geom_area so that every point added expands area."""
@@ -629,11 +632,20 @@ class InputFileParser:
     def parse(self, in_file_stream, out_file_path):
         """Parse the input file and write valid rows to the output file."""
         in_file_stream.seek(0)
+
         with open(out_file_path, "w") as out_file:
             # Guess the delimiter
             sniffer = csv.Sniffer()
+
+            # Get first line with no comment char
+            line = ""
+            while line == "":
+                line = in_file_stream.readline()
+                if line[0] == self.comment_char:
+                    line = ""
+
             try:
-                dialect = sniffer.sniff(in_file_stream.read(10 * 1024))
+                dialect = sniffer.sniff(line)
             except csv.Error as e:
                 if str(e) == "Could not determine delimiter":
                     raise ValidationError(str(e))

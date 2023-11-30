@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM python:3.10-slim-bookworm
+FROM python:3.11-slim-bookworm
 
 ARG GIT_PAT_SM
 ARG PORT
@@ -15,18 +15,22 @@ RUN apt-get -y upgrade
 RUN apt-get -y install git libpq-dev gcc
 # RUN apt-get -y install git
 
-WORKDIR /python_docker
+WORKDIR /python_docker/cosmopolitan
 
-RUN mkdir /python_docker/cosmopolitan
+RUN mkdir /python_docker/sm_prediction
 
 ENV PYTHONPATH=/python_docker/sm_prediction/:/python_docker/cosmopolitan/
 
 # RUN git clone https://dega:${GIT_PAT_SM}@git.ufz.de/dega/sm_prediction.git
-RUN git clone -b logging_optional --single-branch https://dega:${GIT_PAT_SM}@git.ufz.de/dega/sm_prediction.git
+RUN git clone \
+	-b logging_optional --single-branch \
+	https://dega:${GIT_PAT_SM}@git.ufz.de/dega/sm_prediction.git \
+	/python_docker/sm_prediction
+
 COPY requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt
-COPY . cosmopolitan/
-COPY .env_dep cosmopolitan/.env
+COPY . .
+COPY .env_dep .env
 
 CMD if [ "$env_gunicorn" = 1 ] ; then \
         gunicorn -w 4 -b 0.0.0.0:$env_port cosmopolitan_app.cosmopolitan_web_server:app; \
