@@ -1,7 +1,8 @@
-flask_venv
 __pycache__
+.python-version
 .env
 ./cosmopolitan_app/work_dir/*
 ./backend_env
 *swp
 *swo
+

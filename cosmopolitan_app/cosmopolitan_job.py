@@ -261,24 +261,38 @@ class CosmopolitanJob:
         if depends_on is not None:
             job_para["job"]["dependency"] = f"afterany:{depends_on}"
 
-        response = requests.post(url, json=job_para, headers=slurm_header)
+        try:
+            response = requests.post(url, json=job_para, headers=slurm_header)
+        except requests.exceptions.ConnectionError:
+            logging.warning("Slurm submit failed.")
+            logging.warning("Can not connect to server.")
+            logging.warning(f"URL: {url}")
+            self.logs = "Slurm error:\nFailed to connect to server."
+            self.status = "FAILED"
+            return None
+
         if response.status_code == 200:
             self.status = "PENDING"
             self.logs = ""
             return response.json()["job_id"]
         else:
-            logging.debug("Slurm submit failed.")
-            logging.debug(f"URL: {url}")
-            logging.debug(json.dumps(job_para, indent=2))
-            logging.debug(json.dumps(response.json(), indent=2))
+            logging.warning("Slurm submit failed.")
+            logging.warning(f"URL: {url}")
+            logging.warning(f"Status code: {response.status_code}")
+            logging.warning(json.dumps(job_para, indent=2))
+            try:
+                logging.warning(json.dumps(response.json(), indent=2))
+                self.logs = f"""Slurm error:
+                {json.dumps(response.json()['errors'], indent=2)}"""
+            except requests.exceptions.JSONDecodeError:
+                logging.warning("No json returned!")
+                self.logs = f"Slurm error:\nStatus code: {response.status_code}"
             self.status = "FAILED"
-            self.logs = f"""Slurm error:
-            {json.dumps(response.json()['errors'], indent=2)}"""
             return None
 
     def submit(self):
         """Submit job to cluster."""
-        logging.debug(f"Submit job {self.job_id}.")
+        logging.info(f"Submit job {self.job_id}.")
         self.submitted = True
         self.cluster_job_id = None
         cluster_job_id = self._submit_slurm("load")
@@ -299,11 +313,11 @@ class CosmopolitanJob:
         if response.status_code == 200:
             self.status = response.json()["jobs"][0]["job_state"]
         else:
-            logging.debug("Check status failed.")
-            logging.debug(f"Status code: {response.status_code}")
-            logging.debug(f"URL: {url}")
-            logging.debug("Response")
-            logging.debug(json.dumps(response.json(), indent=2))
+            logging.warning("Check status failed.")
+            logging.warning(f"Status code: {response.status_code}")
+            logging.warning(f"URL: {url}")
+            logging.warning("Response")
+            logging.warning(json.dumps(response.json(), indent=2))
             response.raise_for_status()
 
         self.save_attributes(["status"])

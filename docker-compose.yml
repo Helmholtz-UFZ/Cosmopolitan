@@ -4,18 +4,14 @@ services:
   cosmopolitan-local:
     build:
       context: .
+      dockerfile: dev.Dockerfile
       args:
-        GIT_PAT_SM: "UfjwfdJ7E8S7XrK7TJcb"
-        GUNICORN: $GUNICORN
-        PORT: $PORT
+        - GIT_PAT_SM=${GIT_PAT_SM}
+        - SM_BRANCH=${SM_BRANCH}
+    env_file: .env
     image: cosmopolitan-local
     container_name: cosmopolitan-local
     volumes:
       - "./cosmopolitan_app:/python_docker/cosmopolitan/cosmopolitan_app"
-    environment:
-      - EMAIL_PASSWORD=${EMAIL_PASSWORD}
-      - DB_PW=${DB_PW}
-      - CLUSTER_TOKEN=${CLUSTER_TOKEN}
-      - FLASK_DEBUG=${FLASK_DEBUG}
     ports:
       - "${PORT}:${PORT}"

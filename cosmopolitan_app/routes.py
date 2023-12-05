@@ -40,6 +40,7 @@ def submission(job_id):
     """Site for submitting and presenting progress and results of a job."""
     logging.info("Submisison site")
     job = CosmopolitanJob(job_id=job_id)
+    job.submit()
     if not job.submitted:
         job.submit()
         send_submission_mail(job)
