@@ -27,7 +27,7 @@ load_dotenv()
 try:
     # s/=.*//g |'<,'> s/^.*$/& = getenv("&")/g | noh
     WEB_WORK_DIR = getenv("WEB_WORK_DIR")
-    PORT = getenv("PORT")
+    PORT = getenv("FLASK_PORT")
     EMAIL_SERVER = getenv("EMAIL_SERVER")
     EMAIL_PORT = getenv("EMAIL_PORT")
     EMAIL_USERNAME = getenv("EMAIL_USERNAME")

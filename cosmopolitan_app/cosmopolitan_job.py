@@ -25,6 +25,7 @@ from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
 from cosmopolitan_app.db_manager import DataBaseManager, JobNotFound, JobTable
 from cosmopolitan_app.utils import (
     InvalidJobID,
+    NoSlurmConnectionException,
     NotFinishedException,
     NotSubmittedException,
 )
@@ -264,12 +265,10 @@ class CosmopolitanJob:
         try:
             response = requests.post(url, json=job_para, headers=slurm_header)
         except requests.exceptions.ConnectionError:
-            logging.warning("Slurm submit failed.")
-            logging.warning("Can not connect to server.")
-            logging.warning(f"URL: {url}")
-            self.logs = "Slurm error:\nFailed to connect to server."
-            self.status = "FAILED"
-            return None
+            logging.error("Slurm submit failed.")
+            logging.error("Can not connect to server.")
+            logging.error(f"URL: {url}")
+            raise NoSlurmConnectionException
 
         if response.status_code == 200:
             self.status = "PENDING"
@@ -310,16 +309,29 @@ class CosmopolitanJob:
             return
         url = f"{CLUSTER_BASE_URL}/slurmdb/v0.0.38/job/{self.cluster_job_id}"
         response = requests.get(url, headers=slurm_header)
-        if response.status_code == 200:
-            self.status = response.json()["jobs"][0]["job_state"]
-        else:
+
+        if response.status_code != 200:
             logging.warning("Check status failed.")
             logging.warning(f"Status code: {response.status_code}")
             logging.warning(f"URL: {url}")
-            logging.warning("Response")
-            logging.warning(json.dumps(response.json(), indent=2))
+            logging.warning("Response:")
+            try:
+                logging.warning(json.dumps(response.json(), indent=2))
+            except IndexError:
+                logging.warning("No json returned!")
             response.raise_for_status()
 
+        try:
+            status = response.json()["jobs"][0]["job_state"]
+        except IndexError:
+            logging.warning("Check status failed.")
+            logging.warning(f"Status code: {response.status_code}")
+            logging.warning(f"URL: {url}")
+            logging.warning("Response:")
+            logging.warning(json.dumps(response.json()["errors"], indent=2))
+            status = "FAILED"
+
+        self.status = status
         self.save_attributes(["status"])
 
         if self.status in ["COMPLETED", "FAILED"]:

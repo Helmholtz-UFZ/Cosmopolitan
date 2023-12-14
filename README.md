@@ -12,7 +12,7 @@ to become a live soil moisture map of Germany.
 The model was developed by Ségolène Dega and the scripts are available in this
 [repository](https://git.ufz.de/dega/sm_prediction).
 
-### Framework
+## Framework
 
 The web service is based on `flask` see
 `cosmopolitan_app/cosmopolitan_web_server.py`. The main input validation is with
@@ -24,19 +24,20 @@ handled by a `SLURM REST API`, see methods of the `CosmopolitanJob` in
 `cosmopolitan_app/cosmopolitan_job.py`. For interactive components the `dash`
 framework is used and are located in `cosmopolitan_app/dash_component/`.
 
-### Build and development
+## Build and development
 
-#### Production build
+### Production build
 
 The web service is built as a Docker container intended to run on a
 Cubernet cluster. The build is organised in a CI pipeline on gitlab, see
-`.gitlab-ci.yml` and the build instructions in `prod.Dockerfile`.
+`.gitlab-ci.yml` and the build instructions in `docker/prod.Dockerfile`.
 
-#### Local build for development
+### Local build for development
 
 For development the docker container can be built locally using the `docker compose up`.
 In `docker-compose.yml` the build and the run settings are defined. The local docker is
-based on 'dev.Dockerfile`. Before you can do this, `cp .env_dev .env`. 
+based on `docker/dev.Dockerfile`. Before you can do this, `cp .env_dev .env` and edit
+the variable accordingly. 
 
 For the development there are four important variable in `.env_dev`. `GUNICORN`
 controlls if the web service is started with the production server. For debuging the
@@ -56,9 +57,27 @@ The code base tries to adhere to the `flake8` standard and is formated with
 `Black`. To ensure styling coherence the precommit configuration in
 `.pre-commit-config.yaml` should be used. 
 
+### Mockup outside services
+
+The webservice relys on three external services 
+
+ 1. Mail server
+ 2. Postgres DB
+ 3. SLURM REST API
+
+For all three a mockup web service exist which allow two develop and test
+without access to the services.
+
+If you whish to use the services you might like to use the command 'docker
+compose up --attach cosmopolitan-local`. This way 
+
+#### Mail server
+
+The [MailHog](https://github.com/mailhog/MailHog) service is used to catch
+emails. When the web service is running you 
 ### Versions
 
 The gitlab CI will always produce a "nightly" build of the latest `main` branch
-called `latest`. To make a new release, create a git tag of the form 0.0.1,
+tagged `latest`. To make a new release, create a git tag of the form 0.0.1,
 1.2.3, ... and commit it. This will trigger a new build of the web server
 with a new version tag.
