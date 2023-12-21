@@ -18,35 +18,37 @@ services:
     ports:
       - "${FLASK_PORT}:${FLASK_PORT}"
 
-  # mailhog:
-  #   image: mailhog/mailhog
-  #   logging:
-  #     driver: 'none'  # disable saving logs
-  #   ports:
-  #     - "${EMAIL_PORT}:${EMAIL_PORT}" # stmp server
-  #     - "${MAIL_HOG_PORT}:${MAIL_HOG_PORT}" # web ui
+  mailhog:
+    image: mailhog/mailhog
+    logging:
+      driver: 'none'  # disable saving logs
+    ports:
+      - "${EMAIL_PORT}:${EMAIL_PORT}" # stmp server
+      - "${MAIL_HOG_PORT}:${MAIL_HOG_PORT}" # web ui
 
-  # postgres:
-  #   build:
-  #     context: .
-  #     dockerfile: db.Dockerfile
-  #     args:
-  #       - POSTGRES_PASSWORD=${DB_PW}
-  #       - POSTGRES_USER=${DB_USER}
-  #       - POSTGRES_DB=${DB_NAME}
-  #   env_file: .env
-  #   image: postgres-local
-  #   container_name: postgres-local
-  #   ports:
-  #     - "${DB_PORT}:${DB_PORT}" # web ui
-  #   volumes:
-  #     - ~/apps/postgres:/var/lib/postgresql/data
-  #   user: "${UID}:${GID}"
+  postgres:
+    build:
+      context: .
+      dockerfile: ./docker/db.Dockerfile
+      args:
+        - POSTGRES_PASSWORD=${DB_PW}
+        - POSTGRES_USER=${DB_USER}
+        - POSTGRES_DB=${DB_NAME}
+    env_file: .env
+    image: postgres-local
+    container_name: postgres-local
+    ports:
+      - "${DB_PORT}:${DB_PORT}" # web ui
+    # TODO set up a default DB
+    # volumes:
+    #   - ~/apps/postgres:/var/lib/postgresql/data
+    user: "${UID}:${GID}"
 
-  # mockoon:
-  #   image: mockoon/cli
-  #   command: ["--data", "data"]
-  #   ports:
-  #     - "$CLUSTER_PORT:8001"
+  # Currently eve and the slurm openapi are not cohesive
+  # prism:
+  #   image: stoplight/prism:4
+  #   command: 'mock -h 0.0.0.0 /tmp/slurm_openapi.json'
   #   volumes:
-  #     - ./docker/myEnvironmentFile.json:/data
+  #     - ./docker/:/tmp/:ro
+  #   ports:
+  #     - '4010:4010'
