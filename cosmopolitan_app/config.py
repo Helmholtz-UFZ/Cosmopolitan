@@ -49,7 +49,7 @@ try:
     DB_PW = getenv("DB_PW")
     DEBUG = getenv("FLASK_DEBUG")
 except ValueError as error:
-    print("Can load config")
+    print("Can not load config")
     print(error)
     exit(1)
 
