@@ -5,13 +5,12 @@ if [ "$#" -ne 1 ]; then
     exit 1
 fi
 
-mode=$1
-
-if [ "$mode" != "mock" ]; then
+if [ "$1" == "mock" ]; then
     env_file=".env_dev_mock"
-elif [ "$mode" != "prod" ]; then
+elif [ "$1" == "prod" ]; then
     env_file=".env_dev_prod_priv"
 else
+    echo "Usage: $0 <mock|prod>"
     echo "Invalid mode. Use 'mock' or 'prod'."
     exit 1
 fi
@@ -23,8 +22,8 @@ fi
 
 cp "$env_file" .env
 
-if [ "$mode" == "prod" ]; then
-    docker-compose up cosmopolitan-local
+if [ "$1" == "prod" ]; then
+    docker compose up cosmopolitan-local
 else
-    docker-compose up --attach cosmopolitan-local
+    docker compose up --attach cosmopolitan-local
 fi

@@ -24,7 +24,7 @@ services:
       driver: 'none'  # disable saving logs
     ports:
       - "${EMAIL_PORT}:${EMAIL_PORT}" # stmp server
-      - "${MAIL_HOG_PORT}:${MAIL_HOG_PORT}" # web ui
+      - "${MAIL_HOG_PORT:-8025}:${MAIL_HOG_PORT:-8025}" # web ui
 
   postgres:
     build:
