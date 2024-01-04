@@ -4,6 +4,8 @@ echo "Not working required python version (3.11) is not available on system"
 echo "See ticket 42043141"
 exit 1
 
+module load foss/2022b Python/3.10.8 PostgreSQL/15.2
+
 source .env
 
 mkdir -p "$WEB_WORK_DIR"
@@ -12,13 +14,14 @@ if [ -d "$CLUSTER_PYTHON_ENV_PATH" ]; then
     rm -r "$CLUSTER_PYTHON_ENV_PATH"
 fi
 
+python -m venv "$CLUSTER_PYTHON_ENV_PATH"
 
-module load foss/2022b Python/3.10.8 PostgreSQL/15.2
-
-pip install poetry
-
-# TODO
-poetry install --no-interaction --no-ansi
+source "$CLUSTER_PYTHON_ENV_PATH/bin/activate"
+# TODO Poetry
+# Quickfix
+pip install -r ./requirements.txt
+# pip install poetry
+# poetry install --no-interaction --no-ansi
 
 lmod_env="BASH_ENV=/software/lmod/lmod/init/profile"
 logs="$HOME/clean_up.log"
