@@ -12,7 +12,9 @@ WORKDIR /python_docker/cosmopolitan
 
 RUN mkdir /python_docker/sm_prediction
 
-RUN git clone https://dega:${GIT_PAT_SM}@git.ufz.de/dega/sm_prediction.git
+RUN git clone \
+    https://dega:${GIT_PAT_SM}@git.ufz.de/dega/sm_prediction.git \
+    /python_docker/sm_prediction
 
 ENV PYTHONPATH=/python_docker/sm_prediction/:/python_docker/cosmopolitan/
 
@@ -24,6 +26,6 @@ RUN poetry config virtualenvs.create false
 RUN poetry install --no-interaction --no-ansi
 
 COPY . .
-COPY .env_dep .env
+COPY .env_prod .env
 
-gunicorn -w 4 -b 0.0.0.0:$PORT cosmopolitan_app.cosmopolitan_web_server:app; \
+CMD gunicorn -w 4 -b 0.0.0.0:$PORT cosmopolitan_app.cosmopolitan_web_server:app

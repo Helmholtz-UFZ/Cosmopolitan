@@ -19,7 +19,6 @@ from plot_functions import (
 from RFoPrediction import RFoPrediction
 from sqlalchemy.exc import OperationalError
 
-from cosmopolitan_app.config import DEBUG
 from cosmopolitan_app.cosmopolitan_job import (
     CosmopolitanJob,
     InvalidJobID,
@@ -52,7 +51,7 @@ def load_rfo_prediction(job_id, ttl_hash=None):
         working_dir,
         load_results,
     ) = cosmopolitan_job.get_paratameters_rfo_prediction()
-    return RFoPrediction(input_data, working_dir, load_results=True, verbose=DEBUG)
+    return RFoPrediction(input_data, working_dir, load_results=True)
 
 
 def create_slider(plot_id, rfo_prediction):
