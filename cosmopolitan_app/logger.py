@@ -162,8 +162,7 @@ def get_logger_config(debug):
         },
         "filters": {"exclude_debug_matplotlib": {"()": ExcludeDebugMatplotLibFilter}},
     }
-
-    if debug:
+    if debug == "1":
         logging_config["root"]["handlers"] = ["wsgi"]
     else:
         logging_config["root"]["handlers"] = ["sqlalchemy", "mail_handler"]
