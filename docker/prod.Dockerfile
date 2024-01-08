@@ -28,4 +28,4 @@ RUN poetry install --no-interaction --no-ansi
 COPY . .
 COPY .env_prod .env
 
-CMD gunicorn -w 4 -b 0.0.0.0:$PORT cosmopolitan_app.cosmopolitan_web_server:app
+CMD gunicorn -w 4 -b 0.0.0.0:$FLASK_PORT cosmopolitan_app.cosmopolitan_web_server:app
