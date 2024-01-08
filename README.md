@@ -35,9 +35,10 @@ Cubernet cluster. The build is organised in a CI pipeline on gitlab, see
 ```bash
 docker pull git.ufz.de:4567/andersj/som-web:latest
 docker run -e EMAIL_PASSWORD=$EMAIL_PASSWORD \
-    -e CLUSTER_TOKEN=$CLUSTER_TOKEN \
-    -e DB_PW=$DB_PW \
-    -p 8080:8080 \
+    -e FLASK_PORT="$FLASK_PORT" \
+    -e CLUSTER_TOKEN="$CLUSTER_TOKEN" \
+    -e DB_PW="$DB_PW" \
+    -p "$FLASK_PORT:$FLASK_PORT" \
     git.ufz.de:4567/andersj/som-web
 ```
 
