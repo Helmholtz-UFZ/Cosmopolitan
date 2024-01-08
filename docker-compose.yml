@@ -1,21 +1,54 @@
 version: "3.8"
 
 services:
+
   cosmopolitan-local:
     build:
       context: .
+      dockerfile: ./docker/dev.Dockerfile
       args:
-        GIT_PAT_SM: "UfjwfdJ7E8S7XrK7TJcb"
-        GUNICORN: $GUNICORN
-        PORT: $PORT
+        - GIT_PAT_SM=${GIT_PAT_SM}
+        - SM_BRANCH=${SM_BRANCH}
+    env_file: .env
     image: cosmopolitan-local
     container_name: cosmopolitan-local
     volumes:
       - "./cosmopolitan_app:/python_docker/cosmopolitan/cosmopolitan_app"
-    environment:
-      - EMAIL_PASSWORD=${EMAIL_PASSWORD}
-      - DB_PW=${DB_PW}
-      - CLUSTER_TOKEN=${CLUSTER_TOKEN}
-      - FLASK_DEBUG=${FLASK_DEBUG}
+    user: "${UID}:${GID}"
     ports:
-      - "${PORT}:${PORT}"
+      - "${FLASK_PORT}:${FLASK_PORT}"
+
+  mailhog:
+    image: mailhog/mailhog
+    logging:
+      driver: 'none'  # disable saving logs
+    ports:
+      - "${EMAIL_PORT}:${EMAIL_PORT}" # stmp server
+      - "${MAIL_HOG_PORT:-8025}:${MAIL_HOG_PORT:-8025}" # web ui
+
+  postgres:
+    build:
+      context: .
+      dockerfile: ./docker/db.Dockerfile
+      args:
+        - POSTGRES_PASSWORD=${DB_PW}
+        - POSTGRES_USER=${DB_USER}
+        - POSTGRES_DB=${DB_NAME}
+    env_file: .env
+    image: postgres-local
+    container_name: postgres-local
+    ports:
+      - "${DB_PORT}:${DB_PORT}" # web ui
+    # TODO set up a default DB
+    # volumes:
+    #   - ~/apps/postgres:/var/lib/postgresql/data
+    user: "${UID}:${GID}"
+
+  # Currently eve and the slurm openapi are not cohesive
+  # prism:
+  #   image: stoplight/prism:4
+  #   command: 'mock -h 0.0.0.0 /tmp/slurm_openapi.json'
+  #   volumes:
+  #     - ./docker/:/tmp/:ro
+  #   ports:
+  #     - '4010:4010'

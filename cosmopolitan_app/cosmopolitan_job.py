@@ -11,7 +11,7 @@ from datetime import date
 import requests
 
 from cosmopolitan_app.config import (
-    CLUSTER_BASE_URL,
+    CLUSTER_AUTHORITY,
     CLUSTER_LOG_DIR,
     COMPUTATION_SCRIPT_TEMPLATE,
     DAYS_DELETE_NOT_SUMBITTED,
@@ -25,6 +25,7 @@ from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
 from cosmopolitan_app.db_manager import DataBaseManager, JobNotFound, JobTable
 from cosmopolitan_app.utils import (
     InvalidJobID,
+    NoSlurmConnectionException,
     NotFinishedException,
     NotSubmittedException,
 )
@@ -237,7 +238,7 @@ class CosmopolitanJob:
         mode "load", "comp", "safe" and a slurm job id to build the correct request.
         """
         logging.debug(f"Submit {mode}.")
-        url = f"{CLUSTER_BASE_URL}/slurm/v0.0.38/job/submit"
+        url = f"{CLUSTER_AUTHORITY}/slurm/v0.0.38/job/submit"
         job_para = deepcopy(slurm_default_parameters)
         name = f"{self.job_id}-{mode}"
         job_para["job"]["name"] = name
@@ -261,24 +262,42 @@ class CosmopolitanJob:
         if depends_on is not None:
             job_para["job"]["dependency"] = f"afterany:{depends_on}"
 
-        response = requests.post(url, json=job_para, headers=slurm_header)
+        try:
+            response = requests.post(url, json=job_para, headers=slurm_header)
+        except requests.exceptions.ConnectionError:
+            logging.error("Slurm submit failed.")
+            logging.error("Can not connect to server.")
+            logging.error(f"URL: {url}")
+            raise NoSlurmConnectionException(self.job_id)
+
         if response.status_code == 200:
             self.status = "PENDING"
             self.logs = ""
             return response.json()["job_id"]
+        elif response.status_code == 404:
+            logging.error("Slurm submit failed.")
+            logging.error("Can not connect to server.")
+            logging.error(f"URL: {url}")
+            raise NoSlurmConnectionException(self.job_id)
         else:
-            logging.debug("Slurm submit failed.")
-            logging.debug(f"URL: {url}")
-            logging.debug(json.dumps(job_para, indent=2))
-            logging.debug(json.dumps(response.json(), indent=2))
+            logging.warning("Slurm submit failed.")
+            logging.warning(f"URL: {url}")
+            logging.warning(f"Status code: {response.status_code}")
+            logging.warning(json.dumps(job_para, indent=2))
+            logging.warning(json.dumps(response.json(), indent=2))
+            try:
+                logging.warning(json.dumps(response.json(), indent=2))
+                self.logs = f"""Slurm error:
+                {json.dumps(response.json()['errors'], indent=2)}"""
+            except requests.exceptions.JSONDecodeError:
+                logging.warning("No json returned!")
+                self.logs = f"Slurm error:\nStatus code: {response.status_code}"
             self.status = "FAILED"
-            self.logs = f"""Slurm error:
-            {json.dumps(response.json()['errors'], indent=2)}"""
             return None
 
     def submit(self):
         """Submit job to cluster."""
-        logging.debug(f"Submit job {self.job_id}.")
+        logging.info(f"Submit job {self.job_id}.")
         self.submitted = True
         self.cluster_job_id = None
         cluster_job_id = self._submit_slurm("load")
@@ -289,23 +308,83 @@ class CosmopolitanJob:
 
         self.save_attributes(["status", "logs", "submitted", "cluster_job_id"])
 
+    def _check_status_db(self):
+        """Check status in slurm db.
+
+        The status of jobs which finished can found here.
+        """
+        url = f"{CLUSTER_AUTHORITY}/slurmdb/v0.0.38/job/{self.cluster_job_id}"
+        response = requests.get(url, headers=slurm_header)
+
+        if response.status_code != 200:
+            logging.warning("Check status failed.")
+            logging.warning(f"Status code: {response.status_code}")
+            logging.warning(f"URL: {url}")
+            logging.warning("Response:")
+            try:
+                logging.warning(json.dumps(response.json(), indent=2))
+            except IndexError:
+                logging.warning("No json returned!")
+            response.raise_for_status()
+
+        try:
+            status = response.json()["jobs"][0]["state"]["current"]
+        except IndexError:
+            if response.json()["errors"][0]["description"] == "Nothing found":
+                return None
+            logging.warning("Check status failed.")
+            logging.warning(f"Status code: {response.status_code}")
+            logging.warning(f"URL: {url}")
+            logging.warning("Response:")
+            logging.warning(json.dumps(response.json()["errors"], indent=2))
+            status = "FAILED"
+
+        return status
+
+    def _check_status_live(self):
+        """Check status in current slurm manager.
+
+        The status of jobs which finished can found here.
+        """
+        url = f"{CLUSTER_AUTHORITY}/slurm/v0.0.38/job/{self.cluster_job_id}"
+        response = requests.get(url, headers=slurm_header)
+
+        if response.status_code != 200:
+            logging.warning("Check status failed.")
+            logging.warning(f"Status code: {response.status_code}")
+            logging.warning(f"URL: {url}")
+            logging.warning("Response:")
+            try:
+                logging.warning(json.dumps(response.json(), indent=2))
+            except IndexError:
+                logging.warning("No json returned!")
+            response.raise_for_status()
+
+        try:
+            status = response.json()["jobs"][0]["job_state"]
+        except IndexError:
+            if response.json()["errors"][0]["description"] == "Nothing found":
+                return None
+            logging.warning("Check status failed.")
+            logging.warning(f"Status code: {response.status_code}")
+            logging.warning(f"URL: {url}")
+            logging.warning("Response:")
+            logging.warning(json.dumps(response.json()["errors"], indent=2))
+            status = "FAILED"
+
+        return status
+
     def check_status(self):
         """Check status of job on the cluster."""
         logging.info(f"See progress of job {self.job_id}.")
         if self.status in ["COMPLETED", "FAILED"]:
             return
-        url = f"{CLUSTER_BASE_URL}/slurmdb/v0.0.38/job/{self.cluster_job_id}"
-        response = requests.get(url, headers=slurm_header)
-        if response.status_code == 200:
-            self.status = response.json()["jobs"][0]["job_state"]
-        else:
-            logging.debug("Check status failed.")
-            logging.debug(f"Status code: {response.status_code}")
-            logging.debug(f"URL: {url}")
-            logging.debug("Response")
-            logging.debug(json.dumps(response.json(), indent=2))
-            response.raise_for_status()
 
+        status = self._check_status_db()
+        if status is None:
+            status = self._check_status_live()
+
+        self.status = status
         self.save_attributes(["status"])
 
         if self.status in ["COMPLETED", "FAILED"]:

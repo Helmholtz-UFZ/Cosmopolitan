@@ -12,7 +12,7 @@ to become a live soil moisture map of Germany.
 The model was developed by Ségolène Dega and the scripts are available in this
 [repository](https://git.ufz.de/dega/sm_prediction).
 
-### Framework
+## Framework
 
 The web service is based on `flask` see
 `cosmopolitan_app/cosmopolitan_web_server.py`. The main input validation is with
@@ -24,34 +24,76 @@ handled by a `SLURM REST API`, see methods of the `CosmopolitanJob` in
 `cosmopolitan_app/cosmopolitan_job.py`. For interactive components the `dash`
 framework is used and are located in `cosmopolitan_app/dash_component/`.
 
-### Build and development
+## Build and development
+
+### Production build
 
 The web service is built as a Docker container intended to run on a
 Cubernet cluster. The build is organised in a CI pipeline on gitlab, see
-`.gitlab-ci.yml` and the build instructions in `Dockerfile`. The docker
-container can be built locally using the
-`docker compose up`. In `docker-compose.yml` the build and the run settings are
-defined. Before you can do this, `cp .env_dev .env` and set the
-empty variables. The server needs credentials to connect to the mail server,
-postgres DB and the SLURM REST API, without them he will not be able to start.
+`.gitlab-ci.yml` and the build instructions in `docker/prod.Dockerfile`.
 
-The `FLASK_DEBUG` variable also controls
-if flask is started in debug mode (easier logging, reloading scripts) and
-GUNICORN' controls whether the production server is used. To make development
-easier `docker compose` will bind the current repository to the docker container. So
-that if `FLASK_DEBUG=1`, the web server is automatically reloaded when one of the
-scripts in `cosmopolitan_app/*` are changed.
+### Local build for development
 
-The webserver is deployed using `gunicorn`. If the environment variable
-`GUNICORN=1` docker will start the image with gunicorn workers.
+#### tl;dr
+
+```bash
+cp .env_dev_mock .env
+docker compose up
+# or
+./auxilary_scripts/dev_up.sh mock
+```
+
+#### More details
+
+For development, the project can be built and started with either mock-up
+servers or with a connection to the real services. The example above starts the
+web server with mock-up servers. This will not send emails, change the database
+or start jobs in the cluster. Another option is to develop with a connection to
+the real services. For this you need to add credentials, the quickest way is: 
+
+```bash
+cp ./.env_dev_prod ./.env_dev_prod_priv
+# Add the credentials with your editor
+$EDITOR ./.env_dev_prod_priv
+./auxilary_scripts/dev_up.sh prod
+```
+
+For the development there are four important variable in `.env_dev_*`. 
+
+ 1. `GUNICORN` controlls if the web service is started with the production server.
+ 2. For debuging the Flask server use `FLASK_DEBUG` (easier logging, reloading
+    scripts). This will only work if `GUNICORN=0`.
+ 3. The web server uses the library of the git repository `sm_prediction` for
+    plotting. If you whish to make ongoing development you can do so by
+    specifing the branch with `SM_BRANCH`.
+
+To make development easier `docker compose` will bind the current repository to the
+docker container. So that if `FLASK_DEBUG=1`, the web server is automatically reloaded
+when one of the scripts in `cosmopolitan_app/\*` are changed.
 
 The code base tries to adhere to the `flake8` standard and is formated with
 `Black`. To ensure styling coherence the precommit configuration in
 `.pre-commit-config.yaml` should be used. 
 
+### Mockup outside services
+
+The webservice relys on three external services 
+
+ 1. Mail server
+ 2. Postgres DB
+ 3. SLURM REST API
+
+For two of the services a mockup web server exist which allow to develop and test
+without access to the services. Currently the SLURM REST API can not be mocked.
+
+#### Mail server
+
+The [MailHog](https://github.com/mailhog/MailHog) service is used to catch
+emails. When the web service is running you 
+
 ### Versions
 
 The gitlab CI will always produce a "nightly" build of the latest `main` branch
-called `latest`. To make a new release, create a git tag of the form 0.0.1,
+tagged `latest`. To make a new release, create a git tag of the form 0.0.1,
 1.2.3, ... and commit it. This will trigger a new build of the web server
 with a new version tag.

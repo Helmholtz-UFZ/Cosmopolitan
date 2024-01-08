@@ -30,6 +30,16 @@ from cosmopolitan_app.db_manager import DataBaseManager, JobNotFound
 
 def error_response_args(e):
     """Serve required arguments for error handling for both flask and dash."""
+    if isinstance(e, NoSlurmConnectionException):
+        return (
+            {
+                "error_page": "html/errors/no_slurm_connection.html",
+                "job_id": e.job_id,
+            },
+            500,
+            False,
+        )
+
     if isinstance(e, NotFinishedException):
         return (
             {
@@ -170,7 +180,8 @@ def send_mail(recipient, subject, content):
     msg.attach(MIMEText(body, "plain"))
 
     server = smtplib.SMTP(EMAIL_SERVER, EMAIL_PORT)
-    server.starttls()
+    if EMAIL_PASSWORD != "test":
+        server.starttls()
     server.login(EMAIL_USERNAME, EMAIL_PASSWORD)
     server.sendmail(EMAIL_SENDER, recipient, msg.as_string())
     server.quit()
@@ -289,3 +300,17 @@ class NotFinishedException(Exception):
         """Add job id as attribute and format error message."""
         self.job_id = job_id
         super().__init__(f"The job {job_id} is not yet finished.")
+
+
+class NoSlurmConnectionException(Exception):
+    """Raised if no connection to the cluster can be established."""
+
+    def __init__(self, job_id):
+        """Add job id as attribute and format error message."""
+        self.job_id = job_id
+        super().__init__(
+            (
+                "Can not establish a connection to Cluster."
+                f"Job {job_id} could not be submitted."
+            )
+        )
