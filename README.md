@@ -32,6 +32,15 @@ The web service is built as a Docker container intended to run on a
 Cubernet cluster. The build is organised in a CI pipeline on gitlab, see
 `.gitlab-ci.yml` and the build instructions in `docker/prod.Dockerfile`.
 
+```bash
+docker pull git.ufz.de:4567/andersj/som-web:latest
+docker run -e EMAIL_PASSWORD=$EMAIL_PASSWORD \
+    -e CLUSTER_TOKEN=$CLUSTER_TOKEN \
+    -e DB_PW=$DB_PW \
+    -p 8080:8080 \
+    git.ufz.de:4567/andersj/som-web
+```
+
 ### Local build for development
 
 #### tl;dr
