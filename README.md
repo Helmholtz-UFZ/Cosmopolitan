@@ -34,24 +34,42 @@ Cubernet cluster. The build is organised in a CI pipeline on gitlab, see
 
 ### Local build for development
 
-For development the docker container can be built locally using the `docker compose up`.
-In `docker-compose.yml` the build and the run settings are defined. The local docker is
-based on `docker/dev.Dockerfile`. Before you can do this, `cp .env_dev .env` and edit
-the variable accordingly. 
+#### tl;dr
 
-For the development there are four important variable in `.env_dev`. `GUNICORN`
-controlls if the web service is started with the production server. For debuging the
-Flask server use `FLASK_DEBUG` (easier logging, reloading scripts). This will only work
-if `GUNICORN=0`. The web server uses the library of the git repository `sm_prediction`
-for plotting. If you whish to make ongoing development you can do so by specifing the
-branch with `SM_BRANCH`.
+```bash
+cp .env_dev_mock .env
+docker compose up
+# or
+./auxilary_scripts/dev_up.sh mock
+```
+
+#### More details
+
+For development, the project can be built and started with either mock-up
+servers or with a connection to the real services. The example above starts the
+web server with mock-up servers. This will not send emails, change the database
+or start jobs in the cluster. Another option is to develop with a connection to
+the real services. For this you need to add credentials, the quickest way is: 
+
+```bash
+cp ./.env_dev_prod ./.env_dev_prod_priv
+# Add the credentials with your editor
+$EDITOR ./.env_dev_prod_priv
+./auxilary_scripts/dev_up.sh prod
+```
+
+For the development there are four important variable in `.env_dev_*`. 
+
+ 1. `GUNICORN` controlls if the web service is started with the production server.
+ 2. For debuging the Flask server use `FLASK_DEBUG` (easier logging, reloading
+    scripts). This will only work if `GUNICORN=0`.
+ 3. The web server uses the library of the git repository `sm_prediction` for
+    plotting. If you whish to make ongoing development you can do so by
+    specifing the branch with `SM_BRANCH`.
 
 To make development easier `docker compose` will bind the current repository to the
 docker container. So that if `FLASK_DEBUG=1`, the web server is automatically reloaded
 when one of the scripts in `cosmopolitan_app/\*` are changed.
-
-The server needs credentials to connect to the mail server,
-postgres DB and the SLURM REST API, without them he will not be able to start.
 
 The code base tries to adhere to the `flake8` standard and is formated with
 `Black`. To ensure styling coherence the precommit configuration in
@@ -65,16 +83,14 @@ The webservice relys on three external services
  2. Postgres DB
  3. SLURM REST API
 
-For all three a mockup web service exist which allow two develop and test
-without access to the services.
-
-If you whish to use the services you might like to use the command 'docker
-compose up --attach cosmopolitan-local`. This way 
+For two of the services a mockup web server exist which allow to develop and test
+without access to the services. Currently the SLURM REST API can not be mocked.
 
 #### Mail server
 
 The [MailHog](https://github.com/mailhog/MailHog) service is used to catch
 emails. When the web service is running you 
+
 ### Versions
 
 The gitlab CI will always produce a "nightly" build of the latest `main` branch
