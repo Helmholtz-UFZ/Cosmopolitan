@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM python:3.10-slim-bookworm
+FROM python:3.11-slim-bookworm
 
 ARG GIT_PAT_SM
 ARG SM_BRANCH
@@ -9,9 +9,9 @@ RUN apt-get update
 RUN apt-get -y upgrade
 RUN apt-get -y install git libpq-dev gcc
 
-WORKDIR /python_docker
+WORKDIR /python_docker/cosmopolitan
 
-RUN mkdir /python_docker/cosmopolitan
+RUN mkdir /python_docker/sm_prediction
 
 RUN git clone \
 	-b "$SM_BRANCH" --single-branch \
