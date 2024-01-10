@@ -12,7 +12,6 @@ from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
 from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
 from cosmopolitan_app.utils import (
     SubmittedException,
-    clean_up,
     send_finished_mail,
     send_submission_mail,
 )
@@ -100,14 +99,6 @@ def input_job():
 def documentation():
     """Show documentation."""
     return render_template("html/content/documentation.html")
-
-
-@app.route("/clean_up")
-def trigger_clean_up():
-    """Trigger clean up."""
-    # TODO
-    clean_up()
-    return "<h1>Putzen!</h1>"
 
 
 @app.route("/results/<job_id>/<file_name>")
