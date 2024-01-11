@@ -28,4 +28,6 @@ RUN poetry install --no-interaction --no-ansi
 COPY . .
 COPY .env_prod .env
 
+ENV SCRIPT_NAME=/cosmopolitan 
+
 CMD gunicorn -w 4 -b 0.0.0.0:$FLASK_PORT cosmopolitan_app.cosmopolitan_web_server:app

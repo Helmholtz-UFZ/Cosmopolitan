@@ -29,6 +29,8 @@ RUN poetry install --no-interaction --no-ansi
 
 COPY . .
 
+ENV SCRIPT_NAME=/cosmopolitan 
+
 CMD if [ "$GUNICORN" = 1 ] ; then \
         gunicorn -w 4 -b 0.0.0.0:$FLASK_PORT cosmopolitan_app.cosmopolitan_web_server:app; \
     else \
