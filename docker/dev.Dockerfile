@@ -10,7 +10,6 @@ RUN apt-get -y upgrade
 RUN apt-get -y install git libpq-dev gcc
 RUN pip install --upgrade pip && pip install poetry
 
-
 WORKDIR /python_docker/cosmopolitan
 
 RUN mkdir /python_docker/sm_prediction
