@@ -7,6 +7,7 @@ ARG GIT_PAT_SM
 RUN apt-get update
 RUN apt-get -y upgrade
 RUN apt-get -y install git libpq-dev gcc
+RUN pip install --upgrade pip && pip install poetry
 
 WORKDIR /python_docker/cosmopolitan
 
@@ -18,13 +19,12 @@ RUN git clone \
 
 ENV PYTHONPATH=/python_docker/sm_prediction/:/python_docker/cosmopolitan/
 
-RUN pip install poetry
-
 COPY poetry.lock pyproject.toml /python_docker/cosmopolitan
 
 RUN poetry config virtualenvs.create false 
 RUN poetry install --no-interaction --no-ansi
 
+USER 1000
 COPY . .
 COPY .env_prod .env
 
