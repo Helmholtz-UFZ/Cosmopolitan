@@ -21,8 +21,8 @@ This module is an integral part of the Cosmopolitan application and is used to m
 user inputs, validate data, and define the geometric areas for data processing of input
 files.
 """
-import io
 import csv
+import io
 import json
 import logging
 import math
@@ -353,7 +353,6 @@ class CosmopolitanJobForm(FlaskForm):
     def validate_selected_crn_files(self, field):
         """Check if files exist in upload dir."""
         logging.debug("Check if selected predictor variable files exist.")
-
         self._validate_selected_input_files(field)
 
     def validate(self, extra_validators=None):
@@ -369,10 +368,13 @@ class CosmopolitanJobForm(FlaskForm):
         selected, and handles file cleanup. Additional validation functions can
         be provided through the `extra_validators` parameter.
         """
+        logging.debug("Final validation of form")
         if not super().validate():
-            # for field in self._fields:
-            #     print(getattr(self, field).errors)
+            logging.debug("Not all field are valid")
+            for field in self._fields:
+                logging.debug(f"{field}: {getattr(self, field).errors}")
             return False
+
         form_validt = True
         if self.area_x1.data >= self.area_x2.data:
             self.area_x1.errors.append("X1 cannot be higher or equal than X2.")
@@ -391,7 +393,7 @@ class CosmopolitanJobForm(FlaskForm):
 
         if (
             len(self.selected_crn_files.data) == 0
-            and self.pred_files.data[0].filename == ""
+            and self.crn_files.data[0].filename == ""
         ):
             self.crn_files.errors.append("Chose one or more CRN Measurment files.")
             form_validt = False
@@ -430,12 +432,10 @@ class CosmopolitanJobForm(FlaskForm):
             new_filename = input_type + "_" + secure_filename(upload_file.filename)
             input_file_path = os.path.join(self.input_dir, new_filename)
             io_buffer = io.BufferedReader(upload_file.stream)
-            text_stream = io.TextIOWrapper(io_buffer, encoding='utf-8', newline='')
+            text_stream = io.TextIOWrapper(io_buffer, encoding="utf-8", newline="")
             try:
                 # Will generate the input file and check file integrity.
-                file_information = parser.parse(
-                    text_stream, input_file_path
-                )
+                file_information = parser.parse(text_stream, input_file_path)
             except ValidationError as e:
                 well_formed = False
                 err_msg = f"File {new_filename} is invalid.<br>" + str(e)
@@ -462,6 +462,7 @@ class CosmopolitanJobForm(FlaskForm):
             raise ValidationError("First set a valide job id!")
         for uploaded_file in json_load_4_jinja(field.data):
             if not os.path.isfile(os.path.join(self.input_dir, uploaded_file)):
+                # logging.error("Form hidden field does not contain")
                 raise ValidationError("Upload files with form.")
 
     def _input_parameters(self):

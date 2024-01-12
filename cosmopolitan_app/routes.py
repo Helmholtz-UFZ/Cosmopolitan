@@ -17,6 +17,12 @@ from cosmopolitan_app.utils import (
 )
 
 
+@app.route("/zero-division")
+def zero_division():
+    """Make a classical error."""
+    1 / 0
+
+
 @app.route("/")
 def start():
     """Start page."""
@@ -72,7 +78,6 @@ def change_input(job_id):
     job = CosmopolitanJob(job_id=job_id)
     if job.submitted:
         raise SubmittedException
-    job.delete()
     return render_template("html/job/input.html", form=job.form)
 
 
@@ -89,9 +94,10 @@ def input_job():
         form = CosmopolitanJobForm(new=False)
         logging.info(f"Check form {form.job_id.data}")
         if form.validate_on_submit():
+            logging.info("Form is valid")
             job = CosmopolitanJob(form=form)
             job.save()
-            return redirect(f"/confirm/{job.job_id}")
+            return redirect(url_for("confirm", job_id=job.job_id))
     return render_template("html/job/input.html", form=form)
 
 

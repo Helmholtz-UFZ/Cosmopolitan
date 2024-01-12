@@ -162,9 +162,19 @@ def get_logger_config(debug):
         },
         "filters": {"exclude_debug_matplotlib": {"()": ExcludeDebugMatplotLibFilter}},
     }
-    if debug == "1":
-        logging_config["root"]["handlers"] = ["wsgi"]
-    else:
-        logging_config["root"]["handlers"] = ["sqlalchemy", "mail_handler"]
+
+    logging_config["root"]["handlers"] = ["wsgi", "mail_handler"]
+
+    # Mockup cant handle ttls
+    if EMAIL_PASSWORD == "test":
+        logging_config["handlers"]["mail_handler"]["secure"] = None
+
+    # TODO remove sql alchemy handle and this code below
+    # if debug == "1":
+    #     # logging_config["root"]["handlers"] = ["wsgi"]
+    #     # logging_config["root"]["handlers"] = ["wsgi", "mail_handler"]
+    # else:
+    #     logging_config["root"]["handlers"] = ["wsgi", "mail_handler"]
+    #     # logging_config["root"]["handlers"] = ["sqlalchemy", "mail_handler"]
 
     return logging_config

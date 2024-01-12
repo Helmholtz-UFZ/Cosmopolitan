@@ -98,8 +98,17 @@ def error_response_args(e):
                 "error_page": "html/errors/file_not_found.html",
             },
             404,
-            True,
+            False,
         )
+
+    return (
+        {
+            "error_page": "html/errors/internal_error.html",
+            "job_id": "None",
+        },
+        500,
+        True,
+    )
 
 
 def log_error():

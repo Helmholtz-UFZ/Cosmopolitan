@@ -10,13 +10,13 @@
 
 {{ render_input(job.form, False) }}
 
-<form action="/submission/{{ job.job_id }}" method="post">
+<form action="{{ url_for("submission", job_id=job.job_id) }}" method="post">
 	{{ job.form.csrf_token }}
 	<div class="d-grid m-2 col-6 mx-auto">
 		<input type="submit" class="btn btn-success btn-block" value="Submit">
 	</div>
 </form>
-<form action="/input/{{ job.job_id }}" method="post">
+<form action="{{ url_for("change_input", job_id=job.job_id) }}" method="post">
 	{{ job.form.csrf_token }}
 	<div class="d-grid m-2 col-6 mx-auto">
 		<input type="submit" class="btn btn-warning btn-block" value="Make changes to submission">
