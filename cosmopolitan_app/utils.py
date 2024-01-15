@@ -131,6 +131,7 @@ def log_error():
 
 def send_mail(recipient, subject, content):
     """Send an email using the provided details."""
+    logging.debug("Send mail to {recipient} with subject {subject}.")
     msg = MIMEMultipart()
     msg["From"] = EMAIL_SENDER
     msg["To"] = recipient

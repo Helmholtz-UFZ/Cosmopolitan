@@ -65,7 +65,7 @@ class DataBaseManager:
         f"{ DB_HOST_NAME }:{ DB_PORT }/{ DB_NAME }"
     )
 
-    engine = create_engine(database_url)
+    engine = create_engine(database_url, pool_pre_ping=True)
     Session = sessionmaker(bind=engine)
 
     def check_existence(self, job_id):
