@@ -262,6 +262,7 @@ class CosmopolitanJob:
         if depends_on is not None:
             job_para["job"]["dependency"] = f"afterany:{depends_on}"
 
+        logging.debug(json.dumps(job_para, indent=2))
         try:
             response = requests.post(url, json=job_para, headers=slurm_header)
         except requests.exceptions.ConnectionError:
@@ -280,17 +281,17 @@ class CosmopolitanJob:
             logging.error(f"URL: {url}")
             raise NoSlurmConnectionException(self.job_id)
         else:
-            logging.warning("Slurm submit failed.")
-            logging.warning(f"URL: {url}")
-            logging.warning(f"Status code: {response.status_code}")
-            logging.warning(json.dumps(job_para, indent=2))
-            logging.warning(json.dumps(response.json(), indent=2))
+            logging.error("Slurm submit failed.")
+            logging.error(f"URL: {url}")
+            logging.error(f"Status code: {response.status_code}")
+            logging.error(json.dumps(job_para, indent=2))
+            logging.error(json.dumps(response.json(), indent=2))
             try:
-                logging.warning(json.dumps(response.json(), indent=2))
+                logging.error(json.dumps(response.json(), indent=2))
                 self.logs = f"""Slurm error:
                 {json.dumps(response.json()['errors'], indent=2)}"""
             except requests.exceptions.JSONDecodeError:
-                logging.warning("No json returned!")
+                logging.error("No json returned!")
                 self.logs = f"Slurm error:\nStatus code: {response.status_code}"
             self.status = "FAILED"
             return None
