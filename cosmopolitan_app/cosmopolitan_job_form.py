@@ -483,9 +483,9 @@ class CosmopolitanJobForm(FlaskForm):
                 "predictors": False,
                 "pred_correlation": False,
                 "day_measurements": False,
-                "day_feature_imp": False,
+                "day_predictor_imp": False,
                 "day_prediction_map": False,
-                "alldays_feature_imp": False,
+                "alldays_predictor_imp": False,
             },
             "save_results": True,
         }

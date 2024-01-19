@@ -20,7 +20,8 @@ from cosmopolitan_app.utils import (
 @app.route("/zero-division")
 def zero_division():
     """Make a classical error."""
-    1 / 0
+    logging.error("First error")
+    logging.error("Second error")
 
 
 @app.route("/")
