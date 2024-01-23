@@ -7,21 +7,15 @@ from flask import current_app as app
 from flask import redirect, render_template, request, send_from_directory, url_for
 from werkzeug.exceptions import BadRequestKeyError
 
-from cosmopolitan_app.config import BASE_PATH, WEB_WORK_DIR
+from cosmopolitan_app.config import WEB_WORK_DIR
 from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
 from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
+from cosmopolitan_app.dash_component.dynamic_plots import base_path as result_path
 from cosmopolitan_app.utils import (
     SubmittedException,
     send_finished_mail,
     send_submission_mail,
 )
-
-
-@app.route("/zero-division")
-def zero_division():
-    """Make a classical error."""
-    logging.error("First error")
-    logging.error("Second error")
 
 
 @app.route("/")
@@ -61,7 +55,7 @@ def submission(job_id):
         "html/job/submission.html",
         job=job,
         reload_delay=reload_delay,
-        BASE_PATH=BASE_PATH,
+        result_path=result_path,
     )
 
 

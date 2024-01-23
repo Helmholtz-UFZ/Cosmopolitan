@@ -48,7 +48,6 @@ try:
     DB_USER = getenv("DB_USER")
     DB_PW = getenv("DB_PW")
     DEBUG = getenv("FLASK_DEBUG")
-    BASE_PATH = os.getenv("SCRIPT_NAME") or ""
 except ValueError as error:
     print("Can not load config")
     print(error)

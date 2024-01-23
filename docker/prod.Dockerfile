@@ -28,6 +28,4 @@ USER 1000
 COPY . .
 COPY .env_prod .env
 
-ENV SCRIPT_NAME=/cosmopolitan 
-
 CMD gunicorn -w 4 -b 0.0.0.0:$FLASK_PORT cosmopolitan_app.cosmopolitan_web_server:app

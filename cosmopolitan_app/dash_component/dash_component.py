@@ -4,7 +4,6 @@ import logging
 from logging.config import dictConfig
 
 import dash
-import dash_bootstrap_components as dbc
 from dash_dangerously_set_inner_html import DangerouslySetInnerHTML
 from flask import render_template
 from markupsafe import Markup
@@ -79,16 +78,16 @@ def init_callbacks(dash_app, callbacks):
     return dash_app
 
 
-def stand_alone(app_layout, callbacks):
+def stand_alone(app_layout, callbacks, style_sheet):
     """For testing and devolpment."""
-    app = dash.Dash(external_stylesheets=[dbc.themes.FLATLY])
+    app = dash.Dash(external_stylesheets=[style_sheet])
     app.layout = app_layout
 
     init_callbacks(app, callbacks)
     app.run_server(debug=True)
 
 
-def init_dash(server, globals_module, app_layout, style_sheet, base_path):
+def init_dash(server, callbacks, app_layout, style_sheet, base_path):
     """Add server to flask server.
 
     Usage:
@@ -103,7 +102,7 @@ def init_dash(server, globals_module, app_layout, style_sheet, base_path):
         external_stylesheets=[style_sheet],
     )
     dash_app.layout = app_layout
-    init_callbacks(dash_app, globals_module)
+    init_callbacks(dash_app, callbacks)
     return dash_app.server
 
 

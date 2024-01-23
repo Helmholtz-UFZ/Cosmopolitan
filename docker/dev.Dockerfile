@@ -30,7 +30,6 @@ USER 1000
 COPY . .
 
 CMD if [ "$GUNICORN" = 1 ] ; then \
-        ENV SCRIPT_NAME=/cosmopolitan; \
         gunicorn -w 4 -b 0.0.0.0:$FLASK_PORT cosmopolitan_app.cosmopolitan_web_server:app; \
     else \
         python3 /python_docker/cosmopolitan/cosmopolitan_app/cosmopolitan_web_server.py; \

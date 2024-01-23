@@ -299,6 +299,8 @@ class GeneratePlotPerDay(Callback):
 
 
 callbacks = list_callbacks(globals())
+css_route = "/static/flatly_bootstrap.css"
+base_path = "/results/"
 if __name__ == "__main__":
     dictConfig(logging_config)
-    stand_alone(app_layout, callbacks)
+    stand_alone(app_layout, callbacks, css_route)

@@ -7,7 +7,7 @@ from logging.config import dictConfig
 from flask import Flask, render_template
 from werkzeug.exceptions import HTTPException
 
-from cosmopolitan_app.config import BASE_PATH, DEBUG, PORT
+from cosmopolitan_app.config import DEBUG, PORT
 from cosmopolitan_app.cosmopolitan_job_form import json_load_4_jinja
 from cosmopolitan_app.dash_component import dynamic_plots
 from cosmopolitan_app.dash_component.dash_component import init_dash
@@ -23,10 +23,12 @@ with app.app_context():
     # Only import for loading routes
     import cosmopolitan_app.routes  # noqa
 
-dash_base_route = f"{BASE_PATH}/results/"
-style_sheet = f"{BASE_PATH}/static/flatly_bootstrap.css"
 app = init_dash(
-    app, dynamic_plots.callbacks, dynamic_plots.app_layout, style_sheet, dash_base_route
+    app,
+    dynamic_plots.callbacks,
+    dynamic_plots.app_layout,
+    dynamic_plots.css_route,
+    dynamic_plots.base_path,
 )
 
 # TODO Dash
