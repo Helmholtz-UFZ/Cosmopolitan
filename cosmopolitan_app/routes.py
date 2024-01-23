@@ -7,7 +7,7 @@ from flask import current_app as app
 from flask import redirect, render_template, request, send_from_directory, url_for
 from werkzeug.exceptions import BadRequestKeyError
 
-from cosmopolitan_app.config import WEB_WORK_DIR
+from cosmopolitan_app.config import BASE_PATH, WEB_WORK_DIR
 from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
 from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
 from cosmopolitan_app.utils import (
@@ -58,7 +58,10 @@ def submission(job_id):
         reload_delay = None
 
     return render_template(
-        "html/job/submission.html", job=job, reload_delay=reload_delay
+        "html/job/submission.html",
+        job=job,
+        reload_delay=reload_delay,
+        BASE_PATH=BASE_PATH,
     )
 
 

@@ -88,7 +88,7 @@ def stand_alone(app_layout, callbacks):
     app.run_server(debug=True)
 
 
-def init_dash(server, globals_module, app_layout):
+def init_dash(server, globals_module, app_layout, style_sheet, base_path):
     """Add server to flask server.
 
     Usage:
@@ -99,8 +99,8 @@ def init_dash(server, globals_module, app_layout):
     """
     dash_app = DashComponent(
         server=server,
-        url_base_pathname="/results/",
-        external_stylesheets=[dbc.themes.FLATLY],
+        url_base_pathname=base_path,
+        external_stylesheets=[style_sheet],
     )
     dash_app.layout = app_layout
     init_callbacks(dash_app, globals_module)
