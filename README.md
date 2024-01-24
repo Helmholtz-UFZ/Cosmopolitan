@@ -1,6 +1,6 @@
 <div>
 <h1 align="center">COSMOPOLITAN</h1>
-<h2 align="center"><strong>COS</strong><small>mic ray based soil </small><strong>MO</strong><small>isture </small><strong>P</strong><small>redicti</small><strong>O</strong><small>n </small><strong>LI</strong><small>ve descicion </small><strong>T</strong><small>ree </small><strong>AN</strong><small>alysis</small></h2>
+<h2 align="center"><strong>COS</strong><small>mic ray based soil </small><strong>MO</strong><small>isture </small><strong>P</strong><small>redicti</small><strong>O</strong><small>n </small><strong>LI</strong><small>ve </small><strong>T</strong><small>ree </small><strong>AN</strong><small>alysis</small></h2>
 <p align="center">
 	<img src="cosmopolitan_app/static/start_banner.png" alt="Welcome" width="30%">
 </p>
@@ -29,7 +29,7 @@ framework is used and are located in `cosmopolitan_app/dash_component/`.
 ### Production build
 
 The web service is built as a Docker container intended to run on a
-Cubernet cluster. The build is organised in a CI pipeline on gitlab, see
+Kubernetes cluster. The build is organised in a CI pipeline on gitlab, see
 `.gitlab-ci.yml` and the build instructions in `docker/prod.Dockerfile`.
 
 ```bash
@@ -70,30 +70,30 @@ $EDITOR ./.env_dev_prod_priv
 
 For the development there are four important variable in `.env_dev_*`. 
 
- 1. `GUNICORN` controlls if the web service is started with the production server.
- 2. For debuging the Flask server use `FLASK_DEBUG` (easier logging, reloading
+ 1. `GUNICORN` controls if the web service is started with the production server.
+ 2. For debugging the Flask server use `FLASK_DEBUG` (easier logging, reloading
     scripts). This will only work if `GUNICORN=0`.
  3. The web server uses the library of the git repository `sm_prediction` for
-    plotting. If you whish to make ongoing development you can do so by
-    specifing the branch with `SM_BRANCH`.
+    plotting. If you wish to make ongoing development you can do so by
+    specifying the branch with `SM_BRANCH`.
 
 To make development easier `docker compose` will bind the current repository to the
 docker container. So that if `FLASK_DEBUG=1`, the web server is automatically reloaded
 when one of the scripts in `cosmopolitan_app/\*` are changed.
 
-The code base tries to adhere to the `flake8` standard and is formated with
-`Black`. To ensure styling coherence the precommit configuration in
+The code base tries to adhere to the `flake8` standard and is formatted with
+`Black`. To ensure styling coherence the pre commit configuration in
 `.pre-commit-config.yaml` should be used. 
 
-### Mockup outside services
+### Mock-up outside services
 
-The webservice relys on three external services 
+The web service relies on three external services 
 
  1. Mail server
  2. Postgres DB
  3. SLURM REST API
 
-For two of the services a mockup web server exist which allow to develop and test
+For two of the services a mock-up web server exist which allow to develop and test
 without access to the services. Currently the SLURM REST API can not be mocked.
 
 #### Mail server
