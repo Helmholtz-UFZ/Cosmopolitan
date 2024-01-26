@@ -2,7 +2,7 @@
 
 FROM python:3.11-slim-bookworm
 
-ARG GIT_PAT_SM
+ENV GIT_PAT_SM="glpat-5xQJzyvXMwy3y8oTifxt"
 ARG SM_BRANCH
 
 RUN apt-get update
