@@ -14,8 +14,7 @@ WORKDIR /python_docker/cosmopolitan
 RUN mkdir /python_docker/sm_prediction
 
 RUN git clone \
-    https://dega:${GIT_PAT_SM}@\
-    codebase.helmholtz.cloud/ufz/tb5-smm/met/wg7/soil-moisture-prediction.git \
+    https://dega:${GIT_PAT_SM}@codebase.helmholtz.cloud/ufz/tb5-smm/met/wg7/soil-moisture-prediction.git \
     /python_docker/sm_prediction
 
 ENV PYTHONPATH=/python_docker/sm_prediction/:/python_docker/cosmopolitan/
