@@ -1,38 +1,54 @@
 #!/bin/bash
+# This script should set up the backend server environment.
 
-echo "Not working required python version (3.11) is not available on system"
-echo "See ticket 42043141"
-exit 1
+module load foss/2022b Python/3.11.2-bare PostgreSQL/15.2
 
-module load foss/2022b Python/3.10.8 PostgreSQL/15.2
+if [ "$#" -ne 1 ]; then
+    echo "Usage: $0 <dev|prod>"
+    exit 1
+fi
+
+if [ "$1" == "dev" ]; then
+    env_file=".env_dev_prod"
+elif [ "$1" == "prod" ]; then
+    env_file=".env_prod"
+else
+    echo "Usage: $0 <dev|prod>"
+    echo "Invalid mode. Use 'dev' or 'prod'."
+    exit 1
+fi
+
+cp "$env_file" .env
+
+echo "Please add passwords to the .env file"
+while true; do
+    read -p "Should ${EDITOR:-vi} be used to open the file (Y/n)? " yn
+    if [[ "$yn" =~ Y|y|^$ ]]; then
+        "${EDITOR:-vi}" ".env"
+        break
+    fi
+    if [[ "$yn" =~ N|n ]]; then break; fi
+    echo "Answer Y/n."
+done
 
 source .env
 
-mkdir -p "$WEB_WORK_DIR"
+mkdir -p "$CLUSTER_WORK_DIR"
 
-if [ -d "$CLUSTER_PYTHON_ENV_PATH" ]; then
-    rm -r "$CLUSTER_PYTHON_ENV_PATH"
+if [ ! -d "$CLUSTER_PYTHON_ENV_PATH" ]; then
+    python -m venv "$CLUSTER_PYTHON_ENV_PATH"
+    
+    source "$CLUSTER_PYTHON_ENV_PATH/bin/activate"
+    pip install poetry
+    poetry install --no-interaction --no-ansi
 fi
 
-python -m venv "$CLUSTER_PYTHON_ENV_PATH"
-
-source "$CLUSTER_PYTHON_ENV_PATH/bin/activate"
-# TODO Poetry
-# Quickfix
-pip install -r ./requirements.txt
-# pip install poetry
-# poetry install --no-interaction --no-ansi
-
 lmod_env="BASH_ENV=/software/lmod/lmod/init/profile"
-logs="$HOME/clean_up.log"
-cron_expression="59 13 * * *"
-cron_entry="$lmod_env\n$cron_expression bash $CLUSTER_COSMOPOLITAN_REPO/auxilary_scripts/start_cleanup_backend.sh $CLUSTER_COSMOPOLITAN_REPO >> $logs 2>&1"
+logs="$HOME/clean_up_$1.log"
+cron_expression="00 3 * * *"
+cron_entry="$lmod_env\n$cron_expression bash $CLUSTER_COSMOPOLITAN_REPO/auxilary_scripts/cleanup_backend.sh $CLUSTER_COSMOPOLITAN_REPO/.env >> $logs 2>&1"
 
 # echo -e "$cron_entry" | crontab -
-echo -e "$cron_entry"
-# lmod_env="BASH_ENV=/software/lmod/8.7.30/init/profile"
-# Add the cron entry
-# (crontab -l ; echo "$cron_entry") | crontab -
+# echo -e "$cron_entry"
 
-# cron_entry="$lmod_env\n$cron_expression module load foss/2022b Python/3.10.8 >> $logs 2>&1"
-# cron_entry="$lmod_env\n$cron_expression (source /software/lmod/8.7.30/init/profile && module load foss/2022b Python/3.10.8 && source $py_venv && python $clean_up_script) >> $logs 2>&1"
+(crontab -l ; echo -e "$cron_entry") | crontab -

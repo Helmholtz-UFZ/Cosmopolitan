@@ -68,8 +68,12 @@ class CosmopolitanJob:
         self,
         job_id=None,
         form=None,
+        base_work_dir=WEB_WORK_DIR,
     ):
         """Init class either by id, by html form or make a new one."""
+        # The class can be intilized backend for loading and saving. Depending on this the work
+        # is not the same as the enviroment variable WEB_WORK_DIR.
+        self.base_work_dir = base_work_dir
         if job_id is not None:
             logging.debug(f"Load submission {job_id}")
             form = CosmopolitanJobForm()
@@ -102,7 +106,7 @@ class CosmopolitanJob:
                 raise AttributeError(f"CosmopolitanJob has no attribute named {name}")
             setattr(self, name, value)
 
-        working_dir = os.path.join(WEB_WORK_DIR, self.job_id)
+        working_dir = os.path.join(self.base_work_dir, self.job_id)
         if not os.path.isdir(working_dir):
             os.mkdir(working_dir)
 
@@ -169,8 +173,8 @@ class CosmopolitanJob:
             else:
                 self.input_data[name] = field.data
 
-    def _get_column_data(self, name, work_dir_base=WEB_WORK_DIR):
-        working_dir = os.path.join(work_dir_base, self.job_id)
+    def _get_column_data(self, name):
+        working_dir = os.path.join(self.base_work_dir, self.job_id)
         if name == "file_names":
             return list(os.listdir(working_dir))
         if name == "files":
@@ -226,7 +230,7 @@ class CosmopolitanJob:
         the database based on the job's unique identifier ('job_id').
         """
         logging.debug(f"Delete job {self.job_id}")
-        working_dir = os.path.join(WEB_WORK_DIR, self.job_id)
+        working_dir = os.path.join(self.base_work_dir, self.job_id)
         shutil.rmtree(working_dir)
         db_manager = DataBaseManager()
         db_manager.delete_job(self.job_id)
@@ -400,7 +404,7 @@ class CosmopolitanJob:
         if self.status != "COMPLETED":
             raise NotFinishedException(self.job_id)
 
-        working_dir = os.path.join(WEB_WORK_DIR, self.job_id)
+        working_dir = os.path.join(self.base_work_dir, self.job_id)
 
         with open(os.path.join(working_dir, "parameters.json"), "r") as f_handle:
             input_data = json.loads(f_handle.read())
