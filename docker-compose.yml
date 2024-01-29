@@ -13,7 +13,7 @@ services:
     container_name: cosmopolitan-local
     volumes:
       - "./cosmopolitan_app:/python_docker/cosmopolitan/cosmopolitan_app"
-    user: "${UID}:${GID}"
+    user: "${DOCKER_UID}:${DOCKER_GID}"
     ports:
       - "${FLASK_PORT}:${FLASK_PORT}"
 
@@ -41,7 +41,7 @@ services:
     # TODO set up a default DB
     # volumes:
     #   - ~/apps/postgres:/var/lib/postgresql/data
-    # user: "${UID}:${GID}"
+    # user: "${DOCKER_UID}:${DOCKER_GID}"
 
   # Currently eve and the slurm openapi are not cohesive
   # prism:
