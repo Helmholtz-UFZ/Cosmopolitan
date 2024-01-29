@@ -45,10 +45,10 @@ fi
 
 lmod_env="BASH_ENV=/software/lmod/lmod/init/profile"
 logs="$HOME/clean_up_$1.log"
-cron_expression="23 17 * * *"
+cron_expression="00 3 * * *"
 cron_entry="$lmod_env\n$cron_expression bash $CLUSTER_COSMOPOLITAN_REPO/auxilary_scripts/cleanup_backend.sh $CLUSTER_COSMOPOLITAN_REPO/.env >> $logs 2>&1"
 
 # echo -e "$cron_entry" | crontab -
 # echo -e "$cron_entry"
 
-(crontab -l ; echo "$cron_entry") | crontab -
+(crontab -l ; echo -e "$cron_entry") | crontab -
