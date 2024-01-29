@@ -84,12 +84,12 @@ CLUSTER_PYTHON_ENV_TRANSFER_PATH = "/home/soncosmo/py_env_transfer"
 
 COMPUTATION_SCRIPT_TEMPLATE = f"""#!/bin/bash --login
 cd { CLUSTER_WORK_DIR }{{job_id}}
-module load foss/2022b Python/3.10.8 PostgreSQL/15.2
+module load foss/2022b Python/3.11.2-bare PostgreSQL/15.2
 source { CLUSTER_PYTHON_ENV_PATH }/bin/activate
 python3 { CLUSTER_SM_REPO }/SM_prediction_main.py -wd { CLUSTER_WORK_DIR }{{job_id}}"""
 
 LOAD_SCRIPT_TEMPLATE = f"""#!/bin/bash --login
-module load foss/2022b Python/3.10.8 PostgreSQL/15.2
+module load foss/2022b Python/3.11.2-bare PostgreSQL/15.2
 source {CLUSTER_PYTHON_ENV_PATH}/bin/activate
 python3 {CLUSTER_COSMOPOLITAN_REPO}/auxilary_scripts/safe_results.py {{job_id}} {{mode}}
 """

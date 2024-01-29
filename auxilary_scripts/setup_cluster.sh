@@ -6,7 +6,14 @@ exit 1
 
 module load foss/2022b Python/3.10.8 PostgreSQL/15.2
 
+# This script should take a variable mode (dev, prod) and setup the cluster
+
+# Check if .env file exists
 source .env
+if [ ! -f .env ]; then
+    echo "No .env file found"
+    exit 1
+fi
 
 mkdir -p "$WEB_WORK_DIR"
 

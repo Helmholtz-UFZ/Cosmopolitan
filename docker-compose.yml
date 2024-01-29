@@ -7,7 +7,6 @@ services:
       context: .
       dockerfile: ./docker/dev.Dockerfile
       args:
-        - GIT_PAT_SM=${GIT_PAT_SM}
         - SM_BRANCH=${SM_BRANCH}
     env_file: .env
     image: cosmopolitan-local
