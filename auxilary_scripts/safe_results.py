@@ -2,16 +2,18 @@
 
 import sys
 import logging
-from datetime import datetime
 from flask import Flask
 
 from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
+from cosmopolitan_app.config import CLUSTER_WORK_DIR
 
 logging.basicConfig(level=logging.DEBUG)
 
 # Create a minimal Flask app for the context of CosmopolitanJobForm
 app = Flask(__name__)
 with app.app_context():
-    cosmopolitan_job = CosmopolitanJob(job_id=sys.argv[1])
+    cosmopolitan_job = CosmopolitanJob(
+        job_id=sys.argv[1], base_work_dir=CLUSTER_WORK_DIR
+    )
     if sys.argv[2] == "save":
         cosmopolitan_job.save()

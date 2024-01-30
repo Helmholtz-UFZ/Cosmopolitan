@@ -1,5 +1,17 @@
+# SPDX-FileCopyrightText: 2024 Hannes Bohring <hannes.bohring@ufz.de>
+# SPDX-FileCopyrightText: 2024 Helmholtz Centre for Environmental Research GmbH - UFZ
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+---
+
 stages:
   - "build"
+  - "deploy"
+
+
+.docker_login: &docker_login
+  - 'echo "${CI_REGISTRY_PASSWORD}" | docker login --username "$CI_REGISTRY_USER" --password-stdin "${CI_REGISTRY}"'
+
 
 .base_before_build_script:
   image: "docker:24-cli"
@@ -8,24 +20,93 @@ stages:
   tags:
     - "hifis"
 
+
+# "latest" image will be built on every push to the main-branch
 build-latest:
   stage: "build"
   extends: ".base_before_build_script"
+  before_script:
+    - *docker_login
   script:
-    - 'echo "${CI_REGISTRY_PASSWORD}" | docker login --username "$CI_REGISTRY_USER" --password-stdin "${CI_REGISTRY}"'
-    - 'docker build --build-arg GIT_PAT_SM="$GIT_PAT_SM" -t ${CI_REGISTRY_IMAGE}:latest -f docker/prod.Dockerfile .'
+    - 'docker build -t ${CI_REGISTRY_IMAGE}:latest -f docker/prod.Dockerfile .'
     - "docker push --all-tags ${CI_REGISTRY_IMAGE}"
   rules:
     - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
+    - when: "never"
 
+
+# a release-tag will be built when creating a tag with the name matching the regex (^\d+.\d+.\d+)
 build-release:
   stage: "build"
   extends: ".base_before_build_script"
+  before_script:
+    - *docker_login
   script:
-    - 'echo "${CI_REGISTRY_PASSWORD}" | docker login --username "$CI_REGISTRY_USER" --password-stdin "${CI_REGISTRY}"'
-    - 'docker build --build-arg GIT_PAT_SM="$GIT_PAT_SM" -t ${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG} -f docker/prod.Dockerfile .'
+    - 'docker build -t ${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG} -f docker/prod.Dockerfile .'
     - "docker push --all-tags ${CI_REGISTRY_IMAGE}"
+    - 'echo -e "image:\n  tag: ${CI_COMMIT_TAG}" > values.yaml'
+  artifacts:
+    paths:
+      - "values.yaml"
   rules:
     - if: '$CI_COMMIT_TAG =~ /^\d+.\d+.\d+/'
       when: "always"
     - when: "never"
+
+
+# builds a fresh Docker-Image from the most recent Git-Tag und postfixes the current date
+# e.g. <IMAGE>:<TAG> becomes <IMAGE>:<TAG>-YYYY.MM.DD
+build-latest-tag:
+  stage: "build"
+  extends: ".base_before_build_script"
+  before_script:
+    - *docker_login
+    - "apk update && apk add git"
+    - "GIT_LATEST_TAG=$(git describe --tags --abbrev=0)"
+    - "git fetch origin ${GIT_LATEST_TAG}"
+    - "git checkout ${GIT_LATEST_TAG}"
+  script:
+    - "GIT_LATEST_TAG=$(git describe --tags --abbrev=0)"
+    - "calver=$(date +'%Y.%m.%d')"
+    - 'docker build -t "${CI_REGISTRY_IMAGE}:${GIT_LATEST_TAG}-${calver}" .'
+    - 'docker push --all-tags "${CI_REGISTRY_IMAGE}"'
+    - 'echo -e "image:\n  tag: ${GIT_LATEST_TAG}-${calver}" > values.yaml'
+  artifacts:
+    paths:
+      - "values.yaml"
+  rules:
+    - if: "$CI_PIPELINE_SOURCE == 'schedule'"
+    - if: "$CI_PIPELINE_SOURCE == 'web'"
+    - when: "never"
+
+
+# preparation for git - so that the job "bump_version_for_cluster"
+.prepare: &prepare
+  - "apt-get update -y && apt-get install git openssh-client -yqq"
+  - "eval $(ssh-agent -s)"
+  - 'echo "$SSH_PRIVATE_KEY" | base64 -d | ssh-add -'
+  - "mkdir -p ~/.ssh && chmod 700 ~/.ssh"
+  - 'echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
+  - "git config --global user.email '${GITLAB_USER_EMAIL}'"
+  - "git config --global user.name '${GITLAB_USER_LOGIN}'"
+  - "git config pull.rebase true"
+  - "git remote set-url --push origin git@${CI_SERVER_HOST}:${CI_PROJECT_PATH}"
+
+
+bump_version_for_cluster:
+  stage: "deploy"
+  variables:
+    BRANCH: "main"
+  script:
+    - *prepare
+    - "git add values.yaml"
+    - "git commit -m 'automatically increased tag-version for cluster-deployment'"
+    - 'git pull origin ${BRANCH}'
+    - "git push origin HEAD:$BRANCH -o ci.skip"
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^\d+.\d+.\d+/'
+    - if: "$CI_PIPELINE_SOURCE == 'schedule'"
+    - if: "$CI_PIPELINE_SOURCE == 'web'"
+    - when: "never"
+
+...
