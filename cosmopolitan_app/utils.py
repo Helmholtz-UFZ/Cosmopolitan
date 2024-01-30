@@ -39,7 +39,7 @@ def error_response_args(e):
                 "error_page": "html/errors/job_not_finished_exception.html",
                 "job_id": e.job_id,
             },
-            500,
+            400,
             False,
         )
 
@@ -49,7 +49,7 @@ def error_response_args(e):
                 "error_page": "html/errors/job_not_submitted_exception.html",
                 "job_id": e.job_id,
             },
-            500,
+            400,
             False,
         )
 
@@ -59,7 +59,7 @@ def error_response_args(e):
                 "error_page": "html/errors/job_submitted_exception.html",
                 "job_id": e.job_id,
             },
-            500,
+            400,
             False,
         )
 
@@ -69,7 +69,7 @@ def error_response_args(e):
                 "error_page": "html/errors/job_not_found_error.html",
                 "job_id": e.job_id,
             },
-            500,
+            400,
             False,
         )
 
@@ -79,7 +79,7 @@ def error_response_args(e):
                 "error_page": "html/errors/job_not_found_error.html",
                 "job_id": e.job_id,
             },
-            500,
+            400,
             False,
         )
 
