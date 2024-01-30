@@ -27,7 +27,7 @@ unit_test:
     - "pip install poetry"
     - "poetry install"
   script:
-    - "poetry run pytest -k 'test_unit_*'" 
+    - "poetry run pytest test/unit_test_*" 
 
 # "latest" image will be built on every push to the main-branch
 build-latest:
