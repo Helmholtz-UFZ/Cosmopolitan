@@ -68,7 +68,7 @@ build-latest-tag:
   script:
     - "GIT_LATEST_TAG=$(git describe --tags --abbrev=0)"
     - "calver=$(date +'%Y.%m.%d')"
-    - 'docker build -t "${CI_REGISTRY_IMAGE}:${GIT_LATEST_TAG}-${calver}" .'
+    - 'docker build -t "${CI_REGISTRY_IMAGE}:${GIT_LATEST_TAG}-${calver}" -f docker/prod.Dockerfile .'
     - 'docker push --all-tags "${CI_REGISTRY_IMAGE}"'
     - 'echo -e "image:\n  tag: ${GIT_LATEST_TAG}-${calver}" > values.yaml'
   artifacts:
