@@ -5,9 +5,9 @@
 ---
 
 stages:
+  - "unit_test"
   - "build"
   - "deploy"
-
 
 .docker_login: &docker_login
   - 'echo "${CI_REGISTRY_PASSWORD}" | docker login --username "$CI_REGISTRY_USER" --password-stdin "${CI_REGISTRY}"'
@@ -20,6 +20,14 @@ stages:
   tags:
     - "hifis"
 
+unit_test:
+  stage: "unit_test"
+  image: "python:3.11"
+  before_script:
+    - "pip install poetry"
+    - "poetry install"
+  script:
+    - "poetry run pytest -k 'test_unit_*'" 
 
 # "latest" image will be built on every push to the main-branch
 build-latest:
