@@ -40,7 +40,7 @@ def error_response_args(e):
                 "job_id": e.job_id,
             },
             400,
-            True,
+            False,
         )
 
     if isinstance(e, NotSubmittedException):
