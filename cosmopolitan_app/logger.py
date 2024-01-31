@@ -21,7 +21,7 @@ import logging
 from datetime import datetime
 
 from sqlalchemy import Column, DateTime, Integer, String, create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from cosmopolitan_app.config import (
     DB_HOST_NAME,
@@ -36,7 +36,9 @@ from cosmopolitan_app.config import (
     EMAIL_USERNAME,
 )
 
-Base = declarative_base()
+
+class Base(DeclarativeBase):
+    pass
 
 
 class Logs(Base):

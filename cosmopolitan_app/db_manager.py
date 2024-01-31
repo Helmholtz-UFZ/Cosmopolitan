@@ -23,11 +23,13 @@ from sqlalchemy import (
     String,
     create_engine,
 )
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from cosmopolitan_app.config import DB_HOST_NAME, DB_NAME, DB_PORT, DB_PW, DB_USER
 
-Base = declarative_base()
+
+class Base(DeclarativeBase):
+    pass
 
 
 class JobNotFound(Exception):

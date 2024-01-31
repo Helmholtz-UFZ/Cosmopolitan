@@ -345,6 +345,25 @@ files = [
 ]
 
 [[package]]
+name = "dash-leaflet"
+version = "1.0.15"
+description = "Dash Leaflet is a light wrapper around React-Leaflet. The syntax is similar to other Dash components, with naming conventions following the React-Leaflet API."
+optional = false
+python-versions = "*"
+files = [
+    {file = "dash_leaflet-1.0.15-py3-none-any.whl", hash = "sha256:d7d06228a868bcf11120e1f7cb95db64c29c412b743686a9a8e1b30ac54a794e"},
+    {file = "dash_leaflet-1.0.15.tar.gz", hash = "sha256:79a3e19b0be9a5cf23873a0cd73153de224cbd756ddb30e2ffcee9ba23875e40"},
+]
+
+[package.dependencies]
+dash = ">=2.13.0"
+
+[package.extras]
+all = ["dash-extensions (>=1.0.3)", "dash-svg", "geobuf (==1.1.1)", "protobuf (==3.20.0)"]
+geobuf = ["geobuf (==1.1.1)", "protobuf (==3.20.0)"]
+svg = ["dash-svg"]
+
+[[package]]
 name = "dash-table"
 version = "5.0.0"
 description = "Dash table"
@@ -1819,4 +1838,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "d5d5b84b7d20a5f4426d8cde0077ff7bee2bdaf74891a7eb5d1235296fc5b522"
+content-hash = "abe6833740cd276900e03e77e4ed1be680c6dcc7d2f3500fb442927b46f0875f"
