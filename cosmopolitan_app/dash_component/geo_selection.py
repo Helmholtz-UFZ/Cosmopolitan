@@ -14,7 +14,6 @@ from cosmopolitan_app.dash_component.dash_component import (
     logging_config,
     stand_alone,
 )
-
 # Mock database
 
 car1_markers = [
