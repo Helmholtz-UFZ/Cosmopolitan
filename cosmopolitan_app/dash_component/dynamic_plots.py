@@ -8,6 +8,7 @@ from time import time
 
 import dash_bootstrap_components as dbc
 from dash import MATCH, Input, Output, State, ctx, dcc, html
+from sqlalchemy.exc import OperationalError
 from plot_functions import (
     plot_measurements,
     plot_predictor_importance,
@@ -17,7 +18,6 @@ from plot_functions import (
     predictor_importance_along_days,
 )
 from RFoPrediction import RFoPrediction
-from sqlalchemy.exc import OperationalError
 
 from cosmopolitan_app.cosmopolitan_job import (
     CosmopolitanJob,
@@ -75,10 +75,20 @@ def create_slider(plot_id, rfo_prediction):
     )
 
 
+@lru_cache()
+def get_image(rfo_prediction, plot_function, day, hash_ttl=None):
+    """Get image for plot."""
+    del hash_ttl
+    if day is None:
+        return plot_function(rfo_prediction, return_base64_img=True)
+    else:
+        return plot_function(rfo_prediction, day, return_base64_img=True)
+
+
 def create_content(plot_id, rfo_prediction, header, slider, plot_function):
     """Create content for plot."""
     element_list = [html.H2(header, style={"textAlign": "center"})]
-    if slider:
+    if slider and rfo_prediction.input_data.n_days > 1:
         element_list.extend(
             [
                 html.H3(children="Select day", style={"textAlign": "center"}),
@@ -86,10 +96,8 @@ def create_content(plot_id, rfo_prediction, header, slider, plot_function):
             ]
         )
 
-    if slider:
-        content = plot_function(rfo_prediction, 0, return_base64_img=True)
-    else:
-        content = plot_function(rfo_prediction, return_base64_img=True)
+    day = 0 if slider else None
+    content = get_image(rfo_prediction, plot_function, day, hash_ttl=get_ttl_hash())
 
     element_list.append(
         html.Div(
@@ -142,6 +150,13 @@ plot_parameter["pred-imp-ot"] = [
     predictor_importance_along_days,
 ]
 
+plot_button_group = dbc.ButtonGroup(
+    [
+        dbc.Button(v[0], id=f"{k}-pill", n_clicks=0, outline=True, color="primary")
+        for k, v in plot_parameter.items()
+    ]
+)
+
 app_layout = html.Div(
     [
         dcc.Location(id="url"),
@@ -157,52 +172,7 @@ app_layout = html.Div(
                 dbc.CardHeader(
                     [
                         html.H3("Select Plot"),
-                        dbc.ButtonGroup(
-                            [
-                                dbc.Button(
-                                    "Soil Moisture Prediction",
-                                    id="sm-pred-pill",
-                                    n_clicks=0,
-                                    outline=True,
-                                    color="primary",
-                                ),
-                                dbc.Button(
-                                    "Measurements",
-                                    id="crn-pill",
-                                    n_clicks=0,
-                                    outline=True,
-                                    color="primary",
-                                ),
-                                dbc.Button(
-                                    "Predictors",
-                                    id="pred-pill",
-                                    n_clicks=0,
-                                    outline=True,
-                                    color="primary",
-                                ),
-                                dbc.Button(
-                                    "Predictor Correlation",
-                                    id="pred-corr-pill",
-                                    n_clicks=0,
-                                    outline=True,
-                                    color="primary",
-                                ),
-                                dbc.Button(
-                                    "Predictor Importance",
-                                    id="pred-imp-pill",
-                                    n_clicks=0,
-                                    outline=True,
-                                    color="primary",
-                                ),
-                                dbc.Button(
-                                    "Predictor Importance over time",
-                                    id="pred-imp-ot-pill",
-                                    n_clicks=0,
-                                    outline=True,
-                                    color="primary",
-                                ),
-                            ],
-                        ),
+                        plot_button_group,
                     ],
                     className="text-center",
                 ),
@@ -293,8 +263,9 @@ class GeneratePlotPerDay(Callback):
         ):
             return
         plot_id = plot_id_tab.replace("-tab", "")
-        plot_function = plot_parameter[plot_id][-1]
-        content = plot_function(rfo_prediction, day, return_base64_img=True)
+        content = get_image(
+            rfo_prediction, plot_parameter[plot_id][-1], day, hash_ttl=get_ttl_hash()
+        )
         return f"data:image/svg+xml;base64,{content}"
 
 

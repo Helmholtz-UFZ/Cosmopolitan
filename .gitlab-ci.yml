@@ -26,8 +26,10 @@ unit_test:
   before_script:
     - "pip install poetry"
     - "poetry install"
+    - "cp .env_dev_mock .env"
   script:
-    - "poetry run pytest test/unit_test_*" 
+    - "poetry run pytest test/unit_test_*"
+    - "rm .env"
 
 # "latest" image will be built on every push to the main-branch
 build-latest:

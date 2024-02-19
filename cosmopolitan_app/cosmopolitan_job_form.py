@@ -319,7 +319,7 @@ class CosmopolitanJobForm(FlaskForm):
                         os.path.join(previous_input_dir, file_name),
                         os.path.join(self.input_dir, file_name),
                     )
-                os.remove(previous_input_dir)
+                shutil.rmtree(previous_input_dir)
 
     def validate_area_res(self, field):
         """Give instance a GeomArea to validate the input files."""

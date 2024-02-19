@@ -222,7 +222,7 @@ class CosmopolitanJob:
         db_manager = DataBaseManager()
         db_manager.add_entry(data_to_insert)
 
-    def delete(self):
+    def delete(self, keep_work_dir=False):
         """
         Delete the job in the data base.
 
@@ -231,7 +231,8 @@ class CosmopolitanJob:
         """
         logging.debug(f"Delete job {self.job_id}")
         working_dir = os.path.join(self.base_work_dir, self.job_id)
-        shutil.rmtree(working_dir)
+        if not keep_work_dir:
+            shutil.rmtree(working_dir)
         db_manager = DataBaseManager()
         db_manager.delete_job(self.job_id)
 

@@ -80,7 +80,8 @@ def init_callbacks(dash_app, callbacks):
 
 def stand_alone(app_layout, callbacks, style_sheet):
     """For testing and devolpment."""
-    app = dash.Dash(external_stylesheets=[style_sheet])
+    style_sheet = [style_sheet] if isinstance(style_sheet, str) else style_sheet
+    app = dash.Dash(external_stylesheets=style_sheet)
     app.layout = app_layout
 
     init_callbacks(app, callbacks)
