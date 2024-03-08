@@ -1,11 +1,12 @@
 """This script should be executed after the sm-prediction job on the cluster."""
 
-import sys
 import logging
+import sys
+
 from flask import Flask
 
-from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
 from cosmopolitan_app.config import CLUSTER_WORK_DIR
+from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
 
 logging.basicConfig(level=logging.DEBUG)
 
