@@ -36,6 +36,12 @@ from cosmopolitan_app.config import (
 )
 
 
+class Base(DeclarativeBase):
+    """Base class for all declarative classes in the application."""
+
+    pass
+
+
 class Logs(DeclarativeBase):
     """Represents a log entry in the database.
 
