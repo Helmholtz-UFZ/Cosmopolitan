@@ -21,6 +21,7 @@ This module is an integral part of the Cosmopolitan application and is used to m
 user inputs, validate data, and define the geometric areas for data processing of input
 files.
 """
+
 import csv
 import io
 import json
@@ -28,6 +29,7 @@ import logging
 import math
 import os
 import re
+import shutil
 from collections import OrderedDict
 from datetime import date
 

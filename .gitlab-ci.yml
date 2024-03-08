@@ -23,7 +23,7 @@ stages:
 
 linting:
   stage: "lint"
-  image: "python:latest"  # Use a Python image with necessary dependencies installed
+  image: "python:3.11"
   before_script:
     - "pip install black==24.2"
     - "pip install flake8==7.0.0"

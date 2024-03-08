@@ -16,7 +16,6 @@ Note: Configure the database connection and email settings in 'config.py' for pr
 functionality.
 """
 
-
 import logging
 from datetime import datetime
 
@@ -37,11 +36,7 @@ from cosmopolitan_app.config import (
 )
 
 
-class Base(DeclarativeBase):
-    pass
-
-
-class Logs(Base):
+class Logs(DeclarativeBase):
     """Represents a log entry in the database.
 
     Attributes:
