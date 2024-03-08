@@ -34,7 +34,7 @@ linting:
     - "pip install flake8-docstrings==1.7.0 "
   script:
     - "black --check ."  # Check for code formatting issues with Black
-    - "isort --check ."  # Check for import sorting issues with isort
+    - "isort --check --profile black ."  # Check for import sorting issues with isort
     - "flake8 --max-line-length 88 --ignore=E203,W503"  # Run flake8 for code linting
 
 test:
