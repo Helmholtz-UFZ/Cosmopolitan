@@ -5,7 +5,7 @@
 ---
 
 stages:
-  - "unit_test"
+  - "test"
   - "build"
   - "deploy"
 
@@ -20,16 +20,14 @@ stages:
   tags:
     - "hifis"
 
-unit_test:
-  stage: "unit_test"
+test:
+  stage: "test"
   image: "python:3.11"
   before_script:
     - "pip install poetry"
     - "poetry install"
-    - "cp .env_dev_mock .env"
   script:
-    - "poetry run pytest test/unit_test_*"
-    - "rm .env"
+    - "poetry run pytest"
 
 # "latest" image will be built on every push to the main-branch
 build-latest:
