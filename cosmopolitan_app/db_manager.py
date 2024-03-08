@@ -28,10 +28,6 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from cosmopolitan_app.config import DB_HOST_NAME, DB_NAME, DB_PORT, DB_PW, DB_USER
 
 
-class Base(DeclarativeBase):
-    pass
-
-
 class JobNotFound(Exception):
     """Custom exception for when a job is not found."""
 
@@ -198,7 +194,7 @@ class DataBaseManager:
             return job_info
 
 
-class JobTable(Base):
+class JobTable(DeclarativeBase):
     """Represents the 'jobs' table in the database.
 
     This class defines the mapping between the 'jobs' table in the database and
