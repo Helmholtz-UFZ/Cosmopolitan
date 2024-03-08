@@ -8,7 +8,6 @@ from time import time
 
 import dash_bootstrap_components as dbc
 from dash import MATCH, Input, Output, State, ctx, dcc, html
-from sqlalchemy.exc import OperationalError
 from plot_functions import (
     plot_measurements,
     plot_predictor_importance,
@@ -18,6 +17,7 @@ from plot_functions import (
     predictor_importance_along_days,
 )
 from RFoPrediction import RFoPrediction
+from sqlalchemy.exc import OperationalError
 
 from cosmopolitan_app.cosmopolitan_job import (
     CosmopolitanJob,
