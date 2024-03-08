@@ -1,4 +1,5 @@
 """Delete all logs and work directories that are not associated with a job in the database."""  # noqa
+
 import os
 import shutil
 
