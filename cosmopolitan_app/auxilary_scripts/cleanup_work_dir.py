@@ -1,8 +1,14 @@
+"""This script is used to clean up the work directory of the cluster.
+
+It will remove all the logs and work directories that are not associated with any job in
+the database.
+"""
+
 import os
 import shutil
 
+from cosmopolitan_app.config import CLUSTER_LOG_DIR, CLUSTER_WORK_DIR
 from cosmopolitan_app.db_manager import DataBaseManager
-from cosmopolitan_app.config import CLUSTER_WORK_DIR, CLUSTER_LOG_DIR
 
 existing_jobs = list(DataBaseManager().list_jobs().keys())
 for logs in os.listdir(os.path.join(CLUSTER_WORK_DIR, CLUSTER_LOG_DIR)):
