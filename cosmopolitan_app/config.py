@@ -14,7 +14,10 @@ def getenv(name):
     not set.
     """
     value = os.getenv(name)
+
     if value is None:
+        with open(".env", "r") as file:
+            print(file.read())
         raise ValueError(f"Enviroment variable {name} not set.")
     return value
 

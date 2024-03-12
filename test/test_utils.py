@@ -1,9 +1,5 @@
 """Test the utils module."""
 
-import shutil
-
-shutil.copy(".env_dev_mock", ".env")
-
 from cosmopolitan_app import utils  # noqa
 
 

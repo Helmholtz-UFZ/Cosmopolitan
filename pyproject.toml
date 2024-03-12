@@ -10,6 +10,7 @@ python = "^3.11"
 dash-leaflet = "^1.0.15"
 
 [tool.poetry.group.dev.dependencies]
+docker = "^7.0.0"
 
 
 [tool.poetry.group.sm_prediction.dependencies]

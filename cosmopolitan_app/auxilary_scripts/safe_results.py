@@ -24,7 +24,7 @@ def main(job_id, mode):
         if mode == "save":
             cosmopolitan_job.save()
             url = f"{WEB_OUTSIDE_URL}/submission/{job_id}"
-            for attempt in range(3):
+            for _attempt in range(3):
                 response = requests.get(url)
                 try:
                     response.raise_for_status()

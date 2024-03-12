@@ -10,8 +10,6 @@ Classes:
 - JobTable: Represents the 'jobs' table in the database.
 """
 
-import datetime
-
 from sqlalchemy import (
     ARRAY,
     JSON,
@@ -29,6 +27,8 @@ from cosmopolitan_app.config import DB_HOST_NAME, DB_NAME, DB_PORT, DB_PW, DB_US
 
 
 class Base(DeclarativeBase):
+    """Base class for declarative base."""
+
     pass
 
 
@@ -66,7 +66,6 @@ class DataBaseManager:
         f"postgresql+psycopg2://{ DB_USER }:{ DB_PW }@"
         f"{ DB_HOST_NAME }:{ DB_PORT }/{ DB_NAME }"
     )
-
     engine = create_engine(database_url, pool_pre_ping=True)
     Session = sessionmaker(bind=engine)
 
@@ -82,8 +81,7 @@ class DataBaseManager:
         Returns:
         bool: True if a job with the given job ID exists, False otherwise.
         """
-        with self.engine.begin() as conn:
-            session = self.Session(bind=conn)
+        with self.Session() as session:
             job_row = session.query(JobTable).filter_by(job_id=job_id).first()
         return job_row is not None
 
@@ -91,15 +89,12 @@ class DataBaseManager:
         """Add or update a job entry in the database.
 
         This method takes a dictionary containing job information and
-        either adds a new entry to the 'jobs' table or updates an existing
-        entry based on the provided 'job_id'.
 
         Parameters:
         data_to_insert (dict): A dictionary containing job information with keys
         equivalent to the cloumns ins JobTable.
         """
-        with self.engine.begin() as conn:
-            session = self.Session(bind=conn)
+        with self.Session() as session:
             job_row = JobTable(**data_to_insert)
             session.merge(job_row)
             session.commit()
@@ -110,8 +105,7 @@ class DataBaseManager:
         Raises:
         JobNotFound: If the job with the provided job ID does not exist.
         """
-        with self.engine.begin() as conn:
-            session = self.Session(bind=conn)
+        with self.Session() as session:
             job = session.query(JobTable).filter_by(job_id=job_id).first()
             if job is None:
                 raise JobNotFound(job_id)
@@ -135,8 +129,7 @@ class DataBaseManager:
         Raises:
         JobNotFound: If the job with the provided job ID does not exist.
         """
-        with self.engine.begin() as conn:
-            session = self.Session(bind=conn)
+        with self.Session() as session:
             job_row = session.query(JobTable).filter_by(job_id=job_id).first()
             if job_row:
                 job_columns = {
@@ -159,8 +152,7 @@ class DataBaseManager:
         Raises:
         JobNotFound: If the job with the provided job ID does not exist.
         """
-        with self.engine.begin() as conn:
-            session = self.Session(bind=conn)
+        with self.Session() as session:
             job = session.query(JobTable).filter_by(job_id=job_id).first()
             if job:
                 session.delete(job)
@@ -188,8 +180,7 @@ class DataBaseManager:
         }
 
         """
-        with self.engine.begin() as conn:
-            session = self.Session(bind=conn)
+        with self.Session() as session:
             job_rows = session.query(JobTable).all()
 
             job_info = {}
@@ -219,38 +210,3 @@ class JobTable(Base):
     logs = Column("logs", String)
     status = Column("status", String)
     version = Column("version", Float)
-
-
-def test():
-    """Test basic connectivity."""
-    db_manager = DataBaseManager()
-    job_id = "job123"
-
-    json_data_to_insert = {
-        "key1": "value1",
-        "key2": 42,
-        "key3": ["item1", "item2", "item3"],
-    }
-
-    data_to_insert = {
-        "job_id": job_id,
-        "start_date": datetime.date(1990, 7, 15),
-        "input_data": json_data_to_insert,
-        "submitted": True,
-        "email": "wtf@where.some",
-        "email_status": "send",
-        "err_msg": "None",
-        "finished": False,
-        "version": 0.01,
-    }
-
-    db_manager.add_entry(data_to_insert)
-
-    if db_manager.check_existence(job_id):
-        print(f"Job ID '{job_id}' exists in the table.")
-    else:
-        print(f"Job ID '{job_id}' does not exist in the table.")
-
-
-if __name__ == "__main__":
-    test()
