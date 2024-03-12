@@ -29,6 +29,8 @@ from cosmopolitan_app.config import DB_HOST_NAME, DB_NAME, DB_PORT, DB_PW, DB_US
 
 
 class Base(DeclarativeBase):
+    """Base class for declarative_base."""
+
     pass
 
 

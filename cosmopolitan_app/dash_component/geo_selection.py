@@ -1,11 +1,11 @@
+"""Interactive map with selection of area and stations."""
+
 from datetime import datetime
 from logging.config import dictConfig
 
-# from copy import deepcopy as copy
-
-from dash import html, Input, Output, State, dcc
-import dash_leaflet as dl
 import dash_bootstrap_components as dbc
+import dash_leaflet as dl
+from dash import Input, Output, State, dcc, html
 from dash.exceptions import PreventUpdate
 
 from cosmopolitan_app.dash_component.dash_component import (
@@ -14,6 +14,10 @@ from cosmopolitan_app.dash_component.dash_component import (
     logging_config,
     stand_alone,
 )
+
+# from copy import deepcopy as copy
+
+
 # Mock database
 
 car1_markers = [
@@ -150,11 +154,13 @@ def has_date_in_range(start_date_str, end_date_str, date_list):
 
 
 def is_inside_bounds(marker, lat_min, lat_max, lng_min, lng_max):
+    """Check if marker is inside bounds."""
     lat, lng = marker
     return lat_min <= lat <= lat_max and lng_min <= lng <= lng_max
 
 
 def construct_marker(station):
+    """Construct marker."""
     if station["station_type"] == 1:
         return dl.Marker(position=station["markers"][0])
     if station["station_type"] == 2:
@@ -187,10 +193,10 @@ def get_stations(start_date_str, end_date_str, station_type_list, area_geojson):
             station_list.append(station)
             continue
         if any(
-            [
+            (
                 is_inside_bounds(marker, lat_min, lat_max, lng_min, lng_max)
                 for marker in station["markers"]
-            ]
+            )
         ):
             station_list.append(station)
 
@@ -297,6 +303,8 @@ app_layout = html.Div(
 
 
 class TurnOffDraw(Callback):
+    """If the user selects a two areas, both are cleared."""
+
     in_out_state = (
         Output("alert-container", "children"),
         Output("edit-control", "editToolbar"),
@@ -306,11 +314,16 @@ class TurnOffDraw(Callback):
 
     @staticmethod
     def function(area_geojson):
+        """If the user selects a two areas, both are cleared."""
         if area_geojson is None:
             raise PreventUpdate
         if len(area_geojson["features"]) < 2:
             raise PreventUpdate
-        return double_selection_alert, dict(mode="remove", action="clear all", n_clicks=1)
+        return double_selection_alert, {
+            "mode": "remove",
+            "action": "clear all",
+            "n_clicks": 1,
+        }
 
 
 class SelectStationsArea(Callback):
@@ -331,7 +344,9 @@ class SelectStationsArea(Callback):
         """Select date range."""
         if area_geojson is None:
             raise PreventUpdate
-        markers = get_stations(start_date_str, end_date_str, station_type_list, area_geojson)
+        markers = get_stations(
+            start_date_str, end_date_str, station_type_list, area_geojson
+        )
         for marker in markers:
             print(marker)
         return markers
@@ -355,6 +370,7 @@ class ToggleOffcanvas(Callback):
 
     @staticmethod
     def function(n1, is_open):
+        """Open side menuse."""
         if n1:
             return not is_open
         return is_open
@@ -366,7 +382,7 @@ base_path = "/results/"
 if __name__ == "__main__":
     css_route = [
         dbc.themes.BOOTSTRAP,
-        "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css",
+        "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css",  # noqa
     ]
     dictConfig(logging_config)
     stand_alone(app_layout, callbacks, css_route)
