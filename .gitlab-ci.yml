@@ -38,6 +38,8 @@ test:
   before_script:
     - "apk --update --no-cache add py3-setuptools python3~3.11 --repository=http://dl-cdn.alpinelinux.org/alpine/edge/main"
     - "apk add --no-cache py3-pip"
+    - "apk add --no-cache postgresql-libs"
+    - "apk add --no-cache --virtual .build-deps gcc python3-dev musl-dev postgresql-dev"
     - "pip3 install poetry --break-system-packages"
     - "poetry install"
     - "curl -fsSL https://get.docker.com | sh"  # Install Docker
