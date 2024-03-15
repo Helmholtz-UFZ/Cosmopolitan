@@ -22,8 +22,11 @@ stages:
 
 test:
   stage: "test"
-  image: "python:3.11"
+  extends: ".base_before_build_script"
   before_script:
+    - "add-apt-repository ppa:deadsnakes/ppa -y"
+    - "apt-get update -y"
+    - "apt-get install python3.11 python3-pip -y"
     - "pip install poetry"
     - "poetry install"
   script:
