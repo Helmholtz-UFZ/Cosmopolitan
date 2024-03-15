@@ -27,8 +27,8 @@ test:
     - "pip install poetry"
     - "poetry install"
     - "curl -fsSL https://get.docker.com | sh"  # Install Docker
-services:
-  - docker:dind  # Enable Docker service
+  services:
+    - docker:dind  # Enable Docker service
   script:
     - "poetry run pytest"
 
