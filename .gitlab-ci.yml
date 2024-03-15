@@ -22,13 +22,13 @@ stages:
 
 test:
   stage: "test"
-  extends: ".base_before_build_script"
+  image: "python:3.11"
   before_script:
-    - "add-apt-repository ppa:deadsnakes/ppa -y"
-    - "apt-get update -y"
-    - "apt-get install python3.11 python3-pip -y"
     - "pip install poetry"
     - "poetry install"
+    - "curl -fsSL https://get.docker.com | sh"  # Install Docker
+services:
+  - docker:dind  # Enable Docker service
   script:
     - "poetry run pytest"
 
