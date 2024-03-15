@@ -17,7 +17,7 @@ def start_mock_server():
     """Start the mock server."""
     logging.info("Starting mock server")
     subprocess.Popen("docker compose up".split())
-    time.sleep(1)
+    time.sleep(120)
     client = docker.from_env()
     container_names = ["postgres-local", "cosmopolitan-local", "cosmopolitan-mailhog-1"]
 
