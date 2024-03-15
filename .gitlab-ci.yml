@@ -37,7 +37,6 @@ test:
   extends: ".base_before_build_script"
   before_script:
     - "apk --update --no-cache add py3-testtools python3~3.11 --repository=http://dl-cdn.alpinelinux.org/alpine/edge/main"
-    - "python -m ensurepip"
     - "pip install poetry"
     - "poetry install"
     - "curl -fsSL https://get.docker.com | sh"  # Install Docker
