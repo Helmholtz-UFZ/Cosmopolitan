@@ -42,9 +42,6 @@ test:
     - "apk add --no-cache --virtual .build-deps gcc python3-dev musl-dev postgresql-dev g++"
     - "pip3 install poetry --break-system-packages"
     - "poetry install"
-    - "curl -fsSL https://get.docker.com | sh"  # Install Docker
-  services:
-    - docker:dind  # Enable Docker service
   script:
     - "poetry run pytest"
 
