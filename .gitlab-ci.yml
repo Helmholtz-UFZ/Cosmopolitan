@@ -42,6 +42,7 @@ test:
     - "apk add --no-cache --virtual .build-deps gcc python3-dev musl-dev postgresql-dev g++"
     - "pip3 install poetry --break-system-packages"
     - "poetry install"
+    - "cp .env_test .env"
   script:
     - "poetry run python test/conftest.py"
     - "poetry run pytest"
