@@ -44,6 +44,9 @@ def start_mock_server():
             break
 
         time.sleep(10)
+    else:
+        logging.error("Mock server did not start")
+        raise Exception("Mock server did not start")
 
     yield
 
