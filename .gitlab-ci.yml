@@ -20,10 +20,24 @@ stages:
   tags:
     - "hifis"
 
+# test:
+#   stage: "test"
+#   image: "python:3.11"
+#   before_script:
+#     - "pip install poetry"
+#     - "poetry install"
+#     - "curl -fsSL https://get.docker.com | sh"  # Install Docker
+#   services:
+#     - docker:dind  # Enable Docker service
+#   script:
+#     - "poetry run pytest"
+
 test:
   stage: "test"
-  image: "python:3.11"
+  extends: ".base_before_build_script"
   before_script:
+    - "apk --update --no-cache add python3~3.11 --repository=http://dl-cdn.alpinelinux.org/alpine/edge/main"
+    - "python --version"
     - "pip install poetry"
     - "poetry install"
     - "curl -fsSL https://get.docker.com | sh"  # Install Docker
