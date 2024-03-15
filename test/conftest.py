@@ -17,7 +17,6 @@ def start_mock_server():
     """Start the mock server."""
     logging.info("Starting mock server")
     subprocess.Popen("docker compose up".split())
-    time.sleep(20)
     client = docker.from_env()
     container_names = ["postgres-local", "cosmopolitan-local", "cosmopolitan-mailhog-1"]
 
@@ -26,7 +25,12 @@ def start_mock_server():
         containers_running = True
 
         for container in container_names:
-            container_info = client.containers.get(container)
+            try:
+                container_info = client.containers.get(container)
+            except docker.errors.NotFound:
+                logging.info(f"Container {container} not found")
+                containers_running = False
+                break
             logging.info(f"Container {container} status: {container_info.status}")
             if container_info.status != "running":
                 containers_running = False
@@ -36,7 +40,7 @@ def start_mock_server():
             logging.info("Mock server are running")
             break
 
-        time.sleep(1)
+        time.sleep(5)
 
     logging.info("Stopping mock server")
     subprocess.run(
