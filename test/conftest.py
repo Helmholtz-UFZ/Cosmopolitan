@@ -7,6 +7,7 @@ import subprocess
 import time
 
 import pytest
+import requests
 
 import docker
 
@@ -20,17 +21,18 @@ def start_mock_server():
     client = docker.from_env()
     container_names = ["postgres-local", "cosmopolitan-local", "cosmopolitan-mailhog-1"]
 
-    # Check if all specified containers are running
-    while True:
+    # Max wait time: 12 * 10 seconds = 2 minutes
+    for _i in range(12):
         containers_running = True
 
         for container in container_names:
             try:
                 container_info = client.containers.get(container)
-            except docker.errors.NotFound:
+            except (docker.errors.NotFound, requests.exceptions.HTTPError):
                 logging.info(f"Container {container} not found")
                 containers_running = False
                 break
+
             logging.info(f"Container {container} status: {container_info.status}")
             if container_info.status != "running":
                 containers_running = False
@@ -40,7 +42,7 @@ def start_mock_server():
             logging.info("Mock server are running")
             break
 
-        time.sleep(5)
+        time.sleep(10)
 
     logging.info("Stopping mock server")
     subprocess.run(
