@@ -14,6 +14,7 @@ import docker
 logging.basicConfig(level=logging.INFO)
 
 
+@pytest.fixture(scope="session", autouse=True)
 def start_mock_server():
     """Start the mock server."""
     logging.info("Starting mock server")
@@ -44,6 +45,8 @@ def start_mock_server():
 
         time.sleep(10)
 
+    yield
+
     logging.info("Stopping mock server")
     subprocess.run(
         "docker compose down".split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE
@@ -69,8 +72,3 @@ def set_up_env():
         os.remove(".env_bak")
     else:
         os.remove(".env")
-
-
-if __name__ == "__main__":
-    logging.info("Running mock server.")
-    start_mock_server()
