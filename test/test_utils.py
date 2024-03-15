@@ -1,10 +1,10 @@
 """Test the utils module."""
 
-from cosmopolitan_app import utils  # noqa
-
 
 def test_error_response_args():
     """Test that the error response args are correct."""
+    from cosmopolitan_app import utils  # noqa
+
     job_error_exceptions = [
         utils.InvalidJobID,
         utils.SubmittedException,

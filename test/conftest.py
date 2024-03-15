@@ -10,9 +10,9 @@ import pytest
 
 import docker
 
-print("Conftest is running")
-
 logging.basicConfig(level=logging.INFO)
+
+logging.info("Conftest is running")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -29,9 +29,7 @@ def start_mock_server():
         containers_running = True
 
         for container in container_names:
-            print(container)
             container_info = client.containers.get(container)
-            print(container_info.status)
             if container_info.status != "running":
                 containers_running = False
                 break
@@ -45,7 +43,9 @@ def start_mock_server():
     yield
 
     logging.info("Stopping mock server")
-    subprocess.run("docker compose down".split())
+    subprocess.run(
+        "docker compose down".split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -58,9 +58,6 @@ def set_up_env():
     if os.path.exists(".env"):
         shutil.copyfile(".env", ".env_bak")
     shutil.copyfile(".env_test", ".env")
-
-    with open(".env", "r") as file:
-        print(file.read())
 
     yield
 

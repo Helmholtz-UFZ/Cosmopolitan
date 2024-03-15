@@ -2,11 +2,11 @@
 
 import datetime
 
-from cosmopolitan_app.db_manager import DataBaseManager
-
 
 def test_db_manager():
     """Test the db_manager class."""
+    from cosmopolitan_app.db_manager import DataBaseManager
+
     db_manager = DataBaseManager()
 
     job_id = "job123"
