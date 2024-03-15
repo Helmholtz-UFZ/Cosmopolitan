@@ -43,6 +43,7 @@ test:
     - "pip3 install poetry --break-system-packages"
     - "poetry install"
   script:
+    - "poetry run python test/conftest.py"
     - "poetry run pytest"
 
 # "latest" image will be built on every push to the main-branch

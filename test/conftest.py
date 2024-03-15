@@ -12,10 +12,7 @@ import docker
 
 logging.basicConfig(level=logging.INFO)
 
-logging.info("Conftest is running")
 
-
-@pytest.fixture(scope="session", autouse=True)
 def start_mock_server():
     """Start the mock server."""
     logging.info("Starting mock server")
@@ -39,8 +36,6 @@ def start_mock_server():
             break
 
         time.sleep(1)
-
-    yield
 
     logging.info("Stopping mock server")
     subprocess.run(
@@ -67,3 +62,8 @@ def set_up_env():
         os.remove(".env_bak")
     else:
         os.remove(".env")
+
+
+if __name__ == "__main__":
+    logging.info("Running mock server.")
+    start_mock_server()
