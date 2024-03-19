@@ -25,23 +25,23 @@ linting:
   stage: "lint"
   image: "python:3.11"
   before_script:
-    - "pip install black==24.2"
-    - "pip install flake8==7.0.0"
-    - "pip install isort==5.13.2"
-    - "pip install flake8-implicit-str-concat==0.4.0"
-    - "pip install flake8-blind-except==0.2.1"
-    - "pip install flake8-comprehensions==3.14.0"
-    - "pip install flake8-docstrings==1.7.0 "
+    - "pip install poetry"
+    - "poetry install"
   script:
-    - "black --check ."  # Check for code formatting issues with Black
-    - "isort --check --profile black ."  # Check for import sorting issues with isort
-    - "flake8 --max-line-length 88 --ignore=E203,W503"  # Run flake8 for code linting
+    - "poetry run black --check ."
+    - "poetry run isort --check --profile black ."
+    - "poetry run flake8 --max-line-length 88 --ignore=E203,W503"
 
 test:
   stage: "test"
-  image: "python:3.11"
+  extends: ".base_before_build_script"
   before_script:
-    - "pip install poetry"
+    - "cp .env_test .env"
+    - "apk --update --no-cache add py3-setuptools python3~3.11 --repository=http://dl-cdn.alpinelinux.org/alpine/edge/main"
+    - "apk add --no-cache py3-pip"
+    - "apk add --no-cache postgresql-libs"
+    - "apk add --no-cache --virtual .build-deps gcc python3-dev musl-dev postgresql-dev g++"
+    - "pip3 install poetry --break-system-packages"
     - "poetry install"
   script:
     - "poetry run pytest"

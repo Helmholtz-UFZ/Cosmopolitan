@@ -1,4 +1,8 @@
-"""Delete all logs and work directories that are not associated with a job in the database."""  # noqa
+"""This script is used to clean up the work directory of the cluster.
+
+It will remove all the logs and work directories that are not associated with any job in
+the database.
+"""
 
 import os
 import shutil
