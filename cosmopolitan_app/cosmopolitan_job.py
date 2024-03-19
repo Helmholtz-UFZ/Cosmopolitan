@@ -71,8 +71,8 @@ class CosmopolitanJob:
         base_work_dir=WEB_WORK_DIR,
     ):
         """Init class either by id, by html form or make a new one."""
-        # The class can be intilized backend for loading and saving. Depending on this the work
-        # is not the same as the enviroment variable WEB_WORK_DIR.
+        # The class can be intilized backend for loading and saving. Depending on this
+        # the work is not the same as the enviroment variable WEB_WORK_DIR.
         self.base_work_dir = base_work_dir
         if job_id is not None:
             logging.debug(f"Load submission {job_id}")

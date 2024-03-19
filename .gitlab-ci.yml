@@ -5,6 +5,7 @@
 ---
 
 stages:
+  - "lint"
   - "test"
   - "build"
   - "deploy"
@@ -20,17 +21,16 @@ stages:
   tags:
     - "hifis"
 
-# test:
-#   stage: "test"
-#   image: "python:3.11"
-#   before_script:
-#     - "pip install poetry"
-#     - "poetry install"
-#     - "curl -fsSL https://get.docker.com | sh"  # Install Docker
-#   services:
-#     - docker:dind  # Enable Docker service
-#   script:
-#     - "poetry run pytest"
+linting:
+  stage: "lint"
+  image: "python:3.11"
+  before_script:
+    - "pip install poetry"
+    - "poetry install"
+  script:
+    - "black --check ."
+    - "isort --check --profile black ."
+    - "flake8 --max-line-length 88 --ignore=E203,W503"
 
 test:
   stage: "test"

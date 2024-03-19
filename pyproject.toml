@@ -12,6 +12,13 @@ dash-leaflet = "^1.0.15"
 [tool.poetry.group.dev.dependencies]
 docker = "^7.0.0"
 pytest = "^8.1.1"
+black = "24.2"
+flake8 = "7.0.0"
+isort = "5.13.2"
+flake8-implicit-str-concat = "0.4.0"
+flake8-blind-except = "0.2.1"
+flake8-comprehensions = "3.14.0"
+flake8-docstrings = "1.7.0"
 
 
 [tool.poetry.group.sm_prediction.dependencies]
