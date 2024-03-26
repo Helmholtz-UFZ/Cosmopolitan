@@ -278,9 +278,9 @@ class CosmopolitanJobForm(FlaskForm):
     output_dir = None
     geom_area = None
 
-    def __init__(self, new=True):
+    def __init__(self, new=True, **kwargs):
         """Init."""
-        super().__init__(meta={"csrf": False})
+        super().__init__(meta={"csrf": False}, **kwargs)
         if new:
             self.job_id.data = "_".join(generate(3))
             self.previous_job_id.data = self.job_id.data
@@ -470,17 +470,20 @@ class CosmopolitanJobForm(FlaskForm):
     def _input_parameters(self):
         """Write the input parameters for the background model into the input dir."""
         parameters = {
-            "Geometry": [
+            "geometry": [
                 self.area_x1.data,
                 self.area_x2.data,
                 self.area_y1.data,
                 self.area_y2.data,
                 self.area_res.data,
             ],
-            "Predictors": json.loads(self.selected_pred_files.data),
-            "SM": json.loads(self.selected_crn_files.data),
-            "MC": self.monte_carlo_simulation.data,
-            "mci": self.monte_carlo_iterations.data,
+            "predictors": json.loads(self.selected_pred_files.data),
+            "soil_moisture_data": json.loads(self.selected_crn_files.data),
+            "monte_carlo": self.monte_carlo_simulation.data,
+            "monte_carlo_iterations": self.monte_carlo_iterations.data,
+            "past_prediction_as_feature": False,
+            "average_measurements_over_time": False,
+            "rain_time_serie": "",
             "what_to_plot": {
                 "predictors": False,
                 "pred_correlation": False,
@@ -643,6 +646,11 @@ class InputFileParser:
             # Get first line with no comment char
             line = ""
             while line == "":
+                try:
+                    line = in_file_stream.readline()
+                except UnicodeDecodeError:
+                    raise ValidationError("File is not a UTF-8 file.")
+
                 line = in_file_stream.readline()
                 if line[0] == self.comment_char:
                     line = ""

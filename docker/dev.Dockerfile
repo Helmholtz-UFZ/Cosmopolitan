@@ -12,14 +12,7 @@ RUN pip install --upgrade pip && pip install poetry
 
 WORKDIR /python_docker/cosmopolitan
 
-RUN mkdir /python_docker/sm_prediction
-
-RUN git clone \
-    -b "$SM_BRANCH" --single-branch \
-    https://dega:${GIT_PAT_SM}@codebase.helmholtz.cloud/ufz/tb5-smm/met/wg7/soil-moisture-prediction.git \
-    /python_docker/sm_prediction
-
-ENV PYTHONPATH=/python_docker/sm_prediction/:/python_docker/cosmopolitan/
+ENV PYTHONPATH=/python_docker/cosmopolitan/
 
 COPY poetry.lock pyproject.toml /python_docker/cosmopolitan
 
@@ -27,6 +20,7 @@ RUN poetry config virtualenvs.create false
 RUN poetry install --no-interaction --no-ansi
 
 USER 1000
+
 COPY . .
 
 CMD if [ "$GUNICORN" = 1 ] ; then \
