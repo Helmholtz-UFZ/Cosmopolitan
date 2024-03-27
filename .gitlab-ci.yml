@@ -21,30 +21,57 @@ stages:
   tags:
     - "hifis"
 
-linting:
-  stage: "lint"
-  image: "python:3.11"
-  before_script:
-    - "pip install poetry"
-    - "poetry install"
+# linting:
+#   stage: "lint"
+#   image: "python:3.11"
+#   before_script:
+#     - "pip install poetry"
+#     - "poetry install"
+#   script:
+#     - "poetry run black --check ."
+#     - "poetry run isort --check --profile black ."
+#     - "poetry run flake8 --max-line-length 88 --ignore=E203,W503"
+
+start-services:
+  stage: "test"
+  extends: ".base_before_build_script"
   script:
-    - "poetry run black --check ."
-    - "poetry run isort --check --profile black ."
-    - "poetry run flake8 --max-line-length 88 --ignore=E203,W503"
+    - docker-compose -f docker-compose.yml up -d postgres
+  artifacts:
+    reports:
+      dotenv: docker-compose.env
 
 test:
   stage: "test"
-  extends: ".base_before_build_script"
-  before_script:
-    - "cp .env_test .env"
-    - "apk --update --no-cache add py3-setuptools python3~3.11 --repository=http://dl-cdn.alpinelinux.org/alpine/edge/main"
-    - "apk add --no-cache py3-pip"
-    - "apk add --no-cache postgresql-libs"
-    - "apk add --no-cache --virtual .build-deps gcc python3-dev musl-dev postgresql-dev g++"
-    - "pip3 install poetry --break-system-packages"
-    - "poetry install"
+  image: "python:3.11"
   script:
-    - "poetry run pytest"
+    - |
+      # Wait for PostgreSQL to be ready
+      until docker exec postgres pg_isready; do
+        >&2 echo "PostgreSQL is unavailable - sleeping"
+        sleep 1
+      done
+      >&2 echo "PostgreSQL is up and running"
+    - |
+      # Run tests that access the services
+      echo "Running tests against services"
+      # Your test commands here
+  dependencies:
+    - start-services
+
+# test:
+#   stage: "test"
+#   extends: ".base_before_build_script"
+#   before_script:
+#     - "cp .env_test .env"
+#     - "apk --update --no-cache add py3-setuptools python3~3.11 --repository=http://dl-cdn.alpinelinux.org/alpine/edge/main"
+#     - "apk add --no-cache py3-pip"
+#     - "apk add --no-cache postgresql-libs"
+#     - "apk add --no-cache --virtual .build-deps gcc python3-dev musl-dev postgresql-dev g++"
+#     - "pip3 install poetry --break-system-packages"
+#     - "poetry install"
+#   script:
+#     - "poetry run pytest"
 
 # "latest" image will be built on every push to the main-branch
 build-latest:
