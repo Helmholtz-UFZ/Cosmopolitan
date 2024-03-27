@@ -38,12 +38,13 @@ start-services:
   script:
     - "cp .env_test .env"
     - docker-compose -f docker-compose.yml up -d postgres
-
+  ports:
+    - "5432:5432" 
 test:
   stage: "test"
   image: "python:3.11"
   services:
-    - postgres-local
+    - postgres
   script:
     - apt-get update && apt-get install -y postgresql-client
     - while ! pg_isready -h localhost -p 5432 -q -U postgres; do sleep 1; done
