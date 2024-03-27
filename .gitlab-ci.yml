@@ -37,6 +37,13 @@ start-services:
   extends: ".base_before_build_script"
   script:
     - docker-compose -f docker-compose.yml up -d postgres
+    - |
+      if [ -f docker-compose.env ]; then
+        echo "docker-compose.env file exists"
+        cat docker-compose.env  # Print the contents of the file
+      else
+        echo "docker-compose.env file does not exist"
+      fi
   artifacts:
     reports:
       dotenv: docker-compose.env
