@@ -38,14 +38,12 @@ start-services:
   script:
     - "cp .env_test .env"
     - docker-compose -f docker-compose.yml up -d postgres
-    - docker-compose -f docker-compose.yml exec -T postgres sh -c 'while ! pg_isready -h localhost -p 5432 -q -U postgres; do sleep 1; done'
-  artifacts:
-    reports:
-      dotenv: docker-compose.env
 
 test:
   stage: "test"
   image: "python:3.11"
+  services:
+    - postgres
   script:
     - apt-get update && apt-get install -y postgresql-client
     - while ! pg_isready -h localhost -p 5432 -q -U postgres; do sleep 1; done
