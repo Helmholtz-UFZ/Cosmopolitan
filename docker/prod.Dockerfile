@@ -2,8 +2,6 @@
 
 FROM python:3.11-slim-bookworm
 
-ENV GIT_PAT_SM="glpat-5xQJzyvXMwy3y8oTifxt"
-
 RUN apt-get update
 RUN apt-get -y upgrade
 RUN apt-get -y install git libpq-dev gcc
@@ -11,15 +9,7 @@ RUN pip install --upgrade pip && pip install poetry
 
 WORKDIR /python_docker/cosmopolitan
 
-RUN mkdir /python_docker/sm_prediction
-
-RUN git clone \
-    https://dega:${GIT_PAT_SM}@codebase.helmholtz.cloud/ufz/tb5-smm/met/wg7/soil-moisture-prediction.git \
-    /python_docker/sm_prediction && \
-    cd /python_docker/sm_prediction && \
-    git checkout 91ffc4d3677a58fe6d4891330dc492555dd5e2e4
-
-ENV PYTHONPATH=/python_docker/sm_prediction/:/python_docker/cosmopolitan/
+ENV PYTHONPATH=/python_docker/cosmopolitan/
 
 COPY poetry.lock pyproject.toml /python_docker/cosmopolitan
 

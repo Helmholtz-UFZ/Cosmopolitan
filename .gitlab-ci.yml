@@ -38,13 +38,7 @@ start-services:
   script:
     - "cp .env_test .env"
     - docker-compose -f docker-compose.yml up -d postgres
-    - |
-      if [ -f docker-compose.env ]; then
-        echo "docker-compose.env file exists"
-        cat docker-compose.env  # Print the contents of the file
-      else
-        echo "docker-compose.env file does not exist"
-      fi
+    - docker-compose -f docker-compose.yml exec -T postgres sh -c 'while ! pg_isready -h localhost -p 5432 -q -U postgres; do sleep 1; done'
   artifacts:
     reports:
       dotenv: docker-compose.env
@@ -54,15 +48,8 @@ test:
   image: "python:3.11"
   script:
     - |
-      # Wait for PostgreSQL to be ready
-      until docker exec postgres pg_isready; do
-        >&2 echo "PostgreSQL is unavailable - sleeping"
-        sleep 1
-      done
-      >&2 echo "PostgreSQL is up and running"
-    - |
       # Run tests that access the services
-      echo "Running tests against services"
+      psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT version();"
       # Your test commands here
   dependencies:
     - start-services
