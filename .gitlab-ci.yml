@@ -36,6 +36,7 @@ start-services:
   stage: "test"
   extends: ".base_before_build_script"
   script:
+    - "cp .env_test .env"
     - docker-compose -f docker-compose.yml up -d postgres
     - |
       if [ -f docker-compose.env ]; then
