@@ -47,10 +47,8 @@ test:
   stage: "test"
   image: "python:3.11"
   script:
-    - |
-      # Run tests that access the services
-      psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT version();"
-      # Your test commands here
+    - apt-get update && apt-get install -y postgresql-client
+    - psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT version();"
   dependencies:
     - start-services
 
