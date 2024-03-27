@@ -10,6 +10,15 @@ stages:
   - "build"
   - "deploy"
 
+variables:
+  POSTGRES_DB: my_test_db
+  POSTGRES_USER: test_user
+  POSTGRES_PASSWORD: test_password
+  POSTGRES_HOST_AUTH_METHOD: trust
+
+services:
+  - postgres
+
 .docker_login: &docker_login
   - 'echo "${CI_REGISTRY_PASSWORD}" | docker login --username "$CI_REGISTRY_USER" --password-stdin "${CI_REGISTRY}"'
 
@@ -39,7 +48,8 @@ test:
     - "postgres"
   script:
     - apt-get update && apt-get install -y postgresql-client
-    - while ! pg_isready -h postgres -p 5432 -q -U postgres; do sleep 1; done
+    - pg_isready -h postgres -p 5432 -U test_user
+    - while ! pg_isready -h postgres -p 5432 -q -U test_user; do sleep 1; done
 
 # test:
 #   stage: "test"
