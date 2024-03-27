@@ -48,7 +48,7 @@ test:
   image: "python:3.11"
   script:
     - apt-get update && apt-get install -y postgresql-client
-    - while psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT version();"; do sleep 1; done
+    - while ! pg_isready -h localhost -p 5432 -q -U postgres; do sleep 1; done
   dependencies:
     - start-services
 
