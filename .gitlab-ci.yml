@@ -18,7 +18,8 @@ variables:
 
 services:
   - postgres
-  - mailhog
+  - name: mailhog/mailhog
+    alias: mailhog
 
 .docker_login: &docker_login
   - 'echo "${CI_REGISTRY_PASSWORD}" | docker login --username "$CI_REGISTRY_USER" --password-stdin "${CI_REGISTRY}"'
