@@ -48,6 +48,7 @@ test:
   services:
     - "postgres"
   before_script:
+    - "cp .env_test .env"
     - "pip install poetry"
     - "poetry install"
   script:
