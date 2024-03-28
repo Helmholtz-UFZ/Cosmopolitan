@@ -50,7 +50,7 @@ test:
     - "postgres"
   before_script:
     - apt-get update && apt-get install -y postgresql-client
-    - pg_isready -h postgres -p 5432 -U somweb_stage_rw
+    - PGPASSWORD=test psql -h 0.0.0.0 -U somweb_stage_rw -d somweb_stage -c '\i docker/init.sql'
     - "cp .env_test .env"
     - "pip install poetry"
     - "poetry install"

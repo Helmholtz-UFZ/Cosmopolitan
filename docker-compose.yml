@@ -27,22 +27,15 @@ services:
       - "${MAIL_HOG_PORT:-8025}:${MAIL_HOG_PORT:-8025}" # web ui
 
   postgres:
-    build:
-      context: .
-      dockerfile: ./docker/db.Dockerfile
-      args:
-        - POSTGRES_PASSWORD=${DB_PW}
-        - POSTGRES_USER=${DB_USER}
-        - POSTGRES_DB=${DB_NAME}
-    env_file: .env
-    image: postgres
-    container_name: postgres
+    image: postgres:latest
     ports:
-      - "${DB_PORT}:${DB_PORT}" # web ui
-    # TODO set up a default DB
-    # volumes:
-    #   - ~/apps/postgres:/var/lib/postgresql/data
-    # user: "${DOCKER_UID}:${DOCKER_GID}"
+      - "${DB_PORT}:${DB_PORT}"
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PW}
+      POSTGRES_DB: ${DB_NAME}
+    env_file: .env
+    container_name: postgres
 
   # Currently eve and the slurm openapi are not cohesive
   # prism:
