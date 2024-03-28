@@ -18,7 +18,7 @@ variables:
 
 services:
   - postgres
-  - name: mailhog/mailhog:latest
+  - name: mailhog/mailhog
     alias: mailhog
 
 .docker_login: &docker_login
