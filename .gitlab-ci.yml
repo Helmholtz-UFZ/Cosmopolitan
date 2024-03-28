@@ -49,8 +49,9 @@ test:
 #    - "mailhog"
     - "postgres"
   before_script:
-    - apt-get update && apt-get install -y postgresql-client
-    - PGPASSWORD=test psql -h postgres -U somweb_stage_rw -d somweb_stage -c '\i docker/init.sql'
+    - "apt-get update && apt-get install -y postgresql-client"
+    - "export PGPASSWORD=test"
+    - "psql -h postgres -U somweb_stage_rw -W test -d somweb_stage < docker/init.sql"
     - "cp .env_test .env"
     - "pip install poetry"
     - "poetry install"
