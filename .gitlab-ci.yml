@@ -47,6 +47,7 @@ test:
   stage: "test"
   image: "python:3.11"
   services:
+    - "mailhog"
     - "postgres"
   before_script:
     - "cp .env_test .env"
