@@ -49,6 +49,8 @@ test:
 #    - "mailhog"
     - "postgres"
   before_script:
+    - apt-get update && apt-get install -y postgresql-client
+    - pg_isready -h somweb_stage -p 5432 -U somweb_stage_rw
     - "cp .env_test .env"
     - "pip install poetry"
     - "poetry install"
