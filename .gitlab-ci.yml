@@ -31,16 +31,16 @@ services:
   tags:
     - "hifis"
 
-# linting:
-#   stage: "lint"
-#   image: "python:3.11"
-#   before_script:
-#     - "pip install poetry"
-#     - "poetry install"
-#   script:
-#     - "poetry run black --check ."
-#     - "poetry run isort --check --profile black ."
-#     - "poetry run flake8 --max-line-length 88 --ignore=E203,W503"
+linting:
+  stage: "lint"
+  image: "python:3.11"
+  before_script:
+    - "pip install poetry"
+    - "poetry install"
+  script:
+    - "poetry run black --check ."
+    - "poetry run isort --check --profile black ."
+    - "poetry run flake8 --max-line-length 88 --ignore=E203,W503"
 
 test:
   stage: "test"
@@ -57,20 +57,6 @@ test:
     - "poetry install"
   script:
     - "poetry run pytest -s"
-
-# test:
-#   stage: "test"
-#   extends: ".base_before_build_script"
-#   before_script:
-#     - "cp .env_test .env"
-#     - "apk --update --no-cache add py3-setuptools python3~3.11 --repository=http://dl-cdn.alpinelinux.org/alpine/edge/main"
-#     - "apk add --no-cache py3-pip"
-#     - "apk add --no-cache postgresql-libs"
-#     - "apk add --no-cache --virtual .build-deps gcc python3-dev musl-dev postgresql-dev g++"
-#     - "pip3 install poetry --break-system-packages"
-#     - "poetry install"
-#   script:
-#     - "poetry run pytest"
 
 # "latest" image will be built on every push to the main-branch
 build-latest:
