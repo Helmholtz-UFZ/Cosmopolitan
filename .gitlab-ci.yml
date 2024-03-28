@@ -18,7 +18,7 @@ variables:
 
 services:
   - postgres
-  - mailhog
+#  - mailhog
 
 .docker_login: &docker_login
   - 'echo "${CI_REGISTRY_PASSWORD}" | docker login --username "$CI_REGISTRY_USER" --password-stdin "${CI_REGISTRY}"'
@@ -46,7 +46,7 @@ test:
   stage: "test"
   image: "python:3.11"
   services:
-    - "mailhog"
+#    - "mailhog"
     - "postgres"
   before_script:
     - "cp .env_test .env"
