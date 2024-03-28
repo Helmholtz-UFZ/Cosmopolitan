@@ -8,7 +8,8 @@ import pytest
 from sqlalchemy.exc import OperationalError
 
 from cosmopolitan_app.db_manager import DataBaseManager
-from cosmopolitan_app.utils import send_mail
+
+# from cosmopolitan_app.utils import send_mail
 
 logging.basicConfig(level=logging.INFO)
 
@@ -17,11 +18,12 @@ logging.basicConfig(level=logging.INFO)
 def check_availibility_mock():
     """See if the mock server are availabel."""
     logging.info("Check mock server")
-    try:
-        send_mail("Test", "Test", "Test")
-    except ConnectionRefusedError:
-        logging.error("Mail server not available")
-        pytest.exit("Mail server not available")
+    # TODO: Uncomment this when the mail server is available
+    # try:
+    #     send_mail("Test", "Test", "Test")
+    # except ConnectionRefusedError:
+    #     logging.error("Mail server not available")
+    #     pytest.exit("Mail server not available")
     db_manager = DataBaseManager()
     try:
         db_manager.check_existence("test")
