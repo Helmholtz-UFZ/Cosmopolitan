@@ -11,9 +11,9 @@ stages:
   - "deploy"
 
 variables:
-  POSTGRES_DB: my_test_db
-  POSTGRES_USER: test_user
-  POSTGRES_PASSWORD: test_password
+  POSTGRES_DB: somweb_stage
+  POSTGRES_USER: somweb_stage_rw
+  POSTGRES_PASSWORD: test
   POSTGRES_HOST_AUTH_METHOD: trust
 
 services:
@@ -50,8 +50,7 @@ test:
     - "postgres"
   before_script:
     - apt-get update && apt-get install -y postgresql-client
-    - pg_isready -h postgres -p 5432 -U test_user
-    - while ! pg_isready -h postgres -p 5432 -q -U test_user; do sleep 1; done
+    - pg_isready -h postgres -p 5432 -U somweb_stage_rw
     - "cp .env_test .env"
     - "pip install poetry"
     - "poetry install"
