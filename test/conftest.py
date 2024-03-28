@@ -3,57 +3,31 @@
 import logging
 import os
 import shutil
-import subprocess
-import time
 
 import pytest
-import requests
+from sqlalchemy.exc import OperationalError
 
-import docker
+from cosmopolitan_app.db_manager import DataBaseManager
+from cosmopolitan_app.utils import send_mail
 
 logging.basicConfig(level=logging.INFO)
 
 
 @pytest.fixture(scope="session", autouse=True)
-def start_mock_server():
-    """Start the mock server."""
-    logging.info("Starting mock server")
-    subprocess.Popen("docker compose up".split())
-    client = docker.from_env()
-    container_names = ["postgres-local", "cosmopolitan-local", "cosmopolitan-mailhog-1"]
-
-    # Max wait time: 12 * 10 seconds = 2 minutes
-    for _i in range(12):
-        containers_running = True
-
-        for container in container_names:
-            try:
-                container_info = client.containers.get(container)
-            except (docker.errors.NotFound, requests.exceptions.HTTPError):
-                logging.info(f"Container {container} not found")
-                containers_running = False
-                break
-
-            logging.info(f"Container {container} status: {container_info.status}")
-            if container_info.status != "running":
-                containers_running = False
-                break
-
-        if containers_running:
-            logging.info("Mock server are running")
-            break
-
-        time.sleep(10)
-    else:
-        logging.error("Mock server did not start")
-        raise Exception("Mock server did not start")
-
-    yield
-
-    logging.info("Stopping mock server")
-    subprocess.run(
-        "docker compose down".split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
+def check_availibility_mock():
+    """See if the mock server are availabel."""
+    logging.info("Check mock server")
+    try:
+        send_mail("Test", "Test", "Test")
+    except ConnectionRefusedError:
+        logging.error("Mail server not available")
+        pytest.exit("Mail server not available")
+    db_manager = DataBaseManager()
+    try:
+        db_manager.check_existence("test")
+    except OperationalError:
+        logging.error("DB not available")
+        pytest.exit("DB not available")
 
 
 @pytest.fixture(scope="session", autouse=True)

@@ -2,15 +2,15 @@ version: "3.8"
 
 services:
 
-  cosmopolitan-local:
+  cosmopolitan:
+    image: cosmopolitan
+    container_name: cosmopolitan
     build:
       context: .
       dockerfile: ./docker/dev.Dockerfile
       args:
         - SM_BRANCH=${SM_BRANCH}
     env_file: .env
-    image: cosmopolitan-local
-    container_name: cosmopolitan-local
     volumes:
       - "./cosmopolitan_app:/python_docker/cosmopolitan/cosmopolitan_app"
     user: "${DOCKER_UID}:${DOCKER_GID}"
@@ -19,6 +19,7 @@ services:
 
   mailhog:
     image: mailhog/mailhog
+    container_name: mailhog
     logging:
       driver: 'none'  # disable saving logs
     ports:
@@ -34,8 +35,8 @@ services:
         - POSTGRES_USER=${DB_USER}
         - POSTGRES_DB=${DB_NAME}
     env_file: .env
-    image: postgres-local
-    container_name: postgres-local
+    image: postgres
+    container_name: postgres
     ports:
       - "${DB_PORT}:${DB_PORT}" # web ui
     # TODO set up a default DB

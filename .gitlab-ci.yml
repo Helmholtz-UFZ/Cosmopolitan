@@ -11,13 +11,14 @@ stages:
   - "deploy"
 
 variables:
-  POSTGRES_DB: my_test_db
-  POSTGRES_USER: test_user
-  POSTGRES_PASSWORD: test_password
+  POSTGRES_DB: somweb_stage
+  POSTGRES_USER: somweb_stage_rw
+  POSTGRES_PASSWORD: test
   POSTGRES_HOST_AUTH_METHOD: trust
 
 services:
   - postgres
+  - mailhog
 
 .docker_login: &docker_login
   - 'echo "${CI_REGISTRY_PASSWORD}" | docker login --username "$CI_REGISTRY_USER" --password-stdin "${CI_REGISTRY}"'
@@ -46,10 +47,11 @@ test:
   image: "python:3.11"
   services:
     - "postgres"
+  before_script:
+    - "pip install poetry"
+    - "poetry install"
   script:
-    - apt-get update && apt-get install -y postgresql-client
-    - pg_isready -h postgres -p 5432 -U test_user
-    - while ! pg_isready -h postgres -p 5432 -q -U test_user; do sleep 1; done
+    - "poetry run pytest -s"
 
 # test:
 #   stage: "test"
