@@ -10,6 +10,16 @@ stages:
   - "build"
   - "deploy"
 
+variables:
+  POSTGRES_DB: somweb_stage
+  POSTGRES_USER: somweb_stage_rw
+  POSTGRES_PASSWORD: test
+  POSTGRES_HOST_AUTH_METHOD: trust
+
+services:
+  - postgres
+#  - mailhog
+
 .docker_login: &docker_login
   - 'echo "${CI_REGISTRY_PASSWORD}" | docker login --username "$CI_REGISTRY_USER" --password-stdin "${CI_REGISTRY}"'
 
@@ -34,17 +44,19 @@ linting:
 
 test:
   stage: "test"
-  extends: ".base_before_build_script"
+  image: "python:3.11"
+  services:
+#    - "mailhog"
+    - "postgres"
   before_script:
+    - "apt-get update && apt-get install -y postgresql-client"
+    - "export PGPASSWORD=test"
+    - "psql -h postgres -U somweb_stage_rw -W test -d somweb_stage < docker/init.sql"
     - "cp .env_test .env"
-    - "apk --update --no-cache add py3-setuptools python3~3.11 --repository=http://dl-cdn.alpinelinux.org/alpine/edge/main"
-    - "apk add --no-cache py3-pip"
-    - "apk add --no-cache postgresql-libs"
-    - "apk add --no-cache --virtual .build-deps gcc python3-dev musl-dev postgresql-dev g++"
-    - "pip3 install poetry --break-system-packages"
+    - "pip install poetry"
     - "poetry install"
   script:
-    - "poetry run pytest"
+    - "poetry run pytest -s"
 
 # "latest" image will be built on every push to the main-branch
 build-latest:
