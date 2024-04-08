@@ -1,7 +1,4 @@
-version: "3.8"
-
 services:
-
   cosmopolitan:
     image: cosmopolitan
     container_name: cosmopolitan

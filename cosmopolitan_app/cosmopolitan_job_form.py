@@ -156,7 +156,12 @@ class CosmopolitanJobForm(FlaskForm):
             "Area": ["area_x1", "area_x2", "area_y1", "area_y2", "area_res"],
             "Predictor variables": ["pred_files", "selected_pred_files"],
             "CRN Measurments": ["crn_files", "selected_crn_files"],
-            "Monte carlo": ["monte_carlo_simulation", "monte_carlo_iterations"],
+            "Model Parameters": [
+                "monte_carlo_simulation",
+                "monte_carlo_iterations",
+                "past_prediction_as_feature",
+                "average_measurements_over_time",
+            ],
         }
     )
 
@@ -271,6 +276,24 @@ class CosmopolitanJobForm(FlaskForm):
         description="Set the number of monte carlo simulations.",
         widget=DynamicSizeNumberInput(),
         validators=[InputRequired(), NumberRange(min=1, max=100)],
+    )
+
+    past_prediction_as_feature = BooleanField(
+        "Past prediction as feature",
+        description=(
+            "Use prediction from previous timestep as predictor for the next timestep."
+        ),
+        widget=BooleanInput(),
+        validators=[],
+    )
+
+    average_measurements_over_time = BooleanField(
+        "Average measurements over time",
+        description=(
+            "Should a sliding window be used to average the measurements over time."
+        ),
+        widget=BooleanInput(),
+        validators=[],
     )
 
     request = None
@@ -481,8 +504,8 @@ class CosmopolitanJobForm(FlaskForm):
             "soil_moisture_data": json.loads(self.selected_crn_files.data),
             "monte_carlo": self.monte_carlo_simulation.data,
             "monte_carlo_iterations": self.monte_carlo_iterations.data,
-            "past_prediction_as_feature": False,
-            "average_measurements_over_time": False,
+            "past_prediction_as_feature": self.past_prediction_as_feature.data,
+            "average_measurements_over_time": self.average_measurements_over_time.data,
             "rain_time_serie": "",
             "what_to_plot": {
                 "predictors": False,
