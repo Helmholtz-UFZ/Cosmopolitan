@@ -2,7 +2,7 @@
 
 FROM python:3.11-slim-bookworm
 
-ARG SM_BRANCH
+ENV MPLCONFIGDIR /python_docker/cosmopolitan/.config/matplotlib
 
 RUN apt-get update
 RUN apt-get -y upgrade
@@ -10,6 +10,8 @@ RUN apt-get -y install git libpq-dev gcc
 RUN pip install --upgrade pip && pip install poetry
 
 WORKDIR /python_docker/cosmopolitan
+
+RUN mkdir -p $MPLCONFIGDIR && chmod 777 $MPLCONFIGDIR
 
 ENV PYTHONPATH=/python_docker/cosmopolitan/
 

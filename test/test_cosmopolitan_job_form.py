@@ -129,15 +129,9 @@ def test_consistency_with_form():
 
 def test_changes_in_parameters():
     """Test if the parameters have changed."""
-    parameters_keys = [
-        "geometry",
-        "predictors",
-        "soil_moisture_data",
-        "monte_carlo",
-        "monte_carlo_iterations",
-        "past_prediction_as_feature",
-        "average_measurements_over_time",
-        "what_to_plot",
-        "save_results",
-    ]
-    assert parameters_keys == list(example_parameters.keys()), "Parameters changed."
+    app = Flask(__name__)
+    with app.app_context():
+        cosmopolitan_job_form = CosmopolitanJobForm(formdata=valid_form_data)
+    parameters_form = list(cosmopolitan_job_form._input_parameters(write=False).keys())
+    parameters_package = list(example_parameters.keys())
+    assert parameters_form == parameters_package, "Parameters changed."

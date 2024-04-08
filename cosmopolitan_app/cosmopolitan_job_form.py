@@ -490,8 +490,18 @@ class CosmopolitanJobForm(FlaskForm):
                 # logging.error("Form hidden field does not contain")
                 raise ValidationError("Upload files with form.")
 
-    def _input_parameters(self):
+    def _input_parameters(self, write=True):
         """Write the input parameters for the background model into the input dir."""
+        try:
+            predictors = json.loads(self.selected_pred_files.data)
+        except json.JSONDecodeError:
+            predictors = "No predictor files selected."
+
+        try:
+            soil_moisture_data = json.loads(self.selected_crn_files.data)
+        except json.JSONDecodeError:
+            soil_moisture_data = "No CRNs files selected."
+
         parameters = {
             "geometry": [
                 self.area_x1.data,
@@ -500,13 +510,12 @@ class CosmopolitanJobForm(FlaskForm):
                 self.area_y2.data,
                 self.area_res.data,
             ],
-            "predictors": json.loads(self.selected_pred_files.data),
-            "soil_moisture_data": json.loads(self.selected_crn_files.data),
+            "predictors": predictors,
+            "soil_moisture_data": soil_moisture_data,
             "monte_carlo": self.monte_carlo_simulation.data,
             "monte_carlo_iterations": self.monte_carlo_iterations.data,
             "past_prediction_as_feature": self.past_prediction_as_feature.data,
             "average_measurements_over_time": self.average_measurements_over_time.data,
-            "rain_time_serie": "",
             "what_to_plot": {
                 "predictors": False,
                 "pred_correlation": False,
@@ -517,11 +526,14 @@ class CosmopolitanJobForm(FlaskForm):
             },
             "save_results": True,
         }
-        with open(
-            os.path.join(self.input_dir, "parameters.json"), "w", encoding="UTF-8"
-        ) as f_handle:
-            json.dump(parameters, f_handle, indent=4)
-            f_handle.write("\n")
+        if write:
+            with open(
+                os.path.join(self.input_dir, "parameters.json"), "w", encoding="UTF-8"
+            ) as f_handle:
+                json.dump(parameters, f_handle, indent=4)
+                f_handle.write("\n")
+        else:
+            return parameters
 
 
 class GeomArea:
