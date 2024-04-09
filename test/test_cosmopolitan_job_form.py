@@ -64,11 +64,14 @@ def create_valid_form_data(parameters):
     )
 
 
-def create_invalid_form_data(parameters):
-    """Create a MultiDict object representing an invalid form data."""
+def create_pre_invalid_form_data(parameters):
+    """Create a MultiDict object representing an invalid form data.
+
+    Should fail at the checks by field.
+    """
     return MultiDict(
         {
-            "job_id": "valid_form_data",
+            "job_id": "invalid_form_data",
             "previous_job_id": "invalid_form_data",
             "email": "testtest.de",
             "area_x1": parameters["geometry"][0],
@@ -76,11 +79,35 @@ def create_invalid_form_data(parameters):
             "area_y1": parameters["geometry"][2],
             "area_y2": parameters["geometry"][3],
             "area_res": parameters["geometry"][4],
-            "pred_files": create_invalid_files("pdf"),
-            "crn_files": create_invalid_files("pdf"),
+            "pred_files": create_invalid_files(["pdf"]),
+            "crn_files": create_invalid_files(["pdf"]),
             "selected_pred_files": "",
             "selected_crn_files": "",
             "monte_carlo_iterations": -1,
+        }
+    )
+
+
+def create_post_invalid_form_data(parameters):
+    """Create a MultiDict object representing an invalid form data.
+
+    Should fail at the checks betweeen field.
+    """
+    return MultiDict(
+        {
+            "job_id": "valid_form_data",
+            "previous_job_id": "valid_form_data",
+            "email": "test@test.de",
+            "area_x1": parameters["geometry"][0],
+            "area_x2": parameters["geometry"][0],
+            "area_y1": parameters["geometry"][2],
+            "area_y2": parameters["geometry"][2],
+            "area_res": parameters["geometry"][4],
+            "pred_files": create_invalid_files(["empty"]),
+            "crn_files": create_invalid_files(["empty"]),
+            "selected_pred_files": "",
+            "selected_crn_files": "",
+            "monte_carlo_iterations": parameters["monte_carlo_iterations"],
         }
     )
 
@@ -89,8 +116,10 @@ def create_invalid_files(input_type):
     """Create a list of MockFileStorage objects as invalid input files."""
     mock_file_list = []
     pdf_content = b"%PDF-1.6\r%\xe2\xe3\xcf\xd3\r\n471 0 obj\n<</Filter/FlateDecode"
-    if input_type == "pdf":
+    if "pdf" in input_type:
         mock_file_list.append(MockFileStorage(filename="some.pdf", content=pdf_content))
+    if "empty" in input_type:
+        mock_file_list.append(MockFileStorage(filename="", content=b""))
     return mock_file_list
 
 
@@ -142,7 +171,8 @@ class MockFileStorage:
 
 example_parameters = load_parameters()
 valid_form_data = create_valid_form_data(example_parameters)
-invalid_form_data = create_invalid_form_data(example_parameters)
+pre_invalid_form_data = create_pre_invalid_form_data(example_parameters)
+post_invalid_form_data = create_post_invalid_form_data(example_parameters)
 
 
 def test_consistency_with_form():
@@ -158,12 +188,25 @@ def test_consistency_with_form():
             ), "Parameter do not create validt form data."
 
 
-def test_invalid_form_data():
-    """Test consistency between wtform and test data from soil_moisture_prediction."""
-    # Create a minimal Flask app for the context of CosmopolitanJobForm
+def test_post_invalid_form_data():
+    """Test a invalid form which is invalid between fields."""
     app = Flask(__name__)
     with app.app_context():
-        cosmopolitan_job_form = CosmopolitanJobForm(formdata=invalid_form_data)
+        cosmopolitan_job_form = CosmopolitanJobForm(formdata=post_invalid_form_data)
+        cosmopolitan_job_form.validate()
+        assert cosmopolitan_job_form._fields["area_y1"].errors == [
+            "Y1 cannot be higher or equal than Y2."
+        ]
+        assert cosmopolitan_job_form._fields["pred_files"].errors == [
+            "Chose one or more predictor files."
+        ]
+
+
+def test_pre_invalid_form_data():
+    """Test a simple invalid form."""
+    app = Flask(__name__)
+    with app.app_context():
+        cosmopolitan_job_form = CosmopolitanJobForm(formdata=pre_invalid_form_data)
         cosmopolitan_job_form.validate()
         assert cosmopolitan_job_form._fields["email"].errors == [
             "Invalid email address."
