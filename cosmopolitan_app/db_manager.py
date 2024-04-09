@@ -66,6 +66,7 @@ class DataBaseManager:
         f"postgresql+psycopg2://{ DB_USER }:{ DB_PW }@"
         f"{ DB_HOST_NAME }:{ DB_PORT }/{ DB_NAME }"
     )
+    print(database_url)
     engine = create_engine(database_url, pool_pre_ping=True)
     Session = sessionmaker(bind=engine)
 

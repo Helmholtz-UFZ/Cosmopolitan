@@ -64,6 +64,36 @@ def create_valid_form_data(parameters):
     )
 
 
+def create_invalid_form_data(parameters):
+    """Create a MultiDict object representing an invalid form data."""
+    return MultiDict(
+        {
+            "job_id": "valid_form_data",
+            "previous_job_id": "invalid_form_data",
+            "email": "testtest.de",
+            "area_x1": parameters["geometry"][0],
+            "area_x2": parameters["geometry"][0] - 1,
+            "area_y1": parameters["geometry"][2],
+            "area_y2": parameters["geometry"][3],
+            "area_res": parameters["geometry"][4],
+            "pred_files": create_invalid_files("pdf"),
+            "crn_files": create_invalid_files("pdf"),
+            "selected_pred_files": "",
+            "selected_crn_files": "",
+            "monte_carlo_iterations": -1,
+        }
+    )
+
+
+def create_invalid_files(input_type):
+    """Create a list of MockFileStorage objects as invalid input files."""
+    mock_file_list = []
+    pdf_content = b"%PDF-1.6\r%\xe2\xe3\xcf\xd3\r\n471 0 obj\n<</Filter/FlateDecode"
+    if input_type == "pdf":
+        mock_file_list.append(MockFileStorage(filename="some.pdf", content=pdf_content))
+    return mock_file_list
+
+
 def create_input_files(input_type):
     """Create a list of MockFileStorage objects as input files.
 
@@ -112,6 +142,7 @@ class MockFileStorage:
 
 example_parameters = load_parameters()
 valid_form_data = create_valid_form_data(example_parameters)
+invalid_form_data = create_invalid_form_data(example_parameters)
 
 
 def test_consistency_with_form():
@@ -125,6 +156,24 @@ def test_consistency_with_form():
             assert (
                 getattr(cosmopolitan_job_form, field).errors == []
             ), "Parameter do not create validt form data."
+
+
+def test_invalid_form_data():
+    """Test consistency between wtform and test data from soil_moisture_prediction."""
+    # Create a minimal Flask app for the context of CosmopolitanJobForm
+    app = Flask(__name__)
+    with app.app_context():
+        cosmopolitan_job_form = CosmopolitanJobForm(formdata=invalid_form_data)
+        cosmopolitan_job_form.validate()
+        assert cosmopolitan_job_form._fields["email"].errors == [
+            "Invalid email address."
+        ]
+        assert "File is not a UTF-8 file" in str(
+            cosmopolitan_job_form._fields["pred_files"].errors[0]
+        )
+        assert cosmopolitan_job_form._fields["monte_carlo_iterations"].errors == [
+            "Number must be between 1 and 100."
+        ]
 
 
 def test_changes_in_parameters():
