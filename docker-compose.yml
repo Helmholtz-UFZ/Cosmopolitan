@@ -1,15 +1,10 @@
-version: "3.8"
-
 services:
-
   cosmopolitan:
     image: cosmopolitan
     container_name: cosmopolitan
     build:
       context: .
       dockerfile: ./docker/dev.Dockerfile
-      args:
-        - SM_BRANCH=${SM_BRANCH}
     env_file: .env
     volumes:
       - "./cosmopolitan_app:/python_docker/cosmopolitan/cosmopolitan_app"

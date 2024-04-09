@@ -8,15 +8,15 @@ from time import time
 
 import dash_bootstrap_components as dbc
 from dash import MATCH, Input, Output, State, ctx, dcc, html
-from plot_functions import (
+from soil_moisture_prediction.plot_functions import (
     plot_measurements,
     plot_predictor_importance,
     plot_predictors,
-    plot_rf_prediction,
-    pred_corr_matrix,
+    plot_rfo_model,
+    prediction_correlation_matrix,
     predictor_importance_along_days,
 )
-from RFoPrediction import RFoPrediction
+from soil_moisture_prediction.random_forest_model import RFoModel
 from sqlalchemy.exc import OperationalError
 
 from cosmopolitan_app.cosmopolitan_job import (
@@ -51,7 +51,7 @@ def load_rfo_prediction(job_id, ttl_hash=None):
         working_dir,
         load_results,
     ) = cosmopolitan_job.get_paratameters_rfo_prediction()
-    return RFoPrediction(input_data, working_dir, load_results=True)
+    return RFoModel(**input_data, work_dir=working_dir, load_results=True)
 
 
 def create_slider(plot_id, rfo_prediction):
@@ -122,7 +122,7 @@ plot_parameter = OrderedDict()
 plot_parameter["sm-pred"] = [
     "Soil Moisture Prediction",
     True,
-    plot_rf_prediction,
+    plot_rfo_model,
 ]
 plot_parameter["crn"] = [
     "Measurements",
@@ -137,7 +137,7 @@ plot_parameter["pred"] = [
 plot_parameter["pred-corr"] = [
     "Predictor Correlation",
     False,
-    pred_corr_matrix,
+    prediction_correlation_matrix,
 ]
 plot_parameter["pred-imp"] = [
     "Predictor Importance",

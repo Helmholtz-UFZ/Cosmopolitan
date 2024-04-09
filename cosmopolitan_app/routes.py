@@ -90,6 +90,7 @@ def input_job():
         form = job.form
     # If form was submitted validate
     else:
+        logging.info(request.form)
         form = CosmopolitanJobForm(new=False)
         logging.info(f"Check form {form.job_id.data}")
         if form.validate_on_submit():

@@ -104,7 +104,7 @@ def handle_exception(e):
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", debug=app.debug, port=PORT)
-else:
+elif __name__ == "app":
     # Assumes if not main is run by gunicorn
     gunicorn_logger = logging.getLogger("gunicorn.error")
     app.logger.handlers = gunicorn_logger.handlers

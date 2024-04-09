@@ -42,7 +42,7 @@ class Base(DeclarativeBase):
     pass
 
 
-class Logs(DeclarativeBase):
+class Logs(Base):
     """Represents a log entry in the database.
 
     Attributes:

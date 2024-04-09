@@ -156,7 +156,12 @@ class CosmopolitanJobForm(FlaskForm):
             "Area": ["area_x1", "area_x2", "area_y1", "area_y2", "area_res"],
             "Predictor variables": ["pred_files", "selected_pred_files"],
             "CRN Measurments": ["crn_files", "selected_crn_files"],
-            "Monte carlo": ["monte_carlo_simulation", "monte_carlo_iterations"],
+            "Model Parameters": [
+                "monte_carlo_simulation",
+                "monte_carlo_iterations",
+                "past_prediction_as_feature",
+                "average_measurements_over_time",
+            ],
         }
     )
 
@@ -273,14 +278,32 @@ class CosmopolitanJobForm(FlaskForm):
         validators=[InputRequired(), NumberRange(min=1, max=100)],
     )
 
+    past_prediction_as_feature = BooleanField(
+        "Past prediction as feature",
+        description=(
+            "Use prediction from previous timestep as predictor for the next timestep."
+        ),
+        widget=BooleanInput(),
+        validators=[],
+    )
+
+    average_measurements_over_time = BooleanField(
+        "Average measurements over time",
+        description=(
+            "Should a sliding window be used to average the measurements over time."
+        ),
+        widget=BooleanInput(),
+        validators=[],
+    )
+
     request = None
     input_dir = None
     output_dir = None
     geom_area = None
 
-    def __init__(self, new=True):
+    def __init__(self, new=True, **kwargs):
         """Init."""
-        super().__init__(meta={"csrf": False})
+        super().__init__(meta={"csrf": False}, **kwargs)
         if new:
             self.job_id.data = "_".join(generate(3))
             self.previous_job_id.data = self.job_id.data
@@ -467,20 +490,32 @@ class CosmopolitanJobForm(FlaskForm):
                 # logging.error("Form hidden field does not contain")
                 raise ValidationError("Upload files with form.")
 
-    def _input_parameters(self):
+    def _input_parameters(self, write=True):
         """Write the input parameters for the background model into the input dir."""
+        try:
+            predictors = json.loads(self.selected_pred_files.data)
+        except json.JSONDecodeError:
+            predictors = "No predictor files selected."
+
+        try:
+            soil_moisture_data = json.loads(self.selected_crn_files.data)
+        except json.JSONDecodeError:
+            soil_moisture_data = "No CRNs files selected."
+
         parameters = {
-            "Geometry": [
+            "geometry": [
                 self.area_x1.data,
                 self.area_x2.data,
                 self.area_y1.data,
                 self.area_y2.data,
                 self.area_res.data,
             ],
-            "Predictors": json.loads(self.selected_pred_files.data),
-            "SM": json.loads(self.selected_crn_files.data),
-            "MC": self.monte_carlo_simulation.data,
-            "mci": self.monte_carlo_iterations.data,
+            "predictors": predictors,
+            "soil_moisture_data": soil_moisture_data,
+            "monte_carlo": self.monte_carlo_simulation.data,
+            "monte_carlo_iterations": self.monte_carlo_iterations.data,
+            "past_prediction_as_feature": self.past_prediction_as_feature.data,
+            "average_measurements_over_time": self.average_measurements_over_time.data,
             "what_to_plot": {
                 "predictors": False,
                 "pred_correlation": False,
@@ -491,11 +526,14 @@ class CosmopolitanJobForm(FlaskForm):
             },
             "save_results": True,
         }
-        with open(
-            os.path.join(self.input_dir, "parameters.json"), "w", encoding="UTF-8"
-        ) as f_handle:
-            json.dump(parameters, f_handle, indent=4)
-            f_handle.write("\n")
+        if write:
+            with open(
+                os.path.join(self.input_dir, "parameters.json"), "w", encoding="UTF-8"
+            ) as f_handle:
+                json.dump(parameters, f_handle, indent=4)
+                f_handle.write("\n")
+        else:
+            return parameters
 
 
 class GeomArea:
@@ -643,6 +681,11 @@ class InputFileParser:
             # Get first line with no comment char
             line = ""
             while line == "":
+                try:
+                    line = in_file_stream.readline()
+                except UnicodeDecodeError:
+                    raise ValidationError("File is not a UTF-8 file.")
+
                 line = in_file_stream.readline()
                 if line[0] == self.comment_char:
                     line = ""
