@@ -25,5 +25,5 @@ cp "$env_file" .env
 if [ "$1" == "prod" ]; then
     docker compose up --no-log-prefix cosmopolitan
 else
-    docker compose up --attach cosmopolitan
+    docker compose up --no-log-prefix --attach cosmopolitan 
 fi

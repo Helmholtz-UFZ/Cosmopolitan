@@ -32,6 +32,7 @@ import re
 import shutil
 from collections import OrderedDict
 from datetime import date
+from test.test_cosmopolitan_job_form import valid_form_data
 
 from coolname import generate
 from flask_wtf import FlaskForm
@@ -305,6 +306,7 @@ class CosmopolitanJobForm(FlaskForm):
         """Init."""
         super().__init__(meta={"csrf": False}, **kwargs)
         if new:
+            logging.debug("New job form")
             self.job_id.data = "_".join(generate(3))
             self.previous_job_id.data = self.job_id.data
 
@@ -315,9 +317,14 @@ class CosmopolitanJobForm(FlaskForm):
         changed the function and moves all previously uploaded files into the
         new input dir.
         """
-        logging.debug("Check job id")
+        logging.debug(f"Check job id {field.data}")
+
         db_manager = DataBaseManager()
         if db_manager.check_existence(field.data):
+            raise ValidationError("Job id already exist")
+
+        # This job_id is used for testing connection to computation server.
+        if field.data == valid_form_data["job_id"]:
             raise ValidationError("Job id already exist")
 
         if len(field.errors) == 0:
@@ -397,7 +404,8 @@ class CosmopolitanJobForm(FlaskForm):
         if not super().validate():
             logging.debug("Not all field are valid")
             for field in self._fields:
-                logging.debug(f"{field}: {getattr(self, field).errors}")
+                if len(getattr(self, field).errors) > 0:
+                    logging.debug(f"{field}: {getattr(self, field).errors}")
             return False
 
         form_validt = True

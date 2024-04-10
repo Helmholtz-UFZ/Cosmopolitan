@@ -60,6 +60,9 @@ def create_valid_form_data(parameters):
             "selected_pred_files": "",
             "selected_crn_files": "",
             "monte_carlo_iterations": parameters["monte_carlo_iterations"],
+            "monte_carlo_simulation": "y",
+            "past_prediction_as_feature": "y",
+            "average_measurements_over_time": "y",
         }
     )
 
@@ -84,6 +87,9 @@ def create_pre_invalid_form_data(parameters):
             "selected_pred_files": "",
             "selected_crn_files": "",
             "monte_carlo_iterations": -1,
+            "monte_carlo_simulation": "y",
+            "past_prediction_as_feature": "y",
+            "average_measurements_over_time": "y",
         }
     )
 
@@ -105,9 +111,14 @@ def create_post_invalid_form_data(parameters):
             "area_res": parameters["geometry"][4],
             "pred_files": create_invalid_files(["empty"]),
             "crn_files": create_invalid_files(["empty"]),
-            "selected_pred_files": "",
+            "selected_pred_files": {
+                "pred_bdod_short.csv": {"type": "bulk", "unit": "cg/cm3"}
+            },
             "selected_crn_files": "",
             "monte_carlo_iterations": parameters["monte_carlo_iterations"],
+            "monte_carlo_simulation": "y",
+            "past_prediction_as_feature": "y",
+            "average_measurements_over_time": "y",
         }
     )
 
@@ -175,13 +186,31 @@ pre_invalid_form_data = create_pre_invalid_form_data(example_parameters)
 post_invalid_form_data = create_post_invalid_form_data(example_parameters)
 
 
-def test_consistency_with_form():
+def test_consistency_between_test_form_data():
+    """Test consistency between the test form data."""
+    assert (
+        valid_form_data.keys() == pre_invalid_form_data.keys()
+    ), "Test form data inconsistent."
+    assert (
+        valid_form_data.keys() == post_invalid_form_data.keys()
+    ), "Test form data inconsistent."
+
+
+def test_consistency_between_form_and_package():
     """Test consistency between wtform and test data from soil_moisture_prediction."""
     # Create a minimal Flask app for the context of CosmopolitanJobForm
     app = Flask(__name__)
     with app.app_context():
         cosmopolitan_job_form = CosmopolitanJobForm(formdata=valid_form_data)
         cosmopolitan_job_form.validate()
+        for field in cosmopolitan_job_form._fields:
+            assert (
+                field in valid_form_data.keys()
+            ), f"Field {field} from webserver is not in test form."
+        for field in valid_form_data:
+            assert (
+                field in cosmopolitan_job_form._fields.keys()
+            ), f"Field {field} from test form is not found in form from webserver."
         for field in cosmopolitan_job_form._fields:
             assert (
                 getattr(cosmopolitan_job_form, field).errors == []

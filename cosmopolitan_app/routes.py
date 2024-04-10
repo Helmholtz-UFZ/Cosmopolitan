@@ -2,6 +2,7 @@
 
 import logging
 import os
+from test.test_cosmopolitan_job_form import valid_form_data
 
 from flask import current_app as app
 from flask import redirect, render_template, request, send_from_directory, url_for
@@ -11,6 +12,7 @@ from cosmopolitan_app.config import WEB_WORK_DIR
 from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
 from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
 from cosmopolitan_app.dash_component.dynamic_plots import base_path as result_path
+from cosmopolitan_app.db_manager import JobNotFound
 from cosmopolitan_app.utils import (
     SubmittedException,
     send_finished_mail,
@@ -90,7 +92,6 @@ def input_job():
         form = job.form
     # If form was submitted validate
     else:
-        logging.info(request.form)
         form = CosmopolitanJobForm(new=False)
         logging.info(f"Check form {form.job_id.data}")
         if form.validate_on_submit():
@@ -105,6 +106,24 @@ def input_job():
 def documentation():
     """Show documentation."""
     return render_template("html/content/documentation.html")
+
+
+@app.route("/test_job")
+def test_job():
+    """Start a job and test if everything works."""
+    try:
+        CosmopolitanJob(job_id=valid_form_data["job_id"]).delete()
+    except JobNotFound:
+        pass
+    form = CosmopolitanJobForm(formdata=valid_form_data, new=False)
+    form_valid = form.validate()
+    if not form_valid:
+        logging.error("Test job form is not valid")
+        return ":("
+    job = CosmopolitanJob(form=form)
+    job.save()
+    job.submit()
+    return ":)"
 
 
 @app.route("/results/<job_id>/<file_name>")

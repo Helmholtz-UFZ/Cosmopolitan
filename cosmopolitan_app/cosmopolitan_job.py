@@ -140,9 +140,7 @@ class CosmopolitanJob:
         while True:
             job_form = CosmopolitanJobForm()
             if db_manager.check_existence(job_form.job_id.data):
-                logging.debug(
-                    f"Job id: {job_form.job_id.data} already exist", verbose_level=3
-                )
+                logging.debug(f"Job id: {job_form.job_id.data} already exist")
                 continue
             break
         self.form = job_form
