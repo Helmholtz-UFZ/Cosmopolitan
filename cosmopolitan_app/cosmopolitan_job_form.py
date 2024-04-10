@@ -32,7 +32,7 @@ import re
 import shutil
 from collections import OrderedDict
 from datetime import date
-from test.test_cosmopolitan_job_form import valid_form_data
+from test.mock_input import valid_form_data
 
 from coolname import generate
 from flask_wtf import FlaskForm
