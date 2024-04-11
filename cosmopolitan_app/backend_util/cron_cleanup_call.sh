@@ -1,0 +1,1 @@
+bash $CLUSTER_COSMOPOLITAN_REPO/cosmopolitan_app/backend_util/cleanup_backend.sh $CLUSTER_COSMOPOLITAN_REPO/.env

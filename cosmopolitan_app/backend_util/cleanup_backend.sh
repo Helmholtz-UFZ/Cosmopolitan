@@ -13,4 +13,4 @@ PYTHONPATH="$CLUSTER_COSMOPOLITAN_REPO"
 
 source "$CLUSTER_PYTHON_ENV_PATH/bin/activate"
 
-python3 "$CLUSTER_COSMOPOLITAN_REPO/auxilary_scripts/cleanup_work_dir.py"
+python3 "$CLUSTER_COSMOPOLITAN_REPO/cosmopolitan_app/backend_util/cleanup_work_dir.py"
