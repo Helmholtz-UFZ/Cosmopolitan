@@ -112,7 +112,8 @@ def documentation():
 def test_job():
     """Start a job and test if everything works."""
     try:
-        CosmopolitanJob(job_id=valid_form_data["job_id"]).delete()
+        job = CosmopolitanJob(job_id=valid_form_data["job_id"])
+        job.delete()
     except JobNotFound:
         pass
     form = CosmopolitanJobForm(formdata=valid_form_data, new=False)

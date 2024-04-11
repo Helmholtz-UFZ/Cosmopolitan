@@ -241,7 +241,7 @@ class CosmopolitanJob:
         mode "load", "comp", "safe" and a slurm job id to build the correct request.
         """
         logging.debug(f"Submit {mode}.")
-        url = f"{CLUSTER_AUTHORITY}/slurm/v0.0.38/job/submit"
+        url = f"{CLUSTER_AUTHORITY}/slurmrest/slurm/v0.0.38/job/submit"
         job_para = deepcopy(slurm_default_parameters)
         name = f"{self.job_id}-{mode}"
         job_para["job"]["name"] = name
@@ -266,6 +266,7 @@ class CosmopolitanJob:
             job_para["job"]["dependency"] = f"afterany:{depends_on}"
 
         logging.debug(json.dumps(job_para, indent=2))
+        logging.debug(url)
         try:
             response = requests.post(url, json=job_para, headers=slurm_header)
         except requests.exceptions.ConnectionError:

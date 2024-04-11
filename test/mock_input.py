@@ -169,7 +169,7 @@ class MockFileStorage:
 
         The stream is reset to the beginning before returning.
         """
-        self.streamIO.seek(0)
+        # self.streamIO.seek(0)
         return self.streamIO
 
 

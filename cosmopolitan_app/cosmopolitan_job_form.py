@@ -32,7 +32,6 @@ import re
 import shutil
 from collections import OrderedDict
 from datetime import date
-from test.mock_input import valid_form_data
 
 from coolname import generate
 from flask_wtf import FlaskForm
@@ -321,10 +320,6 @@ class CosmopolitanJobForm(FlaskForm):
 
         db_manager = DataBaseManager()
         if db_manager.check_existence(field.data):
-            raise ValidationError("Job id already exist")
-
-        # This job_id is used for testing connection to computation server.
-        if field.data == valid_form_data["job_id"]:
             raise ValidationError("Job id already exist")
 
         if len(field.errors) == 0:
