@@ -38,7 +38,6 @@ CLUSTER_WORK_DIR = getenv("CLUSTER_WORK_DIR")
 CLUSTER_LOG_DIR = getenv("CLUSTER_LOG_DIR")
 CLUSTER_PYTHON_ENV_PATH = getenv("CLUSTER_PYTHON_ENV_PATH")
 CLUSTER_COSMOPOLITAN_REPO = getenv("CLUSTER_COSMOPOLITAN_REPO")
-CLUSTER_SM_REPO = getenv("CLUSTER_SM_REPO")
 CLUSTER_USER = getenv("CLUSTER_USER")
 CLUSTER_TOKEN = getenv("CLUSTER_TOKEN")
 CLUSTER_HOST = getenv("CLUSTER_HOST")
@@ -66,7 +65,7 @@ slurm_default_parameters = {
         "memory_per_cpu": "1G",
         "environment": {
             "PATH": "/usr/local/bin:/usr/bin",
-            "PYTHONPATH": f"{CLUSTER_SM_REPO}:{CLUSTER_COSMOPOLITAN_REPO}",
+            "PYTHONPATH": CLUSTER_COSMOPOLITAN_REPO,
         },
     },
     "script": None,
