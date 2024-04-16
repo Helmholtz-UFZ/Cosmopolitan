@@ -495,15 +495,8 @@ class CosmopolitanJobForm(FlaskForm):
 
     def _input_parameters(self, write=True):
         """Write the input parameters for the background model into the input dir."""
-        try:
-            predictors = json.loads(self.selected_pred_files.data)
-        except json.JSONDecodeError:
-            predictors = "No predictor files selected."
-
-        try:
-            soil_moisture_data = json.loads(self.selected_crn_files.data)
-        except json.JSONDecodeError:
-            soil_moisture_data = "No CRNs files selected."
+        predictors = json.loads(self.selected_pred_files.data)
+        soil_moisture_data = json.loads(self.selected_crn_files.data)
 
         parameters = {
             "geometry": [
@@ -523,9 +516,9 @@ class CosmopolitanJobForm(FlaskForm):
                 "predictors": False,
                 "pred_correlation": False,
                 "day_measurements": False,
-                "day_predictor_imp": False,
+                "day_predictor_importance": False,
                 "day_prediction_map": False,
-                "alldays_predictor_imp": False,
+                "alldays_predictor_importance": False,
             },
             "save_results": True,
         }

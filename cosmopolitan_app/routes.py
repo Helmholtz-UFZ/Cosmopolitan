@@ -1,5 +1,6 @@
 """All routes of cosmopolitan."""
 
+import json
 import logging
 import os
 from test.test_cosmopolitan_job_form import valid_form_data
@@ -118,6 +119,8 @@ def test_job():
         pass
     form = CosmopolitanJobForm(formdata=valid_form_data, new=False)
     form_valid = form.validate()
+    parameters_form = form._input_parameters(write=False)
+    logging.info(json.dumps(parameters_form, indent=4))
     if not form_valid:
         logging.error("Test job form is not valid")
         return ":("

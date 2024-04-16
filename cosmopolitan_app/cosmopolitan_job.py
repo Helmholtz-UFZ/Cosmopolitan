@@ -97,6 +97,7 @@ class CosmopolitanJob:
         logging.debug("Load job")
         db_manager = DataBaseManager()
 
+        # Get data from database
         class_attributes = get_attributes(CosmopolitanJob)
         for name, value in db_manager.get_job_columns(job_id).items():
             if name == "files":
@@ -106,6 +107,7 @@ class CosmopolitanJob:
                 raise AttributeError(f"CosmopolitanJob has no attribute named {name}")
             setattr(self, name, value)
 
+        # Copy files to working directory
         working_dir = os.path.join(self.base_work_dir, self.job_id)
         if not os.path.isdir(working_dir):
             os.mkdir(working_dir)
@@ -116,6 +118,7 @@ class CosmopolitanJob:
             with open(os.path.join(working_dir, f_name), "bw") as f_handle:
                 f_handle.write(files[self.file_names.index(f_name)])
 
+        # Set form data
         self.form = CosmopolitanJobForm()
         self.form.job_id.data = self.job_id
         self.form.previous_job_id.data = self.job_id

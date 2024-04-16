@@ -161,6 +161,7 @@ class MockFileStorage:
         """Init."""
         self.filename = filename
         self.content_type = content_type
+        self.content = content
         self.streamIO = BytesIO(content)
 
     @property
@@ -169,7 +170,10 @@ class MockFileStorage:
 
         The stream is reset to the beginning before returning.
         """
-        # self.streamIO.seek(0)
+        try:
+            self.streamIO.seek(0)
+        except ValueError:
+            self.streamIO = BytesIO(self.content)
         return self.streamIO
 
 
