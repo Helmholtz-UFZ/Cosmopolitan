@@ -79,7 +79,7 @@ class CosmopolitanJob:
             form = CosmopolitanJobForm()
             form.job_id.data = job_id
             if form.job_id.validate(form):
-                self._load_job(job_id)
+                self.load_job(job_id)
             else:
                 raise InvalidJobID(job_id)
         elif form is not None:
@@ -93,7 +93,8 @@ class CosmopolitanJob:
         """Represent class as string."""
         return self.job_id
 
-    def _load_job(self, job_id):
+    def load_job(self, job_id):
+        """Load job from database and store files in working dir."""
         logging.debug("Load job")
         db_manager = DataBaseManager()
 
@@ -223,7 +224,7 @@ class CosmopolitanJob:
         db_manager = DataBaseManager()
         db_manager.add_entry(data_to_insert)
 
-    def delete(self, keep_work_dir=False):
+    def delete(self, keep_work_dir=False, delete_db=True):
         """
         Delete the job in the data base.
 
@@ -234,8 +235,9 @@ class CosmopolitanJob:
         working_dir = os.path.join(self.base_work_dir, self.job_id)
         if not keep_work_dir:
             shutil.rmtree(working_dir)
-        db_manager = DataBaseManager()
-        db_manager.delete_job(self.job_id)
+        if delete_db:
+            db_manager = DataBaseManager()
+            db_manager.delete_job(self.job_id)
 
     def _submit_slurm(self, mode, depends_on=None):
         """Submit job using slurm rest api.
