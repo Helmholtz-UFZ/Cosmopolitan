@@ -79,7 +79,7 @@ class CosmopolitanJob:
             form = CosmopolitanJobForm()
             form.job_id.data = job_id
             if form.job_id.validate(form):
-                self.load_job(job_id)
+                self.load(job_id)
             else:
                 raise InvalidJobID(job_id)
         elif form is not None:
@@ -93,7 +93,7 @@ class CosmopolitanJob:
         """Represent class as string."""
         return self.job_id
 
-    def load_job(self, job_id):
+    def load(self, job_id):
         """Load job from database and store files in working dir."""
         logging.debug("Load job")
         db_manager = DataBaseManager()
