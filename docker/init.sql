@@ -4,7 +4,6 @@
 -- GRANT CONNECT ON DATABASE somweb_stage TO somweb_stage_rw;
 
 DROP TABLE IF EXISTS jobs;
-DROP TABLE IF EXISTS logs;
 
 -- Create jobs table
 CREATE TABLE jobs (
@@ -75,17 +74,8 @@ BEGIN
     );
 END $$;
 
--- Create logs table
-CREATE TABLE logs (
-    log_id SERIAL PRIMARY KEY,
-    level VARCHAR(10),
-    message VARCHAR,
-    timestamp TIMESTAMPTZ
-);
-
 -- Grant permissions on tables to the user
 GRANT INSERT, UPDATE, DELETE ON TABLE jobs TO somweb_stage_rw;
-GRANT INSERT, UPDATE, DELETE ON TABLE logs TO somweb_stage_rw;
 
 -- GRANT INSERT, UPDATE, DELETE ON TABLE jobs TO somweb_prod_rw;
 -- GRANT INSERT, UPDATE, DELETE ON TABLE logs TO somweb_prod_rw;

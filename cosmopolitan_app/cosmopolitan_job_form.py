@@ -318,8 +318,7 @@ class CosmopolitanJobForm(FlaskForm):
         """
         logging.debug(f"Check job id {field.data}")
 
-        db_manager = DataBaseManager()
-        if db_manager.check_existence(field.data):
+        if DataBaseManager.check_existence(field.data):
             raise ValidationError("Job id already exist")
 
         if len(field.errors) == 0:

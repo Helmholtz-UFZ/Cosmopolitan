@@ -1,19 +1,20 @@
 """All routes of cosmopolitan."""
 
-import json
 import logging
 import os
-from test.test_cosmopolitan_job_form import valid_form_data
+import traceback
 
 from flask import current_app as app
 from flask import redirect, render_template, request, send_from_directory, url_for
 from werkzeug.exceptions import BadRequestKeyError
 
 from cosmopolitan_app.config import WEB_WORK_DIR
-from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
+from cosmopolitan_app.cosmopolitan_job import (
+    CosmopolitanJob,
+    check_health_of_computation,
+)
 from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
 from cosmopolitan_app.dash_component.dynamic_plots import base_path as result_path
-from cosmopolitan_app.db_manager import JobNotFound
 from cosmopolitan_app.utils import (
     SubmittedException,
     send_finished_mail,
@@ -109,25 +110,17 @@ def documentation():
     return render_template("html/content/documentation.html")
 
 
-@app.route("/test_job")
-def test_job():
-    """Start a job and test if everything works."""
+@app.route("/check_health")
+def check_health():
+    """Check if backend computation is healthy."""
+    logging.info("Check health of computation.")
     try:
-        job = CosmopolitanJob(job_id=valid_form_data["job_id"])
-        job.delete()
-    except JobNotFound:
-        pass
-    form = CosmopolitanJobForm(formdata=valid_form_data, new=False)
-    form_valid = form.validate()
-    parameters_form = form._input_parameters(write=False)
-    logging.info(json.dumps(parameters_form, indent=4))
-    if not form_valid:
-        logging.error("Test job form is not valid")
-        return ":("
-    job = CosmopolitanJob(form=form)
-    job.save()
-    job.submit()
-    return ":)"
+        check_health_of_computation()
+    except Exception as e:  # noqa
+        logging.error(f"Health check failed: {traceback.format_exc()}")
+        return render_template("html/content/health.html", healthy=False), 503
+    else:
+        return render_template("html/content/health.html", healthy=True), 200
 
 
 @app.route("/results/<job_id>/<file_name>")

@@ -20,9 +20,10 @@ def getenv(name):
     return value
 
 
-DAYS_DELETE_SUMBITTED = 2
-DAYS_DELETE_NOT_SUMBITTED = 60
-
+# Number of days to keep a submitted job entries in the database
+DAYS_DELETE_SUMBITTED = 60
+# Number of days to keep an unsubmitted job entries in the database
+DAYS_DELETE_NOT_SUMBITTED = 2
 load_dotenv()
 
 # s/=.*//g |'<,'> s/^.*$/& = getenv("&")/g | noh

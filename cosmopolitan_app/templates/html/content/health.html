@@ -1,0 +1,15 @@
+{% extends "html/skeleton/base_layout.html" %}
+{% block content %}
+<div class="row">
+	<h1 class="text-center">Health Check</h3>
+	{% if healthy %}
+	<h3 class="text-center">
+		The computing environment is <br><span class="text-success">HEALTHY</span>
+	</h3>
+	{% else %}
+	<h3 class="text-center">
+		The computing environment is <br><span class="text-danger">UNHEALTHY</span>
+	</h3>
+	{% endif %}
+</div>
+{% endblock %}
