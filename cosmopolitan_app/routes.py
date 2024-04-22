@@ -121,7 +121,7 @@ def putzen():
         title="Manually cleaned up.",
         subtitle="",
         header_type="COMPLETED",
-        content="The clean up was started.",
+        text="The clean up was started.",
     )
 
 
