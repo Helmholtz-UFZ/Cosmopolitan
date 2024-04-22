@@ -39,9 +39,9 @@ def check_health_of_computation():
     """Start a job and test if everything works."""
     try:
         job = CosmopolitanJob(job_id=valid_form_data["job_id"])
+        job.delete()
     except JobNotFound:
         pass
-    job.delete()
 
     logging.debug("Create form")
     form = CosmopolitanJobForm(formdata=valid_form_data, new=False)
