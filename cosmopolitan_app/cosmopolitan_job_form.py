@@ -305,6 +305,7 @@ class CosmopolitanJobForm(FlaskForm):
         """Init."""
         super().__init__(meta={"csrf": False}, **kwargs)
         if new:
+            logging.debug("New job form")
             self.job_id.data = "_".join(generate(3))
             self.previous_job_id.data = self.job_id.data
 
@@ -315,9 +316,9 @@ class CosmopolitanJobForm(FlaskForm):
         changed the function and moves all previously uploaded files into the
         new input dir.
         """
-        logging.debug("Check job id")
-        db_manager = DataBaseManager()
-        if db_manager.check_existence(field.data):
+        logging.debug(f"Check job id {field.data}")
+
+        if DataBaseManager.check_existence(field.data):
             raise ValidationError("Job id already exist")
 
         if len(field.errors) == 0:
@@ -397,7 +398,8 @@ class CosmopolitanJobForm(FlaskForm):
         if not super().validate():
             logging.debug("Not all field are valid")
             for field in self._fields:
-                logging.debug(f"{field}: {getattr(self, field).errors}")
+                if len(getattr(self, field).errors) > 0:
+                    logging.debug(f"{field}: {getattr(self, field).errors}")
             return False
 
         form_validt = True
@@ -492,15 +494,8 @@ class CosmopolitanJobForm(FlaskForm):
 
     def _input_parameters(self, write=True):
         """Write the input parameters for the background model into the input dir."""
-        try:
-            predictors = json.loads(self.selected_pred_files.data)
-        except json.JSONDecodeError:
-            predictors = "No predictor files selected."
-
-        try:
-            soil_moisture_data = json.loads(self.selected_crn_files.data)
-        except json.JSONDecodeError:
-            soil_moisture_data = "No CRNs files selected."
+        predictors = json.loads(self.selected_pred_files.data)
+        soil_moisture_data = json.loads(self.selected_crn_files.data)
 
         parameters = {
             "geometry": [
@@ -520,9 +515,9 @@ class CosmopolitanJobForm(FlaskForm):
                 "predictors": False,
                 "pred_correlation": False,
                 "day_measurements": False,
-                "day_predictor_imp": False,
+                "day_predictor_importance": False,
                 "day_prediction_map": False,
-                "alldays_predictor_imp": False,
+                "alldays_predictor_importance": False,
             },
             "save_results": True,
         }

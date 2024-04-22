@@ -69,6 +69,7 @@ class DataBaseManager:
     engine = create_engine(database_url, pool_pre_ping=True)
     Session = sessionmaker(bind=engine)
 
+    @classmethod
     def check_existence(self, job_id):
         """Check if a job with the given job ID exists in the database.
 
@@ -85,6 +86,7 @@ class DataBaseManager:
             job_row = session.query(JobTable).filter_by(job_id=job_id).first()
         return job_row is not None
 
+    @classmethod
     def add_entry(self, data_to_insert):
         """Add or update a job entry in the database.
 
@@ -99,6 +101,7 @@ class DataBaseManager:
             session.merge(job_row)
             session.commit()
 
+    @classmethod
     def update_column(self, job_id, column_dic):
         """Update a specific column in the 'JobTable' for a given job ID.
 
@@ -113,6 +116,7 @@ class DataBaseManager:
                 setattr(job, column_name, column_value)
             session.commit()
 
+    @classmethod
     def get_job_columns(self, job_id):
         """Retrieve all columns of a specific job entry based on its job ID.
 
@@ -140,6 +144,7 @@ class DataBaseManager:
             else:
                 raise JobNotFound(job_id)
 
+    @classmethod
     def delete_job(self, job_id):
         """Delete a job entry from the database based on its job ID.
 
@@ -160,6 +165,7 @@ class DataBaseManager:
             else:
                 raise JobNotFound(job_id)
 
+    @classmethod
     def list_jobs(self):
         """List all jobs in the database with their submission date and status.
 

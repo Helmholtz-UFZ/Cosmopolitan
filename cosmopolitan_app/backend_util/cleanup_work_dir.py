@@ -10,7 +10,7 @@ import shutil
 from cosmopolitan_app.config import CLUSTER_LOG_DIR, CLUSTER_WORK_DIR
 from cosmopolitan_app.db_manager import DataBaseManager
 
-existing_jobs = list(DataBaseManager().list_jobs().keys())
+existing_jobs = list(DataBaseManager.list_jobs().keys())
 for logs in os.listdir(os.path.join(CLUSTER_WORK_DIR, CLUSTER_LOG_DIR)):
     print(logs)
     if any((job_id in logs for job_id in existing_jobs)):

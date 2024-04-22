@@ -4,7 +4,6 @@
 -- GRANT CONNECT ON DATABASE somweb_stage TO somweb_stage_rw;
 
 DROP TABLE IF EXISTS jobs;
-DROP TABLE IF EXISTS logs;
 
 -- Create jobs table
 CREATE TABLE jobs (
@@ -21,18 +20,62 @@ CREATE TABLE jobs (
     status VARCHAR,
     version DECIMAL
 );
-
--- Create logs table
-CREATE TABLE logs (
-    log_id SERIAL PRIMARY KEY,
-    level VARCHAR(10),
-    message VARCHAR,
-    timestamp TIMESTAMPTZ
-);
+-- Create test job enty. This blocks the job_id from being inserted again by a
+-- user.
+-- Declare the JSON string
+DO $$
+DECLARE
+    input_data_json JSONB := '{
+        "job_id": "",
+        "previous_job_id": "",
+        "email": "",
+        "area_x1": "",
+        "area_x2": "",
+        "area_y1": "",
+        "area_y2": "",
+        "area_res": "",
+        "pred_files": "",
+        "crn_files": "",
+        "selected_pred_files": "",
+        "selected_crn_files": "",
+        "monte_carlo_iterations": "",
+        "monte_carlo_simulation": "",
+        "past_prediction_as_feature": "",
+        "average_measurements_over_time": ""
+    }';
+BEGIN
+    -- Create test job entry
+    INSERT INTO jobs (
+        job_id, 
+        start_date, 
+        input_data, 
+        files, 
+        file_names, 
+        submitted, 
+        cluster_job_id, 
+        email, 
+        notified_end, 
+        logs, 
+        status, 
+        version
+    ) VALUES (
+        'valid_form_data', 
+        '2020-01-01', 
+        input_data_json, 
+        '{1,2,3}', 
+        '{"file1.txt", "file2.txt", "file3.txt"}', 
+        TRUE, 
+        'cluster_job_id', 
+        'email', 
+        TRUE, 
+        'logs', 
+        'status', 
+        1.0
+    );
+END $$;
 
 -- Grant permissions on tables to the user
 GRANT INSERT, UPDATE, DELETE ON TABLE jobs TO somweb_stage_rw;
-GRANT INSERT, UPDATE, DELETE ON TABLE logs TO somweb_stage_rw;
 
 -- GRANT INSERT, UPDATE, DELETE ON TABLE jobs TO somweb_prod_rw;
 -- GRANT INSERT, UPDATE, DELETE ON TABLE logs TO somweb_prod_rw;

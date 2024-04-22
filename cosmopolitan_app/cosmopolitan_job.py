@@ -5,8 +5,10 @@ import json
 import logging
 import os
 import shutil
+import time
 from copy import deepcopy
 from datetime import date
+from test.mock_input import valid_form_data
 
 import requests
 
@@ -31,6 +33,48 @@ from cosmopolitan_app.utils import (
 )
 
 LOG_SUFFIX = "logs"
+
+
+def check_health_of_computation():
+    """Start a job and test if everything works."""
+    try:
+        job = CosmopolitanJob(job_id=valid_form_data["job_id"])
+    except JobNotFound:
+        pass
+    job.delete()
+
+    logging.debug("Create form")
+    form = CosmopolitanJobForm(formdata=valid_form_data, new=False)
+    if not form.validate():
+        raise ValueError("Test job form is not valid")
+    job = CosmopolitanJob(form=form)
+    job.save()
+    logging.debug("Submit job")
+    job.submit()
+
+    for _ in range(10):
+        time.sleep(10)
+        logging.debug("Reload job")
+        job.check_status()
+        if job.status == "COMPLETED":
+            logging.debug("Job finished.")
+            break
+        if job.status == "FAILED":
+            raise ValueError("Job failed.")
+    else:
+        # One last chance if just started
+        if job.status == "RUNNING":
+            time.sleep(10)
+            job.check_status()
+        # Eve is presumably clocked with jobs or somethin hung up
+        if job.status in ["PENDING", "RUNNING"]:
+            raise ValueError("Job did not finish in time.")
+        elif job.status == "COMPLETED":
+            logging.debug("Job finished.")
+        elif job.status == "FAILED":
+            raise ValueError("Job failed.")
+        else:
+            raise ValueError(f"Job has unkown status {job.status}.")
 
 
 def get_attributes(clazz):
@@ -79,7 +123,8 @@ class CosmopolitanJob:
             form = CosmopolitanJobForm()
             form.job_id.data = job_id
             if form.job_id.validate(form):
-                self._load_job(job_id)
+                self.job_id = job_id
+                self.load()
             else:
                 raise InvalidJobID(job_id)
         elif form is not None:
@@ -93,12 +138,13 @@ class CosmopolitanJob:
         """Represent class as string."""
         return self.job_id
 
-    def _load_job(self, job_id):
+    def load(self):
+        """Load job from database and store files in working dir."""
         logging.debug("Load job")
-        db_manager = DataBaseManager()
 
+        # Get data from database
         class_attributes = get_attributes(CosmopolitanJob)
-        for name, value in db_manager.get_job_columns(job_id).items():
+        for name, value in DataBaseManager.get_job_columns(self.job_id).items():
             if name == "files":
                 files = value
                 continue
@@ -106,6 +152,7 @@ class CosmopolitanJob:
                 raise AttributeError(f"CosmopolitanJob has no attribute named {name}")
             setattr(self, name, value)
 
+        # Copy files to working directory
         working_dir = os.path.join(self.base_work_dir, self.job_id)
         if not os.path.isdir(working_dir):
             os.mkdir(working_dir)
@@ -116,6 +163,7 @@ class CosmopolitanJob:
             with open(os.path.join(working_dir, f_name), "bw") as f_handle:
                 f_handle.write(files[self.file_names.index(f_name)])
 
+        # Set form data
         self.form = CosmopolitanJobForm()
         self.form.job_id.data = self.job_id
         self.form.previous_job_id.data = self.job_id
@@ -136,13 +184,10 @@ class CosmopolitanJob:
                 field.data = self.input_data[name]
 
     def _blank_job(self):
-        db_manager = DataBaseManager()
         while True:
             job_form = CosmopolitanJobForm()
-            if db_manager.check_existence(job_form.job_id.data):
-                logging.debug(
-                    f"Job id: {job_form.job_id.data} already exist", verbose_level=3
-                )
+            if DataBaseManager.check_existence(job_form.job_id.data):
+                logging.debug(f"Job id: {job_form.job_id.data} already exist")
                 continue
             break
         self.form = job_form
@@ -203,9 +248,8 @@ class CosmopolitanJob:
             f"Save attributes {', '.join(attribute_list)} to job {self.job_id}"
         )
         data_to_insert = {name: self._get_column_data(name) for name in attribute_list}
-        db_manager = DataBaseManager()
         try:
-            db_manager.update_column(self.job_id, data_to_insert)
+            DataBaseManager.update_column(self.job_id, data_to_insert)
         except JobNotFound:
             self.save()
 
@@ -219,10 +263,9 @@ class CosmopolitanJob:
         logging.debug(f"Save job {self.job_id}")
         column_names = JobTable.__table__.columns.keys()
         data_to_insert = {name: self._get_column_data(name) for name in column_names}
-        db_manager = DataBaseManager()
-        db_manager.add_entry(data_to_insert)
+        DataBaseManager.add_entry(data_to_insert)
 
-    def delete(self, keep_work_dir=False):
+    def delete(self, keep_work_dir=False, delete_db=True):
         """
         Delete the job in the data base.
 
@@ -233,8 +276,8 @@ class CosmopolitanJob:
         working_dir = os.path.join(self.base_work_dir, self.job_id)
         if not keep_work_dir:
             shutil.rmtree(working_dir)
-        db_manager = DataBaseManager()
-        db_manager.delete_job(self.job_id)
+        if delete_db:
+            DataBaseManager.delete_job(self.job_id)
 
     def _submit_slurm(self, mode, depends_on=None):
         """Submit job using slurm rest api.
@@ -243,7 +286,7 @@ class CosmopolitanJob:
         mode "load", "comp", "safe" and a slurm job id to build the correct request.
         """
         logging.debug(f"Submit {mode}.")
-        url = f"{CLUSTER_AUTHORITY}/slurm/v0.0.38/job/submit"
+        url = f"{CLUSTER_AUTHORITY}/slurmrest/slurm/v0.0.38/job/submit"
         job_para = deepcopy(slurm_default_parameters)
         name = f"{self.job_id}-{mode}"
         job_para["job"]["name"] = name
@@ -268,6 +311,7 @@ class CosmopolitanJob:
             job_para["job"]["dependency"] = f"afterany:{depends_on}"
 
         logging.debug(json.dumps(job_para, indent=2))
+        logging.debug(url)
         try:
             response = requests.post(url, json=job_para, headers=slurm_header)
         except requests.exceptions.ConnectionError:
@@ -314,45 +358,10 @@ class CosmopolitanJob:
 
         self.save_attributes(["status", "logs", "submitted", "cluster_job_id"])
 
-    def _check_status_db(self):
-        """Check status in slurm db.
-
-        The status of jobs which finished can found here.
-        """
-        url = f"{CLUSTER_AUTHORITY}/slurmdb/v0.0.38/job/{self.cluster_job_id}"
-        response = requests.get(url, headers=slurm_header)
-
-        if response.status_code != 200:
-            logging.warning("Check status failed.")
-            logging.warning(f"Status code: {response.status_code}")
-            logging.warning(f"URL: {url}")
-            logging.warning("Response:")
-            try:
-                logging.warning(json.dumps(response.json(), indent=2))
-            except IndexError:
-                logging.warning("No json returned!")
-            response.raise_for_status()
-
-        try:
-            status = response.json()["jobs"][0]["state"]["current"]
-        except IndexError:
-            if response.json()["errors"][0]["description"] == "Nothing found":
-                return None
-            logging.warning("Check status failed.")
-            logging.warning(f"Status code: {response.status_code}")
-            logging.warning(f"URL: {url}")
-            logging.warning("Response:")
-            logging.warning(json.dumps(response.json()["errors"], indent=2))
-            status = "FAILED"
-
-        return status
-
-    def _check_status_live(self):
-        """Check status in current slurm manager.
-
-        The status of jobs which finished can found here.
-        """
-        url = f"{CLUSTER_AUTHORITY}/slurm/v0.0.38/job/{self.cluster_job_id}"
+    def _check_status(self, mode="slurm"):
+        """Check status in current slurm manager or slurm db."""
+        logging.debug(f"Check status at {mode}.")
+        url = f"{CLUSTER_AUTHORITY}/slurmrest/{mode}/v0.0.38/job/{self.cluster_job_id}"
         response = requests.get(url, headers=slurm_header)
 
         if response.status_code != 200:
@@ -370,7 +379,10 @@ class CosmopolitanJob:
             status = response.json()["jobs"][0]["job_state"]
         except IndexError:
             if response.json()["errors"][0]["description"] == "Nothing found":
-                return None
+                if mode == "slurm":
+                    return self._check_status("slurmdb")
+                else:
+                    return None
             logging.warning("Check status failed.")
             logging.warning(f"Status code: {response.status_code}")
             logging.warning(f"URL: {url}")
@@ -386,16 +398,15 @@ class CosmopolitanJob:
         if self.status in ["COMPLETED", "FAILED"]:
             return
 
-        status = self._check_status_db()
-        if status is None:
-            status = self._check_status_live()
+        status = self._check_status()
 
         self.status = status
+        logging.debug(f"Status: {status}")
         self.save_attributes(["status"])
 
         if self.status in ["COMPLETED", "FAILED"]:
             # Reload to get results
-            self._load_job(self.job_id)
+            self.load()
 
     def get_paratameters_rfo_prediction(self):
         """Return parameter to load a RFo prediction model."""

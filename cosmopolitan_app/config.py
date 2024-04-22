@@ -20,9 +20,10 @@ def getenv(name):
     return value
 
 
-DAYS_DELETE_SUMBITTED = 2
-DAYS_DELETE_NOT_SUMBITTED = 60
-
+# Number of days to keep a submitted job entries in the database
+DAYS_DELETE_SUMBITTED = 60
+# Number of days to keep an unsubmitted job entries in the database
+DAYS_DELETE_NOT_SUMBITTED = 2
 load_dotenv()
 
 # s/=.*//g |'<,'> s/^.*$/& = getenv("&")/g | noh
@@ -38,7 +39,6 @@ CLUSTER_WORK_DIR = getenv("CLUSTER_WORK_DIR")
 CLUSTER_LOG_DIR = getenv("CLUSTER_LOG_DIR")
 CLUSTER_PYTHON_ENV_PATH = getenv("CLUSTER_PYTHON_ENV_PATH")
 CLUSTER_COSMOPOLITAN_REPO = getenv("CLUSTER_COSMOPOLITAN_REPO")
-CLUSTER_SM_REPO = getenv("CLUSTER_SM_REPO")
 CLUSTER_USER = getenv("CLUSTER_USER")
 CLUSTER_TOKEN = getenv("CLUSTER_TOKEN")
 CLUSTER_HOST = getenv("CLUSTER_HOST")
@@ -66,7 +66,7 @@ slurm_default_parameters = {
         "memory_per_cpu": "1G",
         "environment": {
             "PATH": "/usr/local/bin:/usr/bin",
-            "PYTHONPATH": f"{CLUSTER_SM_REPO}:{CLUSTER_COSMOPOLITAN_REPO}",
+            "PYTHONPATH": CLUSTER_COSMOPOLITAN_REPO,
         },
     },
     "script": None,
@@ -83,10 +83,13 @@ COMPUTATION_SCRIPT_TEMPLATE = f"""#!/bin/bash --login
 cd { CLUSTER_WORK_DIR }{{job_id}}
 module load foss/2022b Python/3.11.2-bare PostgreSQL/15.2
 source { CLUSTER_PYTHON_ENV_PATH }/bin/activate
-python3 { CLUSTER_SM_REPO }/SM_prediction_main.py -wd { CLUSTER_WORK_DIR }{{job_id}}"""
+python -m soil_moisture_prediction.smp_cli -w { CLUSTER_WORK_DIR }{{job_id}}"""
 
+transfer_script = (
+    f"{CLUSTER_COSMOPOLITAN_REPO}/cosmopolitan_app/backend_util/safe_results.py"
+)
 LOAD_SCRIPT_TEMPLATE = f"""#!/bin/bash --login
 module load foss/2022b Python/3.11.2-bare PostgreSQL/15.2
 source {CLUSTER_PYTHON_ENV_PATH}/bin/activate
-python3 {CLUSTER_COSMOPOLITAN_REPO}/auxilary_scripts/safe_results.py {{job_id}} {{mode}}
+python3 {transfer_script} {{job_id}} {{mode}}
 """

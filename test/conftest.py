@@ -24,9 +24,8 @@ logging.info("Check mock server")
 # except ConnectionRefusedError:
 #     logging.error("Mail server not available")
 #     pytest.exit("Mail server not available")
-db_manager = DataBaseManager()
 try:
-    db_manager.check_existence("test")
+    DataBaseManager.check_existence("test")
 except OperationalError:
     logging.error("DB not available")
     pytest.exit("DB not available")

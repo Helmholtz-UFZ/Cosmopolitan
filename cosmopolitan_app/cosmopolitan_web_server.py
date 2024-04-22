@@ -4,6 +4,7 @@ import logging
 import os
 from logging.config import dictConfig
 
+from apscheduler.schedulers.background import BackgroundScheduler
 from flask import Flask, render_template
 from werkzeug.exceptions import HTTPException
 
@@ -12,7 +13,7 @@ from cosmopolitan_app.cosmopolitan_job_form import json_load_4_jinja
 from cosmopolitan_app.dash_component import dynamic_plots
 from cosmopolitan_app.dash_component.dash_component import init_dash
 from cosmopolitan_app.logger import get_logger_config
-from cosmopolitan_app.utils import error_response_args, log_error
+from cosmopolitan_app.utils import clean_up, error_response_args, log_error
 
 # TODO Dash
 # from flask_wtf.csrf import CSRFProtect
@@ -39,6 +40,10 @@ app.config["SECRET_KEY"] = os.urandom(32)
 app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024 * 1024  # 5 Gb limit
 
 app.jinja_env.globals.update(json_loads=json_load_4_jinja)
+
+scheduler = BackgroundScheduler(daemon=True)
+scheduler.add_job(clean_up, "interval", hours=24)
+scheduler.start()
 
 
 def error_response_flask(e):

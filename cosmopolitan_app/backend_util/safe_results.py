@@ -21,7 +21,11 @@ def main(job_id, mode):
         cosmopolitan_job = CosmopolitanJob(
             job_id=job_id, base_work_dir=CLUSTER_WORK_DIR
         )
-        if mode == "save":
+        if mode == "load":
+            # Assures that previous data in the working dir is overwritten
+            cosmopolitan_job.delete(delete_db=False)
+            cosmopolitan_job.load()
+        elif mode == "save":
             cosmopolitan_job.save()
             url = f"{WEB_OUTSIDE_URL}/submission/{job_id}"
             for _attempt in range(3):
@@ -41,6 +45,8 @@ def main(job_id, mode):
                     break
                 logging.info("Informed frontend")
                 break
+        else:
+            logging.error(f"Mode {mode} is not supported.")
 
 
 if __name__ == "__main__":

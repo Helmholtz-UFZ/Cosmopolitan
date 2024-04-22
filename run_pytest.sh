@@ -8,6 +8,7 @@ fi
 
 cp .env_test .env
 
+docker rm postgres
 docker compose up postgres -d
 
 until docker exec postgres pg_isready -q; do
@@ -20,3 +21,4 @@ pytest -s
 if [ -f .env.bak ]; then
     mv .env.bak .env
 fi
+docker compose down
