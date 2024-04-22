@@ -17,6 +17,7 @@ from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
 from cosmopolitan_app.dash_component.dynamic_plots import base_path as result_path
 from cosmopolitan_app.utils import (
     SubmittedException,
+    clean_up,
     send_finished_mail,
     send_submission_mail,
 )
@@ -108,6 +109,20 @@ def input_job():
 def documentation():
     """Show documentation."""
     return render_template("html/content/documentation.html")
+
+
+@app.route("/putzen")
+def putzen():
+    """Manually start the clean up."""
+    logging.info("Manually start the clean up.")
+    clean_up()
+    return render_template(
+        "html/content/template_content.html",
+        title="Manually cleaned up.",
+        subtitle="",
+        header_type="COMPLETED",
+        content="The clean up was started.",
+    )
 
 
 @app.route("/check_health")

@@ -2,8 +2,10 @@
 
 import logging
 import os
+import shutil
 import smtplib
 import traceback
+from datetime import date, timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -12,13 +14,47 @@ from sqlalchemy.exc import OperationalError
 from werkzeug.exceptions import NotFound
 
 from cosmopolitan_app.config import (
+    DAYS_DELETE_NOT_SUMBITTED,
+    DAYS_DELETE_SUMBITTED,
     EMAIL_PASSWORD,
     EMAIL_PORT,
     EMAIL_SENDER,
     EMAIL_SERVER,
     EMAIL_USERNAME,
+    WEB_WORK_DIR,
 )
-from cosmopolitan_app.db_manager import JobNotFound
+from cosmopolitan_app.db_manager import DataBaseManager, JobNotFound
+
+
+def clean_up():
+    """Delete jobs older than a day and older than two months and their directories."""
+    logging.info("Start cleaning up.")
+    kept_jobs = []
+
+    # Define the time thresholds
+    job_end_of_life_not_submitted = date.today() - timedelta(
+        days=DAYS_DELETE_NOT_SUMBITTED
+    )
+    job_end_of_life_submitted = date.today() - timedelta(days=DAYS_DELETE_SUMBITTED)
+
+    for job_id, (start_date, submitted) in DataBaseManager.list_jobs().items():
+        logging.debug(f"Check job {job_id}.")
+        if not submitted and start_date < job_end_of_life_not_submitted:
+            logging.debug("Job was not submit and is older than two days.")
+            DataBaseManager.delete_job(job_id)
+        elif start_date < job_end_of_life_submitted:
+            logging.debug("Job older than two month.")
+            DataBaseManager.delete_job(job_id)
+        else:
+            logging.debug("Job will be kept.")
+            kept_jobs.append(job_id)
+
+    # Delete directorys locally
+    logging.debug("Clean up directorys locally.")
+    for dir_name in os.listdir(WEB_WORK_DIR):
+        dir_path = os.path.join(WEB_WORK_DIR, dir_name)
+        if os.path.isdir(dir_path) and dir_name not in kept_jobs:
+            shutil.rmtree(dir_path)
 
 
 def error_response_args(e):
