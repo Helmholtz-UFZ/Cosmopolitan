@@ -11,6 +11,7 @@ from datetime import date
 from test.mock_input import valid_form_data
 
 import requests
+from requests.exceptions import ConnectionError, Timeout
 
 from cosmopolitan_app.config import (
     CLUSTER_AUTHORITY,
@@ -313,8 +314,10 @@ class CosmopolitanJob:
         logging.debug(json.dumps(job_para, indent=2))
         logging.debug(url)
         try:
-            response = requests.post(url, json=job_para, headers=slurm_header)
-        except requests.exceptions.ConnectionError:
+            response = requests.post(
+                url, json=job_para, headers=slurm_header, timeout=5
+            )
+        except (ConnectionError, Timeout):
             logging.warning("Slurm submit failed.")
             logging.warning("Can not connect to server.")
             logging.warning(f"URL: {url}")
@@ -362,7 +365,13 @@ class CosmopolitanJob:
         """Check status in current slurm manager or slurm db."""
         logging.debug(f"Check status at {mode}.")
         url = f"{CLUSTER_AUTHORITY}/slurmrest/{mode}/v0.0.38/job/{self.cluster_job_id}"
-        response = requests.get(url, headers=slurm_header)
+        try:
+            response = requests.get(url, headers=slurm_header, timeout=5)
+        except (ConnectionError, Timeout):
+            logging.warning("Slurm check status failed.")
+            logging.warning("Can not connect to server.")
+            logging.warning(f"URL: {url}")
+            raise NoSlurmConnectionException(self.job_id)
 
         if response.status_code != 200:
             logging.warning("Check status failed.")
