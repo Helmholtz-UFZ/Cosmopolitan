@@ -11,7 +11,7 @@ fi
 if [ "$1" == "dev" ]; then
     env_file=".env_dev_prod"
 elif [ "$1" == "prod" ]; then
-    env_file=".env_prod"
+    env_file=".env_prod_backend"
 else
     echo "Usage: $0 <dev|prod>"
     echo "Invalid mode. Use 'dev' or 'prod'."
@@ -38,7 +38,7 @@ fi
 if [ "$overwrite" == true ]; then
     cp "$env_file" .env
     # Ask the user to add passwords to the .env file.
-    echo "Please add passwords to the .env file"
+    echo "Please add DB_PW to the .env file"
     while true; do
         read -p "Should ${EDITOR:-vi} be used to open the file (Y/n)? " yn
         if [[ "$yn" =~ Y|y|^$ ]]; then
