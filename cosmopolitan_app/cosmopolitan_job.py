@@ -52,7 +52,6 @@ def check_health_of_computation():
     job.save()
     logging.debug("Submit job")
     job.submit()
-    1 / 0
 
     for _ in range(10):
         time.sleep(10)
