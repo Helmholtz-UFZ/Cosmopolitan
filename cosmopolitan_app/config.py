@@ -80,8 +80,8 @@ slurm_header = {
 CLUSTER_PYTHON_ENV_TRANSFER_PATH = "/home/soncosmo/py_env_transfer"
 
 COMPUTATION_SCRIPT_TEMPLATE = f"""#!/bin/bash --login
-cd { CLUSTER_WORK_DIR }{{job_id}}
 module load foss/2022b Python/3.11.2-bare PostgreSQL/15.2
+export PYTHONPATH={ CLUSTER_COSMOPOLITAN_REPO }
 source { CLUSTER_PYTHON_ENV_PATH }/bin/activate
 python -m soil_moisture_prediction.smp_cli -w { CLUSTER_WORK_DIR }{{job_id}}"""
 
@@ -90,6 +90,7 @@ transfer_script = (
 )
 LOAD_SCRIPT_TEMPLATE = f"""#!/bin/bash --login
 module load foss/2022b Python/3.11.2-bare PostgreSQL/15.2
+export PYTHONPATH={ CLUSTER_COSMOPOLITAN_REPO }
 source {CLUSTER_PYTHON_ENV_PATH}/bin/activate
 python3 {transfer_script} {{job_id}} {{mode}}
 """

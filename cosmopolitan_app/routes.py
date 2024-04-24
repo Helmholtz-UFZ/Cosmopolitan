@@ -132,7 +132,7 @@ def check_health():
     try:
         check_health_of_computation()
     except Exception as e:  # noqa
-        logging.error(f"Health check failed: {traceback.format_exc()}")
+        logging.error(f"Health check failed:\n{repr(e)}\n\n{traceback.format_exc()}")
         return render_template("html/content/health.html", healthy=False), 503
     else:
         return render_template("html/content/health.html", healthy=True), 200
