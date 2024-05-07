@@ -34,3 +34,16 @@ def test_db_manager():
     }
     DataBaseManager.add_entry(data_to_insert)
     assert DataBaseManager.check_existence(job_id)
+
+
+def test_health_check():
+    """Test the health check."""
+    from cosmopolitan_app.db_manager import DataBaseManager
+
+    DataBaseManager.write_health(200, "All good")
+    check_time, status, message = DataBaseManager.get_health()
+    assert status == 200
+    assert message == "All good"
+    assert isinstance(check_time, datetime.datetime)
+    assert isinstance(status, int)
+    assert isinstance(message, str)

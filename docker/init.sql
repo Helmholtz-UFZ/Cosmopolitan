@@ -1,11 +1,18 @@
 -- init.sql
 
--- -- Grant connect on the database to the user
--- GRANT CONNECT ON DATABASE somweb_stage TO somweb_stage_rw;
+-- Health check table
+DROP TABLE IF EXISTS health_check;
 
+CREATE TABLE health_check (
+    check_time TIMESTAMP PRIMARY KEY,
+    status VARCHAR,
+    message VARCHAR
+);
+
+GRANT INSERT, UPDATE, DELETE ON TABLE health_check TO somweb_stage_rw;
+
+-- Jobs table
 DROP TABLE IF EXISTS jobs;
-
--- Create jobs table
 CREATE TABLE jobs (
     job_id VARCHAR PRIMARY KEY,
     start_date DATE,
@@ -74,7 +81,6 @@ BEGIN
     );
 END $$;
 
--- Grant permissions on tables to the user
 GRANT INSERT, UPDATE, DELETE ON TABLE jobs TO somweb_stage_rw;
 
 -- GRANT INSERT, UPDATE, DELETE ON TABLE jobs TO somweb_prod_rw;
