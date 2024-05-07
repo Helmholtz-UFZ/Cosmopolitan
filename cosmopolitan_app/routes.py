@@ -2,19 +2,16 @@
 
 import logging
 import os
-import traceback
 
 from flask import current_app as app
 from flask import redirect, render_template, request, send_from_directory, url_for
 from werkzeug.exceptions import BadRequestKeyError
 
 from cosmopolitan_app.config import WEB_WORK_DIR
-from cosmopolitan_app.cosmopolitan_job import (
-    CosmopolitanJob,
-    check_health_of_computation,
-)
+from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
 from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
 from cosmopolitan_app.dash_component.dynamic_plots import base_path as result_path
+from cosmopolitan_app.db_manager import DataBaseManager
 from cosmopolitan_app.utils import (
     SubmittedException,
     clean_up,
@@ -129,13 +126,25 @@ def putzen():
 def check_health():
     """Check if backend computation is healthy."""
     logging.info("Check health of computation.")
-    try:
-        check_health_of_computation()
-    except Exception as e:  # noqa
-        logging.error(f"Health check failed:\n{repr(e)}\n\n{traceback.format_exc()}")
-        return render_template("html/content/health.html", healthy=False), 503
+    check_time, status, message = DataBaseManager.get_health()
+    if status == 200:
+        return render_template(
+            "html/content/template_content.html",
+            title="Backend healthy.",
+            subtitle="",
+            header_type="COMPLETED",
+            text="",
+            status=status,
+        )
     else:
-        return render_template("html/content/health.html", healthy=True), 200
+        return render_template(
+            "html/content/template_content.html",
+            title="Backend unhealthy.",
+            subtitle="",
+            header_type="FAILED",
+            text=message,
+            status=status,
+        )
 
 
 @app.route("/results/<job_id>/<file_name>")

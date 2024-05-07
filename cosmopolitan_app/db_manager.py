@@ -10,12 +10,15 @@ Classes:
 - JobTable: Represents the 'jobs' table in the database.
 """
 
+from datetime import datetime
+
 from sqlalchemy import (
     ARRAY,
     JSON,
     Boolean,
     Column,
     Date,
+    DateTime,
     Float,
     LargeBinary,
     String,
@@ -194,6 +197,52 @@ class DataBaseManager:
                 job_info[job_row.job_id] = (job_row.start_date, job_row.submitted)
             return job_info
 
+    @classmethod
+    def write_health(self, status, message):
+        """Write a health check entry to the 'health_check' table in the database.
+
+        This method writes a health check entry to the 'health_check' table in
+        the database. The health check entry includes the current date time,
+        the status of the health check, and a message with additional information.
+
+        Parameters:
+        status (str): The status of the health check, e.g., 'OK' or 'ERROR'.
+        message (str): A message with additional information about the health check.
+        """
+        with self.Session() as session:
+            health_check_row = HealthCheckTable(
+                check_time=datetime.now(), status=status, message=message
+            )
+            session.add(health_check_row)
+            session.commit()
+
+    @classmethod
+    def get_health(self):
+        """Retrieve the latest health check entry from the 'health_check' table.
+
+        This method queries the 'health_check' table in the database to retrieve
+        the latest health check entry. The health check entry includes the check
+        time, the status of the health check, and a message with additional information.
+
+        Returns:
+        dict: A dictionary containing the 'check_time', 'status', and 'message'
+        of the latest health check entry.
+        """
+        with self.Session() as session:
+            health_check_row = (
+                session.query(HealthCheckTable)
+                .order_by(HealthCheckTable.check_time.desc())
+                .first()
+            )
+            if health_check_row:
+                return (
+                    health_check_row.check_time,
+                    int(health_check_row.status),
+                    health_check_row.message,
+                )
+            else:
+                return None, None, None
+
 
 class JobTable(Base):
     """Represents the 'jobs' table in the database.
@@ -216,3 +265,18 @@ class JobTable(Base):
     logs = Column("logs", String)
     status = Column("status", String)
     version = Column("version", Float)
+
+
+class HealthCheckTable(Base):
+    """Represents the 'health_check' table in the database.
+
+    This class defines the mapping between the 'health_check' table in the database and
+    the Python object model. It includes the necessary columns for the health check
+    entries.
+    """
+
+    __tablename__ = "health_check"
+
+    check_time = Column("check_time", DateTime, primary_key=True)
+    status = Column("status", String)
+    message = Column("message", String)

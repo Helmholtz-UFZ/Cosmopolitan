@@ -6,6 +6,7 @@ import logging
 import os
 import shutil
 import time
+import traceback
 from copy import deepcopy
 from datetime import date
 from test.mock_input import valid_form_data
@@ -36,8 +37,8 @@ from cosmopolitan_app.utils import (
 LOG_SUFFIX = "logs"
 
 
-def check_health_of_computation():
-    """Start a job and test if everything works."""
+def run_test_job():
+    """Run a test job to check if the computation works."""
     try:
         job = CosmopolitanJob(job_id=valid_form_data["job_id"])
         job.delete()
@@ -53,7 +54,7 @@ def check_health_of_computation():
     logging.debug("Submit job")
     job.submit()
 
-    for _ in range(10):
+    for _ in range(1000):
         time.sleep(10)
         job.check_status()
         if job.status == "COMPLETED":
@@ -75,6 +76,24 @@ def check_health_of_computation():
             raise ValueError("Job failed.")
         else:
             raise ValueError(f"Job has unkown status {job.status}.")
+
+
+def check_health_of_computation():
+    """Start a test job and store the result in the DB."""
+    try:
+        run_test_job()
+    except Exception as e:  # noqa
+        messsage = f"{repr(e)}\n\n{traceback.format_exc()}"
+        logging.error(f"Health check failed:\n{messsage}")
+        DataBaseManager.write_health(
+            503,
+            messsage,
+        )
+    else:
+        DataBaseManager.write_health(
+            200,
+            "",
+        )
 
 
 def get_attributes(clazz):
