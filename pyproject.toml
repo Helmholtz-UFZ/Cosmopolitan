@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cosmopolitan"
-version = "0.0.20"
+version = "0.0.21"
 description = "COSmic ray based soil MOisture PredictiOn LIve descicion Tree ANalysis"
 authors = ["John Anders <john-eric.anders@ufz.de>"]
 readme = "README.md"
