@@ -12,6 +12,7 @@ from datetime import date
 from test.mock_input import valid_form_data
 
 import requests
+from flask import Flask
 from requests.exceptions import ConnectionError, Timeout
 
 from cosmopolitan_app.config import (
@@ -39,43 +40,46 @@ LOG_SUFFIX = "logs"
 
 def run_test_job():
     """Run a test job to check if the computation works."""
-    try:
-        job = CosmopolitanJob(job_id=valid_form_data["job_id"])
-        job.delete()
-    except JobNotFound:
-        pass
+    # Create a minimal Flask app for the context of CosmopolitanJobForm
+    app = Flask("mock")
+    with app.app_context():
+        try:
+            job = CosmopolitanJob(job_id=valid_form_data["job_id"])
+            job.delete()
+        except JobNotFound:
+            pass
 
-    logging.debug("Create form")
-    form = CosmopolitanJobForm(formdata=valid_form_data, new=False)
-    if not form.validate():
-        raise ValueError("Test job form is not valid")
-    job = CosmopolitanJob(form=form)
-    job.save()
-    logging.debug("Submit job")
-    job.submit()
+        logging.debug("Create form")
+        form = CosmopolitanJobForm(formdata=valid_form_data, new=False)
+        if not form.validate():
+            raise ValueError("Test job form is not valid")
+        job = CosmopolitanJob(form=form)
+        job.save()
+        logging.debug("Submit job")
+        job.submit()
 
-    for _ in range(1000):
-        time.sleep(10)
-        job.check_status()
-        if job.status == "COMPLETED":
-            logging.debug("Job finished.")
-            break
-        if job.status == "FAILED":
-            raise ValueError("Job failed.")
-    else:
-        # One last chance if just started
-        if job.status == "RUNNING":
+        for _ in range(1000):
             time.sleep(10)
             job.check_status()
-        # Eve is presumably clocked with jobs or somethin hung up
-        if job.status in ["PENDING", "RUNNING"]:
-            raise ValueError("Job did not finish in time.")
-        elif job.status == "COMPLETED":
-            logging.debug("Job finished.")
-        elif job.status == "FAILED":
-            raise ValueError("Job failed.")
+            if job.status == "COMPLETED":
+                logging.debug("Job finished.")
+                break
+            if job.status == "FAILED":
+                raise ValueError("Job failed.")
         else:
-            raise ValueError(f"Job has unkown status {job.status}.")
+            # One last chance if just started
+            if job.status == "RUNNING":
+                time.sleep(10)
+                job.check_status()
+            # Eve is presumably clocked with jobs or somethin hung up
+            if job.status in ["PENDING", "RUNNING"]:
+                raise ValueError("Job did not finish in time.")
+            elif job.status == "COMPLETED":
+                logging.debug("Job finished.")
+            elif job.status == "FAILED":
+                raise ValueError("Job failed.")
+            else:
+                raise ValueError(f"Job has unkown status {job.status}.")
 
 
 def check_health_of_computation():
