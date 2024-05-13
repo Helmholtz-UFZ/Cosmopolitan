@@ -1,5 +1,13 @@
 -- init.sql
 
+-- Lock table for background jobs
+DROP TABLE IF EXISTS task_lock;
+
+CREATE TABLE task_lock (
+    task_type VARCHAR PRIMARY KEY,
+    is_locked BOOLEAN NOT NULL DEFAULT FALSE
+);
+
 -- Health check table
 DROP TABLE IF EXISTS health_check;
 
@@ -8,8 +16,6 @@ CREATE TABLE health_check (
     status VARCHAR,
     message VARCHAR
 );
-
-GRANT INSERT, UPDATE, DELETE ON TABLE health_check TO somweb_stage_rw;
 
 -- Jobs table
 DROP TABLE IF EXISTS jobs;
@@ -27,6 +33,7 @@ CREATE TABLE jobs (
     status VARCHAR,
     version DECIMAL
 );
+
 -- Create test job enty. This blocks the job_id from being inserted again by a
 -- user.
 -- Declare the JSON string
@@ -81,13 +88,9 @@ BEGIN
     );
 END $$;
 
-GRANT INSERT, UPDATE, DELETE ON TABLE jobs TO somweb_stage_rw;
-
--- GRANT INSERT, UPDATE, DELETE ON TABLE jobs TO somweb_prod_rw;
--- GRANT INSERT, UPDATE, DELETE ON TABLE logs TO somweb_prod_rw;
 -- SELECT job_id, start_date FROM jobs;
 -- SELECT job_id, status FROM jobs;
 -- SELECT job_id, cluster_job_id FROM jobs;
--- psql -U somweb_prod_adm -p 5432 -h postgres-dev.intranet.ufz.de -d somweb_prod
+-- psql -U somweb_prod_adm -p 5432 -h postgres.intranet.ufz.de -d somweb_prod
 -- psql -U somweb_stage_adm -p 5432 -h postgres-dev.intranet.ufz.de -d somweb_stage
 -- psql -U somweb_stage_rw -p 5432 -h localhost -d somweb_stage

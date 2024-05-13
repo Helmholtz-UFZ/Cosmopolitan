@@ -44,7 +44,8 @@ app.jinja_env.globals.update(json_loads=json_load_4_jinja)
 
 scheduler = BackgroundScheduler(daemon=True)
 scheduler.add_job(clean_up, "interval", hours=24)
-scheduler.add_job(check_health_of_computation, "interval", hours=12)
+# scheduler.add_job(check_health_of_computation, "interval", hours=12)
+scheduler.add_job(check_health_of_computation, "interval", minutes=1)
 scheduler.start()
 
 

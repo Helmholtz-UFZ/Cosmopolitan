@@ -26,6 +26,24 @@ from cosmopolitan_app.config import (
 from cosmopolitan_app.db_manager import DataBaseManager, JobNotFound
 
 
+def lock_task(task):
+    """Decorate a background tasks to lock the function.
+
+    Uses the function name as lock name, so only one function of the same name can run
+    at a time.
+    """
+
+    def lock_function(*args, **kwargs):
+        if DataBaseManager.get_lock(task.__name__):
+            try:
+                task(*args, **kwargs)
+            finally:
+                DataBaseManager.release_lock(task.__name__)
+
+    return lock_function
+
+
+@lock_task
 def clean_up():
     """Delete jobs older than a day and older than two months and their directories."""
     logging.info("Start cleaning up.")
