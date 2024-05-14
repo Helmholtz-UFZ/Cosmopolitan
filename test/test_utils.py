@@ -1,18 +1,18 @@
 """Test the utils module."""
 
-# from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
-# import pytest
+import pytest
 
+from cosmopolitan_app.db_manager import DataBaseManager
 from cosmopolitan_app.utils import (
     InvalidJobID,
     NotFinishedException,
     NotSubmittedException,
     SubmittedException,
     error_response_args,
+    lock_task,
 )
-
-# lock_task,
 
 
 def test_error_response_args():
@@ -38,54 +38,45 @@ def test_error_response_args():
         assert html_error_code == 400, error_message
 
 
-# @pytest.fixture
-# def mock_db_manager():
-#     db_manager = MagicMock()
-#     # Lock is initially free
-#     db_manager.get_lock.return_value = False
-#     return db_manager
-#
-#
-# def test_lock_task(mock_db_manager):
-#
-#     @lock_task
-#     def mock_task():
-#         pass
-#
-#     @lock_task
-#     def mock_task_with_exception():
-#         raise Exception("Test Exception")
-#
-#     # Basic functionality test
-#     mock_task()
-#     mock_db_manager.get_lock.assert_called_once_with("mock_task")
-#     mock_db_manager.release_lock.assert_called_once_with("mock_task")
-#
-#     mock_db_manager.reset_mock()
-#
-#     # Test that the lock is released even if an exception is raised
-#     with pytest.raises(Exception):
-#         mock_task_with_exception()
-#
-#     mock_db_manager.get_lock.assert_called_once_with("mock_task_with_exception")
-#     mock_db_manager.release_lock.assert_called_once_with("mock_task_with_exception")
-#
-#     mock_db_manager.reset_mock()
-#
-#     # Test that the lock is not released if it was not acquired
-#     mock_db_manager.get_lock.return_value = True
-#     mock_task()
-#     mock_db_manager.get_lock.assert_called_once_with("mock_task")
-#     mock_db_manager.release_lock.assert_not_called()
-#
-#     mock_db_manager.reset_mock()
-#
-#     # Test that the lock is not released if it was not acquired even if an exception
-#     # is raised
-#     mock_db_manager.get_lock.return_value = True
-#
-#     with pytest.raises(Exception):
-#         mock_task_with_exception()
-#
-#     mock_db_manager.get_lock.assert_called_once_with("mock_task_with_exception")
-#     mock_db_manager.release_lock.assert_not_called()
+@patch.object(DataBaseManager, "get_lock")
+@patch.object(DataBaseManager, "release_lock")
+def test_lock_task(mock_release_lock, mock_get_lock):
+    """Test the lock_task function under three different scenarios.
+
+    1. Task is already running and locked.
+    2. Task is not running and lock is acquired.
+    3. Task is not running and lock is acquired. But the task raises an exception.
+    """
+    # Three times the function is called to test. The first two times the lock is
+    # acquired and the third time it is not.
+    mock_get_lock.side_effect = [False, True, True]
+    mock_task = MagicMock()
+    # Name attribute is required for the lock_task function to work.
+    mock_task.__name__ = "mock_task"
+
+    locked_task = lock_task(mock_task)
+
+    # First case: Task is already running and locked.
+    locked_task()
+    mock_get_lock.assert_called_once_with("mock_task")
+    # The task is already running, so the task should not be called.
+    mock_task.assert_not_called()
+    mock_release_lock.assert_not_called()
+    mock_release_lock.reset_mock()
+    mock_get_lock.reset_mock()
+
+    # Second case: Task is not running and lock is acquired.
+    locked_task()
+    mock_get_lock.assert_called_once_with("mock_task")
+    mock_task.assert_called_once()
+    mock_release_lock.assert_called_once_with("mock_task")
+    mock_release_lock.reset_mock()
+    mock_get_lock.reset_mock()
+
+    # Third case: Task is not running and lock is not acquired. But the task raises an
+    # exception.
+    mock_task.side_effect = Exception("Test")
+    with pytest.raises(Exception):
+        locked_task()
+    mock_get_lock.assert_called_once_with("mock_task")
+    mock_release_lock.assert_called_once_with("mock_task")
