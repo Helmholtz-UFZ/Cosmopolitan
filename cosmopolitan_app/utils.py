@@ -34,11 +34,14 @@ def lock_task(task):
     """
 
     def lock_function(*args, **kwargs):
+        logging.debug(f"Lock function {task.__name__}.")
         if DataBaseManager.get_lock(task.__name__):
+            logging.debug(f"Lock acquired for {task.__name__}.")
             try:
                 task(*args, **kwargs)
             finally:
                 DataBaseManager.release_lock(task.__name__)
+                logging.debug(f"Lock released for {task.__name__}.")
 
     return lock_function
 

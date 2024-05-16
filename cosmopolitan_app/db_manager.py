@@ -257,7 +257,10 @@ class DataBaseManager:
         logging.debug(f"Get lock for task type: {task_type}")
         with self.Session() as session:
             task_lock = (
-                session.query(TaskLockTable).filter_by(task_type=task_type).first()
+                session.query(TaskLockTable)
+                .filter_by(task_type=task_type)
+                .with_for_update()
+                .first()
             )
             if task_lock is None:
                 task_lock = TaskLockTable(task_type=task_type, is_locked=True)
