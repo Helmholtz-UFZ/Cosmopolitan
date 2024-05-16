@@ -33,6 +33,7 @@ from cosmopolitan_app.utils import (
     NoSlurmConnectionException,
     NotFinishedException,
     NotSubmittedException,
+    lock_task,
 )
 
 LOG_SUFFIX = "logs"
@@ -82,8 +83,10 @@ def run_test_job():
                 raise ValueError(f"Job has unkown status {job.status}.")
 
 
+@lock_task
 def check_health_of_computation():
     """Start a test job and store the result in the DB."""
+    logging.info("Start health check.")
     try:
         run_test_job()
     except Exception as e:  # noqa

@@ -10,6 +10,7 @@ Classes:
 - JobTable: Represents the 'jobs' table in the database.
 """
 
+import logging
 from datetime import datetime
 
 from sqlalchemy import (
@@ -243,13 +244,63 @@ class DataBaseManager:
             else:
                 return None, None, None
 
+    @classmethod
+    def get_lock(self, task_type):
+        """Get a lock for a specific backgroung task type.
+
+        This method queries the TaskLockTable in the database to retrieve
+        the lock for a specific background task type. If the lock does not exist,
+        it will be created. The lock is used to prevent multiple instances of the
+        same background task type from running concurrently. The lock is released
+        with the method 'release_lock'.
+        """
+        logging.debug(f"Get lock for task type: {task_type}")
+        with self.Session() as session:
+            task_lock = (
+                session.query(TaskLockTable)
+                .filter_by(task_type=task_type)
+                .with_for_update()
+                .first()
+            )
+            if task_lock is None:
+                task_lock = TaskLockTable(task_type=task_type, is_locked=True)
+                session.add(task_lock)
+            elif task_lock.is_locked:
+                return False
+            else:
+                task_lock.is_locked = True
+            session.commit()
+        return True
+
+    @classmethod
+    def release_lock(self, task_type):
+        """Release the lock for a specific background task type.
+
+        This method releases the lock for a specific background task type in the
+        TaskLockTable in the database. The lock is used to prevent multiple instances
+        of the same background task type from running concurrently.
+        """
+        logging.debug(f"Release lock for task type: {task_type}")
+        with self.Session() as session:
+            task_lock = (
+                session.query(TaskLockTable).filter_by(task_type=task_type).first()
+            )
+            if task_lock:
+                task_lock.is_locked = False
+                session.commit()
+
+
+class TaskLockTable(Base):
+    """Represents the 'task_lock' table in the database."""
+
+    __tablename__ = "task_lock"
+
+    task_type = Column(String, primary_key=True)
+    is_locked = Column("is_locked", Boolean)
+
 
 class JobTable(Base):
-    """Represents the 'jobs' table in the database.
-
-    This class defines the mapping between the 'jobs' table in the database and
-    the Python object model. It includes the necessary columns for job entries.
-    """
+    """Represents the 'jobs' table in the database."""
 
     __tablename__ = "jobs"
 
@@ -268,12 +319,7 @@ class JobTable(Base):
 
 
 class HealthCheckTable(Base):
-    """Represents the 'health_check' table in the database.
-
-    This class defines the mapping between the 'health_check' table in the database and
-    the Python object model. It includes the necessary columns for the health check
-    entries.
-    """
+    """Represents the 'health_check' table in the database."""
 
     __tablename__ = "health_check"
 
