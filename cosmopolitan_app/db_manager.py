@@ -1,14 +1,4 @@
-"""Module for interaction between webservice and data base.
-
-This module defines the DataBaseManager class for interacting with job entries
-in a database. The DataBaseManager class provides methods to check for the
-existence of a job, add or update job entries, and retrieve all columns of a
-specific job entry.
-
-Classes:
-- DataBaseManager: A class for managing job entries in the database.
-- JobTable: Represents the 'jobs' table in the database.
-"""
+"""Module for interaction between webservice and data base."""
 
 import logging
 from datetime import datetime
@@ -46,25 +36,7 @@ class JobNotFound(Exception):
 
 
 class DataBaseManager:
-    """Class for interacting with the 'jobs' table in the database.
-
-    This class encapsulates methods to manage job entries in the 'jobs' table
-    of the database. It provides functionalities to check for the existence of
-    a job by its ID and to add or update job entries.
-
-    Attributes:
-    database_url (str): The URL for connecting to the PostgreSQL database.
-    engine (sqlalchemy.engine.base.Engine): The database connection engine.
-    Session (sqlalchemy.orm.session.sessionmaker): A session factory for
-    creating sessions to interact with the database.
-
-    Methods:
-    check_existence(job_id): Check if a job with the given job ID exists in the
-    database.
-    add_entry(data_to_insert): Add or update a job entry in the database.
-    get_job_columns(job_id): Retrieve all columns of a specific job entry based
-    on its job ID.
-    """
+    """Class for interacting with the posgres database."""
 
     database_url = (
         f"postgresql+psycopg2://{ DB_USER }:{ DB_PW }@"
@@ -100,6 +72,10 @@ class DataBaseManager:
         data_to_insert (dict): A dictionary containing job information with keys
         equivalent to the cloumns ins JobTable.
         """
+        if self.check_existence(data_to_insert["job_id"]):
+            self.update_column(data_to_insert["job_id"], data_to_insert)
+            return
+
         with self.Session() as session:
             job_row = JobTable(**data_to_insert)
             session.merge(job_row)
@@ -113,12 +89,43 @@ class DataBaseManager:
         JobNotFound: If the job with the provided job ID does not exist.
         """
         with self.Session() as session:
-            job = session.query(JobTable).filter_by(job_id=job_id).first()
+            job = (
+                session.query(JobTable)
+                .filter_by(job_id=job_id)
+                .with_for_update()
+                .first()
+            )
             if job is None:
                 raise JobNotFound(job_id)
             for column_name, column_value in column_dic.items():
                 setattr(job, column_name, column_value)
             session.commit()
+
+    @classmethod
+    def set_submitted(self, job_id):
+        """Update the 'submitted' column in the 'JobTable' for a given job ID.
+
+        The method works as well as a lock so that the job is not submitted twice.
+
+        Raises:
+        JobNotFound: If the job with the provided job ID does not exist.
+        """
+        with self.Session() as session:
+            job = (
+                session.query(JobTable)
+                .filter_by(job_id=job_id)
+                .with_for_update()
+                .first()
+            )
+            if job is None:
+                raise JobNotFound(job_id)
+
+            if job.submitted:
+                return True
+            else:
+                job.submitted = True
+                session.commit()
+                return True
 
     @classmethod
     def get_job_columns(self, job_id):
@@ -162,7 +169,12 @@ class DataBaseManager:
         JobNotFound: If the job with the provided job ID does not exist.
         """
         with self.Session() as session:
-            job = session.query(JobTable).filter_by(job_id=job_id).first()
+            job = (
+                session.query(JobTable)
+                .filter_by(job_id=job_id)
+                .with_for_update()
+                .first()
+            )
             if job:
                 session.delete(job)
                 session.commit()

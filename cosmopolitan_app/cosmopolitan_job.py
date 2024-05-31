@@ -3,17 +3,20 @@
 
 import json
 import logging
+import multiprocessing
 import os
 import shutil
 import time
 import traceback
 from copy import deepcopy
 from datetime import date
+from logging.config import dictConfig
 from test.mock_input import valid_form_data
 
 import requests
 from flask import Flask
 from requests.exceptions import ConnectionError, Timeout
+from soil_moisture_prediction.smp_cli import main
 
 from cosmopolitan_app.config import (
     CLUSTER_AUTHORITY,
@@ -21,6 +24,7 @@ from cosmopolitan_app.config import (
     COMPUTATION_SCRIPT_TEMPLATE,
     DAYS_DELETE_NOT_SUMBITTED,
     DAYS_DELETE_SUMBITTED,
+    DEBUG,
     LOAD_SCRIPT_TEMPLATE,
     WEB_WORK_DIR,
     slurm_default_parameters,
@@ -28,6 +32,7 @@ from cosmopolitan_app.config import (
 )
 from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
 from cosmopolitan_app.db_manager import DataBaseManager, JobNotFound, JobTable
+from cosmopolitan_app.logger import get_logger_config_compuation, get_logger_config_web
 from cosmopolitan_app.utils import (
     InvalidJobID,
     NoSlurmConnectionException,
@@ -37,6 +42,18 @@ from cosmopolitan_app.utils import (
 )
 
 LOG_SUFFIX = "logs"
+
+
+def start_computation(work_dir):
+    """Start a computation job."""
+    dictConfig(get_logger_config_compuation(work_dir))
+    try:
+        main(verbosity="debug", work_dir=work_dir)
+    except Exception as e:  # noqa
+        dictConfig(get_logger_config_web(DEBUG))
+        logging.error(f"Computation failed:\n{repr(e)}\n\n{traceback.format_exc()}")
+    dictConfig(get_logger_config_web(DEBUG))
+    logging.info("Computation finished.")
 
 
 def run_test_job():
@@ -130,7 +147,7 @@ class CosmopolitanJob:
     email = None
     notified_end = False
     logs = None
-    status = None
+    status = "PENDING"
     version = None
     file_names = None
 
@@ -268,7 +285,7 @@ class CosmopolitanJob:
         This method takes a list of attributes, collects the current information of
         these attributes. It then uses a DataBaseManager instance to add the collected
         data as to the respective column in the database.
-        If the job can not be found in data base safe all
+        If the job can not be found in data base safe all attributes.
         """
         logging.debug(
             f"Save attributes {', '.join(attribute_list)} to job {self.job_id}"
@@ -374,6 +391,24 @@ class CosmopolitanJob:
             return None
 
     def submit(self):
+        """Start job in a nother subprocess."""
+        logging.info(f"Submit job {self.job_id}.")
+        if DataBaseManager.set_submitted(self.job_id):
+            self.submitted = True
+            self.status = "RUNNING"
+            try:
+                working_dir = os.path.join(self.base_work_dir, self.job_id)
+                job = multiprocessing.Process(
+                    target=start_computation, args=(working_dir,)
+                )
+                job.start()
+            except Exception as e:  # noqa
+                messsage = f"{repr(e)}\n\n{traceback.format_exc()}"
+                logging.error(f"Job {self.job_id} failed to start.\n{messsage}")
+                self.status = "FAILED"
+            self.save()
+
+    def submit_eve(self):
         """Submit job to cluster."""
         logging.info(f"Submit job {self.job_id}.")
         self.submitted = True
@@ -426,7 +461,7 @@ class CosmopolitanJob:
 
         return status
 
-    def check_status(self):
+    def check_status_eve(self):
         """Check status of job on the cluster."""
         logging.info(f"See progress of job {self.job_id}.")
         if self.status in ["COMPLETED", "FAILED"]:

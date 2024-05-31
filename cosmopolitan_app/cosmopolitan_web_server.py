@@ -13,7 +13,7 @@ from cosmopolitan_app.cosmopolitan_job import check_health_of_computation
 from cosmopolitan_app.cosmopolitan_job_form import json_load_4_jinja
 from cosmopolitan_app.dash_component import dynamic_plots
 from cosmopolitan_app.dash_component.dash_component import init_dash
-from cosmopolitan_app.logger import get_logger_config
+from cosmopolitan_app.logger import get_logger_config_web
 from cosmopolitan_app.utils import clean_up, error_response_args, log_error
 
 # TODO Dash
@@ -35,7 +35,7 @@ app = init_dash(
 
 # TODO Dash
 # csrf = CSRFProtect(app)
-dictConfig(get_logger_config(DEBUG))
+dictConfig(get_logger_config_web(DEBUG))
 app.config["SECRET_KEY"] = os.urandom(32)
 
 app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024 * 1024  # 5 Gb limit

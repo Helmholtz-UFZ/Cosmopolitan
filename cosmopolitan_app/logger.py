@@ -17,6 +17,7 @@ functionality.
 """
 
 import logging
+import os
 from datetime import datetime
 
 from sqlalchemy import Column, DateTime, Integer, String, create_engine
@@ -107,7 +108,33 @@ class ExcludeDebugMatplotLibFilter(logging.Filter):
         )
 
 
-def get_logger_config(debug):
+def get_logger_config_compuation(work_dir):
+    """Get the config dic for the computation logger."""
+    return {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "handlers": {
+            "file": {
+                "class": "logging.FileHandler",
+                "level": "DEBUG",
+                "formatter": "detailed",
+                "filename": os.path.join(work_dir, "log"),
+                "mode": "w",
+            },
+        },
+        "formatters": {
+            "detailed": {
+                "format": "[%(asctime)s] %(levelname)s in %(module)s: %(message)s",
+            },
+        },
+        "root": {
+            "level": "DEBUG",
+            "handlers": ["file"],
+        },
+    }
+
+
+def get_logger_config_web(debug):
     """
     Get the config dic for the flask logger.
 

@@ -12,12 +12,7 @@ from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
 from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
 from cosmopolitan_app.dash_component.dynamic_plots import base_path as result_path
 from cosmopolitan_app.db_manager import DataBaseManager
-from cosmopolitan_app.utils import (
-    SubmittedException,
-    clean_up,
-    send_finished_mail,
-    send_submission_mail,
-)
+from cosmopolitan_app.utils import SubmittedException, clean_up, send_submission_mail
 
 
 @app.route("/")
@@ -42,21 +37,14 @@ def submission(job_id):
     """Site for submitting and presenting progress and results of a job."""
     logging.info("Submisison site")
     job = CosmopolitanJob(job_id=job_id)
+    job.submit()
     if not job.submitted:
         job.submit()
         send_submission_mail(job)
-    else:
-        job.check_status()
-    if job.status not in ["FAILED", "COMPLETED"]:
-        reload_delay = 5
-    else:
-        send_finished_mail(job)
-        reload_delay = None
 
     return render_template(
         "html/job/submission.html",
         job=job,
-        reload_delay=reload_delay,
         result_path=result_path,
     )
 
