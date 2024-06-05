@@ -217,7 +217,7 @@ def send_submission_mail(job):
     """Send a notification email to the user that the job was submitted."""
     if job.email == "":
         return
-    logging.info("Send mail about submitted job.")
+    logging.info(f"Send mail about submitted job {job.job_id}.")
     url = url_for("submission", job_id=job.job_id, _external=True)
     with open(
         "cosmopolitan_app/templates/emails/submission_email.txt", "r", encoding="UTF-8"

@@ -8,15 +8,6 @@ CREATE TABLE task_lock (
     is_locked BOOLEAN NOT NULL DEFAULT FALSE
 );
 
--- Health check table
-DROP TABLE IF EXISTS health_check;
-
-CREATE TABLE health_check (
-    check_time TIMESTAMP PRIMARY KEY,
-    status VARCHAR,
-    message VARCHAR
-);
-
 -- Jobs table
 DROP TABLE IF EXISTS jobs;
 CREATE TABLE jobs (
@@ -26,7 +17,6 @@ CREATE TABLE jobs (
     files BYTEA[],
     file_names VARCHAR[],
     submitted BOOL,
-    cluster_job_id VARCHAR,
     email VARCHAR,
     notified_end BOOL,
     logs VARCHAR,
@@ -66,7 +56,6 @@ BEGIN
         files, 
         file_names, 
         submitted, 
-        cluster_job_id, 
         email, 
         notified_end, 
         logs, 
@@ -79,7 +68,6 @@ BEGIN
         '{1,2,3}', 
         '{"file1.txt", "file2.txt", "file3.txt"}', 
         TRUE, 
-        'cluster_job_id', 
         'email', 
         TRUE, 
         'logs', 

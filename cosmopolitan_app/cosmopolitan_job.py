@@ -46,7 +46,7 @@ def start_computation(job):
         logging.error(f"Computation failed:\n{repr(e)}\n\n{traceback.format_exc()}")
     dictConfig(get_logger_config_web(DEBUG))
     logging.info("Computation finished.")
-    job.status = "COMPLETED"
+    job.save()
     send_finished_mail(job)
 
 
@@ -65,7 +65,7 @@ class CosmopolitanJob:
     """This class represents a job submission by the user.
 
     It handles input from a Flask application, performs input integrity checks, submits
-    jobs to a cluster, and formats the output for the user.
+    jobs, and formats the output for the user.
     """
 
     form = None
