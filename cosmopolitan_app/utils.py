@@ -80,16 +80,6 @@ def clean_up():
 
 def error_response_args(e):
     """Serve required arguments for error handling for both flask and dash."""
-    if isinstance(e, NoSlurmConnectionException):
-        return (
-            {
-                "error_page": "html/errors/no_slurm_connection.html",
-                "job_id": e.job_id,
-            },
-            500,
-            False,
-        )
-
     if isinstance(e, NotFinishedException):
         return (
             {
@@ -270,17 +260,3 @@ class NotFinishedException(Exception):
         """Add job id as attribute and format error message."""
         self.job_id = job_id
         super().__init__(f"The job {job_id} is not yet finished.")
-
-
-class NoSlurmConnectionException(Exception):
-    """Raised if no connection to the cluster can be established."""
-
-    def __init__(self, job_id):
-        """Add job id as attribute and format error message."""
-        self.job_id = job_id
-        super().__init__(
-            (
-                "Can not establish a connection to Cluster."
-                f"Job {job_id} could not be submitted."
-            )
-        )

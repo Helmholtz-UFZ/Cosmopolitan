@@ -9,7 +9,6 @@ from flask import Flask, render_template
 from werkzeug.exceptions import HTTPException
 
 from cosmopolitan_app.config import DEBUG, PORT
-from cosmopolitan_app.cosmopolitan_job import check_health_of_computation
 from cosmopolitan_app.cosmopolitan_job_form import json_load_4_jinja
 from cosmopolitan_app.dash_component import dynamic_plots
 from cosmopolitan_app.dash_component.dash_component import init_dash
@@ -44,7 +43,6 @@ app.jinja_env.globals.update(json_loads=json_load_4_jinja)
 
 scheduler = BackgroundScheduler(daemon=True)
 scheduler.add_job(clean_up, "interval", hours=24)
-scheduler.add_job(check_health_of_computation, "interval", hours=12)
 scheduler.start()
 
 

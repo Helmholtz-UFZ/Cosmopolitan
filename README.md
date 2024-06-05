@@ -18,10 +18,7 @@ The web service is based on `flask` see
 `cosmopolitan_app/cosmopolitan_web_server.py`. The main input validation is with
 `flaskWTF` see `cosmopolitan_app/cosmopolitan_job_form.py`. For the data storage
 an exchange with the compute cluster uses a postgres DB, see
-`cosmopolitan_app/db_manager.py`. Logging in production is also done in the
-postgres DB, see `cosmopolitan_app/logger.py`. Communication with the cluster is
-handled by a `SLURM REST API`, see methods of the `CosmopolitanJob` in
-`cosmopolitan_app/cosmopolitan_job.py`. For interactive components the `dash`
+`cosmopolitan_app/db_manager.py`. For interactive components the `dash`
 framework is used and are located in `cosmopolitan_app/dash_component/`.
 
 ## Build and development
@@ -91,10 +88,6 @@ The web service relies on three external services
 
  1. Mail server
  2. Postgres DB
- 3. SLURM REST API
-
-For two of the services a mock-up web server exist which allow to develop and test
-without access to the services. Currently the SLURM REST API can not be mocked.
 
 #### Mail server
 

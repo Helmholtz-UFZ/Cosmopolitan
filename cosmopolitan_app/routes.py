@@ -11,8 +11,7 @@ from cosmopolitan_app.config import WEB_WORK_DIR
 from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
 from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
 from cosmopolitan_app.dash_component.dynamic_plots import base_path as result_path
-from cosmopolitan_app.db_manager import DataBaseManager
-from cosmopolitan_app.utils import SubmittedException, clean_up, send_submission_mail
+from cosmopolitan_app.utils import SubmittedException, clean_up
 
 
 @app.route("/")
@@ -38,14 +37,17 @@ def submission(job_id):
     logging.info("Submisison site")
     job = CosmopolitanJob(job_id=job_id)
     job.submit()
-    if not job.submitted:
-        job.submit()
-        send_submission_mail(job)
+
+    if job.status not in ["FAILED", "COMPLETED"]:
+        reload_delay = 5
+    else:
+        reload_delay = None
 
     return render_template(
         "html/job/submission.html",
         job=job,
         result_path=result_path,
+        reload_delay=reload_delay,
     )
 
 
@@ -108,31 +110,6 @@ def putzen():
         header_type="COMPLETED",
         text="The clean up was started.",
     )
-
-
-@app.route("/check_health")
-def check_health():
-    """Check if backend computation is healthy."""
-    logging.info("Check health of computation.")
-    check_time, status, message = DataBaseManager.get_health()
-    if status == 200:
-        return render_template(
-            "html/content/template_content.html",
-            title="Backend healthy.",
-            subtitle="",
-            header_type="COMPLETED",
-            text="",
-            status=status,
-        )
-    else:
-        return render_template(
-            "html/content/template_content.html",
-            title="Backend unhealthy.",
-            subtitle="",
-            header_type="FAILED",
-            text=message,
-            status=status,
-        )
 
 
 @app.route("/results/<job_id>/<file_name>")
