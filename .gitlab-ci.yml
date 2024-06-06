@@ -54,7 +54,7 @@ test:
     - "export PGPASSWORD=${POSTGRES_PASSWORD}"
     - "psql -h $DB_HOST_NAME -U $POSTGRES_USER -W $POSTGRES_PASSWORD -d $POSTGRES_DB < docker/init.sql"
     - "cp .env_test .env"
-    - "curl 172.17.0.1:8025"
+    - "curl mailhog:8025"
     - "pip install poetry"
     - "poetry install"
   script:
