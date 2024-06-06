@@ -37,6 +37,7 @@ linting:
   stage: "lint"
   image: "python:3.11"
   before_script:
+    - *docker_login
     - "pip install poetry"
     - "poetry install"
   script:
