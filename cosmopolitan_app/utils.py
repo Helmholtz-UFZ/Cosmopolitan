@@ -187,10 +187,12 @@ def send_mail(recipient, subject, content):
     body = content
     msg.attach(MIMEText(body, "plain"))
 
+    logging.debug(f"Connect to email server {EMAIL_SERVER}:{EMAIL_PORT}.")
     server = smtplib.SMTP(EMAIL_SERVER, EMAIL_PORT)
     if EMAIL_PASSWORD != "test":
         server.starttls()
     server.login(EMAIL_USERNAME, EMAIL_PASSWORD)
+    logging.debug("Send mail.")
     server.sendmail(EMAIL_SENDER, recipient, msg.as_string())
     server.quit()
 

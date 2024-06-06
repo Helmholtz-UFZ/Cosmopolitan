@@ -9,7 +9,7 @@ from cosmopolitan_app.config import DB_PW, EMAIL_PASSWORD
 from cosmopolitan_app.db_manager import DataBaseManager
 from cosmopolitan_app.utils import send_mail
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 logging.info("Check environment")
 if any(var != "test" for var in [DB_PW, EMAIL_PASSWORD]):
