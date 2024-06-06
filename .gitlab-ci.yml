@@ -16,6 +16,8 @@ variables:
   POSTGRES_PASSWORD: test
   POSTGRES_HOST_AUTH_METHOD: trust
   DB_HOST_NAME: postgres
+  EMAIL_PORT: 1025
+  MAIL_HOG_PORT: 8025
 
 .docker_login: &docker_login
   - 'echo "${CI_REGISTRY_PASSWORD}" | docker login --username "$CI_REGISTRY_USER" --password-stdin "${CI_REGISTRY}"'
@@ -46,6 +48,7 @@ test:
     - postgres
     - name: mailhog/mailhog:latest
       alias: mailhog
+      command: ["-smtp-bind-addr", "0.0.0.0:${EMAIL_PORT}", "-api-bind-addr", "0.0.0.0:${MAIL_HOG_PORT}", "-ui-bind-addr", "0.0.0.0:${MAIL_HOG_PORT}"]
   before_script:
     - "apt-get update && apt-get install -y postgresql-client"
     - "export PGPASSWORD=${POSTGRES_PASSWORD}"
