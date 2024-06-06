@@ -46,7 +46,7 @@ test:
   image: "python:3.11"
   services:
     - postgres
-    - name: mailhog/mailhog:latest
+    - name: "mailhog/mailhog:latest"
       alias: mailhog
       command: ["-smtp-bind-addr", "0.0.0.0:1025", "-api-bind-addr", "0.0.0.0:8025", "-ui-bind-addr", "0.0.0.0:8025"]
   before_script:
