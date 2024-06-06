@@ -29,14 +29,14 @@ from cosmopolitan_app.utils import (
     send_submission_mail,
 )
 
-LOG_SUFFIX = "logs"
+LOG_FILE_NAME = "logs"
 
 
 def start_computation(job):
     """Start a computation job."""
     working_dir = os.path.join(job.base_work_dir, job.job_id)
     send_submission_mail(job)
-    dictConfig(get_logger_config_compuation(working_dir))
+    dictConfig(get_logger_config_compuation(working_dir, LOG_FILE_NAME))
     try:
         main(verbosity="debug", work_dir=working_dir)
         job.status = "COMPLETED"
@@ -201,9 +201,9 @@ class CosmopolitanJob:
                     value.append(f_handle.read())
             return value
         if name == "logs":
-            log_file = os.path.join(working_dir, LOG_SUFFIX)
+            log_file = os.path.join(working_dir, LOG_FILE_NAME)
             if os.path.isfile(log_file):
-                with open(os.path.join(working_dir, LOG_SUFFIX), "r") as f_handle:
+                with open(os.path.join(working_dir, LOG_FILE_NAME), "r") as f_handle:
                     return f_handle.read()
 
         return getattr(self, name)

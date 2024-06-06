@@ -38,7 +38,7 @@ class ExcludeDebugMatplotLibFilter(logging.Filter):
         )
 
 
-def get_logger_config_compuation(work_dir):
+def get_logger_config_compuation(work_dir, log_file_name):
     """Get the config dic for the computation logger."""
     return {
         "version": 1,
@@ -48,7 +48,7 @@ def get_logger_config_compuation(work_dir):
                 "class": "logging.FileHandler",
                 "level": "DEBUG",
                 "formatter": "detailed",
-                "filename": os.path.join(work_dir, "log"),
+                "filename": os.path.join(work_dir, log_file_name),
                 "mode": "w",
             },
         },
