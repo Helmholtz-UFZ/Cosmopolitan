@@ -1,6 +1,7 @@
 #!/bin/bash
 
 export DB_HOST_NAME=0.0.0.0
+export EMAIL_SERVER=172.17.0.1
 
 if [ -f .env ]; then
     mv .env .env.bak

@@ -192,7 +192,6 @@ def send_mail(recipient, subject, content):
     if EMAIL_PASSWORD != "test":
         server.starttls()
     server.login(EMAIL_USERNAME, EMAIL_PASSWORD)
-    logging.debug("Send mail.")
     server.sendmail(EMAIL_SENDER, recipient, msg.as_string())
     server.quit()
 

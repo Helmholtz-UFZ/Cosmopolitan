@@ -55,7 +55,8 @@ def create_valid_form_data(parameters):
             "selected_pred_files": "",
             "selected_crn_files": "",
             "monte_carlo_iterations": parameters["monte_carlo_iterations"],
-            "monte_carlo_simulation": "y",
+            "monte_carlo_soil_moisture": "y",
+            "monte_carlo_predictor": "y",
             "past_prediction_as_feature": "y",
             "average_measurements_over_time": "y",
         }

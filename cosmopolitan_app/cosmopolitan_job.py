@@ -10,6 +10,7 @@ import traceback
 from datetime import date
 from logging.config import dictConfig
 
+from soil_moisture_prediction.pydantic_models import InputParamaters
 from soil_moisture_prediction.smp_cli import main
 
 from cosmopolitan_app.config import (
@@ -34,20 +35,27 @@ LOG_FILE_NAME = "logs"
 
 def start_computation(job):
     """Start a computation job."""
-    working_dir = os.path.join(job.base_work_dir, job.job_id)
-    send_submission_mail(job)
-    dictConfig(get_logger_config_compuation(working_dir, LOG_FILE_NAME))
     try:
-        main(verbosity="debug", work_dir=working_dir)
-        job.status = "COMPLETED"
+        send_submission_mail(job)
+        dictConfig(
+            get_logger_config_compuation(os.path.join(job.working_dir, LOG_FILE_NAME))
+        )
+        try:
+            main(verbosity="debug", work_dir=job.working_dir)
+            job.status = "COMPLETED"
+        except Exception as e:  # noqa
+            dictConfig(get_logger_config_web(DEBUG))
+            job.status = "FAILED"
+            logging.error(f"Computation failed:\n{repr(e)}\n\n{traceback.format_exc()}")
+        dictConfig(get_logger_config_web(DEBUG))
+        logging.info("Computation finished.")
+        job.save()
+        send_finished_mail(job)
     except Exception as e:  # noqa
         dictConfig(get_logger_config_web(DEBUG))
-        job.status = "FAILED"
-        logging.error(f"Computation failed:\n{repr(e)}\n\n{traceback.format_exc()}")
-    dictConfig(get_logger_config_web(DEBUG))
-    logging.info("Computation finished.")
-    job.save()
-    send_finished_mail(job)
+        logging.error(
+            f"Job {job.job_id} failed:\n{repr(e)}\n\n{traceback.format_exc()}"
+        )
 
 
 def get_attributes(clazz):
@@ -84,12 +92,8 @@ class CosmopolitanJob:
         self,
         job_id=None,
         form=None,
-        base_work_dir=WEB_WORK_DIR,
     ):
         """Init class either by id, by html form or make a new one."""
-        # The class can be intilized backend for loading and saving. Depending on this
-        # the work is not the same as the enviroment variable WEB_WORK_DIR.
-        self.base_work_dir = base_work_dir
         if job_id is not None:
             logging.debug(f"Load submission {job_id}")
             form = CosmopolitanJobForm()
@@ -125,14 +129,13 @@ class CosmopolitanJob:
             setattr(self, name, value)
 
         # Copy files to working directory
-        working_dir = os.path.join(self.base_work_dir, self.job_id)
-        if not os.path.isdir(working_dir):
-            os.mkdir(working_dir)
+        self.working_dir = os.path.join(WEB_WORK_DIR, self.job_id)
+        os.makedirs(self.working_dir, exist_ok=True)
 
         for f_name in self.file_names:
-            if f_name in os.listdir(working_dir):
+            if f_name in os.listdir(self.working_dir):
                 continue
-            with open(os.path.join(working_dir, f_name), "bw") as f_handle:
+            with open(os.path.join(self.working_dir, f_name), "bw") as f_handle:
                 f_handle.write(files[self.file_names.index(f_name)])
 
         # Set form data
@@ -174,6 +177,7 @@ class CosmopolitanJob:
         self.input_data = {}
         self.start_date = date.today()
         self.job_id = self.form.job_id.data
+        self.working_dir = os.path.join(WEB_WORK_DIR, self.job_id)
         self.email = self.form.email.data
 
         for name, field in self.form._fields.items():
@@ -191,19 +195,20 @@ class CosmopolitanJob:
                 self.input_data[name] = field.data
 
     def _get_column_data(self, name):
-        working_dir = os.path.join(self.base_work_dir, self.job_id)
         if name == "file_names":
-            return list(os.listdir(working_dir))
+            return list(os.listdir(self.working_dir))
         if name == "files":
             value = []
-            for f_name in os.listdir(working_dir):
-                with open(os.path.join(working_dir, f_name), "rb") as f_handle:
+            for f_name in os.listdir(self.working_dir):
+                with open(os.path.join(self.working_dir, f_name), "rb") as f_handle:
                     value.append(f_handle.read())
             return value
         if name == "logs":
-            log_file = os.path.join(working_dir, LOG_FILE_NAME)
+            log_file = os.path.join(self.working_dir, LOG_FILE_NAME)
             if os.path.isfile(log_file):
-                with open(os.path.join(working_dir, LOG_FILE_NAME), "r") as f_handle:
+                with open(
+                    os.path.join(self.working_dir, LOG_FILE_NAME), "r"
+                ) as f_handle:
                     return f_handle.read()
 
         return getattr(self, name)
@@ -245,9 +250,8 @@ class CosmopolitanJob:
         the database based on the job's unique identifier ('job_id').
         """
         logging.debug(f"Delete job {self.job_id}")
-        working_dir = os.path.join(self.base_work_dir, self.job_id)
         if not keep_work_dir:
-            shutil.rmtree(working_dir)
+            shutil.rmtree(self.working_dir)
         if delete_db:
             DataBaseManager.delete_job(self.job_id)
 
@@ -259,10 +263,7 @@ class CosmopolitanJob:
             self.status = "RUNNING"
             self.save()
             try:
-                working_dir = os.path.join(self.base_work_dir, self.job_id)
-                job = multiprocessing.Process(
-                    target=start_computation, args=(working_dir,)
-                )
+                job = multiprocessing.Process(target=start_computation, args=(self,))
                 job.start()
             except Exception as e:  # noqa
                 messsage = f"{repr(e)}\n\n{traceback.format_exc()}"
@@ -270,7 +271,7 @@ class CosmopolitanJob:
                 self.status = "FAILED"
             self.save()
 
-    def get_paratameters_rfo_prediction(self):
+    def get_parameters_rfo_prediction(self):
         """Return parameter to load a RFo prediction model."""
         if not self.submitted:
             raise NotSubmittedException(self.job_id)
@@ -278,12 +279,10 @@ class CosmopolitanJob:
         if self.status != "COMPLETED":
             raise NotFinishedException(self.job_id)
 
-        working_dir = os.path.join(self.base_work_dir, self.job_id)
+        with open(os.path.join(self.working_dir, "parameters.json"), "r") as f_handle:
+            input_parameters = InputParamaters(**json.loads(f_handle.read()))
 
-        with open(os.path.join(working_dir, "parameters.json"), "r") as f_handle:
-            input_data = json.loads(f_handle.read())
-
-        return input_data, working_dir, True
+        return input_parameters, self.working_dir, True
 
     def time_to_life(self):
         """Return the number of days after which this job will be deleted."""

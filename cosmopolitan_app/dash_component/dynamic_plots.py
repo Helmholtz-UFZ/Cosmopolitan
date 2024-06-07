@@ -47,11 +47,13 @@ def load_rfo_prediction(job_id, ttl_hash=None):
     logging.debug(f"Load rfo prediction for {job_id}.")
     cosmopolitan_job = CosmopolitanJob(job_id=str(job_id))
     (
-        input_data,
+        input_parameters,
         working_dir,
         load_results,
-    ) = cosmopolitan_job.get_paratameters_rfo_prediction()
-    return RFoModel(**input_data, work_dir=working_dir, load_results=True)
+    ) = cosmopolitan_job.get_parameters_rfo_prediction()
+    return RFoModel(
+        input_parameters=input_parameters, work_dir=working_dir, load_results=True
+    )
 
 
 def create_slider(plot_id, rfo_prediction):

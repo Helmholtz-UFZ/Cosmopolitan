@@ -6,8 +6,11 @@ from test.mock_input import (
     valid_form_data,
 )
 
+import pytest
 from flask import Flask
+from pydantic import ValidationError
 from soil_moisture_prediction.pydantic_models import InputParamaters
+from soil_moisture_prediction.smp_cli import pprint_pydantic_validation_error
 
 from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
 from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
@@ -90,13 +93,13 @@ def test_changes_in_parameters():
     assert cosmopolitan_job_form.validate() is True, "Form is not valid."
 
     parameters_form = cosmopolitan_job_form._input_parameters(write=False)
-    input_parameters = InputParamaters(**parameters_form)
+    try:
+        input_parameters = InputParamaters(**parameters_form)
+    except ValidationError as validation_error:
+        pytest.fail(
+            "Input parameter are not cohesive with pydantic mocdel:\n"
+            + pprint_pydantic_validation_error(validation_error)
+        )
     assert (
         type(input_parameters) is InputParamaters
     ), "Input parameters are not correct."
-
-    # Save the job again as currently test_if_test_job_exists looks for the job in the
-    # database and will fail if the job does not exist. The test job should always exist
-    # as it used to test the webserver in production.
-    job = CosmopolitanJob(form=cosmopolitan_job_form)
-    job.save()

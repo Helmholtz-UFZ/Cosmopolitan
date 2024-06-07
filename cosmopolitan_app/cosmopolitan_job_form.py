@@ -157,7 +157,8 @@ class CosmopolitanJobForm(FlaskForm):
             "Predictor variables": ["pred_files", "selected_pred_files"],
             "CRN Measurments": ["crn_files", "selected_crn_files"],
             "Model Parameters": [
-                "monte_carlo_simulation",
+                "monte_carlo_soil_moisture",
+                "monte_carlo_predictor",
                 "monte_carlo_iterations",
                 "past_prediction_as_feature",
                 "average_measurements_over_time",
@@ -263,9 +264,16 @@ class CosmopolitanJobForm(FlaskForm):
         default="",
     )
 
-    monte_carlo_simulation = BooleanField(
-        "Monte carlo simulation",
-        description="Should a monte carolo simulation be done to evaulate uncertantiy.",
+    monte_carlo_soil_moisture = BooleanField(
+        "Monte carlo simulation of CRNS data",
+        description="Should a monte carlo simulation of the CRNS data be done to evaulate uncertantiy.",  # noqa
+        widget=BooleanInput(),
+        validators=[],
+    )
+
+    monte_carlo_predictor = BooleanField(
+        "Monte carlo simulation of predictor data",
+        description="Should a monte carlo simulation of the predictor data be done to evaulate uncertantiy.",  # noqa
         widget=BooleanInput(),
         validators=[],
     )
@@ -507,7 +515,8 @@ class CosmopolitanJobForm(FlaskForm):
             ],
             "predictors": predictors,
             "soil_moisture_data": soil_moisture_data,
-            "monte_carlo": self.monte_carlo_simulation.data,
+            "monte_carlo_soil_moisture": self.monte_carlo_soil_moisture.data,
+            "monte_carlo_predictor": self.monte_carlo_predictor.data,
             "monte_carlo_iterations": self.monte_carlo_iterations.data,
             "past_prediction_as_feature": self.past_prediction_as_feature.data,
             "average_measurements_over_time": self.average_measurements_over_time.data,
@@ -725,7 +734,7 @@ class PredParser(InputFileParser):
 
     Attributes:
         file_information (dict):
-            Information about the file contents (type and unit).
+            Information about the file contents (type, unit, std_deviation).
     """
 
     file_information = {"type": "", "unit": ""}

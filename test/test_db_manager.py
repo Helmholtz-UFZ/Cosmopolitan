@@ -1,14 +1,6 @@
 """Test the db_manager class."""
 
 import datetime
-from test.mock_input import valid_form_data
-
-
-def test_if_test_job_exists():
-    """Test if the test job exists in the database."""
-    from cosmopolitan_app.db_manager import DataBaseManager
-
-    assert DataBaseManager.check_existence(valid_form_data["job_id"])
 
 
 def test_db_manager():
