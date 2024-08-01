@@ -9,7 +9,7 @@ from test.mock_input import (
 import pytest
 from flask import Flask
 from pydantic import ValidationError
-from soil_moisture_prediction.pydantic_models import InputParamaters
+from soil_moisture_prediction.pydantic_models import InputParameters
 from soil_moisture_prediction.smp_cli import pprint_pydantic_validation_error
 
 from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
@@ -19,12 +19,25 @@ from cosmopolitan_app.db_manager import JobNotFound
 
 def test_consistency_between_test_form_data():
     """Test consistency between the test form data."""
-    assert (
-        valid_form_data.keys() == pre_invalid_form_data.keys()
-    ), "Test form data inconsistent."
-    assert (
-        valid_form_data.keys() == post_invalid_form_data.keys()
-    ), "Test form data inconsistent."
+    for key in valid_form_data:
+        assert (
+            key in pre_invalid_form_data
+        ), f"Key {key} not found in pre_invalid_form_data."
+        assert (
+            key in post_invalid_form_data
+        ), f"Key {key} not found in post_invalid_form_data."
+
+    for key in pre_invalid_form_data:
+        assert key in valid_form_data, f"Key {key} not found in valid_form_data."
+        assert (
+            key in post_invalid_form_data
+        ), f"Key {key} not found in post_invalid_form_data."
+
+    for key in post_invalid_form_data:
+        assert key in valid_form_data, f"Key {key} not found in valid_form_data."
+        assert (
+            key in pre_invalid_form_data
+        ), f"Key {key} not found in pre_invalid_form_data."
 
 
 def test_consistency_between_form_and_package():
@@ -94,12 +107,12 @@ def test_changes_in_parameters():
 
     parameters_form = cosmopolitan_job_form._input_parameters(write=False)
     try:
-        input_parameters = InputParamaters(**parameters_form)
+        input_parameters = InputParameters(**parameters_form)
     except ValidationError as validation_error:
         pytest.fail(
             "Input parameter are not cohesive with pydantic mocdel:\n"
             + pprint_pydantic_validation_error(validation_error)
         )
     assert (
-        type(input_parameters) is InputParamaters
+        type(input_parameters) is InputParameters
     ), "Input parameters are not correct."

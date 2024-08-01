@@ -116,9 +116,11 @@ class DataBaseManager:
                 .first()
             )
             if job is None:
+                session.commit()
                 raise JobNotFound(job_id)
 
             if job.submitted:
+                session.commit()
                 return False
             else:
                 job.submitted = True

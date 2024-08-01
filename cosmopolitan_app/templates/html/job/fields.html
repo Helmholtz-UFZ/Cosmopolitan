@@ -84,7 +84,7 @@
 	{%- if input -%}
 	{{ field() }}
 	{%- endif -%}
-	{%- if field.name in ["selected_pred_files", "selected_crn_files"]  -%}
+	{%- if field.name in ["selected_pred_files", "selected_crn_file"]  -%}
 	{{ render_input_files(field) }}
 	{%- endif -%}
 {%- endif -%}
@@ -92,20 +92,26 @@
 {% endmacro %}
 
 {% macro render_input_files(field) %}
+	{%- if field.name == "selected_crn_file" -%}
+	<h5>Choosen file:</h5>
+	<div class="fw-bold">{{ json_loads(field.data)|list|first }} </div>
+	{%- else -%}
 	<h5>Choosen files:</h5>
 	<ol class="list-group list-group-numbered list-group-flush">
-	{% for name, info in json_loads(field.data).items() %}
+		{% for name, info in json_loads(field.data).items() %}
 		<li class="list-group-item d-flex justify-content-between align-items-start">
 			<div class="ms-2 me-auto">
 				<div class="fw-bold">{{ name }} </div>
 				{%- if field.name == "selected_pred_files" -%}
-				type: {{ info["type"] }} <br> unit: {{ info["unit"] }}
-				{%- elif field.name == "selected_crn_files" -%}
-				days: {{ ", ".join(info) }}
+				type: {{ info["type"] }} <br>
+				unit: {{ info["unit"] }} <br>
+				with deviation: {{ info["std_deviation"] }} <br>
+				constant: {{ info["constant"] }}
 				{%- endif -%}
 			</div>
 		</li>
-	{% endfor %}
+		{% endfor %}
+	{%- endif -%}
 	</ol>
 {% endmacro %}
 

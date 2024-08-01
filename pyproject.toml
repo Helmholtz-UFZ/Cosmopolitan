@@ -55,7 +55,7 @@ virtualenv = "^20.25.0"
 werkzeug = "^3.0.1"
 wtforms = "^3.1.1"
 apscheduler = "^3.10.4"
-soil-moisture-prediction = "^0.0.16"
+soil-moisture-prediction = "^0.0.26"
 
 [tool.poetry.group.dev.dependencies]
 docker = "^7.0.0"

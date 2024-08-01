@@ -11,6 +11,9 @@ from cosmopolitan_app.utils import send_mail
 
 logging.basicConfig(level=logging.DEBUG)
 
+matplotlib_logger = logging.getLogger("matplotlib")
+matplotlib_logger.setLevel(logging.CRITICAL)
+
 logging.info("Check environment")
 if any(var != "test" for var in [DB_PW, EMAIL_PASSWORD]):
     logging.error("Environment variables not set")

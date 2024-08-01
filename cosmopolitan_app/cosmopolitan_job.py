@@ -10,7 +10,7 @@ import traceback
 from datetime import date
 from logging.config import dictConfig
 
-from soil_moisture_prediction.pydantic_models import InputParamaters
+from soil_moisture_prediction.pydantic_models import InputParameters
 from soil_moisture_prediction.smp_cli import main
 
 from cosmopolitan_app.config import (
@@ -41,8 +41,11 @@ def start_computation(job):
             get_logger_config_compuation(os.path.join(job.working_dir, LOG_FILE_NAME))
         )
         try:
-            main(verbosity="debug", work_dir=job.working_dir)
-            job.status = "COMPLETED"
+            rfo_model = main(verbosity="debug", work_dir=job.working_dir)
+            if rfo_model is None:
+                job.status = "FAILED"
+            else:
+                job.status = "COMPLETED"
         except Exception as e:  # noqa
             dictConfig(get_logger_config_web(DEBUG))
             job.status = "FAILED"
@@ -261,7 +264,6 @@ class CosmopolitanJob:
         if DataBaseManager.set_submitted(self.job_id):
             self.submitted = True
             self.status = "RUNNING"
-            self.save()
             try:
                 job = multiprocessing.Process(target=start_computation, args=(self,))
                 job.start()
@@ -280,7 +282,7 @@ class CosmopolitanJob:
             raise NotFinishedException(self.job_id)
 
         with open(os.path.join(self.working_dir, "parameters.json"), "r") as f_handle:
-            input_parameters = InputParamaters(**json.loads(f_handle.read()))
+            input_parameters = InputParameters(**json.loads(f_handle.read()))
 
         return input_parameters, self.working_dir, True
 
