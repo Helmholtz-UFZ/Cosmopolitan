@@ -3,7 +3,6 @@
 import logging
 
 import pytest
-from flask import Flask
 
 from cosmopolitan_app.dash_component.dynamic_plots import (
     create_content,
@@ -13,15 +12,14 @@ from cosmopolitan_app.dash_component.dynamic_plots import (
 
 
 @pytest.mark.order(-1)
-def test_dynamic_plots():
+def test_dynamic_plots(app):
     """Test the dynamic plots."""
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
     matplotlib_logger = logging.getLogger("matplotlib")
     matplotlib_logger.setLevel(logging.CRITICAL)
-    app = Flask(__name__)
     job_id = "valid_form_data"
     with app.app_context():
         rfo_prediction = load_rfo_prediction(job_id)
         for plot_id in plot_parameter:
-            create_content(plot_id, rfo_prediction, *plot_parameter[plot_id])
+            create_content(plot_id, rfo_prediction)

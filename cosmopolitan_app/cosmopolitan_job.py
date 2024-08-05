@@ -52,13 +52,17 @@ def start_computation(job):
             logging.error(f"Computation failed:\n{repr(e)}\n\n{traceback.format_exc()}")
         dictConfig(get_logger_config_web(DEBUG))
         logging.info("Computation finished.")
+
         job.save()
         send_finished_mail(job)
     except Exception as e:  # noqa
         dictConfig(get_logger_config_web(DEBUG))
+        job.status = "FAILED"
         logging.error(
             f"Job {job.job_id} failed:\n{repr(e)}\n\n{traceback.format_exc()}"
         )
+        job.save()
+        send_finished_mail(job)
 
 
 def get_attributes(clazz):

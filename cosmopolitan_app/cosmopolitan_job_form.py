@@ -569,7 +569,6 @@ class CosmopolitanJobForm(FlaskForm):
     def _input_parameters(self, write=True):
         """Write the input parameters for the background model into the input dir."""
         predictors = json.loads(self.selected_pred_files.data)
-        logging.info(self.selected_crn_file.data)
         soil_moisture_data = list(json.loads(self.selected_crn_file.data))[0]
 
         parameters = {

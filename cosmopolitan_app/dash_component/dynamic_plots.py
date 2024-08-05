@@ -60,8 +60,7 @@ def create_slider(plot_id, rfo_prediction):
     """Create dash slider for time steps."""
     time_steps = rfo_prediction.input_data.soil_moisture_data.time_steps
     number_time_steps = len(rfo_prediction.input_data.soil_moisture_data.time_steps)
-    size_slider = min(max(int(number_time_steps * 0.6), 1), 12)
-
+    size_slider = min(max(int(number_time_steps * 0.8), 3), 12)
     return html.Div(
         html.Div(
             dcc.Slider(
@@ -70,7 +69,7 @@ def create_slider(plot_id, rfo_prediction):
                 max=number_time_steps,
                 step=1,
                 value=1,
-                marks=dict(enumerate(time_steps)),
+                marks=dict(enumerate(time_steps, start=1)),
             ),
             className=f"mt-4 col-{ size_slider }",
         ),
@@ -78,19 +77,36 @@ def create_slider(plot_id, rfo_prediction):
     )
 
 
-@lru_cache()
-def get_image(rfo_prediction, plot_function, time_index, hash_ttl=None):
+# @lru_cache()
+def get_image(rfo_prediction, plot_id, time_index, hash_ttl=None):
     """Get image for plot."""
     del hash_ttl
+    header, slider, plot_function = plot_parameter[plot_id]
+    del header
+    del slider
+
     if time_index is None:
-        return plot_function(rfo_prediction, None)
+        width, height, content = plot_function(rfo_prediction, None)
     else:
         time_step = rfo_prediction.input_data.soil_moisture_data.time_steps[time_index]
-        return plot_function(rfo_prediction, time_step, None)
+        width, height, content = plot_function(rfo_prediction, time_step, None)
+
+    kwargs_img_element = {
+        "className": "d-block mx-auto",
+        "src": f"data:image/svg+xml;base64,{content}",
+    }
+
+    if width > height:
+        kwargs_img_element["width"] = "90%"
+    else:
+        kwargs_img_element["height"] = "100%"
+
+    return html.Img(**kwargs_img_element)
 
 
-def create_content(plot_id, rfo_prediction, header, slider, plot_function):
+def create_content(plot_id, rfo_prediction):
     """Create content for plot."""
+    header, slider, plot_function = plot_parameter[plot_id]
     element_list = [html.H2(header, style={"textAlign": "center"})]
 
     if (
@@ -110,20 +126,13 @@ def create_content(plot_id, rfo_prediction, header, slider, plot_function):
         )
 
     time_index = 0 if slider else None
-    content = get_image(
-        rfo_prediction, plot_function, time_index, hash_ttl=get_ttl_hash()
-    )
+    html_img = get_image(rfo_prediction, plot_id, time_index, hash_ttl=get_ttl_hash())
 
     element_list.append(
         html.Div(
             html.Div(
-                [
-                    html.Img(
-                        id={"type": "plot-img", "plot_id": f"{plot_id}"},
-                        src=f"data:image/svg+xml;base64,{content}",
-                        width="100%",
-                    )
-                ],
+                [html_img],
+                id={"type": "plot-img", "plot_id": f"{plot_id}"},
                 className="col-12 col-xl-9",
             ),
             className="row justify-content-center",
@@ -243,7 +252,7 @@ class RenderContent(Callback):
 
         return (
             job_id,
-            create_content(plot_id, rfo_prediction, *plot_parameter[plot_id]),
+            create_content(plot_id, rfo_prediction),
             plot_id,
         )
 
@@ -252,7 +261,7 @@ class GeneratePlotPerTimeStep(Callback):
     """Generate plot for the time step passed by slider."""
 
     in_out_state = (
-        Output({"type": "plot-img", "plot_id": MATCH}, "src"),
+        Output({"type": "plot-img", "plot_id": MATCH}, "children"),
         Input({"type": "slider-time-steps", "plot_id": MATCH}, "value"),
         State("plot-id", "value"),
         State("url", "pathname"),
@@ -279,13 +288,13 @@ class GeneratePlotPerTimeStep(Callback):
         ):
             return
         plot_id = plot_id_tab.replace("-tab", "")
-        content = get_image(
+        html_img = get_image(
             rfo_prediction,
-            plot_parameter[plot_id][-1],
+            plot_id,
             time_index,
             hash_ttl=get_ttl_hash(),
         )
-        return f"data:image/svg+xml;base64,{content}"
+        return [html_img]
 
 
 callbacks = list_callbacks(globals())

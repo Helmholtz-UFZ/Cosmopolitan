@@ -3,6 +3,7 @@
 import logging
 
 import pytest
+from flask import Flask
 from sqlalchemy.exc import OperationalError
 
 from cosmopolitan_app.config import DB_PW, EMAIL_PASSWORD
@@ -31,3 +32,15 @@ try:
 except OperationalError:
     logging.error("DB not available")
     pytest.exit("DB not available")
+
+
+@pytest.fixture(scope="session")
+def app():
+    """Create a minimal Flask app for the context of CosmopolitanJobForm."""
+    app = Flask(__name__)
+    app.config["SERVER_NAME"] = "localhost"
+
+    with app.app_context():
+        import cosmopolitan_app.routes  # noqa
+
+    yield app

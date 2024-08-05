@@ -7,7 +7,6 @@ from test.mock_input import (
 )
 
 import pytest
-from flask import Flask
 from pydantic import ValidationError
 from soil_moisture_prediction.pydantic_models import InputParameters
 from soil_moisture_prediction.smp_cli import pprint_pydantic_validation_error
@@ -40,10 +39,8 @@ def test_consistency_between_test_form_data():
         ), f"Key {key} not found in pre_invalid_form_data."
 
 
-def test_consistency_between_form_and_package():
+def test_consistency_between_form_and_package(app):
     """Test consistency between wtform and test data from soil_moisture_prediction."""
-    # Create a minimal Flask app for the context of CosmopolitanJobForm
-    app = Flask(__name__)
     with app.app_context():
         cosmopolitan_job_form = CosmopolitanJobForm(formdata=valid_form_data)
         cosmopolitan_job_form.validate()
@@ -61,9 +58,8 @@ def test_consistency_between_form_and_package():
             ), "Parameter do not create validt form data."
 
 
-def test_post_invalid_form_data():
+def test_post_invalid_form_data(app):
     """Test a invalid form which is invalid between fields."""
-    app = Flask(__name__)
     with app.app_context():
         cosmopolitan_job_form = CosmopolitanJobForm(formdata=post_invalid_form_data)
         cosmopolitan_job_form.validate()
@@ -75,9 +71,8 @@ def test_post_invalid_form_data():
         ]
 
 
-def test_pre_invalid_form_data():
+def test_pre_invalid_form_data(app):
     """Test a simple invalid form."""
-    app = Flask(__name__)
     with app.app_context():
         cosmopolitan_job_form = CosmopolitanJobForm(formdata=pre_invalid_form_data)
         cosmopolitan_job_form.validate()
@@ -92,9 +87,8 @@ def test_pre_invalid_form_data():
         ]
 
 
-def test_changes_in_parameters():
+def test_changes_in_parameters(app):
     """Test if the parameters have changed."""
-    app = Flask(__name__)
     with app.app_context():
         try:
             job = CosmopolitanJob(job_id=valid_form_data["job_id"])
