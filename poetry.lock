@@ -1972,13 +1972,13 @@ files = [
 
 [[package]]
 name = "soil-moisture-prediction"
-version = "0.0.26"
+version = "0.0.27"
 description = "Predicts soil moisture from cosmic ray neutron sensor data using a random forest model"
 optional = false
 python-versions = "<4.0,>=3.10"
 files = [
-    {file = "soil_moisture_prediction-0.0.26-py3-none-any.whl", hash = "sha256:d0c7d12bc242ffe34f19aa5c8dc0ed2375a2ada36645a00001587a76d91d5cc6"},
-    {file = "soil_moisture_prediction-0.0.26.tar.gz", hash = "sha256:49db32637dfd7574803f8649801b387c4fe5877a958a579c58cfffd0d630eb72"},
+    {file = "soil_moisture_prediction-0.0.27-py3-none-any.whl", hash = "sha256:4b3138426b0d85b5732e706610ea96955dd03e897f1a4837eac82571922d103d"},
+    {file = "soil_moisture_prediction-0.0.27.tar.gz", hash = "sha256:ca71711508ed68decfcb979914166bc198ebc374b816d941b7bf9ed5bfa677d8"},
 ]
 
 [package.dependencies]
@@ -2291,4 +2291,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "6dd15021f1e19235b745027d5d2d561e09d52dd558434f23f1351a76e88a5d61"
+content-hash = "fd61d4bb763270642f951f0333f5ae2050bcccb7f0cbe0ad73232c0ddb5ba8df"
