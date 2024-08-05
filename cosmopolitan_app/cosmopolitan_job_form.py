@@ -22,7 +22,6 @@ user inputs, validate data, and define the geometric areas for data processing o
 files.
 """
 
-import csv
 import io
 import json
 import logging
@@ -31,11 +30,16 @@ import os
 import re
 import shutil
 from collections import OrderedDict
-from datetime import date
 
 from coolname import generate
 from flask_wtf import FlaskForm
 from markupsafe import Markup
+from soil_moisture_prediction.area_geometry import RectGeom
+from soil_moisture_prediction.input_file_parser import (
+    FileValidationError,
+    PredictorParser,
+    SoilMoistureParser,
+)
 from werkzeug.utils import secure_filename
 from wtforms import (
     BooleanField,
@@ -155,12 +159,20 @@ class CosmopolitanJobForm(FlaskForm):
             "Query Information": ["job_id", "previous_job_id", "email"],
             "Area": ["area_x1", "area_x2", "area_y1", "area_y2", "area_res"],
             "Predictor variables": ["pred_files", "selected_pred_files"],
-            "CRN Measurments": ["crn_files", "selected_crn_files"],
+            "CRN Measurments": ["crn_file", "selected_crn_file"],
             "Model Parameters": [
-                "monte_carlo_simulation",
+                "monte_carlo_soil_moisture",
                 "monte_carlo_iterations",
                 "past_prediction_as_feature",
                 "average_measurements_over_time",
+                "monte_carlo_predictor",
+                "allow_nan_in_training",
+                "predictor_qmc_sampling",
+                "compute_slope",
+                "compute_aspect",
+                # TODO feature not implemented in smp
+                # "reset_when_rain_occured",
+                "monte_carlo_predictors",
             ],
         }
     )
@@ -250,22 +262,29 @@ class CosmopolitanJobForm(FlaskForm):
         default="",
     )
 
-    crn_files = MultipleFileField(
-        "CRN variable files",
+    crn_file = MultipleFileField(
+        "CRN variable file",
         description=(
-            "The CRN mearsurment for the modell as files. "
-            "Adding new files will over ride the old files."
+            "The CRN mearsurment for the modell as a file. "
+            "Adding a new file will over ride the old file."
         ),
     )
 
-    selected_crn_files = HiddenField(
-        "Selected CRN files",
+    selected_crn_file = HiddenField(
+        "Selected CRN file",
         default="",
     )
 
-    monte_carlo_simulation = BooleanField(
-        "Monte carlo simulation",
-        description="Should a monte carolo simulation be done to evaulate uncertantiy.",
+    monte_carlo_soil_moisture = BooleanField(
+        "Monte carlo simulation of CRNS data",
+        description="Should a monte carlo simulation of the CRNS data be done to evaulate uncertantiy.",  # noqa
+        widget=BooleanInput(),
+        validators=[],
+    )
+
+    monte_carlo_predictor = BooleanField(
+        "Monte carlo simulation of predictor data",
+        description="Should a monte carlo simulation of the predictor data be done to evaulate uncertantiy.",  # noqa
         widget=BooleanInput(),
         validators=[],
     )
@@ -296,6 +315,48 @@ class CosmopolitanJobForm(FlaskForm):
         validators=[],
     )
 
+    allow_nan_in_training = BooleanField(
+        "Allow NaN in training data",
+        description="Whether to allow NaN values in the training data.",
+        widget=BooleanInput(),
+        validators=[],
+    )
+
+    predictor_qmc_sampling = BooleanField(
+        "QM sampling for predictors",
+        description="Whether to use Quasi-Monte Carlo sampling for the predictors.",
+        widget=BooleanInput(),
+        validators=[],
+    )
+
+    compute_slope = BooleanField(
+        "Compute slope",
+        description="Whether to compute the slope from elevation and use as predictor.",
+        widget=BooleanInput(),
+        validators=[],
+    )
+
+    compute_aspect = BooleanField(
+        "Compute aspect",
+        description="Whether to compute the aspect from elevation and use as predictor.",  # noqa
+        widget=BooleanInput(),
+        validators=[],
+    )
+
+    # TODO feature not implemented in smp
+    # reset_when_rain_occured = BooleanField(
+    #     "Reset when rain occured",
+    #     description="If rain data is available and the past_prediction_as_feature is set, the past forecast will not be used after rain days.",  # noqa
+    #     widget=BooleanInput(),
+    #     validators=[],
+    # )
+
+    monte_carlo_predictors = BooleanField(
+        "Monte carlo simulation of predictors",
+        description="Use monte carlo simulation to predict uncertainty for the predictors.",  # noqa
+        widget=BooleanInput(),
+        validators=[],
+    )
     request = None
     input_dir = None
     output_dir = None
@@ -349,12 +410,14 @@ class CosmopolitanJobForm(FlaskForm):
 
     def validate_area_res(self, field):
         """Give instance a GeomArea to validate the input files."""
-        self.geom_area = GeomArea(
-            self.area_x1.data,
-            self.area_x2.data,
-            self.area_y1.data,
-            self.area_y2.data,
-            self.area_res.data,
+        self.geom_area = RectGeom(
+            [
+                self.area_x1.data,
+                self.area_x2.data,
+                self.area_y1.data,
+                self.area_y2.data,
+                self.area_res.data,
+            ]
         )
 
     def validate_pred_files(self, field):
@@ -369,14 +432,14 @@ class CosmopolitanJobForm(FlaskForm):
         logging.debug("Check if selected predictor variable files exist.")
         self._validate_selected_input_files(field)
 
-    def validate_crn_files(self, field):
+    def validate_crn_file(self, field):
         """Check the content of the files and override data with file name and hash."""
         logging.debug("Check crn variable files integrity")
         input_file_dic = self._validate_input_file(field, "crn")
         if input_file_dic is not None:
-            self.selected_crn_files.data = json.dumps(input_file_dic)
+            self.selected_crn_file.data = json.dumps(input_file_dic)
 
-    def validate_selected_crn_files(self, field):
+    def validate_selected_crn_file(self, field):
         """Check if files exist in upload dir."""
         logging.debug("Check if selected predictor variable files exist.")
         self._validate_selected_input_files(field)
@@ -419,10 +482,10 @@ class CosmopolitanJobForm(FlaskForm):
             form_validt = False
 
         if (
-            len(self.selected_crn_files.data) == 0
-            and self.crn_files.data[0].filename == ""
+            len(self.selected_crn_file.data) == 0
+            and self.crn_file.data[0].filename == ""
         ):
-            self.crn_files.errors.append("Chose one or more CRN Measurment files.")
+            self.crn_file.errors.append("Chose one or more CRN Measurment files.")
             form_validt = False
 
         if form_validt:
@@ -448,26 +511,37 @@ class CosmopolitanJobForm(FlaskForm):
             if input_type in file_name:
                 os.remove(os.path.join(self.input_dir, file_name))
 
-        # Set correct parser
-        if input_type == "crn":
-            parser = CrnParser(self.geom_area)
-        elif input_type == "pred":
-            parser = PredParser(self.geom_area)
+        if input_type == "crn" and len(field.data) > 1:
+            raise ValidationError("Only one file can be uploaded for CRN data.")
 
         # Upload file and parse
         for upload_file in field.data:
+            # Set correct parser
+            if input_type == "crn":
+                parser = SoilMoistureParser(self.geom_area)
+            elif input_type == "pred":
+                parser = PredictorParser(self.geom_area)
+
             new_filename = input_type + "_" + secure_filename(upload_file.filename)
             input_file_path = os.path.join(self.input_dir, new_filename)
+            # Make text stream from upload file.
             io_buffer = io.BufferedReader(upload_file.stream)
             text_stream = io.TextIOWrapper(io_buffer, encoding="utf-8", newline="")
+
+            # Parse file and write to input dir.
             try:
-                # Will generate the input file and check file integrity.
-                file_information = parser.parse(text_stream, input_file_path)
-            except ValidationError as e:
+                with open(input_file_path, "w") as file:
+                    for row in parser.parse(text_stream):
+                        file.write(
+                            ",".join([str(e) for e in row if e is not None]) + "\n"
+                        )
+            except FileValidationError as e:
+                os.remove(input_file_path)
                 well_formed = False
                 err_msg = f"File {new_filename} is invalid.<br>" + str(e)
                 break
-            input_file_dic[new_filename] = file_information
+
+            input_file_dic[new_filename] = parser.get_file_information()
 
         # If any file was invalid remove all input files.
         if not well_formed:
@@ -495,7 +569,7 @@ class CosmopolitanJobForm(FlaskForm):
     def _input_parameters(self, write=True):
         """Write the input parameters for the background model into the input dir."""
         predictors = json.loads(self.selected_pred_files.data)
-        soil_moisture_data = json.loads(self.selected_crn_files.data)
+        soil_moisture_data = list(json.loads(self.selected_crn_file.data))[0]
 
         parameters = {
             "geometry": [
@@ -507,10 +581,19 @@ class CosmopolitanJobForm(FlaskForm):
             ],
             "predictors": predictors,
             "soil_moisture_data": soil_moisture_data,
-            "monte_carlo": self.monte_carlo_simulation.data,
+            "monte_carlo_soil_moisture": self.monte_carlo_soil_moisture.data,
+            "monte_carlo_predictor": self.monte_carlo_predictor.data,
             "monte_carlo_iterations": self.monte_carlo_iterations.data,
             "past_prediction_as_feature": self.past_prediction_as_feature.data,
             "average_measurements_over_time": self.average_measurements_over_time.data,
+            "allow_nan_in_training": self.allow_nan_in_training.data,
+            "monte_carlo_predictors": self.monte_carlo_predictors.data,
+            "predictor_qmc_sampling": self.predictor_qmc_sampling.data,
+            "compute_slope": self.compute_slope.data,
+            "compute_aspect": self.compute_aspect.data,
+            # TODO feature not implemented in smp
+            # "reset_when_rain_occured": self.reset_when_rain_occured.data,
+            "reset_when_rain_occured": False,
             "what_to_plot": {
                 "predictors": False,
                 "pred_correlation": False,
@@ -529,368 +612,3 @@ class CosmopolitanJobForm(FlaskForm):
                 f_handle.write("\n")
         else:
             return parameters
-
-
-class GeomArea:
-    """A class representing a geometric area defined by coordinates.
-
-    This class allows you to define a 2D rectangular area using its bottom-left
-    (x1, y1) and top-right (x2, y2) coordinates. The resolution of the area can
-    also be specified. It provides methods to determine if another area covers
-    it completely, if a point is contained within it, and to expand the area to
-    include additional points.
-
-    Attributes:
-    - x1, y1: The x and y coordinates of the bottom-left corner of the area.
-    - x2, y2: The x and y coordinates of the top-right corner of the area.
-    - res: The resolution of the area.
-
-    Methods:
-    - __init__(x1, x2, y1, y2, res): Initialize a new GeomArea instance with
-    given coordinates and resolution.
-    - cover(other): Check if this area is completely covered by another area.
-    - contain(x, y): Check if a given point is inside this area.
-    - expand(x, y): Expand the area to include a specified point.
-    """
-
-    def __init__(self, x1, x2, y1, y2, res):
-        """Initialize a geometric area with specified coordinates and resolution.
-
-        Parameters:
-        - x1, x2: x-coordinates that define the left and right boundaries of the area.
-        - y1, y2: y-coordinates that define the bottom and top boundaries of the area.
-        - res: Resolution of the area.
-        """
-        self.x1 = x1
-        self.x2 = x2
-        self.y1 = y1
-        self.y2 = y2
-        self.res = res
-
-    def __str__(self):
-        """Print nice."""
-        return f"x1:{self.x1}, x2:{self.x2}, y1:{self.y1}, y2:{self.y2}"
-
-    def covered_by(self, other):
-        """Check if this area is completely covered by another area.
-
-        Parameters:
-        - other: Instance of GeomArea that will define the area to be covered.
-
-        Returns:
-        - True if this area is completely covered by the other area, False
-        otherwise.
-        """
-        if (
-            self.x1 >= other.x1
-            and self.x2 <= other.x2
-            and self.y1 >= other.y1
-            and self.y2 <= other.y2
-        ):
-            return True
-        return False
-
-    def contain(self, x, y, margin_multi_res=5):
-        """Check if a given point is inside this area.
-
-        Parameters:
-        - x: x-coordinate of the point.
-        - y: y-coordinate of the point.
-
-        Returns:
-        - True if the point is inside this area, False otherwise.
-        """
-        margin = self.res * margin_multi_res
-        if (
-            self.x1 - margin <= x <= self.x2 + margin
-            and self.y1 - margin <= y <= self.y2 + margin
-        ):
-            return True
-        return False
-
-    def expand(self, x, y):
-        """Expand the area to include a given point (x, y).
-
-        Parameters:
-        - x: x-coordinate of the point to be included in the expanded area.
-        - y: y-coordinate of the point to be included in the expanded area.
-        """
-        self.x1 = min(self.x1, x)
-        self.x2 = max(self.x2, x)
-        self.y1 = min(self.y1, y)
-        self.y2 = max(self.y2, y)
-
-
-class InputFileParser:
-    """This abstract base class defines the common methods for parsing an input file."""
-
-    file_information = None
-    comment_char = "#"
-
-    def __init__(self, geom_area):
-        """Set parse_geom_area so that every point added expands area."""
-        self.input_geom_area = geom_area
-        self.parse_geom_area = GeomArea(
-            float("inf"), -float("inf"), float("inf"), -float("inf"), 0
-        )
-
-    def _check_coordinate(self, cell, row, row_index):
-        min_coordinate = 0
-        max_coordinate = 10000000000
-        try:
-            coor = float(cell)
-        except ValueError:
-            raise ValidationError(
-                f"Cell ''{cell}'' is not a decimal number."
-                f"Row number {row_index} '{','.join(row)}'."
-            )
-        if coor < min_coordinate or coor >= max_coordinate:
-            raise ValidationError(
-                f"Cell '{cell}' needs to be between {min_coordinate} "
-                f"and {max_coordinate}."
-                f"Row number {row_index} '{','.join(row)}'."
-            )
-
-        return coor
-
-    def _check_first_line(self):
-        raise NotImplementedError
-
-    def _check_row(self):
-        raise NotImplementedError
-
-    def _get_file_information(self):
-        raise NotImplementedError
-
-    def _check_validty_area(self):
-        raise NotImplementedError
-
-    def parse(self, in_file_stream, out_file_path):
-        """Parse the input file and write valid rows to the output file."""
-        in_file_stream.seek(0)
-
-        with open(out_file_path, "w") as out_file:
-            # Guess the delimiter
-            sniffer = csv.Sniffer()
-
-            # Get first line with no comment char
-            line = ""
-            while line == "":
-                try:
-                    line = in_file_stream.readline()
-                except UnicodeDecodeError:
-                    raise ValidationError("File is not a UTF-8 file.")
-
-                line = in_file_stream.readline()
-                if line[0] == self.comment_char:
-                    line = ""
-
-            try:
-                dialect = sniffer.sniff(line)
-            except csv.Error as e:
-                if str(e) == "Could not determine delimiter":
-                    raise ValidationError(str(e))
-            in_file_stream.seek(0)
-
-            csv_reader = csv.reader(in_file_stream, dialect=dialect)
-            csv_writer = csv.writer(out_file)
-            first_line = next(csv_reader)
-
-            row = self._check_first_line(first_line)
-            if row:
-                out_file.write(",".join(row))
-
-            for row_index, row in enumerate(csv_reader, start=2):
-                row = self._check_row(row, row_index)
-                if row:
-                    csv_writer.writerow(row)
-        self._check_validty_area()
-
-        return self._get_file_information()
-
-
-class PredParser(InputFileParser):
-    """
-    Parses an input file containing predictor data.
-
-    This class extends InputFileParser and provides specific functionality for
-    validation of predictor data. At the end, a global check is performed so
-    that the predictor file must cover the input GeomArea completely, including
-    a margin.
-
-    Methods:
-        parse(file_path, out_file_path):
-            Parses the input file and writes valid predictor data to
-            the output file.
-
-    Attributes:
-        file_information (dict):
-            Information about the file contents (type and unit).
-    """
-
-    file_information = {"type": "", "unit": ""}
-
-    def _check_first_line(self, comments):
-        if not comments[0][0] == "#":
-            row = self._check_row(comments, 1)
-        else:
-            information = {
-                info.split("=")[0]: info.split("=")[1]
-                for info in comments[0][2:].split()
-            }
-            if information.keys() != self.file_information.keys():
-                raise ValidationError(
-                    f"Unkown predictor information in comment line.<br>{comments}"
-                )
-            else:
-                self.file_information = information
-            row = None
-
-        return row
-
-    def _check_row_length(self, row, row_index):
-        row_length = 3
-        if len(row) != row_length:
-            raise ValidationError(
-                f"Row number {row_index} '{','.join(row)}' has not correct number "
-                f"of columns {row_length}."
-            )
-
-    def _check_predictor(self, cell, row, row_index):
-        try:
-            predictor = float(cell)
-        except ValueError:
-            raise ValidationError(
-                f"Cell '{cell}' is not a decimal number. "
-                f"Row number {row_index} '{','.join(row)}'."
-            )
-
-        return predictor
-
-    def _check_row(self, row, row_index):
-        self._check_row_length(row, row_index)
-        x = self._check_coordinate(row[0], row, row_index)
-        y = self._check_coordinate(row[1], row, row_index)
-        self._check_predictor(row[2], row, row_index)
-
-        if self.input_geom_area.contain(x, y):
-            self.parse_geom_area.expand(x, y)
-            return row
-
-    def _get_file_information(self):
-        return self.file_information
-
-    def _check_validty_area(self):
-        if not self.input_geom_area.covered_by(self.parse_geom_area):
-            raise ValidationError(
-                "The file does not cover the user defined area completely"
-            )
-
-
-class CrnParser(InputFileParser):
-    """
-    Parses an input file containing CRN measurements.
-
-    This class extends InputFileParser and provides specific functionality for
-    CRN measurements validation.
-
-    Attributes:
-        days (set):
-            Set of unique days in the input file.
-        data_points (int):
-            Number of valid data points in the user-defined area.
-
-    Methods:
-        parse(file_path, out_file_path):
-            Parses the input file and writes valid CRN measurements to
-            the output file.
-    """
-
-    days = set()
-    data_points = 0
-
-    def _check_first_line(self, headers):
-        header_row = [
-            "EPSG_UTM_x",
-            "EPSG_UTM_y",
-            "Day",
-            "soil_moisture",
-            "err_low",
-            "err_high",
-        ]
-
-        if not headers == header_row:
-            row = self._check_row(headers, 1)
-        else:
-            row = headers
-
-        return row
-
-    def _check_row_length(self, row, row_index):
-        row_length = 6
-        if len(row) != row_length:
-            raise ValidationError(
-                f"Row number {row_index} '{','.join(row)}' has not correct number "
-                f"of columns {row_length}."
-            )
-
-    def _check_soil_moisture(self, cell, row, row_index, negativ):
-        if not negativ:
-            min_soil_moisture = 0
-            max_soil_moisture = 1
-        else:
-            min_soil_moisture = -1
-            max_soil_moisture = 0
-
-        try:
-            soil_moisture = float(cell)
-        except ValueError:
-            raise ValidationError(
-                f"Cell '{cell}' is not a decimal number. "
-                f"Row number {row_index} '{','.join(row)}'."
-            )
-        if soil_moisture < min_soil_moisture or soil_moisture >= max_soil_moisture:
-            raise ValidationError(
-                f"Cell '{cell}' needs to be between {min_soil_moisture} and"
-                f"{max_soil_moisture}. "
-                f"Row number {row_index} '{','.join(row)}'."
-            )
-
-        return soil_moisture
-
-    def _check_day(self, cell, row, row_index):
-        if not re.match(r"^[0-9]{8}$", row[2]):
-            raise ValidationError(
-                f"Cell '{row[2]}' is not a day in the format like:'20220323'.<br>"
-                f"Row number {row_index} '{','.join(row)}'."
-            )
-        try:
-            day = date(int(row[2][0:4]), int(row[2][4:6]), int(row[2][6:8]))
-        except ValueError:
-            raise ValidationError(
-                f"Cell '{row[2]}' is not a day in the format like:'20220323'.<br>"
-                f"Row number {row_index} '{','.join(row)}'."
-            )
-        return day
-
-    def _check_row(self, row, row_index):
-        self._check_row_length(row, row_index)
-        x = self._check_coordinate(row[0], row, row_index)
-        y = self._check_coordinate(row[1], row, row_index)
-        day = self._check_day(row[2], row, row_index)
-        self._check_soil_moisture(row[3], row, row_index, False)
-        self._check_soil_moisture(row[4], row, row_index, True)
-        self._check_soil_moisture(row[5], row, row_index, False)
-
-        if self.input_geom_area.contain(x, y):
-            self.parse_geom_area.expand(x, y)
-            self.days.add(day.strftime("%Y%m%d"))
-            self.data_points += 1
-            return row
-
-    def _get_file_information(self):
-        return list(self.days)
-
-    def _check_validty_area(self):
-        if self.data_points == 0:
-            raise ValidationError("No CRN measurments are in the user defined area!")

@@ -54,8 +54,9 @@ urllib3 = "^2.1.0"
 virtualenv = "^20.25.0"
 werkzeug = "^3.0.1"
 wtforms = "^3.1.1"
-soil-moisture-prediction = "0.0.14"
 apscheduler = "^3.10.4"
+soil-moisture-prediction = "^0.0.27"
+pillow = "10.0.0"
 
 [tool.poetry.group.dev.dependencies]
 docker = "^7.0.0"
@@ -68,6 +69,7 @@ flake8-blind-except = "0.2.1"
 flake8-comprehensions = "3.14.0"
 flake8-docstrings = "1.7.0"
 deptry = "^0.14.2"
+pytest-order = "^1.2.1"
 
 
 [build-system]

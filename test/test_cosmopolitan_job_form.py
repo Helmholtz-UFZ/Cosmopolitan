@@ -6,8 +6,10 @@ from test.mock_input import (
     valid_form_data,
 )
 
-from flask import Flask
-from soil_moisture_prediction.pydantic_models import InputParamaters
+import pytest
+from pydantic import ValidationError
+from soil_moisture_prediction.pydantic_models import InputParameters
+from soil_moisture_prediction.smp_cli import pprint_pydantic_validation_error
 
 from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
 from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
@@ -16,18 +18,29 @@ from cosmopolitan_app.db_manager import JobNotFound
 
 def test_consistency_between_test_form_data():
     """Test consistency between the test form data."""
-    assert (
-        valid_form_data.keys() == pre_invalid_form_data.keys()
-    ), "Test form data inconsistent."
-    assert (
-        valid_form_data.keys() == post_invalid_form_data.keys()
-    ), "Test form data inconsistent."
+    for key in valid_form_data:
+        assert (
+            key in pre_invalid_form_data
+        ), f"Key {key} not found in pre_invalid_form_data."
+        assert (
+            key in post_invalid_form_data
+        ), f"Key {key} not found in post_invalid_form_data."
+
+    for key in pre_invalid_form_data:
+        assert key in valid_form_data, f"Key {key} not found in valid_form_data."
+        assert (
+            key in post_invalid_form_data
+        ), f"Key {key} not found in post_invalid_form_data."
+
+    for key in post_invalid_form_data:
+        assert key in valid_form_data, f"Key {key} not found in valid_form_data."
+        assert (
+            key in pre_invalid_form_data
+        ), f"Key {key} not found in pre_invalid_form_data."
 
 
-def test_consistency_between_form_and_package():
+def test_consistency_between_form_and_package(app):
     """Test consistency between wtform and test data from soil_moisture_prediction."""
-    # Create a minimal Flask app for the context of CosmopolitanJobForm
-    app = Flask(__name__)
     with app.app_context():
         cosmopolitan_job_form = CosmopolitanJobForm(formdata=valid_form_data)
         cosmopolitan_job_form.validate()
@@ -45,9 +58,8 @@ def test_consistency_between_form_and_package():
             ), "Parameter do not create validt form data."
 
 
-def test_post_invalid_form_data():
+def test_post_invalid_form_data(app):
     """Test a invalid form which is invalid between fields."""
-    app = Flask(__name__)
     with app.app_context():
         cosmopolitan_job_form = CosmopolitanJobForm(formdata=post_invalid_form_data)
         cosmopolitan_job_form.validate()
@@ -59,9 +71,8 @@ def test_post_invalid_form_data():
         ]
 
 
-def test_pre_invalid_form_data():
+def test_pre_invalid_form_data(app):
     """Test a simple invalid form."""
-    app = Flask(__name__)
     with app.app_context():
         cosmopolitan_job_form = CosmopolitanJobForm(formdata=pre_invalid_form_data)
         cosmopolitan_job_form.validate()
@@ -76,9 +87,8 @@ def test_pre_invalid_form_data():
         ]
 
 
-def test_changes_in_parameters():
+def test_changes_in_parameters(app):
     """Test if the parameters have changed."""
-    app = Flask(__name__)
     with app.app_context():
         try:
             job = CosmopolitanJob(job_id=valid_form_data["job_id"])
@@ -90,13 +100,13 @@ def test_changes_in_parameters():
     assert cosmopolitan_job_form.validate() is True, "Form is not valid."
 
     parameters_form = cosmopolitan_job_form._input_parameters(write=False)
-    input_parameters = InputParamaters(**parameters_form)
+    try:
+        input_parameters = InputParameters(**parameters_form)
+    except ValidationError as validation_error:
+        pytest.fail(
+            "Input parameter are not cohesive with pydantic mocdel:\n"
+            + pprint_pydantic_validation_error(validation_error)
+        )
     assert (
-        type(input_parameters) is InputParamaters
+        type(input_parameters) is InputParameters
     ), "Input parameters are not correct."
-
-    # Save the job again as currently test_if_test_job_exists looks for the job in the
-    # database and will fail if the job does not exist. The test job should always exist
-    # as it used to test the webserver in production.
-    job = CosmopolitanJob(form=cosmopolitan_job_form)
-    job.save()

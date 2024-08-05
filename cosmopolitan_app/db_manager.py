@@ -1,17 +1,6 @@
-"""Module for interaction between webservice and data base.
-
-This module defines the DataBaseManager class for interacting with job entries
-in a database. The DataBaseManager class provides methods to check for the
-existence of a job, add or update job entries, and retrieve all columns of a
-specific job entry.
-
-Classes:
-- DataBaseManager: A class for managing job entries in the database.
-- JobTable: Represents the 'jobs' table in the database.
-"""
+"""Module for interaction between webservice and data base."""
 
 import logging
-from datetime import datetime
 
 from sqlalchemy import (
     ARRAY,
@@ -19,7 +8,6 @@ from sqlalchemy import (
     Boolean,
     Column,
     Date,
-    DateTime,
     Float,
     LargeBinary,
     String,
@@ -46,25 +34,7 @@ class JobNotFound(Exception):
 
 
 class DataBaseManager:
-    """Class for interacting with the 'jobs' table in the database.
-
-    This class encapsulates methods to manage job entries in the 'jobs' table
-    of the database. It provides functionalities to check for the existence of
-    a job by its ID and to add or update job entries.
-
-    Attributes:
-    database_url (str): The URL for connecting to the PostgreSQL database.
-    engine (sqlalchemy.engine.base.Engine): The database connection engine.
-    Session (sqlalchemy.orm.session.sessionmaker): A session factory for
-    creating sessions to interact with the database.
-
-    Methods:
-    check_existence(job_id): Check if a job with the given job ID exists in the
-    database.
-    add_entry(data_to_insert): Add or update a job entry in the database.
-    get_job_columns(job_id): Retrieve all columns of a specific job entry based
-    on its job ID.
-    """
+    """Class for interacting with the posgres database."""
 
     database_url = (
         f"postgresql+psycopg2://{ DB_USER }:{ DB_PW }@"
@@ -100,6 +70,10 @@ class DataBaseManager:
         data_to_insert (dict): A dictionary containing job information with keys
         equivalent to the cloumns ins JobTable.
         """
+        if self.check_existence(data_to_insert["job_id"]):
+            self.update_column(data_to_insert["job_id"], data_to_insert)
+            return
+
         with self.Session() as session:
             job_row = JobTable(**data_to_insert)
             session.merge(job_row)
@@ -113,12 +87,45 @@ class DataBaseManager:
         JobNotFound: If the job with the provided job ID does not exist.
         """
         with self.Session() as session:
-            job = session.query(JobTable).filter_by(job_id=job_id).first()
+            job = (
+                session.query(JobTable)
+                .filter_by(job_id=job_id)
+                .with_for_update()
+                .first()
+            )
             if job is None:
                 raise JobNotFound(job_id)
             for column_name, column_value in column_dic.items():
                 setattr(job, column_name, column_value)
             session.commit()
+
+    @classmethod
+    def set_submitted(self, job_id):
+        """Update the 'submitted' column in the 'JobTable' for a given job ID.
+
+        The method works as well as a lock so that the job is not submitted twice.
+
+        Raises:
+        JobNotFound: If the job with the provided job ID does not exist.
+        """
+        with self.Session() as session:
+            job = (
+                session.query(JobTable)
+                .filter_by(job_id=job_id)
+                .with_for_update()
+                .first()
+            )
+            if job is None:
+                session.commit()
+                raise JobNotFound(job_id)
+
+            if job.submitted:
+                session.commit()
+                return False
+            else:
+                job.submitted = True
+                session.commit()
+                return True
 
     @classmethod
     def get_job_columns(self, job_id):
@@ -162,7 +169,12 @@ class DataBaseManager:
         JobNotFound: If the job with the provided job ID does not exist.
         """
         with self.Session() as session:
-            job = session.query(JobTable).filter_by(job_id=job_id).first()
+            job = (
+                session.query(JobTable)
+                .filter_by(job_id=job_id)
+                .with_for_update()
+                .first()
+            )
             if job:
                 session.delete(job)
                 session.commit()
@@ -197,52 +209,6 @@ class DataBaseManager:
             for job_row in job_rows:
                 job_info[job_row.job_id] = (job_row.start_date, job_row.submitted)
             return job_info
-
-    @classmethod
-    def write_health(self, status, message):
-        """Write a health check entry to the 'health_check' table in the database.
-
-        This method writes a health check entry to the 'health_check' table in
-        the database. The health check entry includes the current date time,
-        the status of the health check, and a message with additional information.
-
-        Parameters:
-        status (str): The status of the health check, e.g., 'OK' or 'ERROR'.
-        message (str): A message with additional information about the health check.
-        """
-        with self.Session() as session:
-            health_check_row = HealthCheckTable(
-                check_time=datetime.now(), status=status, message=message
-            )
-            session.add(health_check_row)
-            session.commit()
-
-    @classmethod
-    def get_health(self):
-        """Retrieve the latest health check entry from the 'health_check' table.
-
-        This method queries the 'health_check' table in the database to retrieve
-        the latest health check entry. The health check entry includes the check
-        time, the status of the health check, and a message with additional information.
-
-        Returns:
-        dict: A dictionary containing the 'check_time', 'status', and 'message'
-        of the latest health check entry.
-        """
-        with self.Session() as session:
-            health_check_row = (
-                session.query(HealthCheckTable)
-                .order_by(HealthCheckTable.check_time.desc())
-                .first()
-            )
-            if health_check_row:
-                return (
-                    health_check_row.check_time,
-                    int(health_check_row.status),
-                    health_check_row.message,
-                )
-            else:
-                return None, None, None
 
     @classmethod
     def get_lock(self, task_type):
@@ -310,19 +276,8 @@ class JobTable(Base):
     files = Column("files", ARRAY(LargeBinary))
     file_names = Column("file_names", ARRAY(String))
     submitted = Column("submitted", Boolean)
-    cluster_job_id = Column("cluster_job_id", String)
     email = Column("email", String)
     notified_end = Column("notified_end", Boolean)
     logs = Column("logs", String)
     status = Column("status", String)
     version = Column("version", Float)
-
-
-class HealthCheckTable(Base):
-    """Represents the 'health_check' table in the database."""
-
-    __tablename__ = "health_check"
-
-    check_time = Column("check_time", DateTime, primary_key=True)
-    status = Column("status", String)
-    message = Column("message", String)

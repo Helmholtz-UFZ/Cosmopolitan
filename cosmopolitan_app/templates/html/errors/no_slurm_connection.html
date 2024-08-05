@@ -1,7 +1,0 @@
-<div class="container text-center m-2">
-	<h3>Sorry, we are currently unable to connect to the compute cluster.</h3>
-	{%- if job_id -%}
-	<h3>Visit  <a href="{{ url_for('submission', job_id=job_id) }}">submission</a> later
-		to try submitting again.</h3>
-	{%- endif -%}
-</div>

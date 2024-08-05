@@ -17,84 +17,14 @@ functionality.
 """
 
 import logging
-from datetime import datetime
-
-from sqlalchemy import Column, DateTime, Integer, String, create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from cosmopolitan_app.config import (
-    DB_HOST_NAME,
-    DB_NAME,
-    DB_PORT,
-    DB_PW,
-    DB_USER,
     EMAIL_PASSWORD,
     EMAIL_PORT,
     EMAIL_SENDER,
     EMAIL_SERVER,
     EMAIL_USERNAME,
 )
-
-
-class Base(DeclarativeBase):
-    """Base class for all declarative classes in the application."""
-
-    pass
-
-
-class Logs(Base):
-    """Represents a log entry in the database.
-
-    Attributes:
-        id (int): The unique identifier for the log entry.
-        timestamp (DateTime): The timestamp when the log entry was created.
-        level (str): The log level (e.g., 'INFO', 'ERROR').
-        message (str): The log message.
-
-    """
-
-    __tablename__ = "logs"
-
-    log_id = Column(Integer, primary_key=True)
-    timestamp = Column(DateTime(timezone=True))
-    level = Column(String(10))
-    message = Column(String)
-
-
-class SQLAlchemyHandler(logging.Handler):
-    """
-    Custom logging handler that stores log entries in a SQLAlchemy database.
-
-    Attributes:
-        db_url (str): The database connection URL.
-    """
-
-    def __init__(self, db_url):
-        """
-        Initialize the SQLAlchemyHandler.
-
-        Args:
-            db_url (str): The database connection URL.
-        """
-        super().__init__()
-        self.engine = create_engine(db_url)
-        self.Session = sessionmaker(bind=self.engine)
-
-    def emit(self, record):
-        """
-        Emit a log record to the database.
-
-        Args:
-            record (LogRecord): The log record to be emitted.
-        """
-        message = self.format(record)
-        level = record.levelname
-        timestamp = datetime.utcfromtimestamp(record.created).isoformat()
-
-        with self.Session() as session:
-            log_entry = Logs(level=level, message=message, timestamp=timestamp)
-            session.add(log_entry)
-            session.commit()
 
 
 class ExcludeDebugMatplotLibFilter(logging.Filter):
@@ -107,7 +37,33 @@ class ExcludeDebugMatplotLibFilter(logging.Filter):
         )
 
 
-def get_logger_config(debug):
+def get_logger_config_compuation(log_file_path):
+    """Get the config dic for the computation logger."""
+    return {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "handlers": {
+            "file": {
+                "class": "logging.FileHandler",
+                "level": "DEBUG",
+                "formatter": "detailed",
+                "filename": log_file_path,
+                "mode": "w",
+            },
+        },
+        "formatters": {
+            "detailed": {
+                "format": "[%(asctime)s] %(levelname)s in %(module)s: %(message)s",
+            },
+        },
+        "root": {
+            "level": "DEBUG",
+            "handlers": ["file"],
+        },
+    }
+
+
+def get_logger_config_web(debug):
     """
     Get the config dic for the flask logger.
 
@@ -117,12 +73,6 @@ def get_logger_config(debug):
     Returns:
         dic: Dictinoray for dictConfig.
     """
-    database_url = (
-        f"postgresql+psycopg2://{ DB_USER }:{ DB_PW }@"
-        f"{ DB_HOST_NAME }:{ DB_PORT }/{ DB_NAME }"
-    )
-
-    # Log some messages
     logging_config = {
         "version": 1,
         "disable_existing_loggers": False,
@@ -132,13 +82,6 @@ def get_logger_config(debug):
             },
         },
         "handlers": {
-            "sqlalchemy": {
-                "class": "cosmopolitan_app.logger.SQLAlchemyHandler",
-                "db_url": database_url,
-                "level": "INFO",
-                "formatter": "default",
-                "filters": ["exclude_debug_matplotlib"],
-            },
             "wsgi": {
                 "class": "logging.StreamHandler",
                 "stream": "ext://flask.logging.wsgi_errors_stream",
@@ -171,13 +114,5 @@ def get_logger_config(debug):
     # Mockup cant handle ttls
     if EMAIL_PASSWORD == "test":
         logging_config["handlers"]["mail_handler"]["secure"] = None
-
-    # TODO remove sql alchemy handle and this code below
-    # if debug == "1":
-    #     # logging_config["root"]["handlers"] = ["wsgi"]
-    #     # logging_config["root"]["handlers"] = ["wsgi", "mail_handler"]
-    # else:
-    #     logging_config["root"]["handlers"] = ["wsgi", "mail_handler"]
-    #     # logging_config["root"]["handlers"] = ["sqlalchemy", "mail_handler"]
 
     return logging_config

@@ -47,27 +47,29 @@ def load_rfo_prediction(job_id, ttl_hash=None):
     logging.debug(f"Load rfo prediction for {job_id}.")
     cosmopolitan_job = CosmopolitanJob(job_id=str(job_id))
     (
-        input_data,
+        input_parameters,
         working_dir,
         load_results,
-    ) = cosmopolitan_job.get_paratameters_rfo_prediction()
-    return RFoModel(**input_data, work_dir=working_dir, load_results=True)
+    ) = cosmopolitan_job.get_parameters_rfo_prediction()
+    return RFoModel(
+        input_parameters=input_parameters, work_dir=working_dir, load_results=True
+    )
 
 
 def create_slider(plot_id, rfo_prediction):
-    """Create dash slider for days."""
-    number_days = rfo_prediction.input_data.n_days
-    size_slider = min(max(int(number_days * 0.6), 1), 12)
-
+    """Create dash slider for time steps."""
+    time_steps = rfo_prediction.input_data.soil_moisture_data.time_steps
+    number_time_steps = len(rfo_prediction.input_data.soil_moisture_data.time_steps)
+    size_slider = min(max(int(number_time_steps * 0.8), 3), 12)
     return html.Div(
         html.Div(
             dcc.Slider(
-                id={"type": "slider-days", "plot_id": f"{plot_id}"},
+                id={"type": "slider-time-steps", "plot_id": f"{plot_id}"},
                 min=1,
-                max=number_days,
+                max=number_time_steps,
                 step=1,
                 value=1,
-                marks={i: str(i) for i in range(1, number_days + 1)},
+                marks=dict(enumerate(time_steps, start=1)),
             ),
             className=f"mt-4 col-{ size_slider }",
         ),
@@ -75,40 +77,62 @@ def create_slider(plot_id, rfo_prediction):
     )
 
 
-@lru_cache()
-def get_image(rfo_prediction, plot_function, day, hash_ttl=None):
+# @lru_cache()
+def get_image(rfo_prediction, plot_id, time_index, hash_ttl=None):
     """Get image for plot."""
     del hash_ttl
-    if day is None:
-        return plot_function(rfo_prediction, return_base64_img=True)
+    header, slider, plot_function = plot_parameter[plot_id]
+    del header
+    del slider
+
+    if time_index is None:
+        width, height, content = plot_function(rfo_prediction, None)
     else:
-        return plot_function(rfo_prediction, day, return_base64_img=True)
+        time_step = rfo_prediction.input_data.soil_moisture_data.time_steps[time_index]
+        width, height, content = plot_function(rfo_prediction, time_step, None)
+
+    kwargs_img_element = {
+        "className": "d-block mx-auto",
+        "src": f"data:image/svg+xml;base64,{content}",
+    }
+
+    if width > height:
+        kwargs_img_element["width"] = "90%"
+    else:
+        kwargs_img_element["height"] = "100%"
+
+    return html.Img(**kwargs_img_element)
 
 
-def create_content(plot_id, rfo_prediction, header, slider, plot_function):
+def create_content(plot_id, rfo_prediction):
     """Create content for plot."""
+    header, slider, plot_function = plot_parameter[plot_id]
     element_list = [html.H2(header, style={"textAlign": "center"})]
-    if slider and rfo_prediction.input_data.n_days > 1:
+
+    if (
+        plot_id in predictor_plots
+        and rfo_prediction.input_data.are_all_predictors_constant()
+    ):
+        number_time_steps = 1
+    else:
+        number_time_steps = len(rfo_prediction.input_data.soil_moisture_data.time_steps)
+
+    if slider and number_time_steps > 1:
         element_list.extend(
             [
-                html.H3(children="Select day", style={"textAlign": "center"}),
+                html.H3(children="Select time step", style={"textAlign": "center"}),
                 create_slider(plot_id, rfo_prediction),
             ]
         )
 
-    day = 0 if slider else None
-    content = get_image(rfo_prediction, plot_function, day, hash_ttl=get_ttl_hash())
+    time_index = 0 if slider else None
+    html_img = get_image(rfo_prediction, plot_id, time_index, hash_ttl=get_ttl_hash())
 
     element_list.append(
         html.Div(
             html.Div(
-                [
-                    html.Img(
-                        id={"type": "plot-img", "plot_id": f"{plot_id}"},
-                        src=f"data:image/svg+xml;base64,{content}",
-                        width="100%",
-                    )
-                ],
+                [html_img],
+                id={"type": "plot-img", "plot_id": f"{plot_id}"},
                 className="col-12 col-xl-9",
             ),
             className="row justify-content-center",
@@ -131,12 +155,12 @@ plot_parameter["crn"] = [
 ]
 plot_parameter["pred"] = [
     "Predictors",
-    False,
+    True,
     plot_predictors,
 ]
 plot_parameter["pred-corr"] = [
     "Predictor Correlation",
-    False,
+    True,
     prediction_correlation_matrix,
 ]
 plot_parameter["pred-imp"] = [
@@ -150,6 +174,7 @@ plot_parameter["pred-imp-ot"] = [
     predictor_importance_along_days,
 ]
 
+predictor_plots = ["pred", "pred-corr", "pred-imp"]
 plot_button_group = dbc.ButtonGroup(
     [
         dbc.Button(v[0], id=f"{k}-pill", n_clicks=0, outline=True, color="primary")
@@ -186,7 +211,7 @@ app_layout = html.Div(
 
 
 class RenderContent(Callback):
-    """Generate plot for day passed by slider."""
+    """Generate plot for the time step passed by slider."""
 
     in_out_state = (
         Output("job-id", "children"),
@@ -227,17 +252,17 @@ class RenderContent(Callback):
 
         return (
             job_id,
-            create_content(plot_id, rfo_prediction, *plot_parameter[plot_id]),
+            create_content(plot_id, rfo_prediction),
             plot_id,
         )
 
 
-class GeneratePlotPerDay(Callback):
-    """Generate plot for day passed by slider."""
+class GeneratePlotPerTimeStep(Callback):
+    """Generate plot for the time step passed by slider."""
 
     in_out_state = (
-        Output({"type": "plot-img", "plot_id": MATCH}, "src"),
-        Input({"type": "slider-days", "plot_id": MATCH}, "value"),
+        Output({"type": "plot-img", "plot_id": MATCH}, "children"),
+        Input({"type": "slider-time-steps", "plot_id": MATCH}, "value"),
         State("plot-id", "value"),
         State("url", "pathname"),
     )
@@ -247,11 +272,11 @@ class GeneratePlotPerDay(Callback):
     }
 
     @staticmethod
-    def function(day, plot_id_tab, pathname):
-        """Generate plot for day passed by slider."""
+    def function(time_index, plot_id_tab, pathname):
+        """Generate plot for time index passed by slider."""
         job_id = pathname.split("/")[-1]
-        logging.debug(f"Generate plot for {job_id} on day {day}.")
-        day -= 1
+        logging.debug(f"Generate plot for {job_id} on time index {time_index}.")
+        time_index -= 1
         try:
             rfo_prediction = load_rfo_prediction(job_id, ttl_hash=get_ttl_hash())
         except (
@@ -263,10 +288,13 @@ class GeneratePlotPerDay(Callback):
         ):
             return
         plot_id = plot_id_tab.replace("-tab", "")
-        content = get_image(
-            rfo_prediction, plot_parameter[plot_id][-1], day, hash_ttl=get_ttl_hash()
+        html_img = get_image(
+            rfo_prediction,
+            plot_id,
+            time_index,
+            hash_ttl=get_ttl_hash(),
         )
-        return f"data:image/svg+xml;base64,{content}"
+        return [html_img]
 
 
 callbacks = list_callbacks(globals())

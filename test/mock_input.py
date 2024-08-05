@@ -4,6 +4,7 @@ import importlib.resources
 import json
 from io import BytesIO
 
+from soil_moisture_prediction.create_usage_information import file_exeptions
 from werkzeug.datastructures import MultiDict
 
 
@@ -17,7 +18,7 @@ def iterate_test_data():
     test_data_dir = importlib.resources.files(package) / "test_data"
 
     for file_path in test_data_dir.iterdir():
-        if file_path.is_file():
+        if file_path.is_file() and file_path.name not in file_exeptions:
             yield file_path
 
 
@@ -51,13 +52,25 @@ def create_valid_form_data(parameters):
             "area_y2": parameters["geometry"][3],
             "area_res": parameters["geometry"][4],
             "pred_files": create_input_files("pred"),
-            "crn_files": create_input_files("crn"),
+            "crn_file": create_input_files("crn")[0],
             "selected_pred_files": "",
-            "selected_crn_files": "",
+            "selected_crn_file": "",
             "monte_carlo_iterations": parameters["monte_carlo_iterations"],
-            "monte_carlo_simulation": "y",
+            "monte_carlo_soil_moisture": "y",
+            "monte_carlo_predictor": "y",
             "past_prediction_as_feature": "y",
             "average_measurements_over_time": "y",
+            "allow_nan_in_training": "y",
+            "monte_carlo_predictors": "y",
+            "predictor_qmc_sampling": "y",
+            "compute_slope": "y",
+            "compute_aspect": "y",
+            # Currently no rain data is in test set, hence this is not possible. Further
+            # this object represents a form data as provided by the browser. As
+            # reset_when_rain_occured is a boolean field and a false value is
+            # represented as the absence of the field, the field is not included. But
+            # referenced as a comment.
+            # "reset_when_rain_occured": "y",
         }
     )
 
@@ -78,13 +91,25 @@ def create_pre_invalid_form_data(parameters):
             "area_y2": parameters["geometry"][3],
             "area_res": parameters["geometry"][4],
             "pred_files": create_invalid_files(["pdf"]),
-            "crn_files": create_invalid_files(["pdf"]),
+            "crn_file": create_invalid_files(["pdf"])[0],
             "selected_pred_files": "",
-            "selected_crn_files": "",
+            "selected_crn_file": "",
             "monte_carlo_iterations": -1,
-            "monte_carlo_simulation": "y",
+            "monte_carlo_soil_moisture": "y",
+            "monte_carlo_predictor": "y",
             "past_prediction_as_feature": "y",
             "average_measurements_over_time": "y",
+            "allow_nan_in_training": "y",
+            "monte_carlo_predictors": "y",
+            "predictor_qmc_sampling": "y",
+            "compute_slope": "y",
+            "compute_aspect": "y",
+            # Currently no rain data is in test set, hence this is not possible. Further
+            # this object represents a form data as provided by the browser. As
+            # reset_when_rain_occured is a boolean field and a false value is
+            # represented as the absence of the field, the field is not included. But
+            # referenced as a comment.
+            # "reset_when_rain_occured": "y",
         }
     )
 
@@ -105,13 +130,25 @@ def create_post_invalid_form_data(parameters):
             "area_y2": parameters["geometry"][2],
             "area_res": parameters["geometry"][4],
             "pred_files": create_invalid_files(["empty"]),
-            "crn_files": create_invalid_files(["empty"]),
+            "crn_file": create_invalid_files(["empty"])[0],
             "selected_pred_files": "",
-            "selected_crn_files": "",
+            "selected_crn_file": "",
             "monte_carlo_iterations": parameters["monte_carlo_iterations"],
-            "monte_carlo_simulation": "y",
+            "monte_carlo_soil_moisture": "y",
+            "monte_carlo_predictor": "y",
             "past_prediction_as_feature": "y",
             "average_measurements_over_time": "y",
+            "allow_nan_in_training": "y",
+            "monte_carlo_predictors": "y",
+            "predictor_qmc_sampling": "y",
+            "compute_slope": "y",
+            "compute_aspect": "y",
+            # Currently no rain data is in test set, hence this is not possible. Further
+            # this object represents a form data as provided by the browser. As
+            # reset_when_rain_occured is a boolean field and a false value is
+            # represented as the absence of the field, the field is not included. But
+            # referenced as a comment.
+            # "reset_when_rain_occured": "y",
         }
     )
 

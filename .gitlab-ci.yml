@@ -16,10 +16,8 @@ variables:
   POSTGRES_PASSWORD: test
   POSTGRES_HOST_AUTH_METHOD: trust
   DB_HOST_NAME: postgres
-
-services:
-  - postgres
-#  - mailhog
+  EMAIL_PORT: 1025
+  MAIL_HOG_PORT: 8025
 
 .docker_login: &docker_login
   - 'echo "${CI_REGISTRY_PASSWORD}" | docker login --username "$CI_REGISTRY_USER" --password-stdin "${CI_REGISTRY}"'
@@ -47,13 +45,16 @@ test:
   stage: "test"
   image: "python:3.11"
   services:
-#    - "mailhog"
-    - "postgres"
+    - postgres
+    - name: "mailhog/mailhog:latest"
+      alias: mailhog
+      command: ["-smtp-bind-addr", "0.0.0.0:1025", "-api-bind-addr", "0.0.0.0:8025", "-ui-bind-addr", "0.0.0.0:8025"]
   before_script:
     - "apt-get update && apt-get install -y postgresql-client"
     - "export PGPASSWORD=${POSTGRES_PASSWORD}"
     - "psql -h $DB_HOST_NAME -U $POSTGRES_USER -W $POSTGRES_PASSWORD -d $POSTGRES_DB < docker/init.sql"
     - "cp .env_test .env"
+    - "curl mailhog:8025"
     - "pip install poetry"
     - "poetry install"
   script:
