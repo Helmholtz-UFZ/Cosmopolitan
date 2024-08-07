@@ -111,7 +111,7 @@ def create_content(plot_id, rfo_prediction):
 
     if (
         plot_id in predictor_plots
-        and rfo_prediction.input_data.are_all_predictors_constant()
+        and rfo_prediction.input_data.all_predictors_constant()
     ):
         number_time_steps = 1
     else:
