@@ -35,17 +35,20 @@ from coolname import generate
 from flask_wtf import FlaskForm
 from markupsafe import Markup
 from soil_moisture_prediction.area_geometry import RectGeom
+from soil_moisture_prediction.input_data import stream_dic
 from soil_moisture_prediction.input_file_parser import (
     FileValidationError,
     PredictorParser,
     SoilMoistureParser,
 )
+from soil_moisture_prediction.pydantic_models import check_projection_format
 from werkzeug.utils import secure_filename
 from wtforms import (
     BooleanField,
     HiddenField,
     IntegerField,
     MultipleFileField,
+    SelectMultipleField,
     StringField,
 )
 from wtforms.validators import (
@@ -57,7 +60,7 @@ from wtforms.validators import (
     Regexp,
     ValidationError,
 )
-from wtforms.widgets import CheckboxInput, NumberInput, TextInput
+from wtforms.widgets import CheckboxInput, NumberInput, Select, TextInput
 
 from cosmopolitan_app.config import WEB_WORK_DIR
 from cosmopolitan_app.db_manager import DataBaseManager
@@ -134,6 +137,19 @@ class DynamicSizeNumberInput(NumberInput):
         return super().__call__(field, **kwargs)
 
 
+class SelectMultipleInput(Select):
+    """Generate input field for Select."""
+
+    def __call__(self, field, **kwargs):
+        """Generate input field for Text Input."""
+        self.multiple = True
+        if len(field.errors) == 0:
+            kwargs["class"] = "form-control"
+        else:
+            kwargs["class"] = "form-control is-invalid"
+        return super().__call__(field, **kwargs)
+
+
 class OptionalEmail(Email):
     """A custom validator that allows for an empty email field."""
 
@@ -157,8 +173,19 @@ class CosmopolitanJobForm(FlaskForm):
     groups = OrderedDict(
         {
             "Query Information": ["job_id", "previous_job_id", "email"],
-            "Area": ["area_x1", "area_x2", "area_y1", "area_y2", "area_res"],
-            "Predictor variables": ["pred_files", "selected_pred_files"],
+            "Area": [
+                "area_x1",
+                "area_x2",
+                "area_y1",
+                "area_y2",
+                "area_res",
+                "projection",
+            ],
+            "Predictor variables": [
+                "pred_streams",
+                "pred_files",
+                "selected_pred_input",
+            ],
             "CRN Measurments": ["crn_file", "selected_crn_file"],
             "Model Parameters": [
                 "monte_carlo_soil_moisture",
@@ -249,6 +276,27 @@ class CosmopolitanJobForm(FlaskForm):
         validators=[InputRequired(), NumberRange(min=0)],
     )
 
+    projection = StringField(
+        "Projection",
+        default="EPSG:25832",
+        description="The projection of the area.",
+        widget=DynamicSizeTextInput(),
+        validators=[DataRequired()],
+    )
+
+    stream_choices = [("remove_all", "remove all")]
+    stream_choices += [(key, key.replace("_", " ")) for key in stream_dic.keys()]
+    pred_streams = SelectMultipleField(
+        "Predictor streams",
+        choices=stream_choices,
+        description=(
+            "Select the predictor streams to be used. Multiple streams can be selected. "  # noqa
+            "Use ctrl/cmd to select multiple streams. "
+            "A new selection will override the old selection."
+        ),
+        widget=SelectMultipleInput(),
+    )
+
     pred_files = MultipleFileField(
         "Predictor variable files",
         description=(
@@ -257,8 +305,8 @@ class CosmopolitanJobForm(FlaskForm):
         ),
     )
 
-    selected_pred_files = HiddenField(
-        "Selected predictor variable files",
+    selected_pred_input = HiddenField(
+        "Selected predictor input",
         default="",
     )
 
@@ -420,14 +468,44 @@ class CosmopolitanJobForm(FlaskForm):
             ]
         )
 
+    def validate_projection(self, field):
+        """Check the projection format."""
+        try:
+            check_projection_format(field.data)
+        except ValueError as e:
+            raise ValidationError(str(e))
+
+    def validate_pred_streams(self, field):
+        """Check if the selected stream is valid."""
+        logging.debug("Check if selected stream is valid")
+        logging.debug(field.errors)
+        if field.errors == []:
+            selected_pred_input = json_load_4_jinja(self.selected_pred_input.data)
+            selected_pred_input = {
+                k: v
+                for k, v in selected_pred_input.items()
+                if k not in (c[0] for c in self.stream_choices)
+            }
+            selected_pred_input.update(
+                {k: stream_dic[k].class_info(k) for k in field.data}
+            )
+            self.selected_pred_input.data = json.dumps(selected_pred_input)
+
     def validate_pred_files(self, field):
         """Check the content of the files and override data with file name and hash."""
         logging.debug("Check predictor variable files integrity")
         input_file_dic = self._validate_input_file(field, "pred")
         if input_file_dic is not None:
-            self.selected_pred_files.data = json.dumps(input_file_dic)
+            selected_pred_input = json_load_4_jinja(self.selected_pred_input.data)
+            selected_pred_input = {
+                k: v
+                for k, v in selected_pred_input.items()
+                if k in (c[0] for c in self.stream_choices)
+            }
+            selected_pred_input.update(input_file_dic)
+            self.selected_pred_input.data = json.dumps(selected_pred_input)
 
-    def validate_selected_pred_files(self, field):
+    def validate_selected_pred_input(self, field):
         """Check if files exist in upload dir."""
         logging.debug("Check if selected predictor variable files exist.")
         self._validate_selected_input_files(field)
@@ -475,7 +553,7 @@ class CosmopolitanJobForm(FlaskForm):
             form_validt = False
 
         if (
-            len(self.selected_pred_files.data) == 0
+            len(self.selected_pred_input.data) == 0
             and self.pred_files.data[0].filename == ""
         ):
             self.pred_files.errors.append("Chose one or more predictor files.")
@@ -523,6 +601,8 @@ class CosmopolitanJobForm(FlaskForm):
                 parser = PredictorParser(self.geom_area)
 
             new_filename = input_type + "_" + secure_filename(upload_file.filename)
+            if new_filename in (c[0] for c in self.stream_choices):
+                new_filename = new_filename + "_file"
             input_file_path = os.path.join(self.input_dir, new_filename)
             # Make text stream from upload file.
             io_buffer = io.BufferedReader(upload_file.stream)
@@ -561,14 +641,20 @@ class CosmopolitanJobForm(FlaskForm):
         # Check if job id is valid and input dir is defined.
         if self.input_dir is None:
             raise ValidationError("First set a valide job id!")
+        logging.debug("Check if selected predictor variable files exist.")
         for uploaded_file in json_load_4_jinja(field.data):
+            # Ignore stream choices
+            logging.debug(f"Check if {uploaded_file} exist.")
+            if uploaded_file in (c[0] for c in self.stream_choices):
+                logging.debug(f"{uploaded_file} is a stream choice.")
+                continue
+
             if not os.path.isfile(os.path.join(self.input_dir, uploaded_file)):
-                # logging.error("Form hidden field does not contain")
                 raise ValidationError("Upload files with form.")
 
     def _input_parameters(self, write=True):
         """Write the input parameters for the background model into the input dir."""
-        predictors = json.loads(self.selected_pred_files.data)
+        predictors = json.loads(self.selected_pred_input.data)
         soil_moisture_data = list(json.loads(self.selected_crn_file.data))[0]
 
         parameters = {
@@ -579,6 +665,7 @@ class CosmopolitanJobForm(FlaskForm):
                 self.area_y2.data,
                 self.area_res.data,
             ],
+            "projection": self.projection.data,
             "predictors": predictors,
             "soil_moisture_data": soil_moisture_data,
             "monte_carlo_soil_moisture": self.monte_carlo_soil_moisture.data,

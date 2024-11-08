@@ -55,7 +55,7 @@ virtualenv = "^20.25.0"
 werkzeug = "^3.0.1"
 wtforms = "^3.1.1"
 apscheduler = "^3.10.4"
-soil-moisture-prediction = "^0.0.28"
+soil-moisture-prediction = "^0.0.32"
 pillow = "10.0.0"
 
 [tool.poetry.group.dev.dependencies]

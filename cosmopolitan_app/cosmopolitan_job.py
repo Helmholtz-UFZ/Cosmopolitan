@@ -160,7 +160,7 @@ class CosmopolitanJob:
                 "job_id",
             ]:
                 continue
-            if name in ["selected_pred_files", "selected_crn_files"]:
+            if name in ["selected_pred_input", "selected_crn_files"]:
                 field.data = json.dumps(self.input_data[name])
             else:
                 field.data = self.input_data[name]
@@ -196,7 +196,7 @@ class CosmopolitanJob:
                 "job_id",
             ]:
                 continue
-            if name in ["selected_pred_files", "selected_crn_files"]:
+            if name in ["selected_pred_input", "selected_crn_files"]:
                 self.input_data[name] = json.loads(field.data)
             else:
                 self.input_data[name] = field.data
