@@ -23,7 +23,7 @@ def test_computation_valid(app):
         import cosmopolitan_app.routes  # noqa
 
         cosmopolitan_job_form = CosmopolitanJobForm(new=False, formdata=valid_form_data)
-        cosmopolitan_job_form.validate()
+        assert cosmopolitan_job_form.validate(), "Invalid form"
         job = CosmopolitanJob(form=cosmopolitan_job_form)
         job.save()
         assert DataBaseManager.set_submitted(job.job_id) is True

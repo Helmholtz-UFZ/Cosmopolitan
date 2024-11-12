@@ -40,6 +40,7 @@
 {% endmacro %}
 {% macro render_field(field, input) %}
 {%- if field.type == "StringField" -%}
+<div class="col">
 	{{ render_label(field) }}
 	{%- if input -%}
 	{{ field() }}
@@ -48,7 +49,16 @@
 	{%- endif -%}
 	{{ render_description(field) }}
 	{{ render_error(field) }}
+</div>
 {%- elif field.type == "MultipleFileField" -%}
+	{%- if input -%}
+	{{ render_label_bool(field) }}
+	{{ field(class="form-control-file") }}
+	<br>
+	{%- endif -%}
+	{{ render_description(field) }}
+	{{ render_error(field) }}
+{%- elif field.type == "SelectMultipleField" -%}
 	{%- if input -%}
 	{{ render_label_bool(field) }}
 	{{ field(class="form-control-file") }}
@@ -84,7 +94,7 @@
 	{%- if input -%}
 	{{ field() }}
 	{%- endif -%}
-	{%- if field.name in ["selected_pred_files", "selected_crn_file"]  -%}
+	{%- if field.name in ["selected_pred_input", "selected_crn_file"]  -%}
 	{{ render_input_files(field) }}
 	{%- endif -%}
 {%- endif -%}
@@ -102,11 +112,15 @@
 		<li class="list-group-item d-flex justify-content-between align-items-start">
 			<div class="ms-2 me-auto">
 				<div class="fw-bold">{{ name }} </div>
-				{%- if field.name == "selected_pred_files" -%}
+				{%- if field.name == "selected_pred_input" -%}
+				{%- if info is mapping -%}
 				type: {{ info["type"] }} <br>
 				unit: {{ info["unit"] }} <br>
 				with deviation: {{ info["std_deviation"] }} <br>
 				constant: {{ info["constant"] }}
+				{%- else -%}
+				{{ info | replace('\n', '<br>') | safe }}
+				{%- endif -%}
 				{%- endif -%}
 			</div>
 		</li>

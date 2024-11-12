@@ -44,14 +44,17 @@ def test_consistency_between_form_and_package(app):
     with app.app_context():
         cosmopolitan_job_form = CosmopolitanJobForm(formdata=valid_form_data)
         cosmopolitan_job_form.validate()
+
         for field in cosmopolitan_job_form._fields:
             assert (
                 field in valid_form_data.keys()
             ), f"Field {field} from webserver is not in test form."
+
         for field in valid_form_data:
             assert (
                 field in cosmopolitan_job_form._fields.keys()
             ), f"Field {field} from test form is not found in form from webserver."
+
         for field in cosmopolitan_job_form._fields:
             assert (
                 getattr(cosmopolitan_job_form, field).errors == []

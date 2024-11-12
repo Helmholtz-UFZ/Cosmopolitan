@@ -81,9 +81,10 @@ def create_slider(plot_id, rfo_prediction):
 def get_image(rfo_prediction, plot_id, time_index, hash_ttl=None):
     """Get image for plot."""
     del hash_ttl
-    header, slider, plot_function = plot_parameter[plot_id]
-    del header
-    del slider
+
+    _header, _time_variable, plot_function = plot_parameter[plot_id]
+
+    logging.debug(f"Get image by function {plot_function.__name__}")
 
     if time_index is None:
         width, height, content = plot_function(rfo_prediction, None)
@@ -106,26 +107,33 @@ def get_image(rfo_prediction, plot_id, time_index, hash_ttl=None):
 
 def create_content(plot_id, rfo_prediction):
     """Create content for plot."""
-    header, slider, plot_function = plot_parameter[plot_id]
+    logging.debug(f"Create content for {plot_id}.")
+    header, time_variable, plot_function = plot_parameter[plot_id]
     element_list = [html.H2(header, style={"textAlign": "center"})]
 
+    # Check if slider is needed
     if (
-        plot_id in predictor_plots
+        time_variable == "var_predictors"
         and rfo_prediction.input_data.all_predictors_constant()
     ):
-        number_time_steps = 1
+        slider = False
+    elif time_variable == "constant":
+        slider = False
     else:
-        number_time_steps = len(rfo_prediction.input_data.soil_moisture_data.time_steps)
+        slider = True
 
-    if slider and number_time_steps > 1:
+    if slider:
+        logging.debug("Create slider.")
         element_list.extend(
             [
                 html.H3(children="Select time step", style={"textAlign": "center"}),
                 create_slider(plot_id, rfo_prediction),
             ]
         )
+    else:
+        logging.debug("No slider needed.")
 
-    time_index = 0 if slider else None
+    time_index = 0 if time_variable != "constant" else None
     html_img = get_image(rfo_prediction, plot_id, time_index, hash_ttl=get_ttl_hash())
 
     element_list.append(
@@ -145,32 +153,32 @@ def create_content(plot_id, rfo_prediction):
 plot_parameter = OrderedDict()
 plot_parameter["sm-pred"] = [
     "Soil Moisture Prediction",
-    True,
+    "var_measurements",
     plot_rfo_model,
 ]
 plot_parameter["crn"] = [
     "Measurements",
-    True,
+    "var_measurements",
     plot_measurements,
 ]
 plot_parameter["pred"] = [
     "Predictors",
-    True,
+    "var_predictors",
     plot_predictors,
 ]
 plot_parameter["pred-corr"] = [
     "Predictor Correlation",
-    True,
+    "var_predictors",
     prediction_correlation_matrix,
 ]
 plot_parameter["pred-imp"] = [
     "Predictor Importance",
-    True,
+    "var_measurements",
     plot_predictor_importance,
 ]
 plot_parameter["pred-imp-ot"] = [
     "Predictor Importance over time",
-    False,
+    "constant",
     predictor_importance_along_days,
 ]
 
