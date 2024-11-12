@@ -1,6 +1,5 @@
 """Test the cosmopolitan_job module."""
 
-import json
 import logging
 from test.mock_input import valid_form_data
 from time import sleep
@@ -24,10 +23,7 @@ def test_computation_valid(app):
         import cosmopolitan_app.routes  # noqa
 
         cosmopolitan_job_form = CosmopolitanJobForm(new=False, formdata=valid_form_data)
-        cosmopolitan_job_form.validate()
-        print(
-            json.dumps(cosmopolitan_job_form._input_parameters(write=False), indent=4)
-        )
+        assert cosmopolitan_job_form.validate(), "Invalid form"
         job = CosmopolitanJob(form=cosmopolitan_job_form)
         job.save()
         assert DataBaseManager.set_submitted(job.job_id) is True

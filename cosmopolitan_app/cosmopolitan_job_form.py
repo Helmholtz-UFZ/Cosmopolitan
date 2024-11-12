@@ -73,6 +73,14 @@ def json_load_4_jinja(string):
     return json.loads(string)
 
 
+def json_dumps_4_jinja(object_to_convert):
+    """Wrap json.load to always return a dic, needed for selected input files."""
+    string = json.dumps(object_to_convert)
+    if string == "{}":
+        return ""
+    return string
+
+
 class BooleanInput(CheckboxInput):
     """Generate input field for boolean input."""
 
@@ -478,18 +486,23 @@ class CosmopolitanJobForm(FlaskForm):
     def validate_pred_streams(self, field):
         """Check if the selected stream is valid."""
         logging.debug("Check if selected stream is valid")
-        logging.debug(field.errors)
         if field.errors == []:
             selected_pred_input = json_load_4_jinja(self.selected_pred_input.data)
+
             selected_pred_input = {
                 k: v
                 for k, v in selected_pred_input.items()
                 if k not in (c[0] for c in self.stream_choices)
             }
+
             selected_pred_input.update(
-                {k: stream_dic[k].class_info(k) for k in field.data}
+                {
+                    k: stream_dic[k].class_info(k)
+                    for k in field.data
+                    if k != "remove_all"
+                }
             )
-            self.selected_pred_input.data = json.dumps(selected_pred_input)
+            self.selected_pred_input.data = json_dumps_4_jinja(selected_pred_input)
 
     def validate_pred_files(self, field):
         """Check the content of the files and override data with file name and hash."""
@@ -503,12 +516,18 @@ class CosmopolitanJobForm(FlaskForm):
                 if k in (c[0] for c in self.stream_choices)
             }
             selected_pred_input.update(input_file_dic)
-            self.selected_pred_input.data = json.dumps(selected_pred_input)
+            self.selected_pred_input.data = json_dumps_4_jinja(selected_pred_input)
 
     def validate_selected_pred_input(self, field):
         """Check if files exist in upload dir."""
         logging.debug("Check if selected predictor variable files exist.")
-        self._validate_selected_input_files(field)
+        files = []
+        for pred, info in json_load_4_jinja(field.data).items():
+            if pred in (c[0] for c in self.stream_choices):
+                continue
+            files.append(info["file_path"])
+
+        self._validate_selected_input_files(files)
 
     def validate_crn_file(self, field):
         """Check the content of the files and override data with file name and hash."""
@@ -520,7 +539,7 @@ class CosmopolitanJobForm(FlaskForm):
     def validate_selected_crn_file(self, field):
         """Check if files exist in upload dir."""
         logging.debug("Check if selected predictor variable files exist.")
-        self._validate_selected_input_files(field)
+        self._validate_selected_input_files(list(json_load_4_jinja(field.data)))
 
     def validate(self, extra_validators=None):
         """
@@ -603,6 +622,7 @@ class CosmopolitanJobForm(FlaskForm):
             new_filename = input_type + "_" + secure_filename(upload_file.filename)
             if new_filename in (c[0] for c in self.stream_choices):
                 new_filename = new_filename + "_file"
+
             input_file_path = os.path.join(self.input_dir, new_filename)
             # Make text stream from upload file.
             io_buffer = io.BufferedReader(upload_file.stream)
@@ -621,7 +641,14 @@ class CosmopolitanJobForm(FlaskForm):
                 err_msg = f"File {new_filename} is invalid.<br>" + str(e)
                 break
 
-            input_file_dic[new_filename] = parser.get_file_information()
+            if input_type == "crn":
+                input_file_dic[new_filename] = parser.get_file_information()
+            elif input_type == "pred":
+                predictor_information = parser.get_file_information()
+                predictor_information["file_path"] = new_filename
+                input_file_dic[predictor_information["predictor_name"]] = (
+                    predictor_information
+                )
 
         # If any file was invalid remove all input files.
         if not well_formed:
@@ -636,17 +663,16 @@ class CosmopolitanJobForm(FlaskForm):
         else:
             return input_file_dic
 
-    def _validate_selected_input_files(self, field):
+    def _validate_selected_input_files(self, uploaded_files):
         """Check if files exist in upload dir."""
         # Check if job id is valid and input dir is defined.
         if self.input_dir is None:
             raise ValidationError("First set a valide job id!")
-        logging.debug("Check if selected predictor variable files exist.")
-        for uploaded_file in json_load_4_jinja(field.data):
+
+        for uploaded_file in uploaded_files:
             # Ignore stream choices
             logging.debug(f"Check if {uploaded_file} exist.")
             if uploaded_file in (c[0] for c in self.stream_choices):
-                logging.debug(f"{uploaded_file} is a stream choice.")
                 continue
 
             if not os.path.isfile(os.path.join(self.input_dir, uploaded_file)):
@@ -654,7 +680,13 @@ class CosmopolitanJobForm(FlaskForm):
 
     def _input_parameters(self, write=True):
         """Write the input parameters for the background model into the input dir."""
-        predictors = json.loads(self.selected_pred_input.data)
+        predictors = {}
+        for predictor, info in json.loads(self.selected_pred_input.data).items():
+            if predictor in (c[0] for c in self.stream_choices):
+                predictors[predictor] = None
+            else:
+                predictors[predictor] = info
+
         soil_moisture_data = list(json.loads(self.selected_crn_file.data))[0]
 
         parameters = {
@@ -691,6 +723,7 @@ class CosmopolitanJobForm(FlaskForm):
             },
             "save_results": True,
         }
+
         if write:
             with open(
                 os.path.join(self.input_dir, "parameters.json"), "w", encoding="UTF-8"
