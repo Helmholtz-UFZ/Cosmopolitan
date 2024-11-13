@@ -5,9 +5,11 @@ import os
 import shutil
 import smtplib
 import traceback
+import zipfile
 from datetime import date, timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from io import BytesIO
 
 from flask import request, url_for
 from sqlalchemy.exc import OperationalError
@@ -24,6 +26,26 @@ from cosmopolitan_app.config import (
     WEB_WORK_DIR,
 )
 from cosmopolitan_app.db_manager import DataBaseManager, JobNotFound
+
+
+def zip_directory(directory_path):
+    """Create a zip archive of a directory and return it as a BytesIO object."""
+    zip_buffer = BytesIO()
+
+    if not os.path.isdir(directory_path):
+        raise FileNotFoundError(f"The directory {directory_path} does not exist.")
+
+    # Create a zipfile object and write the directory contents into the zip archive
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        for foldername, subfolders, filenames in os.walk(directory_path):
+            for filename in filenames:
+                file_path = os.path.join(foldername, filename)
+                # Add the file to the archive, maintaining the directory structure
+                arcname = os.path.relpath(file_path, directory_path)
+                zip_file.write(file_path, arcname)
+
+    zip_buffer.seek(0)
+    return zip_buffer
 
 
 def lock_task(task):
