@@ -51,9 +51,10 @@ def load_rfo_prediction(job_id, ttl_hash=None):
         working_dir,
         load_results,
     ) = cosmopolitan_job.get_parameters_rfo_prediction()
-    return RFoModel(
-        input_parameters=input_parameters, work_dir=working_dir, load_results=True
-    )
+    rfo_model = RFoModel(input_parameters=input_parameters, work_dir=working_dir)
+    rfo_model.load_input_data(load_from_dump=True)
+    rfo_model.load_predictions()
+    return rfo_model
 
 
 def create_slider(plot_id, rfo_prediction):

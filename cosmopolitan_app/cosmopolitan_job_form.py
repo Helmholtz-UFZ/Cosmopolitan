@@ -722,6 +722,7 @@ class CosmopolitanJobForm(FlaskForm):
                 "alldays_predictor_importance": False,
             },
             "save_results": True,
+            "save_input_data": True,
         }
 
         if write:

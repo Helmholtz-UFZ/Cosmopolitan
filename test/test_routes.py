@@ -1,5 +1,6 @@
 """Test the routes of the Flask application."""
 
+import logging
 from test.mock_input import valid_form_data
 
 import pytest
@@ -8,6 +9,10 @@ import pytest
 @pytest.mark.order(-1)
 def test_download_results(app):
     """Test that the /download/<job_id> route correctly serves a ZIP file."""
+    # Set up logger inside the test function so pytest only show logs of failed tests
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
     job_id = valid_form_data["job_id"]
     with app.test_client() as app:
         import cosmopolitan_app.routes  # noqa
