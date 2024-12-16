@@ -199,14 +199,11 @@ class CosmopolitanJobForm(FlaskForm):
                 "monte_carlo_soil_moisture",
                 "monte_carlo_iterations",
                 "past_prediction_as_feature",
-                "average_measurements_over_time",
                 "monte_carlo_predictor",
                 "allow_nan_in_training",
                 "predictor_qmc_sampling",
                 "compute_slope",
                 "compute_aspect",
-                # TODO feature not implemented in smp
-                # "reset_when_rain_occured",
                 "monte_carlo_predictors",
             ],
         }
@@ -357,15 +354,6 @@ class CosmopolitanJobForm(FlaskForm):
         "Past prediction as feature",
         description=(
             "Use prediction from previous timestep as predictor for the next timestep."
-        ),
-        widget=BooleanInput(),
-        validators=[],
-    )
-
-    average_measurements_over_time = BooleanField(
-        "Average measurements over time",
-        description=(
-            "Should a sliding window be used to average the measurements over time."
         ),
         widget=BooleanInput(),
         validators=[],
@@ -704,15 +692,11 @@ class CosmopolitanJobForm(FlaskForm):
             "monte_carlo_predictor": self.monte_carlo_predictor.data,
             "monte_carlo_iterations": self.monte_carlo_iterations.data,
             "past_prediction_as_feature": self.past_prediction_as_feature.data,
-            "average_measurements_over_time": self.average_measurements_over_time.data,
             "allow_nan_in_training": self.allow_nan_in_training.data,
             "monte_carlo_predictors": self.monte_carlo_predictors.data,
             "predictor_qmc_sampling": self.predictor_qmc_sampling.data,
             "compute_slope": self.compute_slope.data,
             "compute_aspect": self.compute_aspect.data,
-            # TODO feature not implemented in smp
-            # "reset_when_rain_occured": self.reset_when_rain_occured.data,
-            "reset_when_rain_occured": False,
             "what_to_plot": {
                 "predictors": False,
                 "pred_correlation": False,
@@ -720,6 +704,7 @@ class CosmopolitanJobForm(FlaskForm):
                 "day_predictor_importance": False,
                 "day_prediction_map": False,
                 "alldays_predictor_importance": False,
+                "prediction_distance": False,
             },
             "save_results": True,
             "save_input_data": True,

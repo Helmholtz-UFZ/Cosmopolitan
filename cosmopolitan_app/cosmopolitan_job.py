@@ -204,23 +204,27 @@ class CosmopolitanJob:
 
     def _get_column_data(self, name):
         if name == "file_names":
-            files = []
+            file_names = []
             for f_name in os.listdir(self.working_dir):
                 if os.path.isdir(os.path.join(self.working_dir, f_name)):
+                    for sub_f_name in os.listdir(
+                        os.path.join(self.working_dir, f_name)
+                    ):
+                        file_names.append(os.path.join(f_name, sub_f_name))
                     continue
-                files.append(f_name)
-
-            dump_dir = os.path.join(self.working_dir, dump_dir_name)
-            if os.path.isdir(dump_dir):
-                for f_name in os.listdir(dump_dir):
-                    files.append(os.path.join(dump_dir_name, f_name))
-
-            return files
-
+                file_names.append(f_name)
+            return file_names
         if name == "files":
             value = []
             for f_name in os.listdir(self.working_dir):
                 if os.path.isdir(os.path.join(self.working_dir, f_name)):
+                    for sub_f_name in os.listdir(
+                        os.path.join(self.working_dir, f_name)
+                    ):
+                        with open(
+                            os.path.join(self.working_dir, f_name, sub_f_name), "rb"
+                        ) as f_handle:
+                            value.append(f_handle.read())
                     continue
                 with open(os.path.join(self.working_dir, f_name), "rb") as f_handle:
                     value.append(f_handle.read())
@@ -315,7 +319,7 @@ class CosmopolitanJob:
     def time_to_life(self):
         """Return the number of days after which this job will be deleted."""
         days_passed = (date.today() - self.start_date).days
-        if not self.submitted:
+        if self.submitted:
             return DAYS_DELETE_SUMBITTED - days_passed
         else:
             return DAYS_DELETE_NOT_SUMBITTED - days_passed
