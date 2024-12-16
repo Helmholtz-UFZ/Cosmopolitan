@@ -44,7 +44,7 @@ class DataBaseManager:
     Session = sessionmaker(bind=engine)
 
     @classmethod
-    def check_existence(self, job_id):
+    def check_existence(cls, job_id):
         """Check if a job with the given job ID exists in the database.
 
         This method queries the 'jobs' table in the database to determine
@@ -56,12 +56,12 @@ class DataBaseManager:
         Returns:
         bool: True if a job with the given job ID exists, False otherwise.
         """
-        with self.Session() as session:
+        with cls.Session() as session:
             job_row = session.query(JobTable).filter_by(job_id=job_id).first()
         return job_row is not None
 
     @classmethod
-    def add_entry(self, data_to_insert):
+    def add_entry(cls, data_to_insert):
         """Add or update a job entry in the database.
 
         This method takes a dictionary containing job information and
@@ -70,23 +70,23 @@ class DataBaseManager:
         data_to_insert (dict): A dictionary containing job information with keys
         equivalent to the cloumns ins JobTable.
         """
-        if self.check_existence(data_to_insert["job_id"]):
-            self.update_column(data_to_insert["job_id"], data_to_insert)
+        if cls.check_existence(data_to_insert["job_id"]):
+            cls.update_column(data_to_insert["job_id"], data_to_insert)
             return
 
-        with self.Session() as session:
+        with cls.Session() as session:
             job_row = JobTable(**data_to_insert)
             session.merge(job_row)
             session.commit()
 
     @classmethod
-    def update_column(self, job_id, column_dic):
+    def update_column(cls, job_id, column_dic):
         """Update a specific column in the 'JobTable' for a given job ID.
 
         Raises:
         JobNotFound: If the job with the provided job ID does not exist.
         """
-        with self.Session() as session:
+        with cls.Session() as session:
             job = (
                 session.query(JobTable)
                 .filter_by(job_id=job_id)
@@ -100,7 +100,7 @@ class DataBaseManager:
             session.commit()
 
     @classmethod
-    def set_submitted(self, job_id):
+    def set_submitted(cls, job_id):
         """Update the 'submitted' column in the 'JobTable' for a given job ID.
 
         The method works as well as a lock so that the job is not submitted twice.
@@ -108,7 +108,7 @@ class DataBaseManager:
         Raises:
         JobNotFound: If the job with the provided job ID does not exist.
         """
-        with self.Session() as session:
+        with cls.Session() as session:
             job = (
                 session.query(JobTable)
                 .filter_by(job_id=job_id)
@@ -128,7 +128,7 @@ class DataBaseManager:
                 return True
 
     @classmethod
-    def get_job_columns(self, job_id):
+    def get_job_columns(cls, job_id):
         """Retrieve all columns of a specific job entry based on its job ID.
 
         This method queries the 'jobs' table in the database to retrieve all
@@ -144,7 +144,7 @@ class DataBaseManager:
         Raises:
         JobNotFound: If the job with the provided job ID does not exist.
         """
-        with self.Session() as session:
+        with cls.Session() as session:
             job_row = session.query(JobTable).filter_by(job_id=job_id).first()
             if job_row:
                 job_columns = {
@@ -156,7 +156,7 @@ class DataBaseManager:
                 raise JobNotFound(job_id)
 
     @classmethod
-    def delete_job(self, job_id):
+    def delete_job(cls, job_id):
         """Delete a job entry from the database based on its job ID.
 
         This method deletes a job entry from the 'jobs' table in the database
@@ -168,7 +168,7 @@ class DataBaseManager:
         Raises:
         JobNotFound: If the job with the provided job ID does not exist.
         """
-        with self.Session() as session:
+        with cls.Session() as session:
             job = (
                 session.query(JobTable)
                 .filter_by(job_id=job_id)
@@ -182,7 +182,7 @@ class DataBaseManager:
                 raise JobNotFound(job_id)
 
     @classmethod
-    def list_jobs(self):
+    def list_jobs(cls):
         """List all jobs in the database with their submission date and status.
 
         This method retrieves all job entries from the 'jobs' table in the
@@ -202,7 +202,7 @@ class DataBaseManager:
         }
 
         """
-        with self.Session() as session:
+        with cls.Session() as session:
             job_rows = session.query(JobTable).all()
 
             job_info = {}
@@ -211,7 +211,7 @@ class DataBaseManager:
             return job_info
 
     @classmethod
-    def get_lock(self, task_type):
+    def get_lock(cls, task_type):
         """Get a lock for a specific backgroung task type.
 
         This method queries the TaskLockTable in the database to retrieve
@@ -221,7 +221,7 @@ class DataBaseManager:
         with the method 'release_lock'.
         """
         logging.debug(f"Get lock for task type: {task_type}")
-        with self.Session() as session:
+        with cls.Session() as session:
             task_lock = (
                 session.query(TaskLockTable)
                 .filter_by(task_type=task_type)
@@ -239,7 +239,7 @@ class DataBaseManager:
         return True
 
     @classmethod
-    def release_lock(self, task_type):
+    def release_lock(cls, task_type):
         """Release the lock for a specific background task type.
 
         This method releases the lock for a specific background task type in the
@@ -247,7 +247,7 @@ class DataBaseManager:
         of the same background task type from running concurrently.
         """
         logging.debug(f"Release lock for task type: {task_type}")
-        with self.Session() as session:
+        with cls.Session() as session:
             task_lock = (
                 session.query(TaskLockTable).filter_by(task_type=task_type).first()
             )

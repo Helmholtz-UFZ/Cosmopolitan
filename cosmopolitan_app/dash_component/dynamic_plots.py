@@ -10,6 +10,7 @@ import dash_bootstrap_components as dbc
 from dash import MATCH, Input, Output, State, ctx, dcc, html
 from soil_moisture_prediction.plot_functions import (
     plot_measurements,
+    plot_prediction_distance,
     plot_predictor_importance,
     plot_predictors,
     plot_rfo_model,
@@ -51,9 +52,11 @@ def load_rfo_prediction(job_id, ttl_hash=None):
         working_dir,
         load_results,
     ) = cosmopolitan_job.get_parameters_rfo_prediction()
-    return RFoModel(
-        input_parameters=input_parameters, work_dir=working_dir, load_results=True
-    )
+    rfo_model = RFoModel(input_parameters=input_parameters, work_dir=working_dir)
+    rfo_model.load_input_data(load_from_dump=True, plot_input=False)
+    rfo_model.load_predictions()
+    rfo_model.input_data.compute_prediction_distance()
+    return rfo_model
 
 
 def create_slider(plot_id, rfo_prediction):
@@ -77,7 +80,7 @@ def create_slider(plot_id, rfo_prediction):
     )
 
 
-# @lru_cache()
+@lru_cache()
 def get_image(rfo_prediction, plot_id, time_index, hash_ttl=None):
     """Get image for plot."""
     del hash_ttl
@@ -181,6 +184,11 @@ plot_parameter["pred-imp-ot"] = [
     "constant",
     predictor_importance_along_days,
 ]
+plot_parameter["pred-dist"] = [
+    "Predictor Distance",
+    "var_measurements",
+    plot_prediction_distance,
+]
 
 predictor_plots = ["pred", "pred-corr", "pred-imp"]
 plot_button_group = dbc.ButtonGroup(
@@ -232,6 +240,7 @@ class RenderContent(Callback):
         Input("pred-corr-pill", "n_clicks"),
         Input("pred-imp-pill", "n_clicks"),
         Input("pred-imp-ot-pill", "n_clicks"),
+        Input("pred-dist-pill", "n_clicks"),
     )
 
     parameters = {}

@@ -1,10 +1,15 @@
 """Test the db_manager class."""
 
 import datetime
+import logging
 
 
 def test_db_manager():
     """Test the db_manager class."""
+    # Set up logger inside the test function so pytest only show logs of failed tests
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
     # Need to import here to assure that the .env is set up before import
     from cosmopolitan_app.db_manager import DataBaseManager
 

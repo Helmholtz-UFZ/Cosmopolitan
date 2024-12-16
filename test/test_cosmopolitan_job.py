@@ -14,6 +14,10 @@ from cosmopolitan_app.db_manager import DataBaseManager, JobNotFound
 @pytest.mark.order(-2)
 def test_computation_valid(app):
     """Test the complete run of the computation of an valid input."""
+    # Set up logger inside the test function so pytest only show logs of failed tests
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
     try:
         DataBaseManager.delete_job(valid_form_data["job_id"])
     except JobNotFound:
@@ -42,7 +46,10 @@ def test_computation_valid(app):
 
         job = CosmopolitanJob(job_id=cosmopolitan_job_form.job_id.data)
         assert job.submitted is True
-        assert job.status == "COMPLETED", f"Job failed with logs: {job.logs}"
+        if job.status == "FAILED":
+            logging.info("Logs:")
+            logging.info(job.logs)
+        assert job.status == "COMPLETED", "Job failed."
 
 
 @pytest.mark.order(-3)
@@ -52,6 +59,10 @@ def test_computation_invalid(app):
     This test should fail due to the fact that the argument comput slope is given but
     the elevation data from `predictor_1.csv` is missing.
     """
+    # Set up logger inside the test function so pytest only show logs of failed tests
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
     form_data = valid_form_data.copy()
     form_data["job_id"] = "test_computation_invalid"
     # Delete elevation data, MultiDict are weird

@@ -1,5 +1,6 @@
 """Test the utils module."""
 
+import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -17,6 +18,10 @@ from cosmopolitan_app.utils import (
 
 def test_error_response_args():
     """Test that the error response args are correct."""
+    # Set up logger inside the test function so pytest only show logs of failed tests
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
     job_error_exceptions = [
         InvalidJobID,
         SubmittedException,
@@ -47,6 +52,10 @@ def test_lock_task(mock_release_lock, mock_get_lock):
     2. Task is not running and lock is acquired.
     3. Task is not running and lock is acquired. But the task raises an exception.
     """
+    # Set up logger inside the test function so pytest only show logs of failed tests
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
     # Three times the function is called to test. The first two times the lock is
     # acquired and the third time it is not.
     mock_get_lock.side_effect = [False, True, True]

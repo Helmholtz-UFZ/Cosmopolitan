@@ -10,6 +10,7 @@ import traceback
 from datetime import date
 from logging.config import dictConfig
 
+from soil_moisture_prediction.input_data import dump_dir_name
 from soil_moisture_prediction.pydantic_models import InputParameters
 from soil_moisture_prediction.smp_cli import main
 
@@ -203,12 +204,37 @@ class CosmopolitanJob:
 
     def _get_column_data(self, name):
         if name == "file_names":
-            return list(os.listdir(self.working_dir))
+            file_names = []
+            for f_name in os.listdir(self.working_dir):
+                if os.path.isdir(os.path.join(self.working_dir, f_name)):
+                    for sub_f_name in os.listdir(
+                        os.path.join(self.working_dir, f_name)
+                    ):
+                        file_names.append(os.path.join(f_name, sub_f_name))
+                    continue
+                file_names.append(f_name)
+            return file_names
         if name == "files":
             value = []
             for f_name in os.listdir(self.working_dir):
+                if os.path.isdir(os.path.join(self.working_dir, f_name)):
+                    for sub_f_name in os.listdir(
+                        os.path.join(self.working_dir, f_name)
+                    ):
+                        with open(
+                            os.path.join(self.working_dir, f_name, sub_f_name), "rb"
+                        ) as f_handle:
+                            value.append(f_handle.read())
+                    continue
                 with open(os.path.join(self.working_dir, f_name), "rb") as f_handle:
                     value.append(f_handle.read())
+
+            dump_dir = os.path.join(self.working_dir, dump_dir_name)
+            if os.path.isdir(dump_dir):
+                for f_name in os.listdir(dump_dir):
+                    with open(os.path.join(dump_dir, f_name), "rb") as f_handle:
+                        value.append(f_handle.read())
+
             return value
         if name == "logs":
             log_file = os.path.join(self.working_dir, LOG_FILE_NAME)
@@ -293,7 +319,7 @@ class CosmopolitanJob:
     def time_to_life(self):
         """Return the number of days after which this job will be deleted."""
         days_passed = (date.today() - self.start_date).days
-        if not self.submitted:
+        if self.submitted:
             return DAYS_DELETE_SUMBITTED - days_passed
         else:
             return DAYS_DELETE_NOT_SUMBITTED - days_passed

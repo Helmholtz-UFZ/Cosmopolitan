@@ -1,5 +1,6 @@
 """Test cosmopolitan job form."""
 
+import logging
 from test.mock_input import (
     post_invalid_form_data,
     pre_invalid_form_data,
@@ -18,6 +19,10 @@ from cosmopolitan_app.db_manager import JobNotFound
 
 def test_consistency_between_test_form_data():
     """Test consistency between the test form data."""
+    # Set up logger inside the test function so pytest only show logs of failed tests
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
     for key in valid_form_data:
         assert (
             key in pre_invalid_form_data
@@ -41,6 +46,10 @@ def test_consistency_between_test_form_data():
 
 def test_consistency_between_form_and_package(app):
     """Test consistency between wtform and test data from soil_moisture_prediction."""
+    # Set up logger inside the test function so pytest only show logs of failed tests
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
     with app.app_context():
         cosmopolitan_job_form = CosmopolitanJobForm(formdata=valid_form_data)
         cosmopolitan_job_form.validate()
@@ -63,6 +72,10 @@ def test_consistency_between_form_and_package(app):
 
 def test_post_invalid_form_data(app):
     """Test a invalid form which is invalid between fields."""
+    # Set up logger inside the test function so pytest only show logs of failed tests
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
     with app.app_context():
         cosmopolitan_job_form = CosmopolitanJobForm(formdata=post_invalid_form_data)
         cosmopolitan_job_form.validate()
@@ -76,6 +89,10 @@ def test_post_invalid_form_data(app):
 
 def test_pre_invalid_form_data(app):
     """Test a simple invalid form."""
+    # Set up logger inside the test function so pytest only show logs of failed tests
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
     with app.app_context():
         cosmopolitan_job_form = CosmopolitanJobForm(formdata=pre_invalid_form_data)
         cosmopolitan_job_form.validate()
@@ -92,6 +109,10 @@ def test_pre_invalid_form_data(app):
 
 def test_changes_in_parameters(app):
     """Test if the parameters have changed."""
+    # Set up logger inside the test function so pytest only show logs of failed tests
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
     with app.app_context():
         try:
             job = CosmopolitanJob(job_id=valid_form_data["job_id"])
@@ -107,7 +128,7 @@ def test_changes_in_parameters(app):
         input_parameters = InputParameters(**parameters_form)
     except ValidationError as validation_error:
         pytest.fail(
-            "Input parameter are not cohesive with pydantic mocdel:\n"
+            "Input parameter are not cohesive with pydantic model:\n"
             + pprint_pydantic_validation_error(validation_error)
         )
     assert (
