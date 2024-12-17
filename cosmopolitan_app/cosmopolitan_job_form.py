@@ -445,6 +445,10 @@ class CosmopolitanJobForm(FlaskForm):
             if self.job_id.data != self.previous_job_id.data and os.path.isdir(
                 previous_input_dir
             ):
+                # Clear the destination directory
+                if os.path.exists(self.input_dir):
+                    shutil.rmtree(self.input_dir)
+                    os.mkdir(self.input_dir)
                 for file_name in os.listdir(previous_input_dir):
                     os.replace(
                         os.path.join(previous_input_dir, file_name),

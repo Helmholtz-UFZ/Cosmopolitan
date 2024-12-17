@@ -40,7 +40,7 @@ def change_input(job_id):
     job = CosmopolitanJob(job_id=job_id)
     if job.submitted:
         raise SubmittedException
-    job.delete(keep_work_dir=True)
+    job.delete(delete_work_dir=False)
     return render_template("html/job/input.html", form=job.form)
 
 

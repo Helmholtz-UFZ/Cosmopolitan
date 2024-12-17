@@ -138,7 +138,9 @@ class CosmopolitanJob:
 
         # Copy files to working directory
         self.working_dir = os.path.join(WEB_WORK_DIR, self.job_id)
+        dump_dir = os.path.join(self.working_dir, dump_dir_name)
         os.makedirs(self.working_dir, exist_ok=True)
+        os.makedirs(dump_dir, exist_ok=True)
 
         for f_name in self.file_names:
             if f_name in os.listdir(self.working_dir):
@@ -275,7 +277,7 @@ class CosmopolitanJob:
         data_to_insert = {name: self._get_column_data(name) for name in column_names}
         DataBaseManager.add_entry(data_to_insert)
 
-    def delete(self, keep_work_dir=False, delete_db=True):
+    def delete(self, delete_work_dir=True, delete_db=True):
         """
         Delete the job in the data base.
 
@@ -283,7 +285,7 @@ class CosmopolitanJob:
         the database based on the job's unique identifier ('job_id').
         """
         logging.debug(f"Delete job {self.job_id}")
-        if not keep_work_dir:
+        if delete_work_dir:
             shutil.rmtree(self.working_dir)
         if delete_db:
             DataBaseManager.delete_job(self.job_id)

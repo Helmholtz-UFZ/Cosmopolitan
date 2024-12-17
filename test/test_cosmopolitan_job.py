@@ -51,6 +51,12 @@ def test_computation_valid(app):
             logging.info(job.logs)
         assert job.status == "COMPLETED", "Job failed."
 
+        # Test if the job can be loaded from the database
+        job.delete(delete_db=False)
+        del job
+        job = CosmopolitanJob(job_id=cosmopolitan_job_form.job_id.data)
+        assert job.status == "COMPLETED", "Job did not relaod."
+
 
 @pytest.mark.order(-3)
 def test_computation_invalid(app):

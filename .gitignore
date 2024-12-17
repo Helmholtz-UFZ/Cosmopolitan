@@ -10,3 +10,5 @@ __pycache__
 python_path
 .idea
 .config
+.env_dev_prod_priv_2
+.env.bak
