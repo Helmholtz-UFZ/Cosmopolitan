@@ -1,6 +1,7 @@
 """Module for interaction between webservice and data base."""
 
 import logging
+import time
 
 from sqlalchemy import (
     ARRAY,
@@ -13,9 +14,19 @@ from sqlalchemy import (
     String,
     create_engine,
 )
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-from cosmopolitan_app.config import DB_HOST_NAME, DB_NAME, DB_PORT, DB_PW, DB_USER
+from cosmopolitan_app.config import (
+    POSTGRES_HOST_NAME,
+    POSTGRES_NAME,
+    POSTGRES_PORT,
+    POSTGRES_PW,
+    POSTGRES_USER,
+)
+
+# Number of retries for database operations
+max_retries = 3
 
 
 class Base(DeclarativeBase):
@@ -37,8 +48,8 @@ class DataBaseManager:
     """Class for interacting with the posgres database."""
 
     database_url = (
-        f"postgresql+psycopg2://{ DB_USER }:{ DB_PW }@"
-        f"{ DB_HOST_NAME }:{ DB_PORT }/{ DB_NAME }"
+        f"postgresql+psycopg2://{ POSTGRES_USER }:{ POSTGRES_PW }@"
+        f"{ POSTGRES_HOST_NAME }:{ POSTGRES_PORT }/{ POSTGRES_NAME }"
     )
     engine = create_engine(database_url, pool_pre_ping=True)
     Session = sessionmaker(bind=engine)
@@ -57,7 +68,8 @@ class DataBaseManager:
         bool: True if a job with the given job ID exists, False otherwise.
         """
         with cls.Session() as session:
-            job_row = session.query(JobTable).filter_by(job_id=job_id).first()
+            # job_row = session.query(JobTable).filter_by(job_id=job_id).first()
+            job_row = session.query(JobTable.job_id).filter_by(job_id=job_id).first()
         return job_row is not None
 
     @classmethod
@@ -70,34 +82,64 @@ class DataBaseManager:
         data_to_insert (dict): A dictionary containing job information with keys
         equivalent to the cloumns ins JobTable.
         """
+        logging.debug(f"Add entry to database: {data_to_insert['job_id']}")
         if cls.check_existence(data_to_insert["job_id"]):
+            logging.debug("Update entry.")
             cls.update_column(data_to_insert["job_id"], data_to_insert)
             return
 
         with cls.Session() as session:
+            logging.debug("New entry.")
             job_row = JobTable(**data_to_insert)
             session.merge(job_row)
             session.commit()
 
+        logging.debug("Entry added.")
+
+    # @classmethod
+    # def update_column(cls, job_id, column_dic):
+    #     """Update a specific column in the 'JobTable' for a given job ID.
+    #
+    #     Raises:
+    #     JobNotFound: If the job with the provided job ID does not exist.
+    #     """
+    #     with cls.Session() as session:
+    #         job = (
+    #             session.query(JobTable)
+    #             .filter_by(job_id=job_id)
+    #             # .with_for_update()
+    #             .first()
+    #         )
+    #         if job is None:
+    #             raise JobNotFound(job_id)
+    #         for column_name, column_value in column_dic.items():
+    #             setattr(job, column_name, column_value)
+    #         session.commit()
+
     @classmethod
     def update_column(cls, job_id, column_dic):
-        """Update a specific column in the 'JobTable' for a given job ID.
-
-        Raises:
-        JobNotFound: If the job with the provided job ID does not exist.
-        """
-        with cls.Session() as session:
-            job = (
-                session.query(JobTable)
-                .filter_by(job_id=job_id)
-                .with_for_update()
-                .first()
-            )
-            if job is None:
-                raise JobNotFound(job_id)
-            for column_name, column_value in column_dic.items():
-                setattr(job, column_name, column_value)
-            session.commit()
+        """Update a specific column in the 'JobTable' for a given job ID."""
+        retries = 0
+        while retries < max_retries:
+            with cls.Session() as session:
+                try:
+                    job = session.query(JobTable).filter_by(job_id=job_id).first()
+                    if job is None:
+                        raise JobNotFound(job_id)
+                    for column_name, column_value in column_dic.items():
+                        setattr(job, column_name, column_value)
+                    session.commit()
+                except OperationalError as e:
+                    session.rollback()
+                    retries += 1
+                    if retries == max_retries:
+                        raise
+                    logging.warning(f"OperationalError: {e}")
+                    logging.warning("Retry operation.")
+                    time.sleep(1)
+                except:  # noqa: E722
+                    session.rollback()
+                    raise
 
     @classmethod
     def set_submitted(cls, job_id):
@@ -144,16 +186,31 @@ class DataBaseManager:
         Raises:
         JobNotFound: If the job with the provided job ID does not exist.
         """
-        with cls.Session() as session:
-            job_row = session.query(JobTable).filter_by(job_id=job_id).first()
-            if job_row:
-                job_columns = {
-                    column.name: getattr(job_row, column.name)
-                    for column in JobTable.__table__.columns
-                }
-                return job_columns
-            else:
-                raise JobNotFound(job_id)
+        retries = 0
+        while retries < max_retries:
+            with cls.Session() as session:
+                try:
+                    job_row = session.query(JobTable).filter_by(job_id=job_id).first()
+                except OperationalError as e:
+                    session.rollback()
+                    retries += 1
+                    if retries == max_retries:
+                        raise
+                    logging.warning(f"OperationalError: {e}")
+                    logging.warning("Retry operation.")
+                    time.sleep(1)
+                except:  # noqa: E722
+                    session.rollback()
+                    raise
+
+        if job_row:
+            job_columns = {
+                column.name: getattr(job_row, column.name)
+                for column in JobTable.__table__.columns
+            }
+            return job_columns
+        else:
+            raise JobNotFound(job_id)
 
     @classmethod
     def delete_job(cls, job_id):

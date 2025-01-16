@@ -16,7 +16,7 @@ services:
     image: mailhog/mailhog
     container_name: mailhog
     logging:
-      driver: 'none'  # disable saving logs
+      driver: "none" # disable saving logs
     ports:
       - "${EMAIL_PORT}:${EMAIL_PORT}" # stmp server
       - "${MAIL_HOG_PORT:-8025}:${MAIL_HOG_PORT:-8025}" # web ui
@@ -28,7 +28,7 @@ services:
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PW}
-      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_DB: ${POSTGRES_NAME}
     container_name: postgres
     volumes:
       - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql

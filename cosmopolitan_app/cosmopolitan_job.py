@@ -48,6 +48,10 @@ def start_computation(job):
             else:
                 job.status = "COMPLETED"
         except Exception as e:  # noqa
+            # Log error to log file
+            logging.error("An error occurred")
+            logging.error(traceback.format_exc())
+            # Log error to web logs
             dictConfig(get_logger_config_web(DEBUG))
             job.status = "FAILED"
             logging.error(f"Computation failed:\n{repr(e)}\n\n{traceback.format_exc()}")
@@ -73,7 +77,7 @@ def get_attributes(clazz):
         for name, attr in clazz.__dict__.items()
         if not name.startswith("__")
         and not callable(attr)
-        and not type(attr) is staticmethod
+        and type(attr) is not staticmethod
     ]
 
 
@@ -299,6 +303,7 @@ class CosmopolitanJob:
             try:
                 job = multiprocessing.Process(target=start_computation, args=(self,))
                 job.start()
+                logging.info(f"Job started with PID: {job.pid}.")
             except Exception as e:  # noqa
                 messsage = f"{repr(e)}\n\n{traceback.format_exc()}"
                 logging.error(f"Job {self.job_id} failed to start.\n{messsage}")
@@ -325,3 +330,12 @@ class CosmopolitanJob:
             return DAYS_DELETE_SUMBITTED - days_passed
         else:
             return DAYS_DELETE_NOT_SUMBITTED - days_passed
+
+
+# TODO
+# def clone(self) -> "CosmopolitanJob":
+#     """Clone the job."""
+#     new_form = CosmopolitanJobForm(new=False, formdata=self.form.data)
+#     new_job = CosmopolitanJob(form=self.form)
+#     new_job.save()
+#     return new_job

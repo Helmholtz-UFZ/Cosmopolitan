@@ -33,13 +33,21 @@ def start():
     return render_template("html/content/start.html")
 
 
+# @app.route("/spwan/<job_id>", methods=["GET", "POST"])
+# def spawn_child(job_id):
+#     """Create new job from an old job."""
+#     logging.info(f"Make changes to job {job_id}")
+#     job = CosmopolitanJob(job_id=job_id)
+#     return render_template("html/job/input.html", form=job.form)
+
+
 @app.route("/input/<job_id>", methods=["GET", "POST"])
 def change_input(job_id):
     """Change input of an unsubmitted job."""
     logging.info(f"Make changes to job {job_id}")
     job = CosmopolitanJob(job_id=job_id)
-    if job.submitted:
-        raise SubmittedException
+    # if job.submitted:
+    #     raise SubmittedException
     job.delete(delete_work_dir=False)
     return render_template("html/job/input.html", form=job.form)
 
@@ -70,7 +78,7 @@ def confirm(job_id):
     logging.info(f"Confirm submisison for job {job_id}")
     job = CosmopolitanJob(job_id=job_id)
     if job.submitted:
-        raise SubmittedException
+        raise SubmittedException(job_id)
     return render_template("html/job/confirm.html", job=job)
 
 
@@ -93,7 +101,7 @@ def submission(job_id):
     job.submit()
 
     if job.status not in ["FAILED", "COMPLETED"]:
-        reload_delay = 5
+        reload_delay = 20
     else:
         reload_delay = None
 
