@@ -9,8 +9,9 @@ import shutil
 import traceback
 from datetime import date
 from logging.config import dictConfig
+from typing import List, Literal, Optional
 
-from soil_moisture_prediction.input_data import dump_dir_name
+from soil_moisture_prediction.__version__ import __version__ as smp_version
 from soil_moisture_prediction.pydantic_models import InputParameters
 from soil_moisture_prediction.smp_cli import main
 
@@ -21,12 +22,14 @@ from cosmopolitan_app.config import (
     WEB_WORK_DIR,
 )
 from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
-from cosmopolitan_app.db_manager import DataBaseManager, JobNotFound, JobTable
 from cosmopolitan_app.logger import get_logger_config_compuation, get_logger_config_web
+from cosmopolitan_app.minio_manager import delete_from_bucket, sync_workdir
+from cosmopolitan_app.postgres_manager import JobNotFound, JobTable, PostgresManager
 from cosmopolitan_app.utils import (
     InvalidJobID,
     NotFinishedException,
     NotSubmittedException,
+    SubmittedException,
     send_finished_mail,
     send_submission_mail,
 )
@@ -88,17 +91,17 @@ class CosmopolitanJob:
     jobs, and formats the output for the user.
     """
 
-    form = None
-    job_id = None
-    start_date = None
-    input_data = None
-    submitted = False
-    email = None
-    notified_end = False
-    logs = None
-    status = "PENDING"
-    version = None
-    file_names = None
+    form: CosmopolitanJobForm
+    job_id: str
+    start_date: Optional[date]  # Or use datetime if preferred
+    input_data: Optional[dict]
+    submitted: bool
+    email: Optional[str]
+    notified_end: bool
+    logs: Optional[List[str]]
+    status: Literal["PENDING", "RUNNING", "COMPLETED", "FAILED"]
+    version: Optional[str]
+    working_dir: str
 
     def __init__(
         self,
@@ -107,19 +110,12 @@ class CosmopolitanJob:
     ):
         """Init class either by id, by html form or make a new one."""
         if job_id is not None:
-            logging.debug(f"Load submission {job_id}")
-            form = CosmopolitanJobForm()
-            form.job_id.data = job_id
-            if form.job_id.validate(form):
-                self.job_id = job_id
-                self.load()
-            else:
-                raise InvalidJobID(job_id)
+            self.job_id = job_id
+            self.load()
         elif form is not None:
-            logging.debug("Set from form")
-            self._set_from_form(form)
+            self.form = form
+            self._set_from_form()
         else:
-            logging.debug("Make blank job")
             self._blank_job()
 
     def __str__(self):
@@ -128,29 +124,18 @@ class CosmopolitanJob:
 
     def load(self):
         """Load job from database and store files in working dir."""
-        logging.debug("Load job")
+        logging.info(f"Load submission {self.job_id}")
+        self.form = CosmopolitanJobForm()
+        self.form.job_id.data = self.job_id
+        # First check if job_id is valid
+        if not self.form.job_id.validate(self.form):
+            raise InvalidJobID(self.job_id)
 
-        # Get data from database
-        class_attributes = get_attributes(CosmopolitanJob)
-        for name, value in DataBaseManager.get_job_columns(self.job_id).items():
-            if name == "files":
-                files = value
-                continue
-            if name not in class_attributes:
-                raise AttributeError(f"CosmopolitanJob has no attribute named {name}")
+        for name, value in PostgresManager.get_job_columns(self.job_id).items():
             setattr(self, name, value)
 
-        # Copy files to working directory
         self.working_dir = os.path.join(WEB_WORK_DIR, self.job_id)
-        dump_dir = os.path.join(self.working_dir, dump_dir_name)
-        os.makedirs(self.working_dir, exist_ok=True)
-        os.makedirs(dump_dir, exist_ok=True)
-
-        for f_name in self.file_names:
-            if f_name in os.listdir(self.working_dir):
-                continue
-            with open(os.path.join(self.working_dir, f_name), "bw") as f_handle:
-                f_handle.write(files[self.file_names.index(f_name)])
+        sync_workdir(self.job_id)
 
         # Set form data
         self.form = CosmopolitanJobForm()
@@ -173,27 +158,47 @@ class CosmopolitanJob:
                 field.data = self.input_data[name]
 
     def _blank_job(self):
+        """Create a new job with a new job id."""
+        logging.info("Create new submission")
         while True:
-            job_form = CosmopolitanJobForm()
-            if DataBaseManager.check_existence(job_form.job_id.data):
-                logging.debug(f"Job id: {job_form.job_id.data} already exist")
+            form = CosmopolitanJobForm()
+            if PostgresManager.check_existence(form.job_id.data):
+                logging.debug(f"Job id: {form.job_id.data} already exist")
                 continue
             break
-        self.form = job_form
-        self.job_id = job_form.job_id.data
-        self.start_date = date.today()
-
-    def _set_from_form(self, form):
-        if type(form) is not CosmopolitanJobForm:
-            raise TypeError("Form must be a CosmopolitanJobForm")
 
         self.form = form
-        self.input_data = {}
+        self.job_id = form.job_id.data
         self.start_date = date.today()
-        self.job_id = self.form.job_id.data
+        self.submitted = False
+        self.notified_end = False
+        self.logs = ""
+        self.status = "PENDING"
         self.working_dir = os.path.join(WEB_WORK_DIR, self.job_id)
-        self.email = self.form.email.data
+        self.version = smp_version
+        self._set_input_data_from_form()
 
+    def _set_from_form(self):
+        """Set the job attributes from a form."""
+        logging.info(f"Set job attributes from form {self.form.job_id.data}")
+        # First check if job_id is valid
+        if not self.form.job_id.validate(self.form):
+            raise InvalidJobID(self.form.job_id.data)
+
+        if PostgresManager.check_existence(self.form.job_id.data):
+            raise SubmittedException(self.form.job_id.data)
+
+        self.job_id = self.form.job_id.data
+        self.start_date = date.today()
+        self.submitted = False
+        self.notified_end = False
+        self.logs = ""
+        self.status = "PENDING"
+        self.working_dir = os.path.join(WEB_WORK_DIR, self.job_id)
+        self.version = smp_version
+        self._set_input_data_from_form()
+
+    def _set_input_data_from_form(self):
         for name, field in self.form._fields.items():
             if name == "csrf_token":
                 continue
@@ -209,39 +214,6 @@ class CosmopolitanJob:
                 self.input_data[name] = field.data
 
     def _get_column_data(self, name):
-        if name == "file_names":
-            file_names = []
-            for f_name in os.listdir(self.working_dir):
-                if os.path.isdir(os.path.join(self.working_dir, f_name)):
-                    for sub_f_name in os.listdir(
-                        os.path.join(self.working_dir, f_name)
-                    ):
-                        file_names.append(os.path.join(f_name, sub_f_name))
-                    continue
-                file_names.append(f_name)
-            return file_names
-        if name == "files":
-            value = []
-            for f_name in os.listdir(self.working_dir):
-                if os.path.isdir(os.path.join(self.working_dir, f_name)):
-                    for sub_f_name in os.listdir(
-                        os.path.join(self.working_dir, f_name)
-                    ):
-                        with open(
-                            os.path.join(self.working_dir, f_name, sub_f_name), "rb"
-                        ) as f_handle:
-                            value.append(f_handle.read())
-                    continue
-                with open(os.path.join(self.working_dir, f_name), "rb") as f_handle:
-                    value.append(f_handle.read())
-
-            dump_dir = os.path.join(self.working_dir, dump_dir_name)
-            if os.path.isdir(dump_dir):
-                for f_name in os.listdir(dump_dir):
-                    with open(os.path.join(dump_dir, f_name), "rb") as f_handle:
-                        value.append(f_handle.read())
-
-            return value
         if name == "logs":
             log_file = os.path.join(self.working_dir, LOG_FILE_NAME)
             if os.path.isfile(log_file):
@@ -256,7 +228,7 @@ class CosmopolitanJob:
         """Save specicif job information to the database.
 
         This method takes a list of attributes, collects the current information of
-        these attributes. It then uses a DataBaseManager instance to add the collected
+        these attributes. It then uses a PostgresManager instance to add the collected
         data as to the respective column in the database.
         If the job can not be found in data base safe all attributes.
         """
@@ -265,7 +237,7 @@ class CosmopolitanJob:
         )
         data_to_insert = {name: self._get_column_data(name) for name in attribute_list}
         try:
-            DataBaseManager.update_column(self.job_id, data_to_insert)
+            PostgresManager.update_column(self.job_id, data_to_insert)
         except JobNotFound:
             self.save()
 
@@ -273,31 +245,33 @@ class CosmopolitanJob:
         """Save the job information to the database.
 
         This method retrieves the attributes of the current CosmopolitanJob
-        instance. It then uses a DataBaseManager instance to add the collected
+        instance. It then uses a PostgresManager instance to add the collected
         data as a new entry in the database.
         """
         logging.debug(f"Save job {self.job_id}")
         column_names = JobTable.__table__.columns.keys()
         data_to_insert = {name: self._get_column_data(name) for name in column_names}
-        DataBaseManager.add_entry(data_to_insert)
+        PostgresManager.add_entry(data_to_insert)
+        sync_workdir(self.job_id)
 
     def delete(self, delete_work_dir=True, delete_db=True):
         """
         Delete the job in the data base.
 
-        This method uses a DataBaseManager instance to delete the job entry from
+        This method uses a PostgresManager instance to delete the job entry from
         the database based on the job's unique identifier ('job_id').
         """
         logging.debug(f"Delete job {self.job_id}")
         if delete_work_dir:
             shutil.rmtree(self.working_dir)
         if delete_db:
-            DataBaseManager.delete_job(self.job_id)
+            PostgresManager.delete_job(self.job_id)
+            delete_from_bucket(self.job_id)
 
     def submit(self):
         """Start job in a nother subprocess."""
         logging.info(f"Submit job {self.job_id}.")
-        if DataBaseManager.set_submitted(self.job_id):
+        if PostgresManager.set_submitted(self.job_id):
             self.submitted = True
             self.status = "RUNNING"
             try:

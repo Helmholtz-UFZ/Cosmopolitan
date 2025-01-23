@@ -50,7 +50,7 @@ def test_env_prod():
     with open(".env", "a") as f:
         f.write("EMAIL_PASSWORD='password'\n")
         f.write("CLUSTER_TOKEN='password'\n")
-        f.write("DB_PW='password'\n")
+        f.write("POSTGRES_PW='password'\n")
     import cosmopolitan_app.config  # noqa
 
     # Restore the .env file or remove it

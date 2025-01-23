@@ -3,17 +3,7 @@
 import logging
 import time
 
-from sqlalchemy import (
-    ARRAY,
-    JSON,
-    Boolean,
-    Column,
-    Date,
-    Float,
-    LargeBinary,
-    String,
-    create_engine,
-)
+from sqlalchemy import JSON, Boolean, Column, Date, Float, String, create_engine
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
@@ -44,7 +34,7 @@ class JobNotFound(Exception):
         super().__init__(f"Job with ID '{job_id}' not found")
 
 
-class DataBaseManager:
+class PostgresManager:
     """Class for interacting with the posgres database."""
 
     database_url = (
@@ -330,8 +320,6 @@ class JobTable(Base):
     job_id = Column(String, primary_key=True)
     start_date = Column("start_date", Date)
     input_data = Column("input_data", JSON)
-    files = Column("files", ARRAY(LargeBinary))
-    file_names = Column("file_names", ARRAY(String))
     submitted = Column("submitted", Boolean)
     email = Column("email", String)
     notified_end = Column("notified_end", Boolean)

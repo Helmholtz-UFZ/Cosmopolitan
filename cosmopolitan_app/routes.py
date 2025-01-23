@@ -46,6 +46,7 @@ def change_input(job_id):
     """Change input of an unsubmitted job."""
     logging.info(f"Make changes to job {job_id}")
     job = CosmopolitanJob(job_id=job_id)
+    # TODO
     # if job.submitted:
     #     raise SubmittedException
     job.delete(delete_work_dir=False)

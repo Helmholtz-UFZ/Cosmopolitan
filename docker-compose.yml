@@ -24,11 +24,28 @@ services:
   postgres:
     image: postgres:latest
     ports:
-      - "${DB_PORT}:${DB_PORT}"
+      - "${POSTGRES_PORT}:${POSTGRES_PORT}"
     environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PW}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PW}
       POSTGRES_DB: ${POSTGRES_NAME}
     container_name: postgres
     volumes:
       - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    ports:
+      - "9000:9000"
+      - "9001:9001" # Web-based admin console
+    volumes:
+      - minio_data:/data
+      - ./minio_config:/root/.minio # For persistent configuration
+    environment:
+      MINIO_ROOT_USER: "root"
+      MINIO_ROOT_PASSWORD: "rootpassword"
+    command: server /data --console-address ":9001"
+
+volumes:
+  minio_data:

@@ -33,7 +33,7 @@ from cosmopolitan_app.dash_component.dash_component import (
     logging_config,
     stand_alone,
 )
-from cosmopolitan_app.db_manager import JobNotFound
+from cosmopolitan_app.postgres_manager import JobNotFound
 
 
 def get_ttl_hash(seconds=3600):

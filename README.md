@@ -18,7 +18,7 @@ The web service is based on `flask` see
 `cosmopolitan_app/cosmopolitan_web_server.py`. The main input validation is with
 `flaskWTF` see `cosmopolitan_app/cosmopolitan_job_form.py`. For the data storage
 an exchange with the compute cluster uses a postgres DB, see
-`cosmopolitan_app/db_manager.py`. For interactive components the `dash`
+`cosmopolitan_app/postgres_manager.py`. For interactive components the `dash`
 framework is used and are located in `cosmopolitan_app/dash_component/`.
 
 ## Build and development
@@ -34,7 +34,7 @@ docker pull git.ufz.de:4567/andersj/som-web:latest
 docker run -e EMAIL_PASSWORD=$EMAIL_PASSWORD \
     -e FLASK_PORT="$FLASK_PORT" \
     -e CLUSTER_TOKEN="$CLUSTER_TOKEN" \
-    -e DB_PW="$DB_PW" \
+    -e postgres_PW="$postgres_PW" \
     -p "$FLASK_PORT:$FLASK_PORT" \
     git.ufz.de:4567/andersj/som-web
 ```
@@ -56,7 +56,7 @@ For development, the project can be built and started with either mock-up
 servers or with a connection to the real services. The example above starts the
 web server with mock-up servers. This will not send emails, change the database
 or start jobs in the cluster. Another option is to develop with a connection to
-the real services. For this you need to add credentials, the quickest way is: 
+the real services. For this you need to add credentials, the quickest way is:
 
 ```bash
 cp ./.env_dev_prod ./.env_dev_prod_priv
@@ -65,12 +65,12 @@ $EDITOR ./.env_dev_prod_priv
 ./auxilary_scripts/dev_up.sh prod
 ```
 
-For the development there are four important variable in `.env_dev_*`. 
+For the development there are four important variable in `.env_dev_*`.
 
- 1. `GUNICORN` controls if the web service is started with the production server.
- 2. For debugging the Flask server use `FLASK_DEBUG` (easier logging, reloading
+1.  `GUNICORN` controls if the web service is started with the production server.
+2.  For debugging the Flask server use `FLASK_DEBUG` (easier logging, reloading
     scripts). This will only work if `GUNICORN=0`.
- 3. The web server uses the library of the git repository `sm_prediction` for
+3.  The web server uses the library of the git repository `sm_prediction` for
     plotting. If you wish to make ongoing development you can do so by
     specifying the branch with `SM_BRANCH`.
 
@@ -80,19 +80,19 @@ when one of the scripts in `cosmopolitan_app/\*` are changed.
 
 The code base tries to adhere to the `flake8` standard and is formatted with
 `Black`. To ensure styling coherence the pre commit configuration in
-`.pre-commit-config.yaml` should be used. 
+`.pre-commit-config.yaml` should be used.
 
 ### Mock-up outside services
 
-The web service relies on three external services 
+The web service relies on three external services
 
- 1. Mail server
- 2. Postgres DB
+1.  Mail server
+2.  Postgres DB
 
 #### Mail server
 
 The [MailHog](https://github.com/mailhog/MailHog) service is used to catch
-emails. When the web service is running you 
+emails. When the web service is running you
 
 ### Versions
 

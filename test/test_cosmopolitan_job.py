@@ -8,7 +8,7 @@ import pytest
 
 from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob, start_computation
 from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
-from cosmopolitan_app.db_manager import DataBaseManager, JobNotFound
+from cosmopolitan_app.postgres_manager import JobNotFound, PostgresManager
 
 
 @pytest.mark.order(-2)
@@ -19,7 +19,7 @@ def test_computation_valid(app):
     logger.setLevel(logging.INFO)
 
     try:
-        DataBaseManager.delete_job(valid_form_data["job_id"])
+        PostgresManager.delete_job(valid_form_data["job_id"])
     except JobNotFound:
         pass
 
@@ -30,7 +30,7 @@ def test_computation_valid(app):
         assert cosmopolitan_job_form.validate(), "Invalid form"
         job = CosmopolitanJob(form=cosmopolitan_job_form)
         job.save()
-        assert DataBaseManager.set_submitted(job.job_id) is True
+        assert PostgresManager.set_submitted(job.job_id) is True
         job.submitted = True
         job.status = "RUNNING"
         start_computation(job)
@@ -78,7 +78,7 @@ def test_computation_invalid(app):
     )
 
     try:
-        DataBaseManager.delete_job(form_data["job_id"])
+        PostgresManager.delete_job(form_data["job_id"])
     except JobNotFound:
         pass
 
@@ -87,7 +87,7 @@ def test_computation_invalid(app):
         cosmopolitan_job_form.validate()
         job = CosmopolitanJob(form=cosmopolitan_job_form)
         job.save()
-        assert DataBaseManager.set_submitted(job.job_id) is True
+        assert PostgresManager.set_submitted(job.job_id) is True
         job.submitted = True
         job.status = "RUNNING"
         start_computation(job)

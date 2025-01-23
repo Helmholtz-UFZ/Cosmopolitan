@@ -25,7 +25,8 @@ from cosmopolitan_app.config import (
     EMAIL_USERNAME,
     WEB_WORK_DIR,
 )
-from cosmopolitan_app.db_manager import DataBaseManager, JobNotFound
+from cosmopolitan_app.minio_manager import MinioError
+from cosmopolitan_app.postgres_manager import JobNotFound, PostgresManager
 
 
 def zip_directory(directory_path):
@@ -57,12 +58,12 @@ def lock_task(task):
 
     def lock_function(*args, **kwargs):
         logging.debug(f"Lock function {task.__name__}.")
-        if DataBaseManager.get_lock(task.__name__):
+        if PostgresManager.get_lock(task.__name__):
             logging.debug(f"Lock acquired for {task.__name__}.")
             try:
                 task(*args, **kwargs)
             finally:
-                DataBaseManager.release_lock(task.__name__)
+                PostgresManager.release_lock(task.__name__)
                 logging.debug(f"Lock released for {task.__name__}.")
 
     return lock_function
@@ -80,14 +81,14 @@ def clean_up():
     )
     job_end_of_life_submitted = date.today() - timedelta(days=DAYS_DELETE_SUMBITTED)
 
-    for job_id, (start_date, submitted) in DataBaseManager.list_jobs().items():
+    for job_id, (start_date, submitted) in PostgresManager.list_jobs().items():
         logging.debug(f"Check job {job_id}.")
         if not submitted and start_date < job_end_of_life_not_submitted:
             logging.debug("Job was not submit and is older than two days.")
-            DataBaseManager.delete_job(job_id)
+            PostgresManager.delete_job(job_id)
         elif start_date < job_end_of_life_submitted:
             logging.debug("Job older than two month.")
-            DataBaseManager.delete_job(job_id)
+            PostgresManager.delete_job(job_id)
         else:
             logging.debug("Job will be kept.")
             kept_jobs.append(job_id)
@@ -161,6 +162,14 @@ def error_response_args(e):
             True,
         )
 
+    if isinstance(e, MinioError):
+        return (
+            {
+                "error_page": "html/errors/db_no_connection_error.html",
+            },
+            500,
+            True,
+        )
     if isinstance(e, NotFound):
         return (
             {

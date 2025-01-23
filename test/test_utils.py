@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from cosmopolitan_app.db_manager import DataBaseManager
+from cosmopolitan_app.postgres_manager import PostgresManager
 from cosmopolitan_app.utils import (
     InvalidJobID,
     NotFinishedException,
@@ -43,8 +43,8 @@ def test_error_response_args():
         assert html_error_code == 400, error_message
 
 
-@patch.object(DataBaseManager, "get_lock")
-@patch.object(DataBaseManager, "release_lock")
+@patch.object(PostgresManager, "get_lock")
+@patch.object(PostgresManager, "release_lock")
 def test_lock_task(mock_release_lock, mock_get_lock):
     """Test the lock_task function under three different scenarios.
 

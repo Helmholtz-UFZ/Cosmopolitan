@@ -1,25 +1,40 @@
 """Setup tests."""
 
+import socket
+import subprocess
+
 import pytest
 from flask import Flask
 from sqlalchemy.exc import OperationalError
 
-from cosmopolitan_app.config import DB_PW, EMAIL_PASSWORD
-from cosmopolitan_app.db_manager import DataBaseManager
+from cosmopolitan_app.config import EMAIL_PASSWORD, MINIO_ALIAS, POSTGRES_PW
+from cosmopolitan_app.minio_manager import MinioError, set_alias
+from cosmopolitan_app.postgres_manager import PostgresManager
 from cosmopolitan_app.utils import send_mail
 
-if any(var != "test" for var in [DB_PW, EMAIL_PASSWORD]):
+try:
+    subprocess.run(["mc", "-v"], check=True)
+except FileNotFoundError:
+    pytest.exit("mc command not available")
+
+try:
+    set_alias("test")
+    subprocess.run(["mc", "ping", "-x", MINIO_ALIAS], check=True)
+except MinioError:
+    pytest.exit("Can not set mc alias")
+
+if any(var != "test" for var in [POSTGRES_PW, EMAIL_PASSWORD, MINIO_ALIAS]):
     pytest.exit("Environment variables not set")
 
 try:
     send_mail("Test", "Test", "Test")
-except ConnectionRefusedError:
+except (ConnectionRefusedError, socket.gaierror):
     pytest.exit("Mail server not available")
 
 try:
-    DataBaseManager.check_existence("test")
+    PostgresManager.check_existence("test")
 except OperationalError:
-    pytest.exit("DB not available")
+    pytest.exit("postgres not available")
 
 
 @pytest.fixture(scope="session")

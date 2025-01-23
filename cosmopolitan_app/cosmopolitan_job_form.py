@@ -63,7 +63,7 @@ from wtforms.validators import (
 from wtforms.widgets import CheckboxInput, NumberInput, Select, TextInput
 
 from cosmopolitan_app.config import WEB_WORK_DIR
-from cosmopolitan_app.db_manager import DataBaseManager
+from cosmopolitan_app.postgres_manager import PostgresManager
 
 
 def json_load_4_jinja(string):
@@ -423,7 +423,7 @@ class CosmopolitanJobForm(FlaskForm):
         """
         logging.debug(f"Check job id {field.data}")
 
-        if DataBaseManager.check_existence(field.data):
+        if PostgresManager.check_existence(field.data):
             raise ValidationError("Job id already exist")
 
         if len(field.errors) == 0:

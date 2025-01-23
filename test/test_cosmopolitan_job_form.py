@@ -14,7 +14,7 @@ from soil_moisture_prediction.smp_cli import pprint_pydantic_validation_error
 
 from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
 from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
-from cosmopolitan_app.db_manager import JobNotFound
+from cosmopolitan_app.postgres_manager import JobNotFound
 
 
 def test_consistency_between_test_form_data():
