@@ -1,5 +1,6 @@
 """Setup tests."""
 
+import logging
 import socket
 import subprocess
 
@@ -8,9 +9,11 @@ from flask import Flask
 from sqlalchemy.exc import OperationalError
 
 from cosmopolitan_app.config import EMAIL_PASSWORD, MINIO_ALIAS, POSTGRES_PW
-from cosmopolitan_app.minio_manager import MinioError, set_alias
+from cosmopolitan_app.minio_manager import MinioError, create_bucket
 from cosmopolitan_app.postgres_manager import PostgresManager
 from cosmopolitan_app.utils import send_mail
+
+logging.basicConfig(level=logging.DEBUG)
 
 try:
     subprocess.run(["mc", "-v"], check=True)
@@ -18,7 +21,7 @@ except FileNotFoundError:
     pytest.exit("mc command not available")
 
 try:
-    set_alias("test")
+    create_bucket(reset_alias=True)
     subprocess.run(["mc", "ping", "-x", MINIO_ALIAS], check=True)
 except MinioError:
     pytest.exit("Can not set mc alias")

@@ -1,25 +1,11 @@
 """Dash app that presents results."""
 
+import glob
 import logging
 from collections import OrderedDict
-from functools import lru_cache
 from logging.config import dictConfig
-from time import time
 
 import dash_bootstrap_components as dbc
-from dash import MATCH, Input, Output, State, ctx, dcc, html
-from soil_moisture_prediction.plot_functions import (
-    plot_measurements,
-    plot_prediction_distance,
-    plot_predictor_importance,
-    plot_predictors,
-    plot_rfo_model,
-    prediction_correlation_matrix,
-    predictor_importance_along_days,
-)
-from soil_moisture_prediction.random_forest_model import RFoModel
-from sqlalchemy.exc import OperationalError
-
 from cosmopolitan_app.cosmopolitan_job import (
     CosmopolitanJob,
     InvalidJobID,
@@ -34,32 +20,20 @@ from cosmopolitan_app.dash_component.dash_component import (
     stand_alone,
 )
 from cosmopolitan_app.postgres_manager import JobNotFound
+from dash import MATCH, Input, Output, State, ctx, dcc, html
+from sqlalchemy.exc import OperationalError
 
 
-def get_ttl_hash(seconds=3600):
-    """Return the same value withing `seconds` time period."""
-    return round(time() / seconds)
+def get_time_steps(job_id):
+    """Get time steps for job."""
+    job = CosmopolitanJob(job_id=job_id)
+    files = glob.glob(f"{job.working_dir}/measurements_*")
+    time_steps = [file.replace("measurements_", "").split(".")[0] for file in files]
+    # TODO
+    pass
 
 
-@lru_cache()
-def load_rfo_prediction(job_id, ttl_hash=None):
-    """Load job model for plotting."""
-    del ttl_hash
-    logging.debug(f"Load rfo prediction for {job_id}.")
-    cosmopolitan_job = CosmopolitanJob(job_id=str(job_id))
-    (
-        input_parameters,
-        working_dir,
-        load_results,
-    ) = cosmopolitan_job.get_parameters_rfo_prediction()
-    rfo_model = RFoModel(input_parameters=input_parameters, work_dir=working_dir)
-    rfo_model.load_input_data(load_from_dump=True, plot_input=False)
-    rfo_model.load_predictions()
-    rfo_model.input_data.compute_prediction_distance()
-    return rfo_model
-
-
-def create_slider(plot_id, rfo_prediction):
+def create_slider(plot_id):
     """Create dash slider for time steps."""
     time_steps = rfo_prediction.input_data.soil_moisture_data.time_steps
     number_time_steps = len(rfo_prediction.input_data.soil_moisture_data.time_steps)
@@ -80,45 +54,19 @@ def create_slider(plot_id, rfo_prediction):
     )
 
 
-@lru_cache()
-def get_image(rfo_prediction, plot_id, time_index, hash_ttl=None):
-    """Get image for plot."""
-    del hash_ttl
-
-    _header, _time_variable, plot_function = plot_parameter[plot_id]
-
-    logging.debug(f"Get image by function {plot_function.__name__}")
-
-    if time_index is None:
-        width, height, content = plot_function(rfo_prediction, None)
-    else:
-        time_step = rfo_prediction.input_data.soil_moisture_data.time_steps[time_index]
-        width, height, content = plot_function(rfo_prediction, time_step, None)
-
-    kwargs_img_element = {
-        "className": "d-block mx-auto",
-        "src": f"data:image/svg+xml;base64,{content}",
-    }
-
-    if width > height:
-        kwargs_img_element["width"] = "90%"
-    else:
-        kwargs_img_element["height"] = "100%"
-
-    return html.Img(**kwargs_img_element)
+def all_predictors_constant():
+    # TODO
+    pass
 
 
 def create_content(plot_id, rfo_prediction):
     """Create content for plot."""
     logging.debug(f"Create content for {plot_id}.")
-    header, time_variable, plot_function = plot_parameter[plot_id]
+    header, time_variable, file_name_template = plot_parameter[plot_id]
     element_list = [html.H2(header, style={"textAlign": "center"})]
 
     # Check if slider is needed
-    if (
-        time_variable == "var_predictors"
-        and rfo_prediction.input_data.all_predictors_constant()
-    ):
+    if time_variable == "var_predictors" and all_predictors_constant():
         slider = False
     elif time_variable == "constant":
         slider = False
@@ -137,12 +85,12 @@ def create_content(plot_id, rfo_prediction):
         logging.debug("No slider needed.")
 
     time_index = 0 if time_variable != "constant" else None
-    html_img = get_image(rfo_prediction, plot_id, time_index, hash_ttl=get_ttl_hash())
+    img_url = url_for("result_file", job_id=job_id, file_name=file_name)
 
     element_list.append(
         html.Div(
             html.Div(
-                [html_img],
+                [img_url],
                 id={"type": "plot-img", "plot_id": f"{plot_id}"},
                 className="col-12 col-xl-9",
             ),
@@ -157,37 +105,37 @@ plot_parameter = OrderedDict()
 plot_parameter["sm-pred"] = [
     "Soil Moisture Prediction",
     "var_measurements",
-    plot_rfo_model,
+    "prediction{time_step}.svg",
 ]
 plot_parameter["crn"] = [
     "Measurements",
     "var_measurements",
-    plot_measurements,
+    "measurements{time_step}.svg",
 ]
 plot_parameter["pred"] = [
     "Predictors",
     "var_predictors",
-    plot_predictors,
+    "predictors{time_step}.svg",
 ]
 plot_parameter["pred-corr"] = [
     "Predictor Correlation",
     "var_predictors",
-    prediction_correlation_matrix,
+    "correlation_matrix{time_step}.svg",
 ]
 plot_parameter["pred-imp"] = [
     "Predictor Importance",
     "var_measurements",
-    plot_predictor_importance,
+    "predictor_importance{time_step}.svg",
 ]
 plot_parameter["pred-imp-ot"] = [
     "Predictor Importance over time",
     "constant",
-    predictor_importance_along_days,
+    "predictor_importance_vs_days.svg",
 ]
 plot_parameter["pred-dist"] = [
     "Predictor Distance",
     "var_measurements",
-    plot_prediction_distance,
+    "prediction_distance{time_step}.svg",
 ]
 
 predictor_plots = ["pred", "pred-corr", "pred-imp"]

@@ -19,14 +19,12 @@ def test_postgres_manager():
         "job_id": job_id,
         "start_date": datetime.date(2024, 3, 12),
         "input_data": {"param1": 10, "param2": "value"},
-        "files": [b"binary_data1", b"binary_data2"],
-        "file_names": ["file1.txt", "file2.txt"],
         "submitted": True,
         "email": "example@example.com",
         "notified_end": False,
         "logs": "Some log information",
         "status": "completed",
-        "version": 1.0,
+        "version": "1.0.0",
     }
     PostgresManager.add_entry(data_to_insert)
     assert PostgresManager.check_existence(job_id)

@@ -3,7 +3,7 @@
 import logging
 import time
 
-from sqlalchemy import JSON, Boolean, Column, Date, Float, String, create_engine
+from sqlalchemy import JSON, Boolean, Column, Date, String, create_engine
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
@@ -119,6 +119,7 @@ class PostgresManager:
                     for column_name, column_value in column_dic.items():
                         setattr(job, column_name, column_value)
                     session.commit()
+                    break
                 except OperationalError as e:
                     session.rollback()
                     retries += 1
@@ -181,6 +182,7 @@ class PostgresManager:
             with cls.Session() as session:
                 try:
                     job_row = session.query(JobTable).filter_by(job_id=job_id).first()
+                    break
                 except OperationalError as e:
                     session.rollback()
                     retries += 1
@@ -325,4 +327,4 @@ class JobTable(Base):
     notified_end = Column("notified_end", Boolean)
     logs = Column("logs", String)
     status = Column("status", String)
-    version = Column("version", Float)
+    version = Column("version", String)

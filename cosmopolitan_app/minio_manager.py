@@ -77,6 +77,35 @@ def set_alias(dirname: str, reset_alias: bool = False) -> None:
         raise MinioError(dirname)
 
 
+def create_bucket(reset_alias: bool = False) -> None:
+    """Create the MinIO bucket.
+
+    This only for local testing. In production, the bucket should be created by the
+    system administrator and the service should not have the necessary permissions to
+    create buckets. Thus this function should fail in production.
+    """
+    logging.debug(f"Creating MinIO bucket {MINIO_BUCKET}.")
+    set_alias(MINIO_BUCKET, reset_alias)
+
+    output = subprocess.run(
+        ["mc", "mb", f"{MINIO_ALIAS}/{MINIO_BUCKET}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if (
+        output.returncode != 0
+        and "Your previous request to create the named bucket succeeded and you already own it."  # noqa
+        not in output.stderr
+    ):
+        raise subprocess.CalledProcessError(
+            output.returncode,
+            output.args,
+            output=output.stdout,
+            stderr=output.stderr,
+        )
+
+
 def sync_workdir(dirname: str, reset_alias: bool = False) -> None:
     """Sync a directory from MinIO to a local work directory using mc mirror.
 
@@ -156,5 +185,6 @@ if __name__ == "__main__":
         level=logging.DEBUG,
     )
     folder_to_sync = "whimsical_affable_chipmunk"
+    create_bucket(reset_alias=True)
     sync_workdir(folder_to_sync, reset_alias=True)
     delete_from_bucket(folder_to_sync, reset_alias=True)

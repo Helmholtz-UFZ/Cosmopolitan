@@ -4,6 +4,9 @@ version = "0.0.30"
 description = "COSmic ray based soil MOisture PredictiOn LIve descicion Tree ANalysis"
 authors = ["John Anders <john-eric.anders@ufz.de>"]
 readme = "README.md"
+packages = [
+    { include = "cosmopolitan_app" }
+]
 
 [tool.poetry.dependencies]
 python = "^3.11"

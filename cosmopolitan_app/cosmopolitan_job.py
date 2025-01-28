@@ -9,7 +9,7 @@ import shutil
 import traceback
 from datetime import date
 from logging.config import dictConfig
-from typing import List, Literal, Optional
+from typing import Literal
 
 from soil_moisture_prediction.__version__ import __version__ as smp_version
 from soil_moisture_prediction.pydantic_models import InputParameters
@@ -93,14 +93,14 @@ class CosmopolitanJob:
 
     form: CosmopolitanJobForm
     job_id: str
-    start_date: Optional[date]  # Or use datetime if preferred
-    input_data: Optional[dict]
+    start_date: date
+    input_data: dict
     submitted: bool
-    email: Optional[str]
+    email: str
     notified_end: bool
-    logs: Optional[List[str]]
+    logs: str
     status: Literal["PENDING", "RUNNING", "COMPLETED", "FAILED"]
-    version: Optional[str]
+    version: str
     working_dir: str
 
     def __init__(
@@ -130,12 +130,16 @@ class CosmopolitanJob:
         # First check if job_id is valid
         if not self.form.job_id.validate(self.form):
             raise InvalidJobID(self.job_id)
+        logging.debug(f"Job id: {self.job_id} is valid")
 
         for name, value in PostgresManager.get_job_columns(self.job_id).items():
             setattr(self, name, value)
+        logging.debug(f"Job {self.job_id} loaded from database")
 
         self.working_dir = os.path.join(WEB_WORK_DIR, self.job_id)
+        os.makedirs(self.working_dir, exist_ok=True)
         sync_workdir(self.job_id)
+        logging.debug(f"Job {self.job_id} synced to local work directory")
 
         # Set form data
         self.form = CosmopolitanJobForm()
@@ -170,13 +174,15 @@ class CosmopolitanJob:
         self.form = form
         self.job_id = form.job_id.data
         self.start_date = date.today()
+        self._set_input_data_from_form()
         self.submitted = False
+        self.email = self.form.email.data
         self.notified_end = False
         self.logs = ""
         self.status = "PENDING"
-        self.working_dir = os.path.join(WEB_WORK_DIR, self.job_id)
         self.version = smp_version
-        self._set_input_data_from_form()
+        self.working_dir = os.path.join(WEB_WORK_DIR, self.job_id)
+        os.makedirs(self.working_dir, exist_ok=True)
 
     def _set_from_form(self):
         """Set the job attributes from a form."""
@@ -190,15 +196,18 @@ class CosmopolitanJob:
 
         self.job_id = self.form.job_id.data
         self.start_date = date.today()
+        self._set_input_data_from_form()
         self.submitted = False
+        self.email = self.form.email.data
         self.notified_end = False
         self.logs = ""
         self.status = "PENDING"
-        self.working_dir = os.path.join(WEB_WORK_DIR, self.job_id)
         self.version = smp_version
-        self._set_input_data_from_form()
+        self.working_dir = os.path.join(WEB_WORK_DIR, self.job_id)
+        os.makedirs(self.working_dir, exist_ok=True)
 
     def _set_input_data_from_form(self):
+        self.input_data = {}
         for name, field in self.form._fields.items():
             if name == "csrf_token":
                 continue
@@ -209,7 +218,10 @@ class CosmopolitanJob:
             ]:
                 continue
             if name in ["selected_pred_input", "selected_crn_files"]:
-                self.input_data[name] = json.loads(field.data)
+                if field.data == "":
+                    self.input_data[name] = field.data
+                else:
+                    self.input_data[name] = json.loads(field.data)
             else:
                 self.input_data[name] = field.data
 

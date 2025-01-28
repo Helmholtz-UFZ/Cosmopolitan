@@ -14,7 +14,6 @@ from flask import (
 )
 from werkzeug.exceptions import BadRequestKeyError
 
-from cosmopolitan_app.config import WEB_WORK_DIR
 from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
 from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
 from cosmopolitan_app.dash_component.dynamic_plots import base_path as result_path
@@ -118,8 +117,17 @@ def submission(job_id):
 def result_file(job_id, file_name):
     """Serve result files."""
     logging.info(f"Visiting /results/{job_id}/{file_name} to result_file()")
-    output_dir = os.path.join(WEB_WORK_DIR, job_id)
-    return send_from_directory(output_dir, file_name)
+    job = CosmopolitanJob(job_id=job_id)
+
+    if not job.submitted:
+        raise NotSubmittedException(job.job_id)
+
+    if job.status != "COMPLETED":
+        raise NotFinishedException(job.job_id)
+
+    download_path = os.path.join(*job.working_dir.split(os.sep)[2:])
+    safe_file_name = os.path.basename(file_name)
+    return send_from_directory(download_path, safe_file_name)
 
 
 @app.route("/download/<job_id>", methods=["GET"])
