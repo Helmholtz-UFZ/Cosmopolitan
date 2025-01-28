@@ -6,6 +6,9 @@ from collections import OrderedDict
 from logging.config import dictConfig
 
 import dash_bootstrap_components as dbc
+from dash import MATCH, Input, Output, State, ctx, dcc, html
+from sqlalchemy.exc import OperationalError
+
 from cosmopolitan_app.cosmopolitan_job import (
     CosmopolitanJob,
     InvalidJobID,
@@ -20,8 +23,6 @@ from cosmopolitan_app.dash_component.dash_component import (
     stand_alone,
 )
 from cosmopolitan_app.postgres_manager import JobNotFound
-from dash import MATCH, Input, Output, State, ctx, dcc, html
-from sqlalchemy.exc import OperationalError
 
 
 def get_time_steps(job_id):
