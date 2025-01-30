@@ -1,28 +1,50 @@
 # syntax=docker/dockerfile:1
-
 FROM python:3.11-slim-bookworm
 
-ENV MPLCONFIGDIR /python_docker/cosmopolitan/.config/matplotlib
+ENV MPLCONFIGDIR=/python_docker/cosmopolitan/.config/matplotlib
+ENV PATH=$PATH:/home/appuser/minio-binaries/
 
-RUN apt-get update
-RUN apt-get -y upgrade
-RUN apt-get -y install git libpq-dev gcc
+# Create non-root user early
+RUN useradd -m -u 1000 appuser
+
+# Install system dependencies
+RUN apt-get update && \
+    apt-get -y upgrade && \
+    apt-get -y install --no-install-recommends \
+        git \
+        libpq-dev \
+        gcc \
+        python3-dev \
+        libc-dev \
+        libcairo2-dev \
+        curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install minio client
+RUN curl https://dl.min.io/client/mc/release/linux-amd64/mc --create-dirs -o /home/appuser/minio-binaries/mc && \
+    chmod +x /home/appuser/minio-binaries/mc && \
+    chown -R appuser:appuser /home/appuser/minio-binaries
+
+# Set up Python environment
 RUN pip install --upgrade pip && pip install poetry
 
 WORKDIR /python_docker/cosmopolitan
 
-RUN mkdir -p $MPLCONFIGDIR && chmod 777 $MPLCONFIGDIR
+# Set up matplotlib directory
+RUN mkdir -p $MPLCONFIGDIR && \
+    chmod 777 $MPLCONFIGDIR
 
 ENV PYTHONPATH=/python_docker/cosmopolitan/
 
-COPY poetry.lock pyproject.toml /python_docker/cosmopolitan
+# Copy dependency files
+COPY --chown=appuser:appuser . .
 
-RUN poetry config virtualenvs.create false 
-RUN poetry install --no-interaction --no-ansi
+# Install dependencies
+RUN poetry config virtualenvs.create false && \
+    poetry install --no-interaction --no-ansi
 
-USER 1000
-
-COPY . .
+# Switch to non-root user
+USER appuser
 
 CMD if [ "$GUNICORN" = 1 ] ; then \
         gunicorn -w 4 -b 0.0.0.0:$FLASK_PORT cosmopolitan_app.cosmopolitan_web_server:app; \

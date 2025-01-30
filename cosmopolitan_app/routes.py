@@ -52,6 +52,9 @@ def input_job():
         logging.info("Input for new job")
         job = CosmopolitanJob()
         form = job.form
+        # TODO this can be added to init of CosmopolitanJob
+        draw_preview = form.validate_geometry()
+        form.preview_area(draw_preview=draw_preview)
     # If form was submitted validate
     else:
         form = CosmopolitanJobForm(new=False)
@@ -109,8 +112,10 @@ def submission(job_id):
 def result_file(job_id, file_name):
     """Serve result files."""
     logging.info(f"Visiting /results/{job_id}/{file_name} to result_file()")
-    output_dir = os.path.join(WEB_WORK_DIR, job_id)
-    return send_from_directory(output_dir, file_name)
+    download_path = os.path.join(*WEB_WORK_DIR.split(os.sep)[2:], job_id)
+    safe_file_name = os.path.basename(file_name)
+
+    return send_from_directory(download_path, safe_file_name)
 
 
 @app.route("/download/<job_id>", methods=["GET"])
