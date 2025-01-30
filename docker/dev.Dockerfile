@@ -38,7 +38,6 @@ ENV PYTHONPATH=/python_docker/cosmopolitan/
 
 # Copy dependency files
 COPY --chown=appuser:appuser . .
-# COPY --chown=appuser:appuser poetry.lock pyproject.toml README.md ./
 
 # Install dependencies
 RUN poetry config virtualenvs.create false && \
@@ -46,8 +45,6 @@ RUN poetry config virtualenvs.create false && \
 
 # Switch to non-root user
 USER appuser
-
-# Copy application code
 
 CMD if [ "$GUNICORN" = 1 ] ; then \
         gunicorn -w 4 -b 0.0.0.0:$FLASK_PORT cosmopolitan_app.cosmopolitan_web_server:app; \
