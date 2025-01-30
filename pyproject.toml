@@ -57,6 +57,8 @@ wtforms = "^3.1.1"
 apscheduler = "^3.10.4"
 soil-moisture-prediction = "^0.0.36"
 pillow = "10.0.0"
+py-staticmaps = "^0.4.0"
+pycairo = "^1.27.0"
 
 [tool.poetry.group.dev.dependencies]
 docker = "^7.0.0"

@@ -31,9 +31,12 @@ import re
 import shutil
 from collections import OrderedDict
 
+import cairo
+import staticmaps
 from coolname import generate
 from flask_wtf import FlaskForm
 from markupsafe import Markup
+from pyproj import Transformer
 from soil_moisture_prediction.area_geometry import RectGeom
 from soil_moisture_prediction.input_data import stream_dic
 from soil_moisture_prediction.input_file_parser import (
@@ -64,6 +67,8 @@ from wtforms.widgets import CheckboxInput, NumberInput, Select, TextInput
 
 from cosmopolitan_app.config import WEB_WORK_DIR
 from cosmopolitan_app.db_manager import DataBaseManager
+
+logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)
 
 
 def json_load_4_jinja(string):
@@ -387,32 +392,26 @@ class CosmopolitanJobForm(FlaskForm):
         validators=[],
     )
 
-    # TODO feature not implemented in smp
-    # reset_when_rain_occured = BooleanField(
-    #     "Reset when rain occured",
-    #     description="If rain data is available and the past_prediction_as_feature is set, the past forecast will not be used after rain days.",  # noqa
-    #     widget=BooleanInput(),
-    #     validators=[],
-    # )
-
     monte_carlo_predictors = BooleanField(
         "Monte carlo simulation of predictors",
         description="Use monte carlo simulation to predict uncertainty for the predictors.",  # noqa
         widget=BooleanInput(),
         validators=[],
     )
-    request = None
-    input_dir = None
-    output_dir = None
-    geom_area = None
 
     def __init__(self, new=True, **kwargs):
         """Init."""
         super().__init__(meta={"csrf": False}, **kwargs)
+        self.geom_area = None
         if new:
             logging.debug("New job form")
-            self.job_id.data = "_".join(generate(3))
+            while True:
+                self.job_id.data = "_".join(generate(3))
+                if not DataBaseManager.check_existence(self.job_id.data):
+                    break
             self.previous_job_id.data = self.job_id.data
+            self.input_dir = os.path.join(WEB_WORK_DIR, self.job_id.data)
+            os.makedirs(self.input_dir, exist_ok=True)
 
     def validate_job_id(self, field):
         """Validate job id.
@@ -428,8 +427,7 @@ class CosmopolitanJobForm(FlaskForm):
 
         if len(field.errors) == 0:
             self.input_dir = os.path.join(WEB_WORK_DIR, self.job_id.data)
-            if not os.path.isdir(self.input_dir):
-                os.mkdir(self.input_dir)
+            os.makedirs(self.input_dir, exist_ok=True)
 
             if not re.match(self.job_id_regex, self.previous_job_id.data):
                 logging.warning(
@@ -456,8 +454,28 @@ class CosmopolitanJobForm(FlaskForm):
                     )
                 shutil.rmtree(previous_input_dir)
 
-    def validate_area_res(self, field):
-        """Give instance a GeomArea to validate the input files."""
+    def validate_geometry(self):
+        """Validate the geometry of the area and create the geom_area object."""
+        logging.debug("Validate geometry")
+        valid = True
+
+        if self.area_x1.data >= self.area_x2.data:
+            self.area_x1.errors.append("X1 cannot be higher or equal than X2.")
+            valid = False
+
+        if self.area_y1.data >= self.area_y2.data:
+            self.area_y1.errors.append("Y1 cannot be higher or equal than Y2.")
+            valid = False
+
+        max_res = min(
+            self.area_y2.data - self.area_y1.data, self.area_x2.data - self.area_x1.data
+        )
+        if self.area_res.data > max_res / 2:
+            self.area_res.errors.append(
+                "Resolution cannot be higher than the half of the area."
+            )
+            valid = False
+
         self.geom_area = RectGeom(
             [
                 self.area_x1.data,
@@ -465,8 +483,90 @@ class CosmopolitanJobForm(FlaskForm):
                 self.area_y1.data,
                 self.area_y2.data,
                 self.area_res.data,
-            ]
+            ],
+            build_grid=False,
         )
+        # Overwrite the area values with the corrected values.
+        self.area_x1.data = self.geom_area.xi
+        self.area_x2.data = self.geom_area.xf
+        self.area_y1.data = self.geom_area.yi
+        self.area_y2.data = self.geom_area.yf
+
+        logging.debug(f"Geometry is valid: {valid}")
+        return valid
+
+    def preview_area(self, draw_preview=True):
+        """Draw a preview of the area."""
+        logging.debug("Draw preview")
+        width = 800
+        height = 500
+        if not draw_preview:
+            logging.debug("Draw empty preview")
+            self._draw_empty_preview(width, height)
+            return
+
+        logging.debug("Draw area preview")
+        context = staticmaps.Context()
+        context.set_tile_provider(staticmaps.tile_provider_OSM)
+
+        transformer = Transformer.from_crs(
+            self.projection.data, "EPSG:4326", always_xy=True
+        )
+        lon_min, lat_min = transformer.transform(self.geom_area.xi, self.geom_area.yi)
+        lon_max, lat_max = transformer.transform(self.geom_area.xf, self.geom_area.yf)
+        bbox = [
+            (lat_min, lon_min),
+            (lat_max, lon_min),
+            (lat_max, lon_max),
+            (lat_min, lon_max),
+            (lat_min, lon_min),
+        ]
+        # bbox = [
+        #     (52.3394, 13.0890),
+        #     (52.6755, 13.0890),
+        #     (52.6755, 13.7611),
+        #     (52.3394, 13.7611),
+        #     (52.3394, 13.0890),
+        # ]
+
+        context.add_object(
+            staticmaps.Area(
+                [staticmaps.create_latlng(lat, lng) for lat, lng in bbox],
+                fill_color=staticmaps.parse_color("#00FF003F"),
+                width=2,
+                color=staticmaps.BLUE,
+            )
+        )
+
+        image = context.render_cairo(width, height)
+        image.write_to_png(os.path.join(self.input_dir, "preview_area.png"))
+
+    def _draw_empty_preview(self, width, height):
+        # Create a new Cairo surface and context
+        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
+        ctx = cairo.Context(surface)
+
+        # Fill background with white
+        ctx.set_source_rgb(1, 1, 1)
+        ctx.paint()
+
+        # Set up text properties
+        ctx.set_source_rgb(0.5, 0.5, 0.5)  # Gray color for text
+        ctx.select_font_face("Arial", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+        ctx.set_font_size(32)
+
+        # Center the text
+        text = "No preview available"
+        extents = ctx.text_extents(text)
+        x = width / 2 - extents.width / 2
+        y = height / 2 + extents.height / 2
+
+        # Draw the text
+        ctx.move_to(x, y)
+        ctx.show_text(text)
+
+        # Save the image
+        surface.write_to_png(os.path.join(self.input_dir, "preview_area.png"))
 
     def validate_projection(self, field):
         """Check the projection format."""
@@ -479,27 +579,40 @@ class CosmopolitanJobForm(FlaskForm):
         """Check if the selected stream is valid."""
         logging.debug("Check if selected stream is valid")
         if field.errors == []:
+            # Get the previously selected streams and files.
             selected_pred_input = json_load_4_jinja(self.selected_pred_input.data)
 
+            # Remove the streams from the selected predictor inputs and only keep the
+            # files.
             selected_pred_input = {
                 k: v
                 for k, v in selected_pred_input.items()
                 if k not in (c[0] for c in self.stream_choices)
             }
 
-            selected_pred_input.update(
-                {
-                    k: stream_dic[k].class_info(k)
-                    for k in field.data
-                    if k != "remove_all"
-                }
-            )
+            # If user selected remove only keep files.
+            if "remove_all" not in field.data:
+                # Add the selected streams to the selected predictor inputs.
+                selected_pred_input.update(
+                    {k: stream_dic[k].class_info(k) for k in field.data}
+                )
+
             self.selected_pred_input.data = json_dumps_4_jinja(selected_pred_input)
 
-    def validate_pred_files(self, field):
-        """Check the content of the files and override data with file name and hash."""
+    def check_pred_files(self, field):
+        """Check the content of the files and override data with file name and hash.
+
+        The function is not named validate_pred_files because it needs a valid geom_area
+        object to parse the files. Before calling this function the geom_area object
+        must be set with validate_geometry().
+        """
         logging.debug("Check predictor variable files integrity")
-        input_file_dic = self._validate_input_file(field, "pred")
+        try:
+            input_file_dic = self._validate_input_file(field, "pred")
+        except ValidationError as e:
+            self.pred_files.errors.append(e)
+            return
+
         if input_file_dic is not None:
             selected_pred_input = json_load_4_jinja(self.selected_pred_input.data)
             selected_pred_input = {
@@ -521,10 +634,19 @@ class CosmopolitanJobForm(FlaskForm):
 
         self._validate_selected_input_files(files)
 
-    def validate_crn_file(self, field):
-        """Check the content of the files and override data with file name and hash."""
+    def check_crn_file(self, field):
+        """Check the content of the files and override data with file name and hash.
+
+        The function is not named validate_crn_file because it needs a valid geom_area
+        object to parse the file. Before calling this function the geom_area object
+        must be set with validate_geometry().
+        """
         logging.debug("Check crn variable files integrity")
-        input_file_dic = self._validate_input_file(field, "crn")
+        try:
+            input_file_dic = self._validate_input_file(field, "crn")
+        except ValidationError as e:
+            self.crn_file.errors.append(e)
+            return
         if input_file_dic is not None:
             self.selected_crn_file.data = json.dumps(input_file_dic)
 
@@ -552,37 +674,45 @@ class CosmopolitanJobForm(FlaskForm):
             for field in self._fields:
                 if len(getattr(self, field).errors) > 0:
                     logging.debug(f"{field}: {getattr(self, field).errors}")
+
+            if (
+                self.area_x1.errors
+                or self.area_x2.errors
+                or self.area_y1.errors
+                or self.area_y2.errors
+                or self.area_res.errors
+                or self.projection.errors
+            ):
+                logging.debug("Area fields are invalid")
+            else:
+                logging.debug("Area fields are valid")
+                draw_preview = self.validate_geometry()
+                self.preview_area(draw_preview=draw_preview)
             return False
+        else:
+            logging.debug("All field are valid")
+            draw_preview = self.validate_geometry()
+            form_validt = draw_preview
 
-        form_validt = True
-        if self.area_x1.data >= self.area_x2.data:
-            self.area_x1.errors.append("X1 cannot be higher or equal than X2.")
-            form_validt = False
+            # Check files now after geometry is valid.
+            self.check_crn_file(self.crn_file)
+            self.check_pred_files(self.pred_files)
 
-        if self.area_y1.data >= self.area_y2.data:
-            self.area_y1.errors.append("Y1 cannot be higher or equal than Y2.")
-            form_validt = False
+            if len(self.selected_pred_input.data) == 0:
+                self.pred_files.errors.append("Chose one or more predictor files.")
+                self.pred_streams.errors.append("Chose one or more predictor streams.")
+                form_validt = False
 
-        if (
-            len(self.selected_pred_input.data) == 0
-            and self.pred_files.data[0].filename == ""
-        ):
-            self.pred_files.errors.append("Chose one or more predictor files.")
-            form_validt = False
+            if len(self.selected_crn_file.data) == 0:
+                self.crn_file.errors.append("Chose one or more CRN Measurment files.")
+                form_validt = False
 
-        if (
-            len(self.selected_crn_file.data) == 0
-            and self.crn_file.data[0].filename == ""
-        ):
-            self.crn_file.errors.append("Chose one or more CRN Measurment files.")
-            form_validt = False
+            if form_validt:
+                self._input_parameters()
 
-        if form_validt:
-            self._input_parameters()
+            self.preview_area(draw_preview=draw_preview)
 
-        # for field in self._fields:
-        #     print(getattr(self, field).errors)
-        return form_validt
+            return form_validt
 
     def _validate_input_file(self, field, input_type):
         """Check the content of the files and override data with file name and hash."""
@@ -592,6 +722,7 @@ class CosmopolitanJobForm(FlaskForm):
         if field.data[0].filename == "":
             logging.debug("No file send")
             return
+
         # Check if job id is valid and input dir is defined.
         if self.input_dir is None:
             raise ValidationError("First set a valide job id!")
@@ -673,6 +804,9 @@ class CosmopolitanJobForm(FlaskForm):
     def _input_parameters(self, write=True):
         """Write the input parameters for the background model into the input dir."""
         predictors = {}
+        logging.info("HERE")
+        logging.info(repr(self.selected_pred_input.data))
+        logging.info(len(self.selected_pred_input.data))
         for predictor, info in json.loads(self.selected_pred_input.data).items():
             if predictor in (c[0] for c in self.stream_choices):
                 predictors[predictor] = None

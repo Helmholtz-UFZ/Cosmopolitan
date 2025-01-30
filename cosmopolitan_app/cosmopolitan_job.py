@@ -73,7 +73,7 @@ def get_attributes(clazz):
         for name, attr in clazz.__dict__.items()
         if not name.startswith("__")
         and not callable(attr)
-        and not type(attr) is staticmethod
+        and type(attr) is not staticmethod
     ]
 
 
@@ -169,14 +169,8 @@ class CosmopolitanJob:
                 field.data = self.input_data[name]
 
     def _blank_job(self):
-        while True:
-            job_form = CosmopolitanJobForm()
-            if DataBaseManager.check_existence(job_form.job_id.data):
-                logging.debug(f"Job id: {job_form.job_id.data} already exist")
-                continue
-            break
-        self.form = job_form
-        self.job_id = job_form.job_id.data
+        self.form = CosmopolitanJobForm()
+        self.job_id = self.form.job_id.data
         self.start_date = date.today()
 
     def _set_from_form(self, form):

@@ -27,6 +27,11 @@
 				{% endfor %}
 
 				{% if group == "Area" %}
+
+					<div class="row text-center pt-2">
+						<h5>Area preview:</h5>
+						<img class="col-6 mx-auto d-block"src="{{url_for('result_file', job_id=form.job_id.data, file_name='preview_area.png')}}" alt="area">
+					</div>
 				</div>
 				{% endif %}
 			</div>
@@ -132,7 +137,7 @@
 {% macro render_error(field) %}
 	{% if field.errors %}
 		{% for error in field.errors %}
-	<span class="text-danger">{{ error }}</span><br>
+	<span class="text-danger">{{ error|safe }}</span><br>
 		{% endfor %}
 	{%- endif -%}
 {% endmacro %}

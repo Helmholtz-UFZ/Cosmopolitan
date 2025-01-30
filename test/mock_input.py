@@ -35,7 +35,7 @@ def load_parameters():
     raise FileNotFoundError("No 'parameters.json' file found.")
 
 
-def create_valid_form_data(parameters):
+def create_valid_form_data():
     """Create a MultiDict object representing a valid form data.
 
     The data is contained in the soil_moisture_prediction package. Many parameters are
@@ -70,7 +70,7 @@ def create_valid_form_data(parameters):
     )
 
 
-def create_pre_invalid_form_data(parameters):
+def create_pre_invalid_form_data():
     """Create a MultiDict object representing an invalid form data.
 
     Should fail at the checks by field.
@@ -104,7 +104,7 @@ def create_pre_invalid_form_data(parameters):
     )
 
 
-def create_post_invalid_form_data(parameters):
+def create_post_invalid_form_data():
     """Create a MultiDict object representing an invalid form data.
 
     Should fail at the checks betweeen field.
@@ -199,7 +199,7 @@ class MockFileStorage:
         return self.streamIO
 
 
-example_parameters = load_parameters()
-valid_form_data = create_valid_form_data(example_parameters)
-pre_invalid_form_data = create_pre_invalid_form_data(example_parameters)
-post_invalid_form_data = create_post_invalid_form_data(example_parameters)
+parameters = load_parameters()
+valid_form_data = create_valid_form_data()
+pre_invalid_form_data = create_pre_invalid_form_data()
+post_invalid_form_data = create_post_invalid_form_data()
