@@ -14,6 +14,7 @@ from flask import (
 )
 from werkzeug.exceptions import BadRequestKeyError
 
+from cosmopolitan_app.config import WEB_WORK_DIR
 from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
 from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
 from cosmopolitan_app.dash_component.dynamic_plots import base_path as result_path
@@ -60,6 +61,9 @@ def input_job():
         logging.info("Input for new job")
         job = CosmopolitanJob()
         form = job.form
+        # TODO this can be added to init of CosmopolitanJob
+        draw_preview = form.validate_geometry()
+        form.preview_area(draw_preview=draw_preview)
     # If form was submitted validate
     else:
         form = CosmopolitanJobForm(new=False)
@@ -117,16 +121,9 @@ def submission(job_id):
 def result_file(job_id, file_name):
     """Serve result files."""
     logging.info(f"Visiting /results/{job_id}/{file_name} to result_file()")
-    job = CosmopolitanJob(job_id=job_id)
-
-    if not job.submitted:
-        raise NotSubmittedException(job.job_id)
-
-    if job.status != "COMPLETED":
-        raise NotFinishedException(job.job_id)
-
-    download_path = os.path.join(*job.working_dir.split(os.sep)[2:])
+    download_path = os.path.join(*WEB_WORK_DIR.split(os.sep)[2:], job_id)
     safe_file_name = os.path.basename(file_name)
+
     return send_from_directory(download_path, safe_file_name)
 
 

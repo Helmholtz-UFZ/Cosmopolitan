@@ -2,8 +2,10 @@
 
 import logging
 from test.mock_input import (
-    post_invalid_form_data,
-    pre_invalid_form_data,
+    create_invalid_files,
+    create_post_invalid_form_data,
+    create_pre_invalid_form_data,
+    create_valid_form_data,
     valid_form_data,
 )
 
@@ -22,6 +24,8 @@ def test_consistency_between_test_form_data():
     # Set up logger inside the test function so pytest only show logs of failed tests
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
+    pre_invalid_form_data = create_pre_invalid_form_data()
+    post_invalid_form_data = create_post_invalid_form_data()
 
     for key in valid_form_data:
         assert (
@@ -75,6 +79,7 @@ def test_post_invalid_form_data(app):
     # Set up logger inside the test function so pytest only show logs of failed tests
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
+    post_invalid_form_data = create_post_invalid_form_data()
 
     with app.app_context():
         cosmopolitan_job_form = CosmopolitanJobForm(formdata=post_invalid_form_data)
@@ -85,13 +90,21 @@ def test_post_invalid_form_data(app):
         assert cosmopolitan_job_form._fields["pred_files"].errors == [
             "Chose one or more predictor files."
         ]
+        valid_form_data = create_valid_form_data()
+        valid_form_data["pred_files"] = create_invalid_files(["pdf"])[0]
+        cosmopolitan_job_form = CosmopolitanJobForm(formdata=valid_form_data)
+        cosmopolitan_job_form.validate()
+        assert "File is not a UTF-8 file" in str(
+            cosmopolitan_job_form._fields["pred_files"].errors[0]
+        )
 
 
 def test_pre_invalid_form_data(app):
     """Test a simple invalid form."""
     # Set up logger inside the test function so pytest only show logs of failed tests
     logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
+    pre_invalid_form_data = create_pre_invalid_form_data()
 
     with app.app_context():
         cosmopolitan_job_form = CosmopolitanJobForm(formdata=pre_invalid_form_data)
@@ -99,9 +112,6 @@ def test_pre_invalid_form_data(app):
         assert cosmopolitan_job_form._fields["email"].errors == [
             "Invalid email address."
         ]
-        assert "File is not a UTF-8 file" in str(
-            cosmopolitan_job_form._fields["pred_files"].errors[0]
-        )
         assert cosmopolitan_job_form._fields["monte_carlo_iterations"].errors == [
             "Number must be between 1 and 100."
         ]

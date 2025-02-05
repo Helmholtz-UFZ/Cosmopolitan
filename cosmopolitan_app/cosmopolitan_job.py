@@ -29,7 +29,6 @@ from cosmopolitan_app.utils import (
     InvalidJobID,
     NotFinishedException,
     NotSubmittedException,
-    SubmittedException,
     send_finished_mail,
     send_submission_mail,
 )
@@ -164,35 +163,14 @@ class CosmopolitanJob:
     def _blank_job(self):
         """Create a new job with a new job id."""
         logging.info("Create new submission")
-        while True:
-            form = CosmopolitanJobForm()
-            if PostgresManager.check_existence(form.job_id.data):
-                logging.debug(f"Job id: {form.job_id.data} already exist")
-                continue
-            break
-
-        self.form = form
-        self.job_id = form.job_id.data
-        self.start_date = date.today()
-        self._set_input_data_from_form()
-        self.submitted = False
-        self.email = self.form.email.data
-        self.notified_end = False
-        self.logs = ""
-        self.status = "PENDING"
-        self.version = smp_version
-        self.working_dir = os.path.join(WEB_WORK_DIR, self.job_id)
-        os.makedirs(self.working_dir, exist_ok=True)
+        self.form = CosmopolitanJobForm()
+        self._set_from_form()
 
     def _set_from_form(self):
         """Set the job attributes from a form."""
         logging.info(f"Set job attributes from form {self.form.job_id.data}")
-        # First check if job_id is valid
         if not self.form.job_id.validate(self.form):
             raise InvalidJobID(self.form.job_id.data)
-
-        if PostgresManager.check_existence(self.form.job_id.data):
-            raise SubmittedException(self.form.job_id.data)
 
         self.job_id = self.form.job_id.data
         self.start_date = date.today()
