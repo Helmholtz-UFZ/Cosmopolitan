@@ -13,16 +13,31 @@ from cosmopolitan_app.minio_manager import MinioError, create_bucket
 from cosmopolitan_app.postgres_manager import PostgresManager
 from cosmopolitan_app.utils import send_mail
 
-logging.basicConfig(level=logging.DEBUG)
+
+def create_logger():
+    """Create a logger with debug level."""
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+    logging.getLogger("matplotlib").setLevel(logging.CRITICAL)
+    logging.getLogger("PIL").setLevel(logging.CRITICAL)
+    logging.getLogger("osgeo").setLevel(logging.ERROR)
+    logging.getLogger("rasterio").setLevel(logging.ERROR)
+    logging.getLogger("urllib3").setLevel(logging.ERROR)
+    logging.getLogger("requests").setLevel(logging.ERROR)
+    logging.getLogger("wcs201").setLevel(logging.ERROR)
+    return logger
+
+
+log = create_logger()
 
 try:
-    subprocess.run(["mc", "-v"], check=True)
+    subprocess.run(["mc", "-v"], check=True, text=True, capture_output=True)
 except FileNotFoundError:
     pytest.exit("mc command not available")
 
 try:
     create_bucket(reset_alias=True)
-    subprocess.run(["mc", "ping", "-x", MINIO_ALIAS], check=True)
+    subprocess.run(["mc", "ping", "-x", MINIO_ALIAS], check=True, capture_output=True)
 except MinioError:
     pytest.exit("Can not set mc alias")
 
@@ -30,7 +45,7 @@ if any(var != "test" for var in [POSTGRES_PW, EMAIL_PASSWORD, MINIO_ALIAS]):
     pytest.exit("Environment variables not set")
 
 try:
-    send_mail("Test", "Test", "Test")
+    send_mail("test@example.com", "Test", "Test")
 except (ConnectionRefusedError, socket.gaierror):
     pytest.exit("Mail server not available")
 
@@ -50,3 +65,9 @@ def app():
         import cosmopolitan_app.routes  # noqa
 
     yield app
+
+
+@pytest.fixture
+def logger():
+    """Create a logger with suppressed external sources."""
+    return create_logger()

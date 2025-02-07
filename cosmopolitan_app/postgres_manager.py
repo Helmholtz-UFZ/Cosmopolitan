@@ -57,8 +57,8 @@ class PostgresManager:
         Returns:
         bool: True if a job with the given job ID exists, False otherwise.
         """
+        logging.debug(f"Check existence of job: {job_id}")
         with cls.Session() as session:
-            # job_row = session.query(JobTable).filter_by(job_id=job_id).first()
             job_row = session.query(JobTable.job_id).filter_by(job_id=job_id).first()
         return job_row is not None
 
@@ -85,26 +85,6 @@ class PostgresManager:
             session.commit()
 
         logging.debug("Entry added.")
-
-    # @classmethod
-    # def update_column(cls, job_id, column_dic):
-    #     """Update a specific column in the 'JobTable' for a given job ID.
-    #
-    #     Raises:
-    #     JobNotFound: If the job with the provided job ID does not exist.
-    #     """
-    #     with cls.Session() as session:
-    #         job = (
-    #             session.query(JobTable)
-    #             .filter_by(job_id=job_id)
-    #             # .with_for_update()
-    #             .first()
-    #         )
-    #         if job is None:
-    #             raise JobNotFound(job_id)
-    #         for column_name, column_value in column_dic.items():
-    #             setattr(job, column_name, column_value)
-    #         session.commit()
 
     @classmethod
     def update_column(cls, job_id, column_dic):

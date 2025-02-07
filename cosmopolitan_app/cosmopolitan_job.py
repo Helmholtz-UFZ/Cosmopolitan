@@ -14,12 +14,13 @@ from typing import Literal
 from soil_moisture_prediction.__version__ import __version__ as smp_version
 from soil_moisture_prediction.pydantic_models import InputParameters
 from soil_moisture_prediction.smp_cli import main
+from werkzeug.datastructures import MultiDict
 
 from cosmopolitan_app.config import (
     DAYS_DELETE_NOT_SUMBITTED,
     DAYS_DELETE_SUMBITTED,
     DEBUG,
-    WEB_WORK_DIR,
+    JOB_WORK_DIR_TEMPLATE,
 )
 from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
 from cosmopolitan_app.logger import get_logger_config_compuation, get_logger_config_web
@@ -135,7 +136,7 @@ class CosmopolitanJob:
             setattr(self, name, value)
         logging.debug(f"Job {self.job_id} loaded from database")
 
-        self.working_dir = os.path.join(WEB_WORK_DIR, self.job_id)
+        self.working_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=self.job_id)
         os.makedirs(self.working_dir, exist_ok=True)
         sync_workdir(self.job_id)
         logging.debug(f"Job {self.job_id} synced to local work directory")
@@ -163,7 +164,7 @@ class CosmopolitanJob:
     def _blank_job(self):
         """Create a new job with a new job id."""
         logging.info("Create new submission")
-        self.form = CosmopolitanJobForm()
+        self.form = CosmopolitanJobForm(new=True)
         self._set_from_form()
 
     def _set_from_form(self):
@@ -181,8 +182,10 @@ class CosmopolitanJob:
         self.logs = ""
         self.status = "PENDING"
         self.version = smp_version
-        self.working_dir = os.path.join(WEB_WORK_DIR, self.job_id)
+        self.working_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=self.job_id)
         os.makedirs(self.working_dir, exist_ok=True)
+        draw_preview = self.form.validate_geometry()
+        self.form.preview_area(draw_preview=draw_preview)
 
     def _set_input_data_from_form(self):
         self.input_data = {}
@@ -295,11 +298,31 @@ class CosmopolitanJob:
         else:
             return DAYS_DELETE_NOT_SUMBITTED - days_passed
 
+    def copy_output_files(self, parent_work_dir):
+        """Remove all output files from the working directory."""
+        logging.info(f"Remove output files of job {self.job_id}.")
+        for file in os.listdir(parent_work_dir):
+            if file.startswith(("crn_", "pred_")):
+                source_path = os.path.join(parent_work_dir, file)
+                target_path = os.path.join(self.working_dir, file)
+                shutil.copy(source_path, target_path)
 
-# TODO
-# def clone(self) -> "CosmopolitanJob":
-#     """Clone the job."""
-#     new_form = CosmopolitanJobForm(new=False, formdata=self.form.data)
-#     new_job = CosmopolitanJob(form=self.form)
-#     new_job.save()
-#     return new_job
+    def spawn(self) -> "CosmopolitanJob":
+        """Clone the job."""
+        logging.info(f"Spawn job {self.job_id}.")
+        new_form = CosmopolitanJobForm(formdata=MultiDict(self.form.data))
+        i = 1
+        while True:
+            new_form.job_id.data = f"{self.job_id}_child_{i}"
+            if not PostgresManager.check_existence(new_form.job_id.data):
+                new_form.previous_job_id.data = new_form.job_id.data
+                # Without valdiation the attribute input_dir is not set would cause an
+                # error when instantiating the CosmopolitanJob class
+                new_form.validate_job_id(new_form.job_id)
+                break
+            i += 1
+
+        new_job = CosmopolitanJob(form=new_form)
+        new_job.copy_output_files(self.working_dir)
+        new_job.save()
+        return new_job

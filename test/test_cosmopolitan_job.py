@@ -12,12 +12,8 @@ from cosmopolitan_app.postgres_manager import JobNotFound, PostgresManager
 
 
 @pytest.mark.order(-2)
-def test_computation_valid(app):
+def test_computation_valid(app, logger):
     """Test the complete run of the computation of an valid input."""
-    # Set up logger inside the test function so pytest only show logs of failed tests
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
-
     try:
         PostgresManager.delete_job(valid_form_data["job_id"])
     except JobNotFound:
@@ -26,7 +22,7 @@ def test_computation_valid(app):
     with app.app_context():
         import cosmopolitan_app.routes  # noqa
 
-        cosmopolitan_job_form = CosmopolitanJobForm(new=False, formdata=valid_form_data)
+        cosmopolitan_job_form = CosmopolitanJobForm(formdata=valid_form_data)
         assert cosmopolitan_job_form.validate(), "Invalid form"
         job = CosmopolitanJob(form=cosmopolitan_job_form)
         job.save()
@@ -57,6 +53,10 @@ def test_computation_valid(app):
         job = CosmopolitanJob(job_id=cosmopolitan_job_form.job_id.data)
         assert job.status == "COMPLETED", "Job did not relaod."
 
+        new_job = job.spawn()
+        assert new_job.status == "PENDING", "Job did not spawn."
+        assert "child" in new_job.job_id
+
 
 @pytest.mark.order(-3)
 def test_computation_invalid(app):
@@ -83,7 +83,7 @@ def test_computation_invalid(app):
         pass
 
     with app.app_context():
-        cosmopolitan_job_form = CosmopolitanJobForm(new=False, formdata=form_data)
+        cosmopolitan_job_form = CosmopolitanJobForm(formdata=form_data)
         cosmopolitan_job_form.validate()
         job = CosmopolitanJob(form=cosmopolitan_job_form)
         job.save()

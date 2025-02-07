@@ -33,12 +33,13 @@ def start():
     return render_template("html/content/start.html")
 
 
-# @app.route("/spwan/<job_id>", methods=["GET", "POST"])
-# def spawn_child(job_id):
-#     """Create new job from an old job."""
-#     logging.info(f"Make changes to job {job_id}")
-#     job = CosmopolitanJob(job_id=job_id)
-#     return render_template("html/job/input.html", form=job.form)
+@app.route("/spwan/<job_id>", methods=["GET", "POST"])
+def spawn_child(job_id):
+    """Create new job from an old job."""
+    logging.info(f"Spawn new job from job: {job_id}")
+    job = CosmopolitanJob(job_id=job_id)
+    new_job = job.spawn()
+    return render_template("html/job/input.html", form=new_job.form)
 
 
 @app.route("/input/<job_id>", methods=["GET", "POST"])
@@ -46,9 +47,8 @@ def change_input(job_id):
     """Change input of an unsubmitted job."""
     logging.info(f"Make changes to job {job_id}")
     job = CosmopolitanJob(job_id=job_id)
-    # TODO
-    # if job.submitted:
-    #     raise SubmittedException
+    if job.submitted:
+        raise SubmittedException
     job.delete(delete_work_dir=False)
     return render_template("html/job/input.html", form=job.form)
 
@@ -61,12 +61,9 @@ def input_job():
         logging.info("Input for new job")
         job = CosmopolitanJob()
         form = job.form
-        # TODO this can be added to init of CosmopolitanJob
-        draw_preview = form.validate_geometry()
-        form.preview_area(draw_preview=draw_preview)
     # If form was submitted validate
     else:
-        form = CosmopolitanJobForm(new=False)
+        form = CosmopolitanJobForm()
         logging.info(f"Check form {form.job_id.data}")
         if form.validate_on_submit():
             logging.info("Form is valid")

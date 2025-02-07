@@ -1,16 +1,15 @@
 """This module provides a class to manage the interaction with Minio."""
 
 import logging
-import os
 import subprocess
 
 from cosmopolitan_app.config import (
+    JOB_WORK_DIR_TEMPLATE,
     MINIO_ACCESS_KEY,
     MINIO_ALIAS,
     MINIO_BUCKET,
     MINIO_SECRET_KEY,
     MINIO_URL,
-    WEB_WORK_DIR,
 )
 
 
@@ -117,7 +116,7 @@ def sync_workdir(dirname: str, reset_alias: bool = False) -> None:
     logging.debug(f"Syncing directory {dirname} from MinIO to local work directory.")
     set_alias(dirname, reset_alias)
 
-    local_path = os.path.join(WEB_WORK_DIR, dirname)
+    local_path = JOB_WORK_DIR_TEMPLATE.format(job_id=dirname)
     minio_path = f"{MINIO_ALIAS}/{MINIO_BUCKET}/{dirname}"
 
     try:
