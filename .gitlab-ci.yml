@@ -73,7 +73,7 @@ test:
     - "chmod +x /usr/local/bin/mc"
     - "export PGPASSWORD=${POSTGRES_PASSWORD}"
     - "psql -h ${POSTGRES_HOST_NAME} -U ${POSTGRES_USER} -d ${POSTGRES_DB} < docker/init.sql"
-    - "cp .env_test .env"
+    - "cp env_test .env"
     - "curl mailhog:8025"
     - "pip install poetry"
     - "poetry install"
