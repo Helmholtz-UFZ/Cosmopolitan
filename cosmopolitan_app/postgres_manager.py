@@ -41,7 +41,9 @@ class PostgresManager:
         f"postgresql+psycopg2://{ POSTGRES_USER }:{ POSTGRES_PW }@"
         f"{ POSTGRES_HOST_NAME }:{ POSTGRES_PORT }/{ POSTGRES_NAME }"
     )
-    raise ValueError(f"Database URL: {database_url}")
+    print(POSTGRES_HOST_NAME)
+    print(POSTGRES_PORT)
+    print(POSTGRES_NAME)
     engine = create_engine(database_url, pool_pre_ping=True)
     Session = sessionmaker(bind=engine)
 
