@@ -11,7 +11,7 @@ from cosmopolitan_app.config import env_vars, getenv
 
 def test_env_dev_mock(logger):
     """Test .env_dev_mock file."""
-    shutil.copy(".env_dev_mock", ".env")
+    shutil.copy("env_dev_mock", ".env")
     # Remove the env_vars from the environment
     for env_var in env_vars:
         os.environ.pop(env_var, None)
@@ -25,7 +25,7 @@ def test_env_dev_mock(logger):
 
 def test_env_dev_prod(logger):
     """Test .env_dev_prod file."""
-    shutil.copy(".env_dev_prod", ".env")
+    shutil.copy("env_dev_prod", ".env")
     # Remove the env_vars from the environment
     for env_var in env_vars:
         os.environ.pop(env_var, None)
@@ -39,7 +39,7 @@ def test_env_dev_prod(logger):
 
 def test_env_prod(logger):
     """Test .env_prod file."""
-    shutil.copy(".env_prod", ".env")
+    shutil.copy("env_prod", ".env")
     # Add the following line to .env file
     # EMAIL_PASSWORD="password"
     with open(".env", "a") as f:

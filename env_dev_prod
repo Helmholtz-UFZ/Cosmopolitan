@@ -17,7 +17,7 @@ EMAIL_PASSWORD=""
 EMAIL_SENDER="cosmopolitan@ufz.de"
 
 ### Postgres credentials ###
-POSTGRES_NAME="somweb_stage"
+POSTGRES_DB="somweb_stage"
 POSTGRES_HOST_NAME="postgres-dev.intranet.ufz.de"
 POSTGRES_PORT="5432"
 POSTGRES_USER="somweb_stage_rw"

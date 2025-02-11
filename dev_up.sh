@@ -6,9 +6,9 @@ if [ "$#" -ne 1 ]; then
 fi
 
 if [ "$1" == "mock" ]; then
-    env_file=".env_dev_mock"
+    env_file="env_dev_mock"
 elif [ "$1" == "prod" ]; then
-    env_file=".env_dev_prod_priv"
+    env_file="env_dev_prod_priv"
 else
     echo "Usage: $0 <mock|prod>"
     echo "Invalid mode. Use 'mock' or 'prod'."
@@ -25,5 +25,5 @@ cp "$env_file" .env
 if [ "$1" == "prod" ]; then
     docker compose up --no-log-prefix cosmopolitan
 else
-    docker compose up --no-log-prefix --attach cosmopolitan 
+    docker compose up --no-log-prefix --attach cosmopolitan
 fi
