@@ -45,7 +45,7 @@ def test_env_prod(logger):
     with open(".env", "a") as f:
         f.write("EMAIL_PASSWORD='password'\n")
         f.write("CLUSTER_TOKEN='password'\n")
-        f.write("POSTGRES_PW='password'\n")
+        f.write("POSTGRES_PASSWORD='password'\n")
         f.write("MINIO_ACCESS_KEY='password'\n")
         f.write("MINIO_SECRET_KEY='password'\n")
 

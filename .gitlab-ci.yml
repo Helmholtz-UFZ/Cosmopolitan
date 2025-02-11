@@ -10,9 +10,9 @@ stages:
   - "deploy"
 
 variables:
-  POSTGRES_NAME: somweb_stage
+  POSTGRES_DB: somweb_stage
   POSTGRES_USER: somweb_stage_rw
-  POSTGRES_PW: test
+  POSTGRES_PASSWORD: test
   POSTGRES_HOST_AUTH_METHOD: trust
   POSTGRES_HOST_NAME: postgres
   EMAIL_PORT: 1025
@@ -59,7 +59,7 @@ test:
   before_script:
     - "apt-get update && apt-get install -y postgresql-client"
     - "export PGPASSWORD=${POSTGRES_PW}"
-    - "psql -h ${POSTGRES_HOST_NAME} -U ${POSTGRES_USER} -d ${POSTGRES_NAME} < docker/init.sql"
+    - "psql -h ${POSTGRES_HOST_NAME} -U ${POSTGRES_USER} -d ${POSTGRES_DB} < docker/init.sql"
     - "cp .env_test .env"
     - "curl mailhog:8025"
     - "pip install poetry"

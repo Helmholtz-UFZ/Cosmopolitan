@@ -10,7 +10,7 @@ import pytest
 from flask import Flask
 from sqlalchemy.exc import OperationalError
 
-from cosmopolitan_app.config import EMAIL_PASSWORD, MINIO_ALIAS, POSTGRES_PW
+from cosmopolitan_app.config import EMAIL_PASSWORD, MINIO_ALIAS, POSTGRES_PASSWORD
 from cosmopolitan_app.minio_manager import MinioError, create_bucket
 from cosmopolitan_app.postgres_manager import PostgresManager
 from cosmopolitan_app.utils import send_mail
@@ -43,7 +43,7 @@ try:
 except MinioError:
     pytest.exit("Can not set mc alias")
 
-if any(var != "test" for var in [POSTGRES_PW, EMAIL_PASSWORD, MINIO_ALIAS]):
+if any(var != "test" for var in [POSTGRES_PASSWORD, EMAIL_PASSWORD, MINIO_ALIAS]):
     pytest.exit("Environment variables not set")
 
 try:

@@ -8,10 +8,10 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from cosmopolitan_app.config import (
+    POSTGRES_DB,
     POSTGRES_HOST_NAME,
-    POSTGRES_NAME,
+    POSTGRES_PASSWORD,
     POSTGRES_PORT,
-    POSTGRES_PW,
     POSTGRES_USER,
 )
 
@@ -38,12 +38,12 @@ class PostgresManager:
     """Class for interacting with the posgres database."""
 
     database_url = (
-        f"postgresql+psycopg2://{ POSTGRES_USER }:{ POSTGRES_PW }@"
-        f"{ POSTGRES_HOST_NAME }:{ POSTGRES_PORT }/{ POSTGRES_NAME }"
+        f"postgresql+psycopg2://{ POSTGRES_USER }:{ POSTGRES_PASSWORD }@"
+        f"{ POSTGRES_HOST_NAME }:{ POSTGRES_PORT }/{ POSTGRES_DB }"
     )
     print(POSTGRES_HOST_NAME)
     print(POSTGRES_PORT)
-    print(POSTGRES_NAME)
+    print(POSTGRES_DB)
     engine = create_engine(database_url, pool_pre_ping=True)
     Session = sessionmaker(bind=engine)
 
