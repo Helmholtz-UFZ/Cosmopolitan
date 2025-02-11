@@ -41,7 +41,7 @@ class PostgresManager:
         f"postgresql+psycopg2://{ POSTGRES_USER }:{ POSTGRES_PW }@"
         f"{ POSTGRES_HOST_NAME }:{ POSTGRES_PORT }/{ POSTGRES_NAME }"
     )
-    logging.debug(f"Database URL: {database_url}")
+    raise ValueError(f"Database URL: {database_url}")
     engine = create_engine(database_url, pool_pre_ping=True)
     Session = sessionmaker(bind=engine)
 
