@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from cosmopolitan_app.config import JOB_WORK_DIR_TEMPLATE
+from cosmopolitan_app.config import JOB_WORK_DIR_TEMPLATE, WEB_WORK_DIR
 from cosmopolitan_app.dash_component.dynamic_plots import (
     get_image_name,
     get_time_steps,
@@ -17,6 +17,9 @@ from cosmopolitan_app.postgres_manager import PostgresManager
 def test_images_available(logger):
     """Test the dynamic plots."""
     logger.info("Test dynamic plots.")
+    logger.info(f"Current working directory: {os.getcwd()}")
+    logger.info(f"WEB_WORK_DIR value: {WEB_WORK_DIR}")
+    logger.info(f"Absolute path attempt: {os.path.abspath(WEB_WORK_DIR)}")
     job_id = "valid_form_data"
     assert PostgresManager.check_existence(job_id), "Job not found."
     time_steps = get_time_steps(job_id)

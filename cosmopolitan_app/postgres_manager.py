@@ -41,9 +41,6 @@ class PostgresManager:
         f"postgresql+psycopg2://{ POSTGRES_USER }:{ POSTGRES_PASSWORD }@"
         f"{ POSTGRES_HOST_NAME }:{ POSTGRES_PORT }/{ POSTGRES_DB }"
     )
-    print(POSTGRES_HOST_NAME)
-    print(POSTGRES_PORT)
-    print(POSTGRES_DB)
     engine = create_engine(database_url, pool_pre_ping=True)
     Session = sessionmaker(bind=engine)
 

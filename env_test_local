@@ -21,7 +21,7 @@ POSTGRES_HOST_NAME="127.0.0.0"
 POSTGRES_PORT="5432"
 POSTGRES_DB="somweb_stage"
 POSTGRES_USER="somweb_stage_rw"
-POSTGRES_PW="test"
+POSTGRES_PASSWORD="test"
 
 ### Minio ###
 MINIO_URL="http://127.0.0.0:9000"

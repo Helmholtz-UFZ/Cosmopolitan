@@ -21,7 +21,7 @@ POSTGRES_DB="somweb_stage"
 POSTGRES_HOST_NAME="postgres-dev.intranet.ufz.de"
 POSTGRES_PORT="5432"
 POSTGRES_USER="somweb_stage_rw"
-POSTGRES_PW=""
+POSTGRES_PASSWORD=""
 
 ### Minio ###
 MINIO_URL="https://minio.ufz.de:443/"
