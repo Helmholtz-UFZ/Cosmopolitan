@@ -66,12 +66,12 @@ test:
         MINIO_ROOT_USER: "${MINIO_ACCESS_KEY}"
         MINIO_ROOT_PASSWORD: "${MINIO_SECRET_KEY}"
   variables:
-    MINIO_URL: "minio:9000"
+    MINIO_URL: "http://minio:9000"
   before_script:
     - "apt-get update && apt-get install -y postgresql-client libc-dev libcairo2-dev curl"
     - "curl https://dl.min.io/client/mc/release/linux-amd64/mc --create-dirs -o /usr/local/bin/mc"
     - "chmod +x /usr/local/bin/mc"
-    - "export PGPASSWORD=${POSTGRES_PW}"
+    - "export PGPASSWORD=${POSTGRES_PASSWORD}"
     - "psql -h ${POSTGRES_HOST_NAME} -U ${POSTGRES_USER} -d ${POSTGRES_DB} < docker/init.sql"
     - "cp .env_test .env"
     - "curl mailhog:8025"
