@@ -18,6 +18,8 @@ variables:
   POSTGRES_PORT: 5432
   EMAIL_PORT: 1025
   MAIL_HOG_PORT: 8025
+  MINIO_ACCESS_KEY: "accesskey"
+  MINIO_SECRET_KEY: "secretkey"
 
 .docker_login: &docker_login
   - 'echo "${CI_REGISTRY_PASSWORD}" | docker login --username "$CI_REGISTRY_USER" --password-stdin "${CI_REGISTRY}"'
@@ -57,8 +59,18 @@ test:
           "-ui-bind-addr",
           "0.0.0.0:8025",
         ]
+    - name: "minio/minio:latest"
+      alias: minio
+      command: ["server", "/data", "--console-address", ":9001"]
+      variables:
+        MINIO_ROOT_USER: "${MINIO_ACCESS_KEY}"
+        MINIO_ROOT_PASSWORD: "${MINIO_SECRET_KEY}"
+  variables:
+    MINIO_URL: "minio:9000"
   before_script:
-    - "apt-get update && apt-get install -y postgresql-client"
+    - "apt-get update && apt-get install -y postgresql-client libc-dev libcairo2-dev curl"
+    - "curl https://dl.min.io/client/mc/release/linux-amd64/mc --create-dirs -o /usr/local/bin/mc"
+    - "chmod +x /usr/local/bin/mc"
     - "export PGPASSWORD=${POSTGRES_PW}"
     - "psql -h ${POSTGRES_HOST_NAME} -U ${POSTGRES_USER} -d ${POSTGRES_DB} < docker/init.sql"
     - "cp .env_test .env"
