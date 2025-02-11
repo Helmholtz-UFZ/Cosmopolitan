@@ -30,6 +30,7 @@ def set_alias(dirname: str, reset_alias: bool = False) -> None:
         reset_alias: Set to True to reset the alias
     """
     try:
+        logging.debug(f"Setting MinIO alias {MINIO_ALIAS}.")
         output = subprocess.run(
             ["mc", "alias", "list", MINIO_ALIAS],
             capture_output=True,
@@ -43,6 +44,7 @@ def set_alias(dirname: str, reset_alias: bool = False) -> None:
             output.returncode != 0
             and f"No such alias `{MINIO_ALIAS}` found" not in output.stderr
         ):
+            logging.error(f"Failed to create MinIO bucket: {output.stderr}")
             raise subprocess.CalledProcessError(
                 output.returncode,
                 output.args,
@@ -51,6 +53,7 @@ def set_alias(dirname: str, reset_alias: bool = False) -> None:
             )
 
         if output.returncode != 0 or reset_alias:
+            logging.debug(f"Creating MinIO alias {MINIO_ALIAS}.")
             output = subprocess.run(
                 [
                     "mc",
@@ -65,7 +68,7 @@ def set_alias(dirname: str, reset_alias: bool = False) -> None:
                 capture_output=True,
             )
     except subprocess.CalledProcessError as e:
-        error_msg = f"Failed to check/create MinIO alias: {e}\n{output.stderr}"
+        error_msg = f"Failed to check/create MinIO alias: {e}\n{e.stderr.decode()}"
         error_msg = error_msg.replace(MINIO_SECRET_KEY, "****")
         error_msg = error_msg.replace(MINIO_ACCESS_KEY, "****")
         logging.error(error_msg)
@@ -87,6 +90,16 @@ def create_bucket(reset_alias: bool = False) -> None:
     set_alias(MINIO_BUCKET, reset_alias)
 
     output = subprocess.run(
+        ["mc", "stat", f"{MINIO_ALIAS}/{MINIO_BUCKET}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if output.returncode == 0:
+        logging.debug(f"MinIO bucket {MINIO_BUCKET} already exists.")
+        return
+
+    output = subprocess.run(
         ["mc", "mb", f"{MINIO_ALIAS}/{MINIO_BUCKET}"],
         capture_output=True,
         text=True,
@@ -97,6 +110,7 @@ def create_bucket(reset_alias: bool = False) -> None:
         and "Your previous request to create the named bucket succeeded and you already own it."  # noqa
         not in output.stderr
     ):
+        logging.error(f"Failed to create MinIO bucket: {output.stderr}")
         raise subprocess.CalledProcessError(
             output.returncode,
             output.args,
@@ -143,7 +157,10 @@ def sync_workdir(dirname: str, reset_alias: bool = False) -> None:
         logging.debug(f"Synced {num_files} files to local directory. {last_line}")
     except subprocess.CalledProcessError as e:
         logging.error(
-            f"Failed to sync directory {dirname}: {e}\nError output: {e.stderr}"
+            (
+                f"Failed to sync directory {dirname}: {e}\n"
+                f"Error output: {e.stderr.decode()}"
+            )
         )
         raise MinioError(dirname)
 
@@ -173,7 +190,10 @@ def delete_from_bucket(dirname: str, reset_alias: bool = False) -> None:
         logging.debug(f"Deleted {num_files} files from bucket.")
     except subprocess.CalledProcessError as e:
         logging.error(
-            f"Failed to sync directory {dirname}: {e}\nError output: {result.stderr}"
+            (
+                f"Failed to sync directory {dirname}: {e}\n"
+                f"Error output: {e.stderr.decode()}"
+            )
         )
         raise MinioError(dirname)
 
@@ -184,6 +204,6 @@ if __name__ == "__main__":
         level=logging.DEBUG,
     )
     folder_to_sync = "whimsical_affable_chipmunk"
-    create_bucket(reset_alias=True)
+    # create_bucket(reset_alias=True)
     sync_workdir(folder_to_sync, reset_alias=True)
-    delete_from_bucket(folder_to_sync, reset_alias=True)
+    # delete_from_bucket(folder_to_sync, reset_alias=True)

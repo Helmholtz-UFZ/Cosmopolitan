@@ -26,6 +26,29 @@ DAYS_DELETE_SUMBITTED = 60
 DAYS_DELETE_NOT_SUMBITTED = 2
 load_dotenv()
 
+# Needed for the test_env.py. Update!
+env_vars = [
+    "WEB_WORK_DIR",
+    "WEB_OUTSIDE_URL",
+    "FLASK_PORT",
+    "EMAIL_SERVER",
+    "EMAIL_PORT",
+    "EMAIL_USERNAME",
+    "EMAIL_PASSWORD",
+    "EMAIL_SENDER",
+    "POSTGRES_NAME",
+    "POSTGRES_HOST_NAME",
+    "POSTGRES_PORT",
+    "POSTGRES_USER",
+    "POSTGRES_PW",
+    "FLASK_DEBUG",
+    "MINIO_URL",
+    "MINIO_ACCESS_KEY",
+    "MINIO_SECRET_KEY",
+    "MINIO_BUCKET",
+    "MINIO_ALIAS",
+]
+
 # s/=.*//g |'<,'> s/^.*$/& = getenv("&")/g | noh
 WEB_WORK_DIR = getenv("WEB_WORK_DIR")
 WEB_OUTSIDE_URL = getenv("WEB_OUTSIDE_URL")

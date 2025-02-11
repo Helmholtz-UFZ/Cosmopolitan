@@ -1,6 +1,8 @@
 """Setup tests."""
 
 import logging
+import os
+import shutil
 import socket
 import subprocess
 
@@ -55,6 +57,11 @@ except OperationalError:
     pytest.exit("postgres not available")
 
 
+# Save the current .env file
+if os.path.exists(".env"):
+    shutil.copyfile(".env", ".env_test_backup")
+
+
 @pytest.fixture(scope="session")
 def app():
     """Create a minimal Flask app for the context of CosmopolitanJobForm."""
@@ -71,3 +78,12 @@ def app():
 def logger():
     """Create a logger with suppressed external sources."""
     return create_logger()
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Restore .env file."""
+    if os.path.exists(".env_test_backup"):
+        shutil.copyfile(".env_test_backup", ".env")
+        os.remove(".env_test_backup")
+    else:
+        os.remove(".env")
