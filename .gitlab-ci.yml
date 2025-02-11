@@ -59,7 +59,7 @@ test:
   before_script:
     - "apt-get update && apt-get install -y postgresql-client"
     - "export PGPASSWORD=${POSTGRES_PW}"
-    - "psql -h ${POSTGRES_HOST_NAME} -U ${POSTGRES_USER} -d ${POSTGRES_DB} < docker/init.sql"
+    - "psql -h ${POSTGRES_HOST_NAME} -U ${POSTGRES_USER} -d ${POSTGRES_NAME} < docker/init.sql"
     - "cp .env_test .env"
     - "curl mailhog:8025"
     - "pip install poetry"
