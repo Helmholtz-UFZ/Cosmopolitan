@@ -16,11 +16,15 @@ from cosmopolitan_app.postgres_manager import PostgresManager
 @pytest.mark.order(-1)
 def test_images_available(logger):
     """Test the dynamic plots."""
+    job_id = "valid_form_data"
     logger.info("Test dynamic plots.")
     logger.info(f"Current working directory: {os.getcwd()}")
     logger.info(f"WEB_WORK_DIR value: {WEB_WORK_DIR}")
     logger.info(f"Absolute path attempt: {os.path.abspath(WEB_WORK_DIR)}")
-    job_id = "valid_form_data"
+    # list all files in absolute path
+    job_work_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=job_id)
+    logger.info(f"Absolute path job_work: {os.path.abspath(job_work_dir)}")
+    logger.info(f"List of files in job_work_dir: {os.listdir(job_work_dir)}")
     assert PostgresManager.check_existence(job_id), "Job not found."
     time_steps = get_time_steps(job_id)
     assert len(time_steps) > 0, "No time steps found."
