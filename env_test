@@ -1,0 +1,31 @@
+### Devolpment variables ###
+DOCKER_UID=1000
+DOCKER_GID=1000
+FLASK_DEBUG=1
+GUNICORN=0
+
+###  Webserver ###
+WEB_WORK_DIR="./cosmopolitan_app/work_dir"
+FLASK_PORT=8080
+WEB_OUTSIDE_URL="https://cosmopolitan.web-intern-stage.app.ufz.de"
+
+### Email ###
+EMAIL_SERVER="mailhog"
+EMAIL_PORT="1025"
+EMAIL_USERNAME="soncosmo"
+EMAIL_PASSWORD="test"
+EMAIL_SENDER="cosmopolitan_test@ufz.de"
+
+### Postgres config ###
+POSTGRES_HOST_NAME="postgres"
+POSTGRES_PORT="5432"
+POSTGRES_DB="somweb_stage"
+POSTGRES_USER="somweb_stage_rw"
+POSTGRES_PASSWORD="test"
+
+### Minio ###
+MINIO_URL="http://minio:9000"
+MINIO_ACCESS_KEY="accesskey"
+MINIO_SECRET_KEY="secretkey"
+MINIO_BUCKET="cosmopolitan-dev"
+MINIO_ALIAS="test"

@@ -12,3 +12,4 @@ python_path
 .config
 .env_dev_prod_priv_2
 .env.bak
+minio_config

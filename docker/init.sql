@@ -14,14 +14,12 @@ CREATE TABLE jobs (
     job_id VARCHAR PRIMARY KEY,
     start_date DATE,
     input_data JSONB,
-    files BYTEA[],
-    file_names VARCHAR[],
     submitted BOOL,
     email VARCHAR,
     notified_end BOOL,
     logs VARCHAR,
     status VARCHAR,
-    version DECIMAL
+    version VARCHAR
 );
 
 -- SELECT job_id, start_date FROM jobs;

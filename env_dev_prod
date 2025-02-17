@@ -16,9 +16,16 @@ EMAIL_USERNAME="soncosmo"
 EMAIL_PASSWORD=""
 EMAIL_SENDER="cosmopolitan@ufz.de"
 
-### Postgres DB ###
-DB_NAME="somweb_stage"
-DB_HOST_NAME="postgres-dev.intranet.ufz.de"
-DB_PORT="5432"
-DB_USER="somweb_stage_rw"
-DB_PW=""
+### Postgres credentials ###
+POSTGRES_DB="somweb_stage"
+POSTGRES_HOST_NAME="postgres-dev.intranet.ufz.de"
+POSTGRES_PORT="5432"
+POSTGRES_USER="somweb_stage_rw"
+POSTGRES_PASSWORD=""
+
+### Minio ###
+MINIO_URL="https://minio.ufz.de:443/"
+MINIO_ACCESS_KEY=""
+MINIO_SECRET_KEY=""
+MINIO_BUCKET="cosmopolitan-dev"
+MINIO_ALIAS="cosmopolitan-dev"

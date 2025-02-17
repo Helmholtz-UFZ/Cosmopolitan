@@ -26,6 +26,29 @@ DAYS_DELETE_SUMBITTED = 60
 DAYS_DELETE_NOT_SUMBITTED = 2
 load_dotenv()
 
+# Needed for the test_env.py. Update!
+env_vars = [
+    "WEB_WORK_DIR",
+    "WEB_OUTSIDE_URL",
+    "FLASK_PORT",
+    "EMAIL_SERVER",
+    "EMAIL_PORT",
+    "EMAIL_USERNAME",
+    "EMAIL_PASSWORD",
+    "EMAIL_SENDER",
+    "POSTGRES_DB",
+    "POSTGRES_HOST_NAME",
+    "POSTGRES_PORT",
+    "POSTGRES_USER",
+    "POSTGRES_PASSWORD",
+    "FLASK_DEBUG",
+    "MINIO_URL",
+    "MINIO_ACCESS_KEY",
+    "MINIO_SECRET_KEY",
+    "MINIO_BUCKET",
+    "MINIO_ALIAS",
+]
+
 # s/=.*//g |'<,'> s/^.*$/& = getenv("&")/g | noh
 WEB_WORK_DIR = getenv("WEB_WORK_DIR")
 WEB_OUTSIDE_URL = getenv("WEB_OUTSIDE_URL")
@@ -35,9 +58,16 @@ EMAIL_PORT = getenv("EMAIL_PORT")
 EMAIL_USERNAME = getenv("EMAIL_USERNAME")
 EMAIL_PASSWORD = getenv("EMAIL_PASSWORD")
 EMAIL_SENDER = getenv("EMAIL_SENDER")
-DB_NAME = getenv("DB_NAME")
-DB_HOST_NAME = getenv("DB_HOST_NAME")
-DB_PORT = getenv("DB_PORT")
-DB_USER = getenv("DB_USER")
-DB_PW = getenv("DB_PW")
+POSTGRES_DB = getenv("POSTGRES_DB")
+POSTGRES_HOST_NAME = getenv("POSTGRES_HOST_NAME")
+POSTGRES_PORT = getenv("POSTGRES_PORT")
+POSTGRES_USER = getenv("POSTGRES_USER")
+POSTGRES_PASSWORD = getenv("POSTGRES_PASSWORD")
 DEBUG = getenv("FLASK_DEBUG")
+MINIO_URL = getenv("MINIO_URL")
+MINIO_ACCESS_KEY = getenv("MINIO_ACCESS_KEY")
+MINIO_SECRET_KEY = getenv("MINIO_SECRET_KEY")
+MINIO_BUCKET = getenv("MINIO_BUCKET")
+MINIO_ALIAS = getenv("MINIO_ALIAS")
+
+JOB_WORK_DIR_TEMPLATE = os.path.join(WEB_WORK_DIR, "{job_id}")

@@ -16,7 +16,7 @@ from soil_moisture_prediction.smp_cli import pprint_pydantic_validation_error
 
 from cosmopolitan_app.cosmopolitan_job import CosmopolitanJob
 from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
-from cosmopolitan_app.db_manager import JobNotFound
+from cosmopolitan_app.postgres_manager import JobNotFound
 
 
 def test_consistency_between_test_form_data():
@@ -121,7 +121,7 @@ def test_changes_in_parameters(app):
     """Test if the parameters have changed."""
     # Set up logger inside the test function so pytest only show logs of failed tests
     logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
 
     with app.app_context():
         try:
@@ -129,7 +129,7 @@ def test_changes_in_parameters(app):
             job.delete()
         except JobNotFound:
             pass
-        cosmopolitan_job_form = CosmopolitanJobForm(formdata=valid_form_data, new=False)
+        cosmopolitan_job_form = CosmopolitanJobForm(formdata=valid_form_data)
 
     assert cosmopolitan_job_form.validate() is True, "Form is not valid."
 

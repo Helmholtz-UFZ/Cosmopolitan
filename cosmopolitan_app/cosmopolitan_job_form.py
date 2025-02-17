@@ -65,8 +65,8 @@ from wtforms.validators import (
 )
 from wtforms.widgets import CheckboxInput, NumberInput, Select, TextInput
 
-from cosmopolitan_app.config import WEB_WORK_DIR
-from cosmopolitan_app.db_manager import DataBaseManager
+from cosmopolitan_app.config import JOB_WORK_DIR_TEMPLATE
+from cosmopolitan_app.postgres_manager import PostgresManager
 
 logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)
 
@@ -182,6 +182,8 @@ class CosmopolitanJobForm(FlaskForm):
     dic object "group". The complete structure of the field is defined in
     "./templates/html/input/fields.html".
     """
+
+    preview_area_filename = "preview_area.png"
 
     groups = OrderedDict(
         {
@@ -399,19 +401,19 @@ class CosmopolitanJobForm(FlaskForm):
         validators=[],
     )
 
-    def __init__(self, new=True, **kwargs):
+    def __init__(self, new=False, **kwargs):
         """Init."""
+        logging.debug("Init CosmopolitanJobForm")
         super().__init__(meta={"csrf": False}, **kwargs)
         self.geom_area = None
         if new:
             logging.debug("New job form")
             while True:
                 self.job_id.data = "_".join(generate(3))
-                if not DataBaseManager.check_existence(self.job_id.data):
+                if not PostgresManager.check_existence(self.job_id.data):
                     break
             self.previous_job_id.data = self.job_id.data
-            self.input_dir = os.path.join(WEB_WORK_DIR, self.job_id.data)
-            os.makedirs(self.input_dir, exist_ok=True)
+            self.validate_job_id(self.job_id)
 
     def validate_job_id(self, field):
         """Validate job id.
@@ -422,23 +424,18 @@ class CosmopolitanJobForm(FlaskForm):
         """
         logging.debug(f"Check job id {field.data}")
 
-        if DataBaseManager.check_existence(field.data):
-            raise ValidationError("Job id already exist")
-
         if len(field.errors) == 0:
-            self.input_dir = os.path.join(WEB_WORK_DIR, self.job_id.data)
+            self.input_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=self.job_id.data)
             os.makedirs(self.input_dir, exist_ok=True)
 
             if not re.match(self.job_id_regex, self.previous_job_id.data):
-                logging.warning(
-                    "Malicious attack manipulation hidden field!", verbose_level=0
-                )
-                logging.warning(
-                    f"Content hidden field {self.previous_job_id.data}", verbose_level=0
-                )
+                logging.warning("Malicious attack manipulation hidden field!")
+                logging.warning(f"Content hidden field {self.previous_job_id.data}")
                 raise ValidationError("Use normal input field to set job id.")
 
-            previous_input_dir = os.path.join(WEB_WORK_DIR, self.previous_job_id.data)
+            previous_input_dir = JOB_WORK_DIR_TEMPLATE.format(
+                job_id=self.previous_job_id.data
+            )
 
             if self.job_id.data != self.previous_job_id.data and os.path.isdir(
                 previous_input_dir
@@ -521,13 +518,6 @@ class CosmopolitanJobForm(FlaskForm):
             (lat_min, lon_max),
             (lat_min, lon_min),
         ]
-        # bbox = [
-        #     (52.3394, 13.0890),
-        #     (52.6755, 13.0890),
-        #     (52.6755, 13.7611),
-        #     (52.3394, 13.7611),
-        #     (52.3394, 13.0890),
-        # ]
 
         context.add_object(
             staticmaps.Area(
@@ -539,7 +529,7 @@ class CosmopolitanJobForm(FlaskForm):
         )
 
         image = context.render_cairo(width, height)
-        image.write_to_png(os.path.join(self.input_dir, "preview_area.png"))
+        image.write_to_png(os.path.join(self.input_dir, self.preview_area_filename))
 
     def _draw_empty_preview(self, width, height):
         # Create a new Cairo surface and context
@@ -625,7 +615,7 @@ class CosmopolitanJobForm(FlaskForm):
 
     def validate_selected_pred_input(self, field):
         """Check if files exist in upload dir."""
-        logging.debug("Check if selected predictor variable files exist.")
+        logging.debug("Check if selected predictor files exist.")
         files = []
         for pred, info in json_load_4_jinja(field.data).items():
             if pred in (c[0] for c in self.stream_choices):
@@ -652,7 +642,7 @@ class CosmopolitanJobForm(FlaskForm):
 
     def validate_selected_crn_file(self, field):
         """Check if files exist in upload dir."""
-        logging.debug("Check if selected predictor variable files exist.")
+        logging.debug("Check if selected crns files exist.")
         self._validate_selected_input_files(list(json_load_4_jinja(field.data)))
 
     def validate(self, extra_validators=None):
@@ -804,9 +794,6 @@ class CosmopolitanJobForm(FlaskForm):
     def _input_parameters(self, write=True):
         """Write the input parameters for the background model into the input dir."""
         predictors = {}
-        logging.info("HERE")
-        logging.info(repr(self.selected_pred_input.data))
-        logging.info(len(self.selected_pred_input.data))
         for predictor, info in json.loads(self.selected_pred_input.data).items():
             if predictor in (c[0] for c in self.stream_choices):
                 predictors[predictor] = None
@@ -836,13 +823,13 @@ class CosmopolitanJobForm(FlaskForm):
             "compute_slope": self.compute_slope.data,
             "compute_aspect": self.compute_aspect.data,
             "what_to_plot": {
-                "predictors": False,
-                "pred_correlation": False,
-                "day_measurements": False,
-                "day_predictor_importance": False,
-                "day_prediction_map": False,
-                "alldays_predictor_importance": False,
-                "prediction_distance": False,
+                "predictors": True,
+                "pred_correlation": True,
+                "day_measurements": True,
+                "day_predictor_importance": True,
+                "day_prediction_map": True,
+                "alldays_predictor_importance": True,
+                "prediction_distance": True,
             },
             "save_results": True,
             "save_input_data": True,

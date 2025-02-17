@@ -33,6 +33,15 @@ def start():
     return render_template("html/content/start.html")
 
 
+@app.route("/spwan/<job_id>", methods=["GET", "POST"])
+def spawn_child(job_id):
+    """Create new job from an old job."""
+    logging.info(f"Spawn new job from job: {job_id}")
+    job = CosmopolitanJob(job_id=job_id)
+    new_job = job.spawn()
+    return render_template("html/job/input.html", form=new_job.form)
+
+
 @app.route("/input/<job_id>", methods=["GET", "POST"])
 def change_input(job_id):
     """Change input of an unsubmitted job."""
@@ -52,12 +61,9 @@ def input_job():
         logging.info("Input for new job")
         job = CosmopolitanJob()
         form = job.form
-        # TODO this can be added to init of CosmopolitanJob
-        draw_preview = form.validate_geometry()
-        form.preview_area(draw_preview=draw_preview)
     # If form was submitted validate
     else:
-        form = CosmopolitanJobForm(new=False)
+        form = CosmopolitanJobForm()
         logging.info(f"Check form {form.job_id.data}")
         if form.validate_on_submit():
             logging.info("Form is valid")
@@ -73,7 +79,7 @@ def confirm(job_id):
     logging.info(f"Confirm submisison for job {job_id}")
     job = CosmopolitanJob(job_id=job_id)
     if job.submitted:
-        raise SubmittedException
+        raise SubmittedException(job_id)
     return render_template("html/job/confirm.html", job=job)
 
 
@@ -96,7 +102,7 @@ def submission(job_id):
     job.submit()
 
     if job.status not in ["FAILED", "COMPLETED"]:
-        reload_delay = 5
+        reload_delay = 20
     else:
         reload_delay = None
 

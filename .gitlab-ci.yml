@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-only
 ---
-
 stages:
   - "lint"
   - "test"
@@ -15,13 +14,15 @@ variables:
   POSTGRES_USER: somweb_stage_rw
   POSTGRES_PASSWORD: test
   POSTGRES_HOST_AUTH_METHOD: trust
-  DB_HOST_NAME: postgres
+  POSTGRES_HOST_NAME: postgres
+  POSTGRES_PORT: 5432
   EMAIL_PORT: 1025
   MAIL_HOG_PORT: 8025
+  MINIO_ACCESS_KEY: "accesskey"
+  MINIO_SECRET_KEY: "secretkey"
 
 .docker_login: &docker_login
   - 'echo "${CI_REGISTRY_PASSWORD}" | docker login --username "$CI_REGISTRY_USER" --password-stdin "${CI_REGISTRY}"'
-
 
 .base_before_build_script:
   image: "docker:24-cli"
@@ -45,15 +46,34 @@ test:
   stage: "test"
   image: "python:3.11"
   services:
-    - postgres
+    - name: postgres:latest
+      alias: postgres
     - name: "mailhog/mailhog:latest"
       alias: mailhog
-      command: ["-smtp-bind-addr", "0.0.0.0:1025", "-api-bind-addr", "0.0.0.0:8025", "-ui-bind-addr", "0.0.0.0:8025"]
+      command:
+        [
+          "-smtp-bind-addr",
+          "0.0.0.0:1025",
+          "-api-bind-addr",
+          "0.0.0.0:8025",
+          "-ui-bind-addr",
+          "0.0.0.0:8025",
+        ]
+    - name: "minio/minio:latest"
+      alias: minio
+      command: ["server", "/data", "--console-address", ":9001"]
+      variables:
+        MINIO_ROOT_USER: "${MINIO_ACCESS_KEY}"
+        MINIO_ROOT_PASSWORD: "${MINIO_SECRET_KEY}"
+  variables:
+    MINIO_URL: "http://minio:9000"
   before_script:
-    - "apt-get update && apt-get install -y postgresql-client"
+    - "apt-get update && apt-get install -y postgresql-client libc-dev libcairo2-dev curl"
+    - "curl https://dl.min.io/client/mc/release/linux-amd64/mc --create-dirs -o /usr/local/bin/mc"
+    - "chmod +x /usr/local/bin/mc"
     - "export PGPASSWORD=${POSTGRES_PASSWORD}"
-    - "psql -h $DB_HOST_NAME -U $POSTGRES_USER -W $POSTGRES_PASSWORD -d $POSTGRES_DB < docker/init.sql"
-    - "cp .env_test .env"
+    - "psql -h ${POSTGRES_HOST_NAME} -U ${POSTGRES_USER} -d ${POSTGRES_DB} < docker/init.sql"
+    - "cp env_test .env"
     - "curl mailhog:8025"
     - "pip install poetry"
     - "poetry install"
@@ -67,12 +87,11 @@ build-latest:
   before_script:
     - *docker_login
   script:
-    - 'docker build -t ${CI_REGISTRY_IMAGE}:latest -f docker/prod.Dockerfile .'
+    - "docker build -t ${CI_REGISTRY_IMAGE}:latest -f docker/prod.Dockerfile ."
     - "docker push --all-tags ${CI_REGISTRY_IMAGE}"
   rules:
     - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
     - when: "never"
-
 
 # a release-tag will be built when creating a tag with the name matching the regex (^\d+.\d+.\d+)
 build-release:
@@ -81,7 +100,7 @@ build-release:
   before_script:
     - *docker_login
   script:
-    - 'docker build -t ${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG} -f docker/prod.Dockerfile .'
+    - "docker build -t ${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG} -f docker/prod.Dockerfile ."
     - "docker push --all-tags ${CI_REGISTRY_IMAGE}"
     - 'echo -e "image:\n  tag: ${CI_COMMIT_TAG}" > values.yaml'
   artifacts:
@@ -91,7 +110,6 @@ build-release:
     - if: '$CI_COMMIT_TAG =~ /^\d+.\d+.\d+/'
       when: "always"
     - when: "never"
-
 
 # builds a fresh Docker-Image from the most recent Git-Tag und postfixes the current date
 # e.g. <IMAGE>:<TAG> becomes <IMAGE>:<TAG>-YYYY.MM.DD
@@ -118,7 +136,6 @@ build-latest-tag:
     - if: "$CI_PIPELINE_SOURCE == 'web'"
     - when: "never"
 
-
 # preparation for git - so that the job "bump_version_for_cluster"
 .prepare: &prepare
   - "apt-get update -y && apt-get install git openssh-client -yqq"
@@ -131,7 +148,6 @@ build-latest-tag:
   - "git config pull.rebase true"
   - "git remote set-url --push origin git@${CI_SERVER_HOST}:${CI_PROJECT_PATH}"
 
-
 bump_version_for_cluster:
   stage: "deploy"
   variables:
@@ -140,12 +156,10 @@ bump_version_for_cluster:
     - *prepare
     - "git add values.yaml"
     - "git commit -m 'automatically increased tag-version for cluster-deployment'"
-    - 'git pull origin ${BRANCH} --strategy-option=ours'
+    - "git pull origin ${BRANCH} --strategy-option=ours"
     - "git push origin HEAD:$BRANCH -o ci.skip"
   rules:
     - if: '$CI_COMMIT_TAG =~ /^\d+.\d+.\d+/'
     - if: "$CI_PIPELINE_SOURCE == 'schedule'"
     - if: "$CI_PIPELINE_SOURCE == 'web'"
     - when: "never"
-
-...

@@ -1,25 +1,17 @@
 """Dash app that presents results."""
 
+import glob
 import logging
+import os
 from collections import OrderedDict
-from functools import lru_cache
 from logging.config import dictConfig
-from time import time
 
 import dash_bootstrap_components as dbc
 from dash import MATCH, Input, Output, State, ctx, dcc, html
-from soil_moisture_prediction.plot_functions import (
-    plot_measurements,
-    plot_prediction_distance,
-    plot_predictor_importance,
-    plot_predictors,
-    plot_rfo_model,
-    prediction_correlation_matrix,
-    predictor_importance_along_days,
-)
-from soil_moisture_prediction.random_forest_model import RFoModel
+from flask import url_for
 from sqlalchemy.exc import OperationalError
 
+from cosmopolitan_app.config import JOB_WORK_DIR_TEMPLATE
 from cosmopolitan_app.cosmopolitan_job import (
     CosmopolitanJob,
     InvalidJobID,
@@ -33,36 +25,26 @@ from cosmopolitan_app.dash_component.dash_component import (
     logging_config,
     stand_alone,
 )
-from cosmopolitan_app.db_manager import JobNotFound
+from cosmopolitan_app.postgres_manager import JobNotFound
 
 
-def get_ttl_hash(seconds=3600):
-    """Return the same value withing `seconds` time period."""
-    return round(time() / seconds)
+def get_time_steps(job_id):
+    """Get time steps for job."""
+    job_work_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=job_id)
+    files = glob.glob(f"{job_work_dir}/measurements_*")
+    time_steps = []
+    for file in files:
+        file_name = os.path.basename(file)
+        time_step = file_name.replace("measurements_", "").split(".")[0]
+        time_steps.append(time_step)
+
+    return time_steps
 
 
-@lru_cache()
-def load_rfo_prediction(job_id, ttl_hash=None):
-    """Load job model for plotting."""
-    del ttl_hash
-    logging.debug(f"Load rfo prediction for {job_id}.")
-    cosmopolitan_job = CosmopolitanJob(job_id=str(job_id))
-    (
-        input_parameters,
-        working_dir,
-        load_results,
-    ) = cosmopolitan_job.get_parameters_rfo_prediction()
-    rfo_model = RFoModel(input_parameters=input_parameters, work_dir=working_dir)
-    rfo_model.load_input_data(load_from_dump=True, plot_input=False)
-    rfo_model.load_predictions()
-    rfo_model.input_data.compute_prediction_distance()
-    return rfo_model
-
-
-def create_slider(plot_id, rfo_prediction):
+def create_slider(plot_id, job_id):
     """Create dash slider for time steps."""
-    time_steps = rfo_prediction.input_data.soil_moisture_data.time_steps
-    number_time_steps = len(rfo_prediction.input_data.soil_moisture_data.time_steps)
+    time_steps = get_time_steps(job_id)
+    number_time_steps = len(time_steps)
     size_slider = min(max(int(number_time_steps * 0.8), 3), 12)
     return html.Div(
         html.Div(
@@ -80,69 +62,64 @@ def create_slider(plot_id, rfo_prediction):
     )
 
 
-@lru_cache()
-def get_image(rfo_prediction, plot_id, time_index, hash_ttl=None):
-    """Get image for plot."""
-    del hash_ttl
+def all_predictors_constant(job_id):
+    """Check if all predictors are constant."""
+    job_work_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=job_id)
+    return os.path.exists(f"{job_work_dir}/predictors.png")
 
-    _header, _time_variable, plot_function = plot_parameter[plot_id]
 
-    logging.debug(f"Get image by function {plot_function.__name__}")
-
-    if time_index is None:
-        width, height, content = plot_function(rfo_prediction, None)
+def get_image_name(job_id, plot_id, time_index):
+    """Get image name for plot."""
+    # No time step for constant plots or if all predictors are constant and the plot is
+    # a predictor plot
+    if plot_parameter[plot_id][1] == "constant" or (
+        plot_parameter[plot_id][1] == "var_predictors"
+        and all_predictors_constant(job_id)
+    ):
+        time_step = ""
     else:
-        time_step = rfo_prediction.input_data.soil_moisture_data.time_steps[time_index]
-        width, height, content = plot_function(rfo_prediction, time_step, None)
+        time_step = "_" + get_time_steps(job_id)[time_index]
 
-    kwargs_img_element = {
-        "className": "d-block mx-auto",
-        "src": f"data:image/svg+xml;base64,{content}",
-    }
-
-    if width > height:
-        kwargs_img_element["width"] = "90%"
-    else:
-        kwargs_img_element["height"] = "100%"
-
-    return html.Img(**kwargs_img_element)
+    return plot_parameter[plot_id][2].format(time_step=time_step)
 
 
-def create_content(plot_id, rfo_prediction):
+def create_content(plot_id, job_id):
     """Create content for plot."""
     logging.debug(f"Create content for {plot_id}.")
-    header, time_variable, plot_function = plot_parameter[plot_id]
+    header, time_variable, file_name_template = plot_parameter[plot_id]
     element_list = [html.H2(header, style={"textAlign": "center"})]
 
     # Check if slider is needed
-    if (
-        time_variable == "var_predictors"
-        and rfo_prediction.input_data.all_predictors_constant()
-    ):
+    logging.debug(f"Check if slider is needed for {plot_id}.")
+    logging.debug(f"Time variable: {time_variable}")
+    logging.debug(f"Predictors constant: {all_predictors_constant(job_id)}")
+    if time_variable == "var_predictors" and all_predictors_constant(job_id):
         slider = False
     elif time_variable == "constant":
         slider = False
     else:
         slider = True
 
+    logging.debug(f"Slider: {slider}")
+
     if slider:
         logging.debug("Create slider.")
         element_list.extend(
             [
                 html.H3(children="Select time step", style={"textAlign": "center"}),
-                create_slider(plot_id, rfo_prediction),
+                create_slider(plot_id, job_id),
             ]
         )
     else:
         logging.debug("No slider needed.")
 
-    time_index = 0 if time_variable != "constant" else None
-    html_img = get_image(rfo_prediction, plot_id, time_index, hash_ttl=get_ttl_hash())
+    image_name = get_image_name(job_id, plot_id, 0)
+    img_url = url_for("result_file", job_id=job_id, file_name=image_name)
 
     element_list.append(
         html.Div(
             html.Div(
-                [html_img],
+                html.Img(src=img_url, style={"width": "100%"}),
                 id={"type": "plot-img", "plot_id": f"{plot_id}"},
                 className="col-12 col-xl-9",
             ),
@@ -157,37 +134,37 @@ plot_parameter = OrderedDict()
 plot_parameter["sm-pred"] = [
     "Soil Moisture Prediction",
     "var_measurements",
-    plot_rfo_model,
+    "prediction{time_step}.png",
 ]
 plot_parameter["crn"] = [
     "Measurements",
     "var_measurements",
-    plot_measurements,
+    "measurements{time_step}.png",
 ]
 plot_parameter["pred"] = [
     "Predictors",
     "var_predictors",
-    plot_predictors,
+    "predictors{time_step}.png",
 ]
 plot_parameter["pred-corr"] = [
     "Predictor Correlation",
     "var_predictors",
-    prediction_correlation_matrix,
+    "correlation_matrix{time_step}.png",
 ]
 plot_parameter["pred-imp"] = [
     "Predictor Importance",
     "var_measurements",
-    plot_predictor_importance,
+    "predictor_importance{time_step}.png",
 ]
 plot_parameter["pred-imp-ot"] = [
     "Predictor Importance over time",
     "constant",
-    predictor_importance_along_days,
+    "predictor_importance_vs_days.png",
 ]
 plot_parameter["pred-dist"] = [
     "Predictor Distance",
     "var_measurements",
-    plot_prediction_distance,
+    "prediction_distance{time_step}.png",
 ]
 
 predictor_plots = ["pred", "pred-corr", "pred-imp"]
@@ -249,27 +226,29 @@ class RenderContent(Callback):
     def function(pathname, *pill):
         """Render content on pill select."""
         job_id = pathname.split("/")[-1]
+        try:
+            cosmopolitan_job = CosmopolitanJob(job_id)
+            if cosmopolitan_job.status not in ["COMPLETED", "FAILED"]:
+                raise NotFinishedException(job_id)
+        except (
+            InvalidJobID,
+            JobNotFound,
+            NotSubmittedException,
+            OperationalError,
+            NotFinishedException,
+        ) as e:
+            return ("", error_response_dash(e), "")
+
         pill_clicked = ctx.triggered_id
         if pill_clicked is None:
             plot_id = next(iter(plot_parameter))
         else:
             plot_id = pill_clicked.replace("-pill", "")
         logging.debug(f"Render content for {job_id}.")
-        try:
-            rfo_prediction = load_rfo_prediction(job_id, ttl_hash=get_ttl_hash())
-        except (
-            InvalidJobID,
-            JobNotFound,
-            NotFinishedException,
-            NotSubmittedException,
-            OperationalError,
-        ) as e:
-            # return ("", dbc.Alert("Error: Job id not found", color="danger"), "")
-            return ("", error_response_dash(e), "")
 
         return (
             job_id,
-            create_content(plot_id, rfo_prediction),
+            create_content(plot_id, job_id),
             plot_id,
         )
 
@@ -295,23 +274,27 @@ class GeneratePlotPerTimeStep(Callback):
         logging.debug(f"Generate plot for {job_id} on time index {time_index}.")
         time_index -= 1
         try:
-            rfo_prediction = load_rfo_prediction(job_id, ttl_hash=get_ttl_hash())
+            cosmopolitan_job = CosmopolitanJob(job_id)
+            if cosmopolitan_job.status not in ["COMPLETED", "FAILED"]:
+                logging.debug(f"Job {job_id} not finished GeneratePlotPerTimeStep.")
+                raise NotFinishedException(job_id)
         except (
             InvalidJobID,
             JobNotFound,
-            NotFinishedException,
             NotSubmittedException,
             OperationalError,
-        ):
-            return
+            NotFinishedException,
+        ) as e:
+            return ("", error_response_dash(e), "")
+
         plot_id = plot_id_tab.replace("-tab", "")
-        html_img = get_image(
-            rfo_prediction,
+        image_name = get_image_name(
+            job_id,
             plot_id,
             time_index,
-            hash_ttl=get_ttl_hash(),
         )
-        return [html_img]
+        img_url = url_for("result_file", job_id=job_id, file_name=image_name)
+        return html.Img(src=img_url, style={"width": "100%"})
 
 
 callbacks = list_callbacks(globals())
