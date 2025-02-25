@@ -9,6 +9,7 @@ import shutil
 import traceback
 from datetime import date
 from logging.config import dictConfig
+from smtplib import SMTPAuthenticationError
 from typing import Literal
 
 from soil_moisture_prediction.__version__ import __version__ as smp_version
@@ -40,7 +41,10 @@ LOG_FILE_NAME = "logs"
 def start_computation(job):
     """Start a computation job."""
     try:
-        send_submission_mail(job)
+        try:
+            send_submission_mail(job)
+        except SMTPAuthenticationError:
+            logging.error("Failed to send submission mail.")
         dictConfig(
             get_logger_config_compuation(os.path.join(job.working_dir, LOG_FILE_NAME))
         )
@@ -62,7 +66,10 @@ def start_computation(job):
         logging.info("Computation finished.")
 
         job.save()
-        send_finished_mail(job)
+        try:
+            send_finished_mail(job)
+        except SMTPAuthenticationError:
+            logging.error("Failed to send finished mail.")
     except Exception as e:  # noqa
         dictConfig(get_logger_config_web(DEBUG))
         job.status = "FAILED"
@@ -70,7 +77,10 @@ def start_computation(job):
             f"Job {job.job_id} failed:\n{repr(e)}\n\n{traceback.format_exc()}"
         )
         job.save()
-        send_finished_mail(job)
+        try:
+            send_finished_mail(job)
+        except SMTPAuthenticationError:
+            logging.error("Failed to send finished mail.")
 
 
 def get_attributes(clazz):

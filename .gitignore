@@ -2,7 +2,6 @@ en.utf-8.add.spl
 __pycache__
 .python-version
 .env
-.env_dev_prod_priv
 ./cosmopolitan_app/work_dir/*
 ./backend_env
 *swp
@@ -10,6 +9,5 @@ __pycache__
 python_path
 .idea
 .config
-.env_dev_prod_priv_2
-.env.bak
 minio_config
+env_dev_prod_priv
