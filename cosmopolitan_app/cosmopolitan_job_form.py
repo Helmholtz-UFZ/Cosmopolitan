@@ -204,14 +204,13 @@ class CosmopolitanJobForm(FlaskForm):
             "CRN Measurments": ["crn_file", "selected_crn_file"],
             "Model Parameters": [
                 "monte_carlo_soil_moisture",
+                "monte_carlo_predictors",
                 "monte_carlo_iterations",
                 "past_prediction_as_feature",
-                "monte_carlo_predictor",
                 "allow_nan_in_training",
                 "predictor_qmc_sampling",
                 "compute_slope",
                 "compute_aspect",
-                "monte_carlo_predictors",
             ],
         }
     )
@@ -342,7 +341,7 @@ class CosmopolitanJobForm(FlaskForm):
         validators=[],
     )
 
-    monte_carlo_predictor = BooleanField(
+    monte_carlo_predictors = BooleanField(
         "Monte carlo simulation of predictor data",
         description="Should a monte carlo simulation of the predictor data be done to evaulate uncertantiy.",  # noqa
         widget=BooleanInput(),
@@ -390,13 +389,6 @@ class CosmopolitanJobForm(FlaskForm):
     compute_aspect = BooleanField(
         "Compute aspect",
         description="Whether to compute the aspect from elevation and use as predictor.",  # noqa
-        widget=BooleanInput(),
-        validators=[],
-    )
-
-    monte_carlo_predictors = BooleanField(
-        "Monte carlo simulation of predictors",
-        description="Use monte carlo simulation to predict uncertainty for the predictors.",  # noqa
         widget=BooleanInput(),
         validators=[],
     )
@@ -814,11 +806,10 @@ class CosmopolitanJobForm(FlaskForm):
             "predictors": predictors,
             "soil_moisture_data": soil_moisture_data,
             "monte_carlo_soil_moisture": self.monte_carlo_soil_moisture.data,
-            "monte_carlo_predictor": self.monte_carlo_predictor.data,
+            "monte_carlo_predictors": self.monte_carlo_predictors.data,
             "monte_carlo_iterations": self.monte_carlo_iterations.data,
             "past_prediction_as_feature": self.past_prediction_as_feature.data,
             "allow_nan_in_training": self.allow_nan_in_training.data,
-            "monte_carlo_predictors": self.monte_carlo_predictors.data,
             "predictor_qmc_sampling": self.predictor_qmc_sampling.data,
             "compute_slope": self.compute_slope.data,
             "compute_aspect": self.compute_aspect.data,
