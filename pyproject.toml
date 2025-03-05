@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cosmopolitan"
-version = "0.0.34"
+version = "0.0.35"
 description = "COSmic ray based soil MOisture PredictiOn LIve descicion Tree ANalysis"
 authors = ["John Anders <john-eric.anders@ufz.de>"]
 readme = "README.md"
@@ -58,7 +58,7 @@ virtualenv = "^20.25.0"
 werkzeug = "^3.0.1"
 wtforms = "^3.1.1"
 apscheduler = "^3.10.4"
-soil-moisture-prediction = "^0.0.38"
+soil-moisture-prediction = "^0.0.39"
 pillow = "10.0.0"
 py-staticmaps = "^0.4.0"
 pycairo = "^1.27.0"
