@@ -7,6 +7,7 @@ from collections import OrderedDict
 from typing import Annotated, Any, List, Type
 
 import dash_bootstrap_components as dbc
+from coolname import generate
 from dash import Dash, Input, Output, State, callback
 from email_validator import EmailNotValidError, validate_email
 from pydantic import AfterValidator, BaseModel, Field
@@ -61,8 +62,8 @@ class ModelWebsite(InputParameters):
     email: Annotated[
         str,
         Field(
-            "test@gmail.com",
-            description="Please enter a valid gmail address",
+            "",
+            description="Email address to be notified when job submission is complete.",
             title="Email",
             type="email",
         ),
@@ -81,7 +82,13 @@ class ModelWebsite(InputParameters):
     ]
 
 
+while True:
+    job_id = "_".join(generate(3))
+    if not PostgresManager.check_existence(job_id):
+        break
+
 default_model = ModelWebsite()
+default_model.job_id = job_id
 default_values = default_model.model_dump()
 try:
     test_model = ModelWebsite(**default_values)
