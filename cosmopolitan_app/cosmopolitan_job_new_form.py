@@ -4,19 +4,32 @@ import logging
 import os
 import re
 from collections import OrderedDict
-from typing import Annotated, Any, List, Type
+from datetime import datetime
+from typing import Annotated, Any, ClassVar, List, Literal, Tuple, Type, get_args
 
 import dash_bootstrap_components as dbc
 from coolname import generate
-from dash import Dash, Input, Output, State, callback
+from dash import Dash, Input, Output, State, callback, dcc, html
 from email_validator import EmailNotValidError, validate_email
-from pydantic import AfterValidator, BaseModel, Field
+from pydantic import AfterValidator, BaseModel, Field, field_validator
+from soil_moisture_prediction.input_data import stream_dic
 from soil_moisture_prediction.pydantic_models import InputParameters
 
 from cosmopolitan_app.config import JOB_WORK_DIR_TEMPLATE
 from cosmopolitan_app.postgres_manager import PostgresManager
 
-app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+
+def flatten_list(nested_list: List[Any]) -> List[str]:
+    """Flatten a nested list."""
+    flattened: List[Any] = []
+    for item in nested_list:
+        if isinstance(item, list):
+            flattened.extend(flatten_list(item))
+        else:
+            if not isinstance(item, str):
+                continue
+            flattened.append(item)
+    return flattened
 
 
 def validate_job_id(job_id):
@@ -29,6 +42,7 @@ def validate_job_id(job_id):
     logging.debug(f"Check job id {job_id}")
 
     job_id_regex = r"^\w+$"
+    print(job_id)
     if not re.match(job_id_regex, job_id):
         raise ValueError("Username must contain only letters numbers or underscore")
 
@@ -48,7 +62,9 @@ def validate_job_id(job_id):
 
 
 def check_email(email: str) -> str:
-    """Validate an email address using the email-validator library."""
+    """Validate an email address using the email-validator library allow empty email."""
+    if email == "":
+        return email
     try:
         validate_email(email, check_deliverability=True)  # Checks syntax and domain
         return email  # Return email if valid
@@ -62,7 +78,7 @@ class ModelWebsite(InputParameters):
     email: Annotated[
         str,
         Field(
-            "",
+            "test@test.com",
             description="Email address to be notified when job submission is complete.",
             title="Email",
             type="email",
@@ -73,13 +89,65 @@ class ModelWebsite(InputParameters):
     job_id: Annotated[
         str,
         Field(
-            "test_job",
+            "poised_python_of_wonder",
             description='Identifier for your submission. Only letters, numbers and "_".',  # noqa
             title="Job ID",
             type="text",
         ),
         AfterValidator(validate_job_id),
     ]
+
+    date_range: Annotated[
+        Tuple[str, str],
+        Field(
+            ("2021-01-01", "2021-01-31"),
+            description="Choose a date range for the CRNS measurements.",
+            title="Date range",
+            type="date-picker",
+        ),
+    ]
+
+    stream_choices: ClassVar[List[str]] = list(stream_dic.keys())
+    pred_streams: Annotated[
+        List[Literal[*stream_choices]],
+        Field(
+            ["elevation_bkg", "bdod_5-15cm"],
+            description=("Select which the predictor source should to be used"),
+            title="Predictor streams",
+            type="dropdown-checklist",
+        ),
+    ]
+
+    predictor_upload: Annotated[
+        List[str],
+        Field(
+            [],
+            description=("Upload a files with the predictor data"),
+            title="Predictor upload",
+            type="multiple-file-upload",
+        ),
+    ]
+
+    @field_validator("date_range")
+    @classmethod
+    def check_date_range(cls, date_range):
+        """Ensure both dates are in YYYY-MM-DD format and the start date is before the end date."""  # noqa
+        date_format = "%Y-%m-%d"
+
+        try:
+            start_date = datetime.strptime(date_range[0], date_format)
+            end_date = datetime.strptime(date_range[1], date_format)
+        except ValueError:
+            raise ValueError(
+                f"Both dates must be in the format YYYY-MM-DD. Got {date_range}"
+            )
+
+        if start_date > end_date:
+            raise ValueError(
+                f"Start date {date_range[0]} must be before end date {date_range[1]}."
+            )
+
+        return date_range
 
 
 while True:
@@ -103,60 +171,142 @@ class FormFactory:
         """Init."""
         self.pymodel = pymodel
         self.type_to_component = {
-            str: dbc.Input,
-            int: dbc.Input,
-            float: dbc.Input,
-            bool: dbc.Checkbox,
+            "email": dbc.Input,
+            "text": dbc.Input,
+            "float": dbc.Input,
+            "integer": dbc.Input,
+            "dropdown-checklist": dbc.DropdownMenu,
+            "date-picker": dcc.DatePickerRange,
+            "checkbox": dbc.Checkbox,
         }
         self.layout = layout
-        self.fields_website = [
-            item for sublist in self.layout.values() for item in sublist
-        ]
+        self.fields_website = flatten_list(layout.values())
         self.form_layout = []
+        self.fieldtypes_not_to_validate = [
+            "checkbox",
+            "dropdown-checklist",
+            "date-picker",
+        ]
+
+    def create_component(self, field_name: Any) -> Any:
+        """Create the component."""
+        if not isinstance(field_name, str):
+            return field_name
+        field = ModelWebsite.model_fields[field_name]
+        field_type = field.json_schema_extra["type"]
+        try:
+            component_class = self.type_to_component[field_type]
+        except KeyError:
+            raise ValueError("Unkown field_type")
+
+        props = {}
+
+        id = f"{field_name}-input"
+        value = field.default if field.default is not None else ""
+
+        if field_type in ["text", "email"]:
+            props["type"] = "text" if field_type == "text" else "email"
+            props["id"] = id
+            props["value"] = value
+            props["html_size"] = len(value) + 5
+            props["style"] = {"width": "auto"}
+        elif field_type in ["float", "integer"]:
+            props["type"] = "number"
+            props["step"] = 1 if field_type == "integer" else "any"
+            props["required"] = True
+            props["id"] = id
+            props["value"] = value
+            props["html_size"] = len(str(value)) + 5
+            props["style"] = {"width": "auto"}
+        elif field_type == "dropdown-checklist":
+            props["label"] = field.title
+            choices = get_args(get_args(field.annotation)[0])
+            options = []
+            prefix = "foobar"
+            for choice in choices:
+                label = choice.replace("_", " ")
+                if not label.startswith(prefix):
+                    prefix = label.split(" ")[0]
+                    if len(options) > 0:
+                        previous_label = options[-1]["label"]
+                        options[-1]["label"] = [html.Div(previous_label), html.Hr()]
+                options.append({"label": label, "value": choice})
+            # options = [{"label": choice, "value": choice} for choice in choices]
+            props["children"] = [
+                dbc.Checklist(
+                    options,
+                    id=id,
+                    value=value,
+                    inline=False,
+                    style={"max-height": "300px", "overflow-y": "auto"},
+                    className="ms-2",
+                )
+            ]
+        elif field_type == "date-picker":
+            props["id"] = id
+            props["start_date"] = value[0]
+            props["end_date"] = value[1]
+            props["initial_visible_month"] = value[1]
+        elif field_type == "checkbox":
+            props["id"] = id
+            props["value"] = value
+            props["label"] = field.title
+        else:
+            raise ValueError(f"Unknown field type {field_type}")
+
+        if field_type == "checkbox":
+            content = [
+                component_class(**props),
+                dbc.FormText(field.description),
+            ]
+        elif field_type == "date-picker":
+            content = [
+                dbc.Label(field.title),
+                html.Br(),
+                component_class(**props),
+                html.Br(),
+                dbc.FormText(field.description),
+            ]
+        else:
+            content = [
+                dbc.Label(field.title),
+                component_class(**props),
+                dbc.FormText(field.description),
+                dbc.FormFeedback(id=f"{field_name}-feedback"),
+            ]
+        return content
 
     def generate_form(self) -> List[Any]:
         """Generate the form layout."""
-        for group_name, field_names in self.layout.items():
+        for group_name, row in self.layout.items():
             card_layout = []
-            for field_name in field_names:
-                field = ModelWebsite.model_fields[field_name]
-                field_type = field.annotation
-                try:
-                    component_class = self.type_to_component[field_type]
-                except KeyError:
-                    raise ValueError("Unkown field_type")
-
-                props = {
-                    "id": f"{field_name}-input",
-                    "value": field.default if field.default is not None else "",
-                }
-
-                if field_type is str:
-                    props["type"] = "text"
-                    props["required"] = True
-                elif field_type in (int, float):
-                    props["type"] = "number"
-                    props["step"] = 1 if field_type is int else "any"
-                    props["required"] = True
-
-                content = [
-                    dbc.Label(field.title),
-                    component_class(**props),
-                    dbc.FormText(field.description),
-                    dbc.FormFeedback(id=f"{field_name}-feedback"),
-                ]
-                card_layout.append(dbc.Row(content))
+            for field_names in row:
+                card_layout.append(
+                    dbc.Row(
+                        [
+                            dbc.Col(self.create_component(field_name))
+                            for field_name in field_names
+                        ],
+                        class_name="m-2",
+                    )
+                )
 
             self.form_layout.append(
                 dbc.Card(
                     [
-                        dbc.CardHeader(group_name),
+                        dbc.CardHeader(group_name, class_name="w-100 text-center"),
                         dbc.CardBody(card_layout),
                     ],
+                    class_name="my-2 d-flex justify-content-center align-items-center",
                 )
             )
         self.form_layout.append(
-            dbc.Button("Submit", id="submit-button", color="primary")
+            dbc.Row(
+                dbc.Col(
+                    dbc.Button("Submit", id="submit-button", color="primary"),
+                    class_name="m-2 d-flex justify-content-center align-items-center",
+                ),
+            )
         )
 
         return self.form_layout
@@ -165,7 +315,8 @@ class FormFactory:
         """Produce the callback outputs."""
         output_dict = {}
         for field_name in self.fields_website:
-            if ModelWebsite.model_fields[field_name].annotation is bool:
+            field_type = ModelWebsite.model_fields[field_name].json_schema_extra["type"]
+            if field_type in self.fieldtypes_not_to_validate:
                 continue
             output_dict[f"{field_name}-valid"] = Output(f"{field_name}-input", "valid")
             output_dict[f"{field_name}-invalid"] = Output(
@@ -186,7 +337,8 @@ class FormFactory:
         else:
             callback_context = Input
         for field_name in self.fields_website:
-            if ModelWebsite.model_fields[field_name].annotation is bool:
+            field_type = ModelWebsite.model_fields[field_name].json_schema_extra["type"]
+            if field_type in self.fieldtypes_not_to_validate:
                 continue
             input_dict[field_name] = callback_context(f"{field_name}-input", "value")
         return input_dict
@@ -202,7 +354,8 @@ class FormFactory:
 
         output_dict = {}
         for field_name in self.fields_website:
-            if ModelWebsite.model_fields[field_name].annotation is bool:
+            field_type = ModelWebsite.model_fields[field_name].json_schema_extra["type"]
+            if field_type in self.fieldtypes_not_to_validate:
                 continue
             if field_name in exceptions:
                 output_dict[f"{field_name}-valid"] = False
@@ -225,23 +378,83 @@ class FormFactory:
         return "submit"
 
 
+job_id_information = [
+    html.Div("Job ID", className="text-center fw-bold fs-4"),
+    html.Div("foobar", id="job_id", className="text-center"),
+    html.Div(id="initial-trigger", style={"display": "none"}),
+]
+
+selected_predictors = [
+    html.H2("Selected Predictors", className="text-center"),
+    html.Div(id="selected-predictors", className="text-center"),
+]
+
 form_layout = OrderedDict(
     {
-        "Model parameters": [
-            "segment_number",
-            "lower_benefit_limit",
-            "time_limit",
-            "optimization_objective",
-            "max_aco_iteration",
-            "ant_no",
-            "total_number_of_classes",
-            "is_reversed",
+        "Job Information": [[job_id_information], ["email"]],
+        "Area of Interest": [
+            ["area_x1", "area_x2"],
+            ["area_y1", "area_y2"],
+            ["area_resolution", "projection"],
+            ["date_range"],
         ],
-        "Job Information": ["email"],
+        "Predictors": [
+            ["pred_streams"],
+            [html.Hr()],
+            [selected_predictors],
+        ],
+        # "CRNS Measurments": [["pred_streams"]],
+        "Model Parameters": [
+            ["monte_carlo_soil_moisture"],
+            ["monte_carlo_predictors"],
+            ["monte_carlo_iterations"],
+            ["past_prediction_as_feature"],
+            ["allow_nan_in_training"],
+            ["predictor_qmc_sampling"],
+            ["compute_slope"],
+            ["compute_aspect"],
+        ],
     }
 )
 
 form_factory = FormFactory(ModelWebsite, form_layout)
+
+
+@callback(Output("job_id", "children"), Input("initial-trigger", "id"))
+def init(_):
+    """Validate the form."""
+    while True:
+        job_id = "_".join(generate(3))
+        if not PostgresManager.check_existence(job_id):
+            break
+    return job_id
+
+
+@callback(
+    Output("selected-predictors", "children"),
+    Input("pred_streams-input", "value"),
+)
+def list_predictors(streams):
+    """Validate the form."""
+    content = []
+    for stream in streams:
+        content.append(
+            dbc.ListGroupItem(
+                html.Div(
+                    [
+                        html.Div(stream, className="fw-bold"),
+                        html.Small(
+                            stream_dic[stream].class_info(stream),
+                            style={"white-space": "pre-line"},
+                            className="text-muted",
+                        ),
+                    ],
+                    className="ms-2 me-auto",
+                ),
+                className="d-flex justify-content-between align-items-start",
+            )
+        )
+    return dbc.ListGroup(content, numbered=True, className="text-start")
 
 
 @callback(
@@ -265,11 +478,16 @@ def submit(**state):
     print(model)
 
 
-app.layout = dbc.Col(
-    form_factory.generate_form(),
-    className="m-4",
-)
-
-
 if __name__ == "__main__":
-    app.run_server(debug=True)
+    app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+
+    app.layout = dbc.Row(
+        dbc.Col(
+            form_factory.generate_form(),
+            class_name="m-4",
+            width=6,
+        ),
+        class_name="d-flex justify-content-center align-items-center",
+    )
+
+    app.run(debug=True)
