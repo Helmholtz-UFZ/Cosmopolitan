@@ -37,7 +37,7 @@ def get_time_steps(job_id):
         file_name = os.path.basename(file)
         time_step = file_name.replace("measurements_", "").split(".")[0]
         time_steps.append(time_step)
-
+    time_steps.sort()
     return time_steps
 
 
