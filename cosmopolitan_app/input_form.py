@@ -109,7 +109,7 @@ class ModelWebsite(InputParameters):
 
     stream_choices: ClassVar[List[str]] = list(stream_dic.keys())
     pred_streams: Annotated[
-        List[Literal[*stream_choices]],
+        List[Literal[tuple(stream_choices)]],
         Field(
             ["elevation_bkg", "bdod_5-15cm"],
             description=("Select which the predictor source should to be used"),
