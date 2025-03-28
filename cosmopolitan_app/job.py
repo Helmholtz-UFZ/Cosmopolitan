@@ -7,15 +7,18 @@ import multiprocessing
 import os
 import shutil
 import traceback
+from copy import deepcopy
 from datetime import date
 from logging.config import dictConfig
 from smtplib import SMTPAuthenticationError
-from typing import Literal
+from typing import Literal, Self
 
+import cairo
+import staticmaps
+from coolname import generate
+from pyproj import Transformer
 from soil_moisture_prediction.__version__ import __version__ as smp_version
-from soil_moisture_prediction.pydantic_models import InputParameters
 from soil_moisture_prediction.smp_cli import main
-from werkzeug.datastructures import MultiDict
 
 from cosmopolitan_app.config import (
     DAYS_DELETE_NOT_SUMBITTED,
@@ -23,14 +26,12 @@ from cosmopolitan_app.config import (
     DEBUG,
     JOB_WORK_DIR_TEMPLATE,
 )
-from cosmopolitan_app.cosmopolitan_job_form import CosmopolitanJobForm
 from cosmopolitan_app.logger import get_logger_config_compuation, get_logger_config_web
 from cosmopolitan_app.minio_manager import delete_from_bucket, sync_workdir
 from cosmopolitan_app.postgres_manager import JobNotFound, JobTable, PostgresManager
+from cosmopolitan_app.pydantic_models import ModelWebsite, validate_job_id
 from cosmopolitan_app.utils import (
     InvalidJobID,
-    NotFinishedException,
-    NotSubmittedException,
     send_finished_mail,
     send_submission_mail,
 )
@@ -94,17 +95,16 @@ def get_attributes(clazz):
     ]
 
 
-class CosmopolitanJob:
+class Job:
     """This class represents a job submission by the user.
 
     It handles input from a Flask application, performs input integrity checks, submits
     jobs, and formats the output for the user.
     """
 
-    form: CosmopolitanJobForm
     job_id: str
+    model: ModelWebsite
     start_date: date
-    input_data: dict
     submitted: bool
     email: str
     notified_end: bool
@@ -112,19 +112,16 @@ class CosmopolitanJob:
     status: Literal["PENDING", "RUNNING", "COMPLETED", "FAILED"]
     version: str
     working_dir: str
+    preview_area_filename: str = "preview_area.png"
 
     def __init__(
         self,
         job_id=None,
-        form=None,
     ):
         """Init class either by id, by html form or make a new one."""
         if job_id is not None:
             self.job_id = job_id
             self.load()
-        elif form is not None:
-            self.form = form
-            self._set_from_form()
         else:
             self._blank_job()
 
@@ -135,15 +132,19 @@ class CosmopolitanJob:
     def load(self):
         """Load job from database and store files in working dir."""
         logging.info(f"Load submission {self.job_id}")
-        self.form = CosmopolitanJobForm()
-        self.form.job_id.data = self.job_id
-        # First check if job_id is valid
-        if not self.form.job_id.validate(self.form):
+
+        try:
+            validate_job_id(self.job_id)
+        except ValueError:
             raise InvalidJobID(self.job_id)
         logging.debug(f"Job id: {self.job_id} is valid")
 
         for name, value in PostgresManager.get_job_columns(self.job_id).items():
+            if name == "input_data":
+                self.model = ModelWebsite(**json.loads(value))
+                continue
             setattr(self, name, value)
+
         logging.debug(f"Job {self.job_id} loaded from database")
 
         self.working_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=self.job_id)
@@ -151,70 +152,92 @@ class CosmopolitanJob:
         sync_workdir(self.job_id)
         logging.debug(f"Job {self.job_id} synced to local work directory")
 
-        # Set form data
-        self.form = CosmopolitanJobForm()
-        self.form.job_id.data = self.job_id
-        self.form.previous_job_id.data = self.job_id
-        self.form.email.data = self.email
-
-        for name, field in self.form._fields.items():
-            if name == "csrf_token":
-                continue
-            if field.type == "MultipleFileField" or name in [
-                "previous_job_id",
-                "email",
-                "job_id",
-            ]:
-                continue
-            if name in ["selected_pred_input", "selected_crn_files"]:
-                field.data = json.dumps(self.input_data[name])
-            else:
-                field.data = self.input_data[name]
-
     def _blank_job(self):
         """Create a new job with a new job id."""
         logging.info("Create new submission")
-        self.form = CosmopolitanJobForm(new=True)
-        self._set_from_form()
 
-    def _set_from_form(self):
-        """Set the job attributes from a form."""
-        logging.info(f"Set job attributes from form {self.form.job_id.data}")
-        if not self.form.job_id.validate(self.form):
-            raise InvalidJobID(self.form.job_id.data)
+        while True:
+            job_id = "_".join(generate(3))
+            if not PostgresManager.check_existence(job_id):
+                break
 
-        self.job_id = self.form.job_id.data
+        self.job_id = job_id
+        self.model = ModelWebsite(job_id=job_id)
         self.start_date = date.today()
-        self._set_input_data_from_form()
         self.submitted = False
-        self.email = self.form.email.data
         self.notified_end = False
         self.logs = ""
         self.status = "PENDING"
         self.version = smp_version
         self.working_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=self.job_id)
         os.makedirs(self.working_dir, exist_ok=True)
-        draw_preview = self.form.validate_geometry()
-        self.form.preview_area(draw_preview=draw_preview)
+        self.preview_area(draw_preview=True)
 
-    def _set_input_data_from_form(self):
-        self.input_data = {}
-        for name, field in self.form._fields.items():
-            if name == "csrf_token":
-                continue
-            if field.type == "MultipleFileField" or name in [
-                "previous_job_id",
-                "email",
-                "job_id",
-            ]:
-                continue
-            if name in ["selected_pred_input", "selected_crn_files"]:
-                if field.data == "":
-                    self.input_data[name] = field.data
-                else:
-                    self.input_data[name] = json.loads(field.data)
-            else:
-                self.input_data[name] = field.data
+    def preview_area(self, draw_preview: bool = True):
+        """Draw a preview of the area."""
+        logging.debug("Draw preview")
+        width = 800
+        height = 500
+        if not draw_preview:
+            logging.debug("Draw empty preview")
+            self._draw_empty_preview(width, height)
+            return
+
+        logging.debug("Draw area preview")
+        context = staticmaps.Context()
+        context.set_tile_provider(staticmaps.tile_provider_OSM)
+
+        transformer = Transformer.from_crs(
+            self.model.projection, "EPSG:4326", always_xy=True
+        )
+        lon_min, lat_min = transformer.transform(self.model.area_x1, self.model.area_y1)
+        lon_max, lat_max = transformer.transform(self.model.area_x2, self.model.area_y2)
+        bbox = [
+            (lat_min, lon_min),
+            (lat_max, lon_min),
+            (lat_max, lon_max),
+            (lat_min, lon_max),
+            (lat_min, lon_min),
+        ]
+
+        context.add_object(
+            staticmaps.Area(
+                [staticmaps.create_latlng(lat, lng) for lat, lng in bbox],
+                fill_color=staticmaps.parse_color("#00FF003F"),
+                width=2,
+                color=staticmaps.BLUE,
+            )
+        )
+
+        image = context.render_cairo(width, height)
+        image.write_to_png(os.path.join(self.working_dir, self.preview_area_filename))
+
+    def _draw_empty_preview(self, width, height):
+        """Draw an empty preview if geometry is not valid."""
+        # Create a new Cairo surface and context
+        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
+        ctx = cairo.Context(surface)
+
+        # Fill background with white
+        ctx.set_source_rgb(1, 1, 1)
+        ctx.paint()
+
+        # Set up text properties
+        ctx.set_source_rgb(0.5, 0.5, 0.5)  # Gray color for text
+        ctx.select_font_face("Arial", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+        ctx.set_font_size(32)
+
+        # Center the text
+        text = "No preview available"
+        extents = ctx.text_extents(text)
+        x = width / 2 - extents.width / 2
+        y = height / 2 + extents.height / 2
+
+        # Draw the text
+        ctx.move_to(x, y)
+        ctx.show_text(text)
+
+        surface.write_to_png(os.path.join(self.working_dir, self.preview_area_filename))
 
     def _get_column_data(self, name):
         if name == "logs":
@@ -224,6 +247,9 @@ class CosmopolitanJob:
                     os.path.join(self.working_dir, LOG_FILE_NAME), "r"
                 ) as f_handle:
                     return f_handle.read()
+
+        if name == "input_data":
+            return json.dumps(self.model.dict())
 
         return getattr(self, name)
 
@@ -287,19 +313,6 @@ class CosmopolitanJob:
                 self.status = "FAILED"
             self.save()
 
-    def get_parameters_rfo_prediction(self):
-        """Return parameter to load a RFo prediction model."""
-        if not self.submitted:
-            raise NotSubmittedException(self.job_id)
-
-        if self.status != "COMPLETED":
-            raise NotFinishedException(self.job_id)
-
-        with open(os.path.join(self.working_dir, "parameters.json"), "r") as f_handle:
-            input_parameters = InputParameters(**json.loads(f_handle.read()))
-
-        return input_parameters, self.working_dir, True
-
     def time_to_life(self):
         """Return the number of days after which this job will be deleted."""
         days_passed = (date.today() - self.start_date).days
@@ -309,7 +322,7 @@ class CosmopolitanJob:
             return DAYS_DELETE_NOT_SUMBITTED - days_passed
 
     def copy_output_files(self, parent_work_dir):
-        """Remove all output files from the working directory."""
+        """Copy output files of the job to the working directory of the job."""
         logging.info(f"Remove output files of job {self.job_id}.")
         for file in os.listdir(parent_work_dir):
             if file.startswith(("crn_", "pred_")):
@@ -317,22 +330,18 @@ class CosmopolitanJob:
                 target_path = os.path.join(self.working_dir, file)
                 shutil.copy(source_path, target_path)
 
-    def spawn(self) -> "CosmopolitanJob":
+    def spawn(self) -> Self:
         """Clone the job."""
         logging.info(f"Spawn job {self.job_id}.")
-        new_form = CosmopolitanJobForm(formdata=MultiDict(self.form.data))
+        new_model = deepcopy(self.model)
         i = 1
         while True:
-            new_form.job_id.data = f"{self.job_id}_child_{i}"
-            if not PostgresManager.check_existence(new_form.job_id.data):
-                new_form.previous_job_id.data = new_form.job_id.data
-                # Without valdiation the attribute input_dir is not set would cause an
-                # error when instantiating the CosmopolitanJob class
-                new_form.validate_job_id(new_form.job_id)
+            new_model.job_id = f"{self.job_id}_child_{i}"
+            if not PostgresManager.check_existence(new_model.job_id):
                 break
             i += 1
 
-        new_job = CosmopolitanJob(form=new_form)
+        new_job = Job(model=new_model)
         new_job.copy_output_files(self.working_dir)
         new_job.save()
         return new_job

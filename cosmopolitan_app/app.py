@@ -4,8 +4,6 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import Dash, html
 
-from cosmopolitan_app.layouts import create_navbar
-
 # Initialize the Dash app
 app = Dash(
     __name__,
@@ -14,6 +12,65 @@ app = Dash(
     suppress_callback_exceptions=True,
 )
 
+
+nav_bar = html.Nav(
+    className="navbar navbar-expand-lg sticky-top navbar-dark bg-primary",
+    children=[
+        dbc.Container(
+            children=[
+                dbc.NavbarBrand(
+                    href=dash.page_registry["pages.home"]["relative_path"],
+                    children=[
+                        html.Img(
+                            src="/static/icon_white.svg",
+                            width="30",
+                            height="30",
+                            className="d-inline-block align-text-top",
+                            alt="Cosmopolitan Icon",
+                        ),
+                        " Cosmopolitan",
+                    ],
+                ),
+                dbc.NavbarToggler(id="navbar-toggler"),
+                dbc.Collapse(
+                    dbc.Nav(
+                        className="navbar-nav me-auto mb-2 mb-lg-0",
+                        children=[
+                            dbc.NavItem(
+                                dbc.NavLink(
+                                    "Input",
+                                    href=dash.page_registry["pages.input"][
+                                        "relative_path"
+                                    ],
+                                )
+                            ),  # Update with appropriate link
+                            dbc.NavItem(
+                                dbc.NavLink("Documentation", href="/documentation")
+                            ),  # Update with appropriate link
+                        ],
+                    ),
+                    id="navbar-collapse",
+                    navbar=True,
+                ),
+                dbc.Form(
+                    className="d-flex",
+                    action="/search_submission",  # Update with appropriate endpoint
+                    method="post",
+                    children=[
+                        dbc.Input(
+                            className="form-control me-2",
+                            size=40,
+                            name="job_id",
+                            type="search",
+                            placeholder="job_id",
+                        ),
+                        dbc.Button("Search", color="success", type="submit"),
+                    ],
+                ),
+            ]
+        )
+    ],
+)
 
 # Content layout
 class_names_content = (
@@ -39,7 +96,7 @@ content = html.Div(
 app.layout = html.Div(
     className="d-flex flex-column min-vh-100 bg-light",
     children=[
-        create_navbar(dash.page_registry),
+        nav_bar,
         content,
     ],
 )
