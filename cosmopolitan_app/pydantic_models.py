@@ -40,7 +40,6 @@ def validate_job_id(job_id):
     logging.debug(f"Check job id {job_id}")
 
     job_id_regex = r"^\w+$"
-    print(job_id)
     if not re.match(job_id_regex, job_id):
         raise ValueError("Username must contain only letters numbers or underscore")
 
@@ -51,9 +50,6 @@ def validate_job_id(job_id):
         raise ValueError(
             f"Job id must be between {min_job_id_length} and {max_job_id_length} characters"  # noqa
         )
-
-    if PostgresManager.check_existence(job_id):
-        raise ValueError("Job id already exists")
 
     input_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=job_id)
     os.makedirs(input_dir, exist_ok=True)

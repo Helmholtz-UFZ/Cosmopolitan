@@ -84,17 +84,6 @@ def start_computation(job):
             logging.error("Failed to send finished mail.")
 
 
-def get_attributes(clazz):
-    """Retrieve a list of non-method attributes (instance variables) of a class."""
-    return [
-        name
-        for name, attr in clazz.__dict__.items()
-        if not name.startswith("__")
-        and not callable(attr)
-        and type(attr) is not staticmethod
-    ]
-
-
 class Job:
     """This class represents a job submission by the user.
 
@@ -117,11 +106,14 @@ class Job:
     def __init__(
         self,
         job_id=None,
+        model=None,
     ):
         """Init class either by id, by html form or make a new one."""
         if job_id is not None:
             self.job_id = job_id
             self.load()
+        elif model is not None:
+            self._init_from_model(model)
         else:
             self._blank_job()
 
@@ -137,12 +129,13 @@ class Job:
             validate_job_id(self.job_id)
         except ValueError:
             raise InvalidJobID(self.job_id)
+
         logging.debug(f"Job id: {self.job_id} is valid")
 
         for name, value in PostgresManager.get_job_columns(self.job_id).items():
             if name == "input_data":
+                logging.debug(json.loads(value))
                 self.model = ModelWebsite(**json.loads(value))
-                continue
             setattr(self, name, value)
 
         logging.debug(f"Job {self.job_id} loaded from database")
@@ -151,6 +144,20 @@ class Job:
         os.makedirs(self.working_dir, exist_ok=True)
         sync_workdir(self.job_id)
         logging.debug(f"Job {self.job_id} synced to local work directory")
+
+    def _init_from_model(self, model):
+        """Initialize job from model."""
+        self.model = model
+        self.start_date = date.today()
+        self.submitted = False
+        self.notified_end = False
+        self.logs = ""
+        self.status = "PENDING"
+        self.version = smp_version
+        self.working_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=self.job_id)
+        os.makedirs(self.working_dir, exist_ok=True)
+        self.preview_area(draw_preview=True)
+        self.save()
 
     def _blank_job(self):
         """Create a new job with a new job id."""
@@ -172,6 +179,7 @@ class Job:
         self.working_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=self.job_id)
         os.makedirs(self.working_dir, exist_ok=True)
         self.preview_area(draw_preview=True)
+        self.save()
 
     def preview_area(self, draw_preview: bool = True):
         """Draw a preview of the area."""
@@ -280,6 +288,11 @@ class Job:
         logging.debug(f"Save job {self.job_id}")
         column_names = JobTable.__table__.columns.keys()
         data_to_insert = {name: self._get_column_data(name) for name in column_names}
+        for key, value in data_to_insert.items():
+            # Try to load json data into model -> assures that only vaild data is saved
+            if key == "input_data":
+                ModelWebsite(**json.loads(value))
+                logging.debug(json.loads(value))
         PostgresManager.add_entry(data_to_insert)
         sync_workdir(self.job_id)
 

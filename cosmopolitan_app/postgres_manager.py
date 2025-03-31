@@ -89,6 +89,7 @@ class PostgresManager:
     @classmethod
     def update_column(cls, job_id, column_dic):
         """Update a specific column in the 'JobTable' for a given job ID."""
+        logging.debug(f"Update column for job: {job_id}")
         retries = 0
         while retries < max_retries:
             with cls.Session() as session:
@@ -121,6 +122,7 @@ class PostgresManager:
         Raises:
         JobNotFound: If the job with the provided job ID does not exist.
         """
+        logging.debug(f"Set submitted for job: {job_id}")
         with cls.Session() as session:
             job = (
                 session.query(JobTable)
@@ -157,6 +159,7 @@ class PostgresManager:
         Raises:
         JobNotFound: If the job with the provided job ID does not exist.
         """
+        logging.debug(f"Get columns for job: {job_id}")
         retries = 0
         while retries < max_retries:
             with cls.Session() as session:
@@ -171,10 +174,11 @@ class PostgresManager:
                     logging.warning(f"OperationalError: {e}")
                     logging.warning("Retry operation.")
                     time.sleep(1)
-                except:  # noqa: E722
+                except Exception as e:  # noqa: E722
+                    logging.error(f"Error in get_job_columns: {e}")
                     session.rollback()
                     raise
-
+        logging.debug(f"Get columns for job: {job_row}")
         if job_row:
             job_columns = {
                 column.name: getattr(job_row, column.name)
@@ -197,6 +201,7 @@ class PostgresManager:
         Raises:
         JobNotFound: If the job with the provided job ID does not exist.
         """
+        logging.debug(f"Detele job: {job_id}")
         with cls.Session() as session:
             job = (
                 session.query(JobTable)
@@ -231,6 +236,7 @@ class PostgresManager:
         }
 
         """
+        logging.debug("List all jobs.")
         with cls.Session() as session:
             job_rows = session.query(JobTable).all()
 
@@ -303,7 +309,6 @@ class JobTable(Base):
     start_date = Column("start_date", Date)
     input_data = Column("input_data", JSON)
     submitted = Column("submitted", Boolean)
-    email = Column("email", String)
     notified_end = Column("notified_end", Boolean)
     logs = Column("logs", String)
     status = Column("status", String)

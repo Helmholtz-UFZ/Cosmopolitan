@@ -27,14 +27,13 @@ from cosmopolitan_app.config import (
 )
 
 
-class ExcludeDebugMatplotLibFilter(logging.Filter):
-    """Exclude debug logs from font manager."""
+class ExcludeSubmodulesFilter(logging.Filter):
+    """Exclude submodules."""
 
     def filter(self, record):
         """Filter."""
-        return not (
-            record.name.startswith("matplotlib") and record.levelno == logging.DEBUG
-        )
+        excluded_modules = ["matplotlib", "PIL"]
+        return not any(record.name.startswith(module) for module in excluded_modules)
 
 
 def get_logger_config_compuation(log_file_path):
@@ -86,7 +85,7 @@ def get_logger_config_web(debug):
                 "class": "logging.StreamHandler",
                 "stream": "ext://flask.logging.wsgi_errors_stream",
                 "formatter": "default",
-                "filters": ["exclude_debug_matplotlib"],
+                "filters": ["exclude_submodules"],
             },
             "mail_handler": {
                 "class": "logging.handlers.SMTPHandler",
@@ -98,15 +97,15 @@ def get_logger_config_web(debug):
                 "subject": "Application Error",
                 "secure": (),
                 "formatter": "default",
-                "filters": ["exclude_debug_matplotlib"],
+                "filters": ["exclude_submodules"],
             },
         },
         "root": {
             "handlers": [],
             "level": "DEBUG",
-            "filters": ["exclude_debug_matplotlib"],
+            "filters": ["exclude_submodules"],
         },
-        "filters": {"exclude_debug_matplotlib": {"()": ExcludeDebugMatplotLibFilter}},
+        "filters": {"exclude_submodules": {"()": ExcludeSubmodulesFilter}},
     }
 
     logging_config["root"]["handlers"] = ["wsgi", "mail_handler"]

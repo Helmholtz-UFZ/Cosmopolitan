@@ -1,8 +1,15 @@
 """Dash app with multiple pages."""
 
+import logging
+from logging.config import dictConfig
+
 import dash
 import dash_bootstrap_components as dbc
 from dash import Dash, html
+
+from cosmopolitan_app.config import DEBUG
+from cosmopolitan_app.files_route import serve_files
+from cosmopolitan_app.logger import get_logger_config_web
 
 # Initialize the Dash app
 app = Dash(
@@ -12,6 +19,8 @@ app = Dash(
     suppress_callback_exceptions=True,
 )
 
+dictConfig(get_logger_config_web(DEBUG))
+serve_files(app)
 
 nav_bar = html.Nav(
     className="navbar navbar-expand-lg sticky-top navbar-dark bg-primary",
@@ -76,20 +85,18 @@ nav_bar = html.Nav(
 class_names_content = (
     "col-md-11 col-lg-10 col-xl-9 bg-white border border-dark rounded p-0"
 )
-content = html.Div(
-    children=[
-        html.Div(
-            className="row justify-content-center pt-2",
-            children=[
-                html.Div(
-                    className=class_names_content,
-                    children=[
-                        dash.page_container,
-                    ],
-                )
-            ],
-        )
-    ]
+content = dbc.Row(
+    dbc.Col(
+        className="d-flex justify-content-center pb-4 pt-2",
+        children=[
+            html.Div(
+                className=class_names_content,
+                children=[
+                    dash.page_container,
+                ],
+            )
+        ],
+    )
 )
 
 # Main app layout
@@ -102,4 +109,5 @@ app.layout = html.Div(
 )
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
     app.run(debug=True)

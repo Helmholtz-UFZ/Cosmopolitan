@@ -1,16 +1,17 @@
 """Dash form for the cosmopolitan job."""
 
+import logging
 from collections import OrderedDict
 
 import dash
 import dash_bootstrap_components as dbc
-from coolname import generate
 from dash import Input, Output, callback, html
+from flask import url_for
 from soil_moisture_prediction.input_data import stream_dic
 
 from cosmopolitan_app.form_factory import FormFactory
+from cosmopolitan_app.job import Job
 from cosmopolitan_app.layouts import create_header
-from cosmopolitan_app.postgres_manager import PostgresManager
 from cosmopolitan_app.pydantic_models import ModelWebsite
 
 dash.register_page(__name__)
@@ -27,6 +28,19 @@ selected_predictors = [
     html.Div(id="selected-predictors", className="text-center"),
 ]
 
+area_preview = dbc.Row(
+    [
+        html.H5("Area preview:"),
+        html.Img(
+            id="area_preview",
+            className="col-6 mx-auto d-block",
+            src="",
+            alt="area preview",
+        ),
+    ],
+    className="text-center pt-2",
+)
+
 form_layout = OrderedDict(
     {
         "Job Information": [[job_id_information], ["email"]],
@@ -35,6 +49,7 @@ form_layout = OrderedDict(
             ["area_y1", "area_y2"],
             ["area_resolution", "projection"],
             ["date_range"],
+            [area_preview],
         ],
         "Predictors": [
             ["pred_streams"],
@@ -74,14 +89,20 @@ layout = [
 ]
 
 
-@callback(Output("job_id", "children"), Input("initial-trigger", "id"))
+@callback(
+    Output("area_preview", "src"),
+    Output("job_id", "children"),
+    Input("initial-trigger", "id"),
+)
 def init(_):
     """Validate the form."""
-    while True:
-        job_id = "_".join(generate(3))
-        if not PostgresManager.check_existence(job_id):
-            break
-    return job_id
+    logging.debug("Init form")
+    job = Job()
+    image_src = url_for(
+        "serve_file", job_id=job.job_id, filename=job.preview_area_filename
+    )
+    logging.debug(str(image_src))
+    return image_src, job.job_id
 
 
 @callback(
