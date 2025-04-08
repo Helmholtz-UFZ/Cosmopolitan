@@ -1,6 +1,9 @@
 #!/usr/bin/python3
 """Module for a Cosmopolitan Job."""
 
+import base64
+import binascii
+import io
 import json
 import logging
 import multiprocessing
@@ -18,7 +21,14 @@ import staticmaps
 from coolname import generate
 from pyproj import Transformer
 from soil_moisture_prediction.__version__ import __version__ as smp_version
+from soil_moisture_prediction.area_geometry import RectGeom
+from soil_moisture_prediction.input_file_parser import (
+    FileValidationError,
+    PredictorParser,
+    SoilMoistureParser,
+)
 from soil_moisture_prediction.smp_cli import main
+from werkzeug.utils import secure_filename
 
 from cosmopolitan_app.config import (
     DAYS_DELETE_NOT_SUMBITTED,
@@ -46,6 +56,7 @@ def start_computation(job):
             send_submission_mail(job)
         except SMTPAuthenticationError:
             logging.error("Failed to send submission mail.")
+
         dictConfig(
             get_logger_config_compuation(os.path.join(job.working_dir, LOG_FILE_NAME))
         )
@@ -134,7 +145,6 @@ class Job:
 
         for name, value in PostgresManager.get_job_columns(self.job_id).items():
             if name == "input_data":
-                logging.debug(json.loads(value))
                 self.model = ModelWebsite(**json.loads(value))
             setattr(self, name, value)
 
@@ -147,6 +157,7 @@ class Job:
 
     def _init_from_model(self, model):
         """Initialize job from model."""
+        self.job_id = model.job_id
         self.model = model
         self.start_date = date.today()
         self.submitted = False
@@ -169,7 +180,8 @@ class Job:
                 break
 
         self.job_id = job_id
-        self.model = ModelWebsite(job_id=job_id)
+        self.model = ModelWebsite()
+        self.model.job_id = job_id
         self.start_date = date.today()
         self.submitted = False
         self.notified_end = False
@@ -219,6 +231,63 @@ class Job:
 
         image = context.render_cairo(width, height)
         image.write_to_png(os.path.join(self.working_dir, self.preview_area_filename))
+
+    def delete_input_files(self, input_type):
+        """Delete input files from the working directory.
+
+        This method removes all files in the working directory that match the specified
+        input type.
+        """
+        logging.debug(f"Delete input files of type {input_type}")
+        for file_name in os.listdir(self.input_dir):
+            if file_name.startswith(input_type):
+                os.remove(os.path.join(self.input_dir, file_name))
+
+    def validate_input_file(self, file_name, file_content, input_type):
+        """Check the content of the files and override data with file name and hash."""
+        logging.info(f"Validate input file {file_name}")
+        geometry = RectGeom(
+            [
+                self.model.area_x1,
+                self.model.area_x2,
+                self.model.area_y1,
+                self.model.area_y2,
+                self.model.area_resolution,
+            ],
+            build_grid=False,
+        )
+
+        if input_type == "crn":
+            parser = SoilMoistureParser(geometry)
+        elif input_type == "pred":
+            parser = PredictorParser(geometry)
+
+        new_filename = input_type + "_" + secure_filename(file_name)
+        if new_filename in (c[0] for c in self.model.stream_choices):
+            new_filename = new_filename + "_file"
+
+        try:
+            if "," not in file_content:
+                raise ValueError("Missing comma in data URL")
+            base64_str = file_content.split(",")[1]
+            decoded_bytes = base64.b64decode(base64_str)
+            decoded_text = decoded_bytes.decode("utf-8")
+            text_stream = io.StringIO(decoded_text)
+        except (ValueError, binascii.Error, UnicodeDecodeError) as e:
+            raise ValueError(f"Invalid file content: {e}")
+
+        input_file_path = os.path.join(self.working_dir, new_filename)
+
+        # Parse file and write to input dir.
+        try:
+            with open(input_file_path, "w") as file:
+                for row in parser.parse(text_stream):
+                    file.write(",".join([str(e) for e in row if e is not None]) + "\n")
+        except FileValidationError as e:
+            os.remove(input_file_path)
+            raise ValueError(f"Invalid file content: {e}")
+
+        return new_filename, parser.get_file_information()
 
     def _draw_empty_preview(self, width, height):
         """Draw an empty preview if geometry is not valid."""
@@ -292,7 +361,6 @@ class Job:
             # Try to load json data into model -> assures that only vaild data is saved
             if key == "input_data":
                 ModelWebsite(**json.loads(value))
-                logging.debug(json.loads(value))
         PostgresManager.add_entry(data_to_insert)
         sync_workdir(self.job_id)
 

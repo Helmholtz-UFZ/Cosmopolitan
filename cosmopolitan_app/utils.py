@@ -11,7 +11,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from io import BytesIO
 
-from flask import request, url_for
+from flask import request
 from sqlalchemy.exc import OperationalError
 from werkzeug.exceptions import NotFound
 
@@ -27,6 +27,8 @@ from cosmopolitan_app.config import (
 )
 from cosmopolitan_app.minio_manager import MinioError
 from cosmopolitan_app.postgres_manager import JobNotFound, PostgresManager
+
+submission_url = "{external_url}/submission/{job_id}"
 
 
 def zip_directory(directory_path):
@@ -229,33 +231,33 @@ def send_mail(recipient, subject, content):
 
 def send_finished_mail(job):
     """Send a notification email to the user that the job finished."""
-    if job.email == "" or job.notified_end:
+    if job.model.email == "" or job.notified_end:
         return
     logging.info("Send mail about finished job.")
-    url = url_for("submission", job_id=job.job_id, _external=True)
+    url = submission_url.format(job_id=job.job_id, external_url=request.url_root)
     with open(
-        "cosmopolitan_app/templates/emails/job_finished_email.txt",
+        "cosmopolitan_app/templates/job_finished_email.txt",
         "r",
         encoding="UTF-8",
     ) as f_handle:
         content = f_handle.read().format(job_id=job.job_id, url=url, status=job.status)
 
-    send_mail(job.email, f'Job "{ job.job_id }" finished', content)
+    send_mail(job.model.email, f'Job "{ job.job_id }" finished', content)
     job.notified_end = True
     job.save_attributes(["notified_end"])
 
 
 def send_submission_mail(job):
     """Send a notification email to the user that the job was submitted."""
-    if job.email == "":
+    if job.model.email == "":
         return
     logging.info(f"Send mail about submitted job {job.job_id}.")
-    url = url_for("submission", job_id=job.job_id, _external=True)
+    url = submission_url.format(job_id=job.job_id, external_url=request.url_root)
     with open(
-        "cosmopolitan_app/templates/emails/submission_email.txt", "r", encoding="UTF-8"
+        "cosmopolitan_app/templates/submission_email.txt", "r", encoding="UTF-8"
     ) as f_handle:
         content = f_handle.read().format(job_id=job.job_id, url=url)
-    send_mail(job.email, f'Job "{ job.job_id }" submitted', content)
+    send_mail(job.model.email, f'Job "{ job.job_id }" submitted', content)
 
 
 class InvalidJobID(Exception):

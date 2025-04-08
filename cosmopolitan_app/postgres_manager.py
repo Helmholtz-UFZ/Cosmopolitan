@@ -178,7 +178,6 @@ class PostgresManager:
                     logging.error(f"Error in get_job_columns: {e}")
                     session.rollback()
                     raise
-        logging.debug(f"Get columns for job: {job_row}")
         if job_row:
             job_columns = {
                 column.name: getattr(job_row, column.name)

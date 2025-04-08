@@ -37,6 +37,7 @@ class FormFactory:
             "dropdown-checklist": dbc.DropdownMenu,
             "date-picker": dcc.DatePickerRange,
             "checkbox": dbc.Checkbox,
+            "multiple-file-upload": dcc.Upload,
         }
         self.layout = layout
         self.fields_website = flatten_list(layout.values())
@@ -45,9 +46,10 @@ class FormFactory:
             "checkbox",
             "dropdown-checklist",
             "date-picker",
+            "multiple-file-upload",
         ]
 
-    def create_component(self, field_name: Any) -> Any:
+    def create_component(self, field_name: Any, muted: bool = False) -> Any:
         """Create the component."""
         if not isinstance(field_name, str):
             return field_name
@@ -56,7 +58,7 @@ class FormFactory:
         try:
             component_class = self.type_to_component[field_type]
         except KeyError:
-            raise ValueError("Unkown field_type")
+            raise ValueError(f"Unkown field_type: {field_type}")
 
         props = {}
 
@@ -69,6 +71,9 @@ class FormFactory:
             props["value"] = value
             props["html_size"] = len(value) + 5
             props["style"] = {"width": "auto"}
+            if muted:
+                props["disabled"] = True
+                props["style"].update({"background-color": "#e9ecef"})
         elif field_type in ["float", "integer"]:
             props["type"] = "number"
             props["step"] = 1 if field_type == "integer" else "any"
@@ -77,6 +82,9 @@ class FormFactory:
             props["value"] = value
             props["html_size"] = len(str(value)) + 5
             props["style"] = {"width": "auto"}
+            if muted:
+                props["disabled"] = True
+                props["style"].update({"background-color": "#e9ecef"})
         elif field_type == "dropdown-checklist":
             props["label"] = field.title
             choices = get_args(get_args(field.annotation)[0])
@@ -89,27 +97,34 @@ class FormFactory:
                     if len(options) > 0:
                         previous_label = options[-1]["label"]
                         options[-1]["label"] = [html.Div(previous_label), html.Hr()]
-                options.append({"label": label, "value": choice})
+                options.append({"label": label, "value": choice, "disabled": muted})
             # options = [{"label": choice, "value": choice} for choice in choices]
-            props["children"] = [
-                dbc.Checklist(
-                    options,
-                    id=id,
-                    value=value,
-                    inline=False,
-                    style={"max-height": "300px", "overflow-y": "auto"},
-                    className="ms-2",
-                )
-            ]
+            checklist_props = {
+                "options": options,
+                "value": value,
+                "id": id,
+                "inline": False,
+                "style": {"max-height": "300px", "overflow-y": "auto"},
+                "className": "ms-2",
+            }
+            props["children"] = [dbc.Checklist(**checklist_props)]
         elif field_type == "date-picker":
             props["id"] = id
             props["start_date"] = value[0]
             props["end_date"] = value[1]
             props["initial_visible_month"] = value[1]
+            if muted:
+                props["disabled"] = True
         elif field_type == "checkbox":
             props["id"] = id
             props["value"] = value
             props["label"] = field.title
+            if muted:
+                props["disabled"] = True
+        elif field_type == "multiple-file-upload":
+            props["id"] = id
+            props["multiple"] = True
+            props["children"] = dbc.Button("Browse files", color="primary")
         else:
             raise ValueError(f"Unknown field type {field_type}")
 
@@ -135,17 +150,25 @@ class FormFactory:
             ]
         return content
 
-    def generate_form(self) -> List[Any]:
-        """Generate the form layout."""
+    def generate_form(self, muted: bool = False) -> List[Any]:
+        """Generate the form layout.
+
+        Args:
+            muted: If True, all form elements will be display-only without interaction.
+        """
+        self.form_layout = []
         for group_name, row in self.layout.items():
             card_layout = []
             for field_names in row:
+                col = [
+                    dbc.Col(
+                        self.create_component(field_name, muted=muted),
+                    )
+                    for field_name in field_names
+                ]
                 card_layout.append(
                     dbc.Row(
-                        [
-                            dbc.Col(self.create_component(field_name))
-                            for field_name in field_names
-                        ],
+                        col,
                         class_name="m-2",
                     )
                 )
@@ -159,11 +182,17 @@ class FormFactory:
                     class_name="my-2 d-flex justify-content-center align-items-center",
                 )
             )
+
         self.form_layout.append(
             dbc.Row(
                 dbc.Col(
-                    dbc.Button("Submit", id="submit-button", color="primary"),
-                    class_name="m-2 d-flex justify-content-center align-items-center",
+                    dbc.Button(
+                        "Submit",
+                        id="submit-button",
+                        color="secondary" if muted else "primary",
+                        disabled=muted,
+                    ),
+                    class_name="m-2 d-flex justify-content-center align-items-center",  # noqa
                 ),
             )
         )

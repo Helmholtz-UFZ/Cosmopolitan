@@ -42,7 +42,6 @@ def validate_job_id(job_id):
     logging.debug(f"Check job id {job_id}")
 
     job_id_regex = r"^\w+$"
-    print(job_id)
     if not re.match(job_id_regex, job_id):
         raise ValueError("Username must contain only letters numbers or underscore")
 
