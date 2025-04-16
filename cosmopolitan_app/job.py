@@ -3,6 +3,7 @@
 
 import base64
 import binascii
+import glob
 import io
 import json
 import logging
@@ -112,7 +113,7 @@ class Job:
     status: Literal["PENDING", "RUNNING", "COMPLETED", "FAILED"]
     version: str
     working_dir: str
-    preview_area_filename: str = "preview_area.png"
+    preview_area_filename_template: str = "preview_area_{position}.png"
 
     def __init__(
         self,
@@ -167,7 +168,7 @@ class Job:
         self.version = smp_version
         self.working_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=self.job_id)
         os.makedirs(self.working_dir, exist_ok=True)
-        self.preview_area(draw_preview=True)
+        self.dump_parameters()
         self.save()
 
     def _blank_job(self):
@@ -190,20 +191,33 @@ class Job:
         self.version = smp_version
         self.working_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=self.job_id)
         os.makedirs(self.working_dir, exist_ok=True)
-        self.preview_area(draw_preview=True)
+        self.dump_parameters()
         self.save()
+
+    def dump_parameters(self):
+        """Dump the parameters of the model to the working directory."""
+        with open(
+            os.path.join(self.working_dir, "parameters.json"), "w", encoding="UTF-8"
+        ) as f_handle:
+            json.dump(self.model.dict(), f_handle, indent=4)
 
     def preview_area(self, draw_preview: bool = True):
         """Draw a preview of the area."""
         logging.debug("Draw preview")
+
+        preview_area_wildcard = os.path.join(
+            self.working_dir, self.preview_area_filename_template.format(position="*")
+        )
+        for file in glob.glob(preview_area_wildcard):
+            logging.debug(f"Remove file {file}")
+            os.remove(file)
+
         width = 800
         height = 500
         if not draw_preview:
             logging.debug("Draw empty preview")
-            self._draw_empty_preview(width, height)
-            return
+            return self._draw_empty_preview(width, height)
 
-        logging.debug("Draw area preview")
         context = staticmaps.Context()
         context.set_tile_provider(staticmaps.tile_provider_OSM)
 
@@ -230,7 +244,11 @@ class Job:
         )
 
         image = context.render_cairo(width, height)
-        image.write_to_png(os.path.join(self.working_dir, self.preview_area_filename))
+        filename = self.preview_area_filename_template.format(
+            position=f"{lat_min}_{lon_min}_{lat_max}_{lon_max}"
+        )
+        image.write_to_png(os.path.join(self.working_dir, filename))
+        return filename
 
     def delete_input_files(self, input_type):
         """Delete input files from the working directory.
@@ -239,21 +257,16 @@ class Job:
         input type.
         """
         logging.debug(f"Delete input files of type {input_type}")
-        for file_name in os.listdir(self.input_dir):
+        for file_name in os.listdir(self.working_dir):
             if file_name.startswith(input_type):
-                os.remove(os.path.join(self.input_dir, file_name))
+                os.remove(os.path.join(self.working_dir, file_name))
 
-    def validate_input_file(self, file_name, file_content, input_type):
+    def safe_input_file(self, file_name, file_content, input_type):
         """Check the content of the files and override data with file name and hash."""
-        logging.info(f"Validate input file {file_name}")
+        logging.info(f"Safe input file {file_name}")
+        # Set the geometry to infinity to not restrict the area
         geometry = RectGeom(
-            [
-                self.model.area_x1,
-                self.model.area_x2,
-                self.model.area_y1,
-                self.model.area_y2,
-                self.model.area_resolution,
-            ],
+            [-float("inf"), float("inf"), -float("inf"), float("inf"), 0],
             build_grid=False,
         )
 
@@ -261,6 +274,8 @@ class Job:
             parser = SoilMoistureParser(geometry)
         elif input_type == "pred":
             parser = PredictorParser(geometry)
+        else:
+            raise ValueError(f"Invalid input type: {input_type}")
 
         new_filename = input_type + "_" + secure_filename(file_name)
         if new_filename in (c[0] for c in self.model.stream_choices):
@@ -313,8 +328,10 @@ class Job:
         # Draw the text
         ctx.move_to(x, y)
         ctx.show_text(text)
+        filename = self.preview_area_filename_template.format(position="empty")
 
-        surface.write_to_png(os.path.join(self.working_dir, self.preview_area_filename))
+        surface.write_to_png(os.path.join(self.working_dir, filename))
+        return filename
 
     def _get_column_data(self, name):
         if name == "logs":

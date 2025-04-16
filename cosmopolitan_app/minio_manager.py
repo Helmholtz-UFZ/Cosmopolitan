@@ -68,7 +68,11 @@ def set_alias(dirname: str, reset_alias: bool = False) -> None:
                 capture_output=True,
             )
     except subprocess.CalledProcessError as e:
-        error_msg = f"Failed to check/create MinIO alias: {e}\n{e.stderr.decode()}"
+        try:
+            error_msg = e.stderr.decode()
+        except AttributeError:
+            error_msg = e.stderr
+        error_msg = f"Failed to check/create MinIO alias: {e}\n{error_msg}"
         error_msg = error_msg.replace(MINIO_SECRET_KEY, "****")
         error_msg = error_msg.replace(MINIO_ACCESS_KEY, "****")
         logging.error(error_msg)
@@ -156,11 +160,12 @@ def sync_workdir(dirname: str, reset_alias: bool = False) -> None:
         last_line = stdout[-2]
         logging.debug(f"Synced {num_files} files to local directory. {last_line}")
     except subprocess.CalledProcessError as e:
+        try:
+            error_msg = e.stderr.decode()
+        except AttributeError:
+            error_msg = e.stderr
         logging.error(
-            (
-                f"Failed to sync directory {dirname}: {e}\n"
-                f"Error output: {e.stderr.decode()}"
-            )
+            (f"Failed to sync directory {dirname}: {e}\nError output: {error_msg}")
         )
         raise MinioError(dirname)
 
@@ -189,11 +194,12 @@ def delete_from_bucket(dirname: str, reset_alias: bool = False) -> None:
         num_files = len(stdout) - 1
         logging.debug(f"Deleted {num_files} files from bucket.")
     except subprocess.CalledProcessError as e:
+        try:
+            error_msg = e.stderr.decode()
+        except AttributeError:
+            error_msg = e.stderr
         logging.error(
-            (
-                f"Failed to sync directory {dirname}: {e}\n"
-                f"Error output: {e.stderr.decode()}"
-            )
+            (f"Failed to sync directory {dirname}: {e}\nError output: {error_msg}")
         )
         raise MinioError(dirname)
 

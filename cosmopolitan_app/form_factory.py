@@ -1,7 +1,7 @@
 """Dash form for the cosmopolitan job."""
 
 from collections import OrderedDict
-from typing import Any, List, Type, get_args
+from typing import Any, List, Type, Union, get_args
 
 import dash_bootstrap_components as dbc
 from dash import Input, Output, State, dcc, html
@@ -38,6 +38,7 @@ class FormFactory:
             "date-picker": dcc.DatePickerRange,
             "checkbox": dbc.Checkbox,
             "multiple-file-upload": dcc.Upload,
+            "file-upload": dcc.Upload,
         }
         self.layout = layout
         self.fields_website = flatten_list(layout.values())
@@ -47,13 +48,20 @@ class FormFactory:
             "dropdown-checklist",
             "date-picker",
             "multiple-file-upload",
+            "file-upload",
         ]
+        self.id_format = "{field_name}-input"
+        self.feedback_id_format = "{field_name}-feedback"
+        self.hidden_id_format = "hidden-{field_name}-input"
+        self.delete_id_format = "delete-{field_name}-input"
+        self.id_submit_button = "submit-button"
 
     def create_component(self, field_name: Any, muted: bool = False) -> Any:
         """Create the component."""
         if not isinstance(field_name, str):
             return field_name
-        field = ModelWebsite.model_fields[field_name]
+        field = self.pymodel.model_fields[field_name]
+
         field_type = field.json_schema_extra["type"]
         try:
             component_class = self.type_to_component[field_type]
@@ -62,8 +70,12 @@ class FormFactory:
 
         props = {}
 
-        id = f"{field_name}-input"
-        value = field.default if field.default is not None else ""
+        id = self.id_format.format(field_name=field_name)
+        try:
+            value = getattr(self.pymodel, field_name)
+        except AttributeError:
+            value = field.default
+            # value = field.default if field.default is not None else ""
 
         if field_type in ["text", "email"]:
             props["type"] = "text" if field_type == "text" else "email"
@@ -125,6 +137,10 @@ class FormFactory:
             props["id"] = id
             props["multiple"] = True
             props["children"] = dbc.Button("Browse files", color="primary")
+        elif field_type == "file-upload":
+            props["id"] = id
+            props["multiple"] = False
+            props["children"] = dbc.Button("Browse files", color="primary")
         else:
             raise ValueError(f"Unknown field type {field_type}")
 
@@ -140,6 +156,32 @@ class FormFactory:
                 component_class(**props),
                 html.Br(),
                 dbc.FormText(field.description),
+            ]
+        elif field_type in ["multiple-file-upload", "file-upload"]:
+            file_information = ";".join([",".join(info) for info in value])
+            content = [
+                dbc.Label(field.title),
+                component_class(**props),
+                dcc.Input(
+                    id=self.hidden_id_format.format(field_name=field_name),
+                    type="text",
+                    value=file_information,
+                    style={"display": "none"},
+                ),
+                dbc.Button(
+                    "Delete files",
+                    id=self.delete_id_format.format(field_name=field_name),
+                    color="warning",
+                    className="my-2",
+                ),
+                html.Br(),
+                dbc.FormText(field.description),
+                html.Br(),
+                dbc.FormText(
+                    "",
+                    id=self.feedback_id_format.format(field_name=field_name),
+                    className="text-danger",
+                ),
             ]
         else:
             content = [
@@ -188,7 +230,7 @@ class FormFactory:
                 dbc.Col(
                     dbc.Button(
                         "Submit",
-                        id="submit-button",
+                        id=self.id_submit_button,
                         color="secondary" if muted else "primary",
                         disabled=muted,
                     ),
@@ -217,16 +259,19 @@ class FormFactory:
 
         return output_dict
 
-    def produce_callback_inputs(self, use_state=False) -> dict:
+    def produce_callback_inputs(
+        self, use_state: bool = False, all: bool = False
+    ) -> dict:
         """Produce the callback inputs."""
         input_dict = {}
         if use_state:
             callback_context = State
         else:
             callback_context = Input
+
         for field_name in self.fields_website:
             field_type = ModelWebsite.model_fields[field_name].json_schema_extra["type"]
-            if field_type in self.fieldtypes_not_to_validate:
+            if field_type in self.fieldtypes_not_to_validate and not all:
                 continue
             input_dict[field_name] = callback_context(f"{field_name}-input", "value")
         return input_dict
@@ -257,10 +302,108 @@ class FormFactory:
                 output_dict[f"{field_name}-type"] = "valid"
         return output_dict
 
-    def produce_callback_input_button(self) -> dict:
+    def get_submit_button(self, get_key: str = None) -> dict:
         """Produce the callback input for the submit button."""
-        return {"submit": Input("submit-button", "n_clicks")}
+        id_python = self.id_submit_button.replace("-", "_")
 
-    def get_submit_key(self) -> str:
-        """Get the submit key."""
-        return "submit"
+        if get_key == "python":
+            return id_python
+        elif get_key == "html":
+            return self.id_submit_button
+
+        return {id_python: Input(self.id_submit_button, "n_clicks")}
+
+    def get_delete_button(self, field_name: str, get_key: str = None) -> dict:
+        """Produce the callback input for the delete button."""
+        id = self.delete_id_format.format(field_name=field_name)
+        id_python = id.replace("-", "_")
+
+        if get_key == "python":
+            return id_python
+        elif get_key == "html":
+            return id
+
+        return {id_python: Input(id, "n_clicks")}
+
+    def get_output_hidden_file_information(
+        self, field_name, use_state: bool = False, get_key: str = None
+    ) -> dict:
+        """Get the callback outputs for a file field.
+
+        The field is used to store the information which files have been uploaded.
+        """
+        id = self.hidden_id_format.format(field_name=field_name)
+        id_python = id.replace("-", "_")
+
+        if get_key == "python":
+            return id_python
+        elif get_key == "html":
+            return id
+
+        if use_state:
+            callback_context = State
+        else:
+            callback_context = Output
+
+        return {id_python: callback_context(id, "value")}
+
+    def get_input_file_content(self, field_name, get_key: str = None) -> dict:
+        """Get the callback outputs for a file field.
+
+        The field is used to store the content of the uploaded files.
+        """
+        id = self.id_format.format(field_name=field_name)
+        id_python = f"{id.replace('-', '_')}_content"
+
+        if get_key == "python":
+            return id_python
+        elif get_key == "html":
+            return id
+
+        return {id_python: Input(id, "contents")}
+
+    def get_state_file_name(self, field_name, get_key: str = None) -> dict:
+        """Get the callback outputs for a file field.
+
+        The field is used to store the name of the uploaded files.
+        """
+        id = self.id_format.format(field_name=field_name)
+        id_python = f"{id.replace('-', '_')}_filename"
+
+        if get_key == "python":
+            return id_python
+        elif get_key == "html":
+            return id
+
+        return {id_python: State(id, "filename")}
+
+    def get_output_file_feedback(self, field_name) -> dict:
+        """Get the callback outputs for a file field.
+
+        The field is used to store the name of the uploaded files.
+        """
+        id_feedback = self.feedback_id_format.format(field_name=field_name)
+        id_python = f"{id_feedback.replace('-', '_')}"
+
+        return {
+            f"{id_python}": Output(id_feedback, "children"),
+        }
+
+    def create_output_file_feedback(
+        self, field_name, feedback: Union[Type[ValueError], None] = None
+    ) -> dict:
+        """Get the callback outputs for a file field.
+
+        The field is used to store the name of the uploaded files.
+        """
+        id_feedback = self.feedback_id_format.format(field_name=field_name)
+        id_python = f"{id_feedback.replace('-', '_')}"
+
+        if feedback is not None:
+            return {
+                f"{id_python}": str(feedback),
+            }
+        else:
+            return {
+                f"{id_python}": "",
+            }

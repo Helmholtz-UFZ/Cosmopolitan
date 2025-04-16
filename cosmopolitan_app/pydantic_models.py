@@ -113,12 +113,49 @@ class ModelWebsite(InputParameters):
     ]
 
     predictor_upload: Annotated[
-        List[str],
+        List[Tuple[str, str]],
         Field(
             [],
             description=("Upload a files with the predictor data"),
             title="Predictor upload",
             type="multiple-file-upload",
+        ),
+    ]
+
+    crns_upload: Annotated[
+        List[Tuple[str, str]],
+        Field(
+            [],
+            description=("Upload a file with the crns data"),
+            title="Crns upload",
+            type="file-upload",
+        ),
+    ]
+    train_data: Annotated[
+        bool,
+        Field(
+            True,
+            description="Use measurements from the CRNS devices on trains for the prediction.",  # noqa
+            title="Train data",
+            type="checkbox",
+        ),
+    ]
+    station_data: Annotated[
+        bool,
+        Field(
+            True,
+            description="Use measurements from the stationary CRNS devices for the prediction.",  # noqa
+            title="Station data",
+            type="checkbox",
+        ),
+    ]
+    rover_data: Annotated[
+        bool,
+        Field(
+            True,
+            description="Use measurements from rover CRNS devices for the prediction.",
+            title="Rover data",
+            type="checkbox",
         ),
     ]
 
