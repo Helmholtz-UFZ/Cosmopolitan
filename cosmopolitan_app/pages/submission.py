@@ -14,7 +14,6 @@ from cosmopolitan_app.layouts import create_header
 # from cosmopolitan_app.postgres_manager import JobNotFound
 #
 dash.register_page(__name__)
-submission_url = "{external_url}/submission/{job_id}"
 
 header = create_header(
     "Submission",

@@ -1,11 +1,11 @@
 """Dash form for the cosmopolitan job."""
 
+import json
 from collections import OrderedDict
 from typing import Any, List, Type, Union, get_args
 
 import dash_bootstrap_components as dbc
 from dash import Input, Output, State, dcc, html
-from pydantic import BaseModel
 
 from cosmopolitan_app.pydantic_models import ModelWebsite
 
@@ -26,7 +26,7 @@ def flatten_list(nested_list: List[Any]) -> List[str]:
 class FormFactory:
     """Factory class to generate a dash form from a Pydantic model."""
 
-    def __init__(self, pymodel: Type[BaseModel], layout: OrderedDict):
+    def __init__(self, pymodel: Type[ModelWebsite], layout: OrderedDict):
         """Init."""
         self.pymodel = pymodel
         self.type_to_component = {
@@ -50,11 +50,11 @@ class FormFactory:
             "multiple-file-upload",
             "file-upload",
         ]
-        self.id_format = "{field_name}-input"
-        self.feedback_id_format = "{field_name}-feedback"
-        self.hidden_id_format = "hidden-{field_name}-input"
-        self.delete_id_format = "delete-{field_name}-input"
-        self.id_submit_button = "submit-button"
+        self.id_format = "{field_name}_input"
+        self.feedback_id_format = "{field_name}_feedback"
+        self.hidden_id_format = "hidden_{field_name}_input"
+        self.delete_id_format = "delete_{field_name}_input"
+        self.id_submit_button = "submit_button"
 
     def create_component(self, field_name: Any, muted: bool = False) -> Any:
         """Create the component."""
@@ -188,7 +188,7 @@ class FormFactory:
                 dbc.Label(field.title),
                 component_class(**props),
                 dbc.FormText(field.description),
-                dbc.FormFeedback(id=f"{field_name}-feedback"),
+                dbc.FormFeedback(id=f"{field_name}_feedback"),
             ]
         return content
 
@@ -248,14 +248,14 @@ class FormFactory:
             field_type = ModelWebsite.model_fields[field_name].json_schema_extra["type"]
             if field_type in self.fieldtypes_not_to_validate:
                 continue
-            output_dict[f"{field_name}-valid"] = Output(f"{field_name}-input", "valid")
-            output_dict[f"{field_name}-invalid"] = Output(
-                f"{field_name}-input", "invalid"
+            output_dict[f"{field_name}_valid"] = Output(f"{field_name}_input", "valid")
+            output_dict[f"{field_name}_invalid"] = Output(
+                f"{field_name}_input", "invalid"
             )
-            output_dict[f"{field_name}-children"] = Output(
-                f"{field_name}-feedback", "children"
+            output_dict[f"{field_name}_children"] = Output(
+                f"{field_name}_feedback", "children"
             )
-            output_dict[f"{field_name}-type"] = Output(f"{field_name}-feedback", "type")
+            output_dict[f"{field_name}_type"] = Output(f"{field_name}_feedback", "type")
 
         return output_dict
 
@@ -273,17 +273,35 @@ class FormFactory:
             field_type = ModelWebsite.model_fields[field_name].json_schema_extra["type"]
             if field_type in self.fieldtypes_not_to_validate and not all:
                 continue
-            input_dict[field_name] = callback_context(f"{field_name}-input", "value")
+            if field_type in ["multiple-file-upload", "file-upload"]:
+                input_dict[field_name] = callback_context(
+                    self.hidden_id_format.format(field_name=field_name), "value"
+                )
+            elif field_type == "date-picker":
+                input_dict[f"{field_name}_start"] = callback_context(
+                    f"{field_name}_input", "start_date"
+                )
+                input_dict[f"{field_name}_end"] = callback_context(
+                    f"{field_name}_input", "end_date"
+                )
+            else:
+                input_dict[field_name] = callback_context(
+                    f"{field_name}_input", "value"
+                )
         return input_dict
 
-    def validate_callback(self, data):
+    def validate_callback(self, form_data: dict) -> dict:
         """Validate the callback."""
         exceptions = {}
         try:
-            ModelWebsite(**data)
+            self.set_model(form_data)
         except ValueError as e:
             for error in e.errors():
-                exceptions[error["loc"][0]] = error["msg"]
+                try:
+                    exceptions[error["loc"][0]] = error["msg"]
+                except IndexError:
+                    # This should be a model validator that manually passed the location
+                    exceptions[error["ctx"]["loc_tuple"][0]] = error["msg"]
 
         output_dict = {}
         for field_name in self.fields_website:
@@ -291,16 +309,65 @@ class FormFactory:
             if field_type in self.fieldtypes_not_to_validate:
                 continue
             if field_name in exceptions:
-                output_dict[f"{field_name}-valid"] = False
-                output_dict[f"{field_name}-invalid"] = True
-                output_dict[f"{field_name}-children"] = exceptions[field_name]
-                output_dict[f"{field_name}-type"] = "invalid"
+                output_dict[f"{field_name}_valid"] = False
+                output_dict[f"{field_name}_invalid"] = True
+                output_dict[f"{field_name}_children"] = exceptions[field_name]
+                output_dict[f"{field_name}_type"] = "invalid"
             else:
-                output_dict[f"{field_name}-valid"] = True
-                output_dict[f"{field_name}-invalid"] = False
-                output_dict[f"{field_name}-children"] = ""
-                output_dict[f"{field_name}-type"] = "valid"
+                output_dict[f"{field_name}_valid"] = True
+                output_dict[f"{field_name}_invalid"] = False
+                output_dict[f"{field_name}_children"] = ""
+                output_dict[f"{field_name}_type"] = "valid"
         return output_dict
+
+    def set_model(self, form_data: dict) -> None:
+        """Set the model from the form data."""
+        model_dict = {}
+        for field_name in self.pymodel.model_fields:
+            if field_name == "predictors":
+                predictors_stream = {
+                    stream: None for stream in form_data["pred_streams"]
+                }
+                predictor_upload = (
+                    json.loads(form_data["predictor_upload"])
+                    if form_data["predictor_upload"].strip()
+                    else {}
+                )
+                model_dict["predictors"] = predictors_stream | predictor_upload
+            elif field_name == "predictor_upload":
+                model_dict["predictor_upload"] = (
+                    json.loads(form_data["predictor_upload"])
+                    if form_data["predictor_upload"].strip()
+                    else {}
+                )
+            elif field_name == "soil_moisture_data":
+                crns_upload = (
+                    json.loads(form_data["crns_upload"])
+                    if form_data["crns_upload"].strip()
+                    else {}
+                )
+                try:
+                    model_dict["soil_moisture_data"] = list(crns_upload.keys())[0]
+                except IndexError:
+                    model_dict["soil_moisture_data"] = ""
+            elif field_name == "crns_upload":
+                model_dict["crns_upload"] = (
+                    json.loads(form_data["crns_upload"])
+                    if form_data["crns_upload"].strip()
+                    else {}
+                )
+            elif field_name == "date_range":
+                model_dict["date_range"] = [
+                    form_data["date_range_start"],
+                    form_data["date_range_end"],
+                ]
+            else:
+                try:
+                    model_dict[field_name] = form_data[field_name]
+                except KeyError:
+                    pass
+
+        self.pymodel = ModelWebsite(**model_dict)
 
     def get_submit_button(self, get_key: str = None) -> dict:
         """Produce the callback input for the submit button."""

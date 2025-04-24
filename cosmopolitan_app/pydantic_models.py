@@ -4,11 +4,12 @@ import logging
 import os
 import re
 from datetime import datetime
-from typing import Annotated, ClassVar, List, Literal, Tuple
+from typing import Annotated, ClassVar, Dict, List, Literal, Tuple
 
 from coolname import generate
 from email_validator import EmailNotValidError, validate_email
-from pydantic import AfterValidator, Field, field_validator
+from pydantic import AfterValidator, Field, field_validator, model_validator
+from pydantic_core import PydanticCustomError
 from soil_moisture_prediction.input_data import stream_dic
 from soil_moisture_prediction.pydantic_models import InputParameters
 
@@ -113,9 +114,9 @@ class ModelWebsite(InputParameters):
     ]
 
     predictor_upload: Annotated[
-        List[Tuple[str, str]],
+        Dict[str, Dict],
         Field(
-            [],
+            {},
             description=("Upload a files with the predictor data"),
             title="Predictor upload",
             type="multiple-file-upload",
@@ -123,9 +124,9 @@ class ModelWebsite(InputParameters):
     ]
 
     crns_upload: Annotated[
-        List[Tuple[str, str]],
+        Dict[str, Dict],
         Field(
-            [],
+            {},
             description=("Upload a file with the crns data"),
             title="Crns upload",
             type="file-upload",
@@ -158,6 +159,22 @@ class ModelWebsite(InputParameters):
             type="checkbox",
         ),
     ]
+
+    @model_validator(mode="after")
+    def check_soil_moisture_data(self):
+        """Ensure that eiterh crns data stations are selected or uploaded."""
+        if (
+            not any([self.train_data, self.station_data, self.rover_data])
+            and self.soil_moisture_data == ""
+        ):
+            # Need to raise a custom error. Any validation error should be associated
+            # with the field that caused it.
+            raise PydanticCustomError(
+                "value_error",
+                "Either select a CRNS data source or upload CRNS data.",
+                {"loc_tuple": ("soil_moisture_data",)},
+            )
+        return self
 
     @field_validator("date_range")
     @classmethod
