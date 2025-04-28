@@ -5,7 +5,7 @@ from logging.config import dictConfig
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import Dash, html
+from dash import Dash, dcc, html
 
 from cosmopolitan_app.config import DEBUG
 from cosmopolitan_app.error_handling import (
@@ -111,6 +111,7 @@ content = dbc.Row(
 app.layout = html.Div(
     className="d-flex flex-column min-vh-100 bg-light",
     children=[
+        dcc.Location(id="url", refresh=False),
         error_modal,
         error_toast,
         nav_bar,
