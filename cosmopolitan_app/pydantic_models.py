@@ -172,7 +172,14 @@ class ModelWebsite(InputParameters):
             raise PydanticCustomError(
                 "value_error",
                 "Either select a CRNS data source or upload CRNS data.",
-                {"loc_tuple": ("soil_moisture_data",)},
+                {
+                    "loc_tuple": (
+                        "crns_upload",
+                        "train_data",
+                        "station_data",
+                        "rover_data",
+                    )
+                },
             )
         return self
 

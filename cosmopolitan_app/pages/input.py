@@ -1,6 +1,5 @@
 """Dash form for the cosmopolitan job."""
 
-import json
 import logging
 from collections import OrderedDict
 
@@ -20,24 +19,38 @@ from cosmopolitan_app.pydantic_models import ModelWebsite
 dash.register_page(__name__)
 
 
-def construct_selected_input(chosen_input):
+def construct_selected_input(states: dict, input_type: str) -> dbc.ListGroup:
     """Construct html view of the selected inputs (predictors and crns data)."""
     content = []
-    for input_name, input_info in chosen_input.items():
-        if input_name in stream_dic:
-            input_info = stream_dic[input_name].class_info(input_name)
-        elif "crn_" in input_name:
-            print(input_info)
-            print(input_name)
-            input_info = f"Time steps: {', '.join(input_info['time_steps'])}\n"
+    chosen_input = {}
+    crns_data_info_dict = {
+        "station_data": ModelWebsite.__fields__["station_data"].description,
+        "rover_data": ModelWebsite.__fields__["rover_data"].description,
+        "train_data": ModelWebsite.__fields__["train_data"].description,
+    }
+
+    for file_name, file_info in form_factory.get_file_information(states, input_type):
+        if input_type == "predictor_upload":
+            chosen_input[file_name] = (
+                f"Unit: { file_info['unit'] }\n"
+                f"With deviation: { file_info['std_deviation'] }\n"
+                f"Constant: {file_info['constant'] }\n"
+                f"Predictor name: {file_info['predictor_name'] }\n"
+            )
         else:
-            input_info = (
-                f"Unit: { input_info['unit'] }\n"
-                f"With deviation: { input_info['std_deviation'] }\n"
-                f"Constant: {input_info['constant'] }\n"
-                f"Predictor name: {input_info['predictor_name'] }\n"
+            chosen_input[file_name] = (
+                f"Time steps: {', '.join(file_info['time_steps'])}\n"
             )
 
+    if input_type == "predictor_upload":
+        for stream in states["pred_streams"]:
+            chosen_input[stream] = stream_dic[stream].class_info(stream)
+    else:
+        for source_name, crns_info in crns_data_info_dict.items():
+            if states[source_name]:
+                chosen_input[source_name] = crns_info
+
+    for input_name, input_info in chosen_input.items():
         content.append(
             dbc.ListGroupItem(
                 html.Div(
@@ -208,12 +221,14 @@ def regenerate_preview(**state):
     init_trigger = state.pop("init_trigger")
     if not init_trigger["init"]:
         raise PreventUpdate
+    logging.debug("Job initialized")
     state.pop("new_preview")
     try:
-        model = ModelWebsite(**state)
+        form_factory.set_model(state)
     except ValueError:
+        logging.debug("Model not valid")
         raise PreventUpdate
-    job = Job(model=model)
+    job = Job(model=form_factory.pymodel)
     file_name = job.preview_area()
     image_src = url_for("serve_file", job_id=job.job_id, filename=file_name)
 
@@ -222,217 +237,81 @@ def regenerate_preview(**state):
 
 @create_callback_with_error_handling(
     output={
-        **form_factory.get_output_file_feedback("crns_upload"),
-        **form_factory.get_output_hidden_file_information("crns_upload"),
+        **form_factory.produce_callback_outputs(),
         "selected_crns": Output("selected-crns", "children"),
+        "selected_predictors": Output("selected-predictors", "children"),
+        # "redirect": Output("url", "pathname"),
     },
-    inputs={
-        **form_factory.get_input_file_content("crns_upload"),
-        **form_factory.get_delete_button("crns_upload"),
-    },
+    inputs=form_factory.produce_callback_inputs(),
     state={
-        **form_factory.get_state_file_name("crns_upload"),
-        **form_factory.produce_callback_inputs(use_state=True),
         "init_trigger": Input("initial-trigger", "data"),
+        "job_id": Input("job_id", "children"),
     },
 )
-def crns_selection(**state):
-    """Upload a CRNS file."""
-    logging.info("Upload CRNS file")
+def form_manager(**state):
+    """Wrap all input logic of the form into one callback."""
+    logging.info("Form manager")
     init_trigger = state.pop("init_trigger")
     if not init_trigger["init"]:
         logging.debug("Job not initialized")
         raise PreventUpdate
 
+    job_id = state.pop("job_id")
+    job = Job(job_id=job_id)
+    file_upload_error = {}
+
     triggered_id = callback_context.triggered[0]["prop_id"].split(".")[0]
-
-    key_uploaded_file_information = form_factory.get_output_hidden_file_information(
-        "crns_upload", get_key="python"
-    )
-
-    key_file_names = form_factory.get_state_file_name("crns_upload", get_key="python")
-    file_name = state.pop(key_file_names)
-
-    key_files_content = form_factory.get_input_file_content(
-        "crns_upload", get_key="python"
-    )
-    file_content = state.pop(key_files_content)
-
-    model = ModelWebsite(**state)
-    job = Job(model=model)
-
-    if triggered_id == form_factory.get_delete_button("crns_upload", get_key="html"):
-        logging.debug("Delete button clicked")
+    logging.debug(f"Triggered id: {triggered_id}")
+    if triggered_id == form_factory.get_id_delete_button("crns_upload"):
+        logging.debug("Delete CRNS button clicked")
         job.delete_input_files("crn")
-        chosen_crns = {}
-        output_dict = form_factory.create_output_file_feedback("crns_upload", None)
-        output_dict[key_uploaded_file_information] = ""
-    elif file_content is not None:
-        logging.debug("File uploaded")
+    elif triggered_id == form_factory.get_id_delete_button("predictor_upload"):
+        logging.debug("Delete predictor button clicked")
+        job.delete_input_files("pred")
+    elif triggered_id == form_factory.get_id_input_file_content("crns_upload"):
+        logging.debug("CRNS file uploaded")
         job.delete_input_files("crn")
 
+        file_name, file_content = form_factory.get_file_content(state, "crns_upload")
         try:
             file_name, file_information = job.safe_input_file(
                 file_name, file_content, "crn"
             )
         except ValueError as e:
-            error = e
-            chosen_crns = {}
-        else:
-            error = None
-            chosen_crns = {file_name: file_information}
-        output_dict = form_factory.create_output_file_feedback("crns_upload", error)
-        output_dict[key_uploaded_file_information] = json.dumps(chosen_crns)
-    else:
-        raise PreventUpdate
+            file_upload_error["crns_upload"] = e
 
-    output_dict["selected_crns"] = construct_selected_input(chosen_crns)
+        form_factory.set_file_information(
+            state, {file_name: file_information}, "crns_upload"
+        )
 
-    return output_dict
-
-
-@create_callback_with_error_handling(
-    output={
-        "selected_predictors": Output("selected-predictors", "children"),
-        **form_factory.get_output_hidden_file_information("predictor_upload"),
-        **form_factory.get_output_file_feedback("predictor_upload"),
-    },
-    inputs={
-        "pred_streams": form_factory.produce_callback_inputs(all=True)["pred_streams"],
-        **form_factory.get_input_file_content("predictor_upload"),
-        **form_factory.get_delete_button("predictor_upload"),
-    },
-    state={
-        **form_factory.get_state_file_name("predictor_upload"),
-        **form_factory.produce_callback_inputs(use_state=True),
-        **form_factory.get_output_hidden_file_information(
-            "predictor_upload", use_state=True
-        ),
-        "init_trigger": Input("initial-trigger", "data"),
-    },
-)
-def predictor_selection(**state):
-    """Upload a predictor file."""
-    logging.info("Select predictors from file and stream")
-    init_trigger = state.pop("init_trigger")
-    if not init_trigger["init"]:
-        logging.debug("Job not initialized")
-        raise PreventUpdate
-    triggered_id = callback_context.triggered[0]["prop_id"].split(".")[0]
-
-    key_uploaded_file_information = form_factory.get_output_hidden_file_information(
-        "predictor_upload", get_key="python"
-    )
-    uploaded_file_information = state.pop(key_uploaded_file_information)
-
-    key_file_names = form_factory.get_state_file_name(
-        "predictor_upload", get_key="python"
-    )
-    file_names = state.pop(key_file_names)
-
-    key_files_content = form_factory.get_input_file_content(
-        "predictor_upload", get_key="python"
-    )
-    files_content = state.pop(key_files_content)
-
-    streams = state["pred_streams"]
-
-    model = ModelWebsite(**state)
-    job = Job(model=model)
-    if uploaded_file_information == "":
-        chosen_predictors = {}
-    else:
-        chosen_predictors = json.loads(uploaded_file_information)
-
-    if triggered_id == form_factory.get_delete_button(
-        "predictor_upload", get_key="html"
-    ):
-        logging.debug("Delete button clicked")
+    elif triggered_id == form_factory.get_id_input_file_content("predictor_upload"):
+        logging.debug("Predictor file(s) uploaded")
         job.delete_input_files("pred")
 
-        output_dict = {
-            **form_factory.get_output_file_feedback("predictor_upload"),
-        }
-        output_dict = {key: dash.no_update for key in output_dict.keys()}
-        output_dict[key_uploaded_file_information] = ""
-        chosen_predictors = {}
-    elif files_content is not None:
-        logging.debug("File(s) uploaded")
-        job.delete_input_files("pred")
+        uploaded_file_information = {}
         try:
-            for content, file_name in zip(files_content, file_names):
+            for content, file_name in form_factory.get_file_content(
+                state, "predictor_upload"
+            ):
                 file_name, file_information = job.safe_input_file(
                     file_name, content, "pred"
                 )
-                chosen_predictors[file_information["predictor_name"]] = file_information
+                uploaded_file_information[file_name] = file_information
         except ValueError as e:
-            error = e
-            chosen_predictors = {}
-        else:
-            error = None
+            file_upload_error["predictor_upload"] = e
 
-        output_dict = form_factory.create_output_file_feedback(
-            "predictor_upload", error
+        form_factory.set_file_information(
+            state, uploaded_file_information, "predictor_upload"
         )
-        output_dict[key_uploaded_file_information] = json.dumps(chosen_predictors)
-    else:
-        logging.debug("Stream selected")
-        output_dict = {
-            **form_factory.get_output_file_feedback("predictor_upload"),
-        }
-        output_dict = {key: dash.no_update for key in output_dict.keys()}
-        output_dict[key_uploaded_file_information] = ""
 
-    for stream in streams:
-        chosen_predictors[stream] = None
-        # chosen_predictors[stream] = stream_dic[stream].class_info(stream)
+    valid, output_dict = form_factory.validate_callback(state, file_upload_error)
 
-    output_dict["selected_predictors"] = construct_selected_input(chosen_predictors)
+    if triggered_id == form_factory.get_key_submit_button():
+        logging.debug("Submit button clicked")
+
+    output_dict["selected_predictors"] = construct_selected_input(
+        state, "predictor_upload"
+    )
+    output_dict["selected_crns"] = construct_selected_input(state, "crns_upload")
+
     return output_dict
-
-
-@create_callback_with_error_handling(
-    output=form_factory.produce_callback_outputs(),
-    state={"init_trigger": Input("initial-trigger", "data")},
-    inputs=form_factory.produce_callback_inputs(all=True),
-)
-def validate(**input):
-    """Validate the form."""
-    logging.info("Validate form")
-    init_trigger = input.pop("init_trigger")
-    if not init_trigger["init"]:
-        logging.debug("Job not initialized")
-        raise PreventUpdate
-    return form_factory.validate_callback(input)
-
-
-@create_callback_with_error_handling(
-    output=[],
-    state={
-        **form_factory.produce_callback_inputs(use_state=True, all=True),
-        "init_trigger": Input("initial-trigger", "data"),
-    },
-    inputs=form_factory.get_submit_button(),
-)
-def submit(**state):
-    """Submit the form."""
-    logging.info("Submit job")
-    init_trigger = state.pop("init_trigger")
-    if not init_trigger["init"]:
-        logging.debug("Job not initialized")
-        raise PreventUpdate
-
-    submit_button = state.pop(form_factory.get_submit_button(get_key="python"))
-    if submit_button is None:
-        logging.debug("Submit button not clicked")
-        raise PreventUpdate
-
-    inputs = form_factory.produce_callback_inputs(use_state=True, all=True)
-    inputs = {key: str(value) for key, value in inputs.items()}
-    logging.debug(json.dumps(inputs, indent=4))
-    logging.debug(json.dumps(state, indent=4))
-    form_factory.set_model(state)
-    logging.debug(json.dumps(form_factory.pymodel.dict(), indent=4))
-    raise PreventUpdate
-    # job = Job(model=model)
-    # job.submit()
