@@ -11,6 +11,7 @@ from cosmopolitan_app.config import DEBUG
 from cosmopolitan_app.error_handling import (
     error_modal,
     error_toast,
+    handle_error,
     register_error_modal,
 )
 from cosmopolitan_app.files_route import serve_files
@@ -21,9 +22,10 @@ logging.basicConfig(level=logging.DEBUG)
 app = Dash(
     __name__,
     use_pages=True,
-    external_stylesheets=[dbc.themes.FLATLY],
+    external_stylesheets=[dbc.themes.FLATLY, dbc.icons.BOOTSTRAP],
     prevent_initial_callbacks="initial_duplicate",
-    # suppress_callback_exceptions=True,
+    suppress_callback_exceptions=True,
+    on_error=handle_error,
 )
 
 dictConfig(get_logger_config_web(DEBUG))
@@ -111,7 +113,7 @@ content = dbc.Row(
 app.layout = html.Div(
     className="d-flex flex-column min-vh-100 bg-light",
     children=[
-        dcc.Location(id="url", refresh=False),
+        dcc.Location(id="url", refresh=True),
         error_modal,
         error_toast,
         nav_bar,

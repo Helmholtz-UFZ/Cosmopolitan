@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Tuple, Type, Union, get_args
 
 import dash_bootstrap_components as dbc
 from dash import Input, Output, State, dcc, html
+from soil_moisture_prediction.input_data import stream_dic
 
 from cosmopolitan_app.pydantic_models import ModelWebsite
 
@@ -26,9 +27,13 @@ def flatten_list(nested_list: List[Any]) -> List[str]:
 class FormFactory:
     """Factory class to generate a dash form from a Pydantic model."""
 
-    def __init__(self, pymodel: Type[ModelWebsite], layout: OrderedDict):
+    def __init__(
+        self, pymodel: Type[ModelWebsite], layout: OrderedDict, active: bool = True
+    ):
         """Init."""
         self.pymodel = pymodel
+        self.layout = layout
+        self.active = active
         self.type_to_component = {
             "email": dbc.Input,
             "text": dbc.Input,
@@ -40,7 +45,6 @@ class FormFactory:
             "multiple-file-upload": dcc.Upload,
             "file-upload": dcc.Upload,
         }
-        self.layout = layout
         self.fields_website = flatten_list(layout.values())
         self.form_layout = []
         self.fieldtypes_not_to_validate = [
@@ -50,12 +54,30 @@ class FormFactory:
             "multiple-file-upload",
             "file-upload",
         ]
-        self.feedback_id_format = "{field_name}_feedback"
-        self.hidden_id_format = "hidden_{field_name}_input"
-        self.delete_id_format = "delete_{field_name}_input"
-        self.id_submit_button = "submit_button"
+        if self.active:
+            self.id_format = "{field_name}"
+            self.feedback_id_format = "{field_name}_feedback"
+            self.hidden_id_format = "hidden_{field_name}"
+            self.file_name_id_format = "{field_name}_filename"
+            self.delete_id_format = "delete_{field_name}"
+            self.start_date_id_format = "{field_name}_start_date"
+            self.end_date_id_format = "{field_name}_end_date"
+            self.id_check_input_button = "check_input_button"
+        else:
+            self.id_format = ""
+            self.feedback_id_format = ""
+            self.hidden_id_format = ""
+            self.file_name_id_format = ""
+            self.delete_id_format = ""
+            self.id_check_input_button = ""
 
-    def create_component(self, field_name: Any, muted: bool = False) -> Any:
+    def new_layout(self, layout: OrderedDict) -> None:
+        """Set a new layout."""
+        self.layout = layout
+        self.fields_website = flatten_list(layout.values())
+        self.form_layout = []
+
+    def create_component(self, field_name: Any) -> Any:
         """Create the component."""
         if not isinstance(field_name, str):
             return field_name
@@ -70,30 +92,30 @@ class FormFactory:
         props = {}
 
         id_feedback = self.feedback_id_format.format(field_name=field_name)
+        id_field = self.id_format.format(field_name=field_name)
         try:
             value = getattr(self.pymodel, field_name)
         except AttributeError:
             value = field.default
-            # value = field.default if field.default is not None else ""
 
         if field_type in ["text", "email"]:
             props["type"] = "text" if field_type == "text" else "email"
-            props["id"] = field_name
+            props["id"] = id_field
             props["value"] = value
             props["html_size"] = len(value) + 5
             props["style"] = {"width": "auto"}
-            if muted:
+            if not self.active:
                 props["disabled"] = True
                 props["style"].update({"background-color": "#e9ecef"})
         elif field_type in ["float", "integer"]:
             props["type"] = "number"
             props["step"] = 1 if field_type == "integer" else "any"
             props["required"] = True
-            props["id"] = field_name
+            props["id"] = id_field
             props["value"] = value
             props["html_size"] = len(str(value)) + 5
             props["style"] = {"width": "auto"}
-            if muted:
+            if not self.active:
                 props["disabled"] = True
                 props["style"].update({"background-color": "#e9ecef"})
         elif field_type == "dropdown-checklist":
@@ -108,37 +130,34 @@ class FormFactory:
                     if len(options) > 0:
                         previous_label = options[-1]["label"]
                         options[-1]["label"] = [html.Div(previous_label), html.Hr()]
-                options.append({"label": label, "value": choice, "disabled": muted})
-            # options = [{"label": choice, "value": choice} for choice in choices]
+                options.append(
+                    {"label": label, "value": choice, "disabled": not self.active}
+                )
             checklist_props = {
                 "options": options,
                 "value": value,
-                "id": field_name,
+                "id": id_field,
                 "inline": False,
                 "style": {"max-height": "300px", "overflow-y": "auto"},
                 "className": "ms-2",
             }
             props["children"] = [dbc.Checklist(**checklist_props)]
         elif field_type == "date-picker":
-            props["id"] = field_name
+            props["id"] = id_field
             props["start_date"] = value[0]
             props["end_date"] = value[1]
             props["initial_visible_month"] = value[1]
-            if muted:
+            if not self.active:
                 props["disabled"] = True
         elif field_type == "checkbox":
-            props["id"] = field_name
+            props["id"] = id_field
             props["value"] = value
             props["label"] = field.title
-            if muted:
+            if not self.active:
                 props["disabled"] = True
-        elif field_type == "multiple-file-upload":
-            props["id"] = field_name
-            props["multiple"] = True
-            props["children"] = dbc.Button("Browse files", color="primary")
-        elif field_type == "file-upload":
-            props["id"] = field_name
-            props["multiple"] = False
+        elif field_type in ["multiple-file-upload", "file-upload"]:
+            props["id"] = id_field
+            props["multiple"] = field_type == "multiple-file-upload"
             props["children"] = dbc.Button("Browse files", color="primary")
         else:
             raise ValueError(f"Unknown field type {field_type}")
@@ -161,7 +180,7 @@ class FormFactory:
                 component_class(**props),
                 html.Br(),
                 dbc.FormText(field.description),
-                dbc.FormFeedback(id=id_feedback),
+                dbc.FormText(id=id_feedback, className="text-danger"),
             ]
         elif field_type in ["multiple-file-upload", "file-upload"]:
             file_information = ";".join([",".join(info) for info in value])
@@ -198,19 +217,14 @@ class FormFactory:
             ]
         return content
 
-    def generate_form(self, muted: bool = False) -> List[Any]:
-        """Generate the form layout.
-
-        Args:
-            muted: If True, all form elements will be display-only without interaction.
-        """
-        self.form_layout = []
+    def generate_form(self) -> List[Any]:
+        """Generate the form layout."""
         for group_name, row in self.layout.items():
             card_layout = []
             for field_names in row:
                 col = [
                     dbc.Col(
-                        self.create_component(field_name, muted=muted),
+                        self.create_component(field_name),
                     )
                     for field_name in field_names
                 ]
@@ -224,26 +238,26 @@ class FormFactory:
             self.form_layout.append(
                 dbc.Card(
                     [
-                        dbc.CardHeader(group_name, class_name="w-100 text-center"),
+                        dbc.CardHeader(group_name, class_name="w-100 text-center fs-4"),
                         dbc.CardBody(card_layout),
                     ],
                     class_name="my-2 d-flex justify-content-center align-items-center",
                 )
             )
 
-        self.form_layout.append(
-            dbc.Row(
-                dbc.Col(
-                    dbc.Button(
-                        "Submit",
-                        id=self.id_submit_button,
-                        color="secondary" if muted else "primary",
-                        disabled=muted,
+        if self.active:
+            self.form_layout.append(
+                dbc.Row(
+                    dbc.Col(
+                        dbc.Button(
+                            "Check input",
+                            id=self.id_check_input_button,
+                            color="primary",
+                        ),
+                        class_name="m-2 d-flex justify-content-center align-items-center",  # noqa
                     ),
-                    class_name="m-2 d-flex justify-content-center align-items-center",  # noqa
-                ),
+                )
             )
-        )
 
         return self.form_layout
 
@@ -256,8 +270,14 @@ class FormFactory:
             if field_type not in self.fieldtypes_not_to_validate:
                 output_dict[f"{field_name}_valid"] = Output(field_name, "valid")
                 output_dict[f"{field_name}_invalid"] = Output(field_name, "invalid")
+                output_dict[f"{id_feedback}_type"] = Output(id_feedback, "type")
             output_dict[f"{id_feedback}_children"] = Output(id_feedback, "children")
-            output_dict[f"{id_feedback}_type"] = Output(id_feedback, "type")
+            if field_type in [
+                "multiple-file-upload",
+                "file-upload",
+            ]:
+                hidden_id = self.hidden_id_format.format(field_name=field_name)
+                output_dict[hidden_id] = Output(hidden_id, "value")
 
         return output_dict
 
@@ -271,31 +291,26 @@ class FormFactory:
 
         for field_name in self.fields_website:
             field_type = ModelWebsite.model_fields[field_name].json_schema_extra["type"]
+            id_field = self.id_format.format(field_name=field_name)
             if field_type in ["multiple-file-upload", "file-upload"]:
                 hidden_id = self.hidden_id_format.format(field_name=field_name)
                 delete_id = self.delete_id_format.format(field_name=field_name)
-                input_dict[field_name] = callback_context(hidden_id, "value")
-                input_dict[f"{field_name}_content"] = callback_context(
-                    field_name, "contents"
-                )
-                input_dict[f"{field_name}_filename"] = callback_context(
-                    field_name, "filename"
-                )
-                input_dict[f"{field_name}_delete"] = callback_context(
-                    delete_id, "n_clicks"
-                )
-            elif field_type == "date-picker":
-                input_dict[f"{field_name}_start_date"] = callback_context(
-                    field_name, "start_date"
-                )
-                input_dict[f"{field_name}_end_date"] = callback_context(
-                    field_name, "end_date"
-                )
-            else:
-                input_dict[field_name] = callback_context(field_name, "value")
+                filename_id = self.file_name_id_format.format(field_name=field_name)
 
-        input_dict[self.id_submit_button] = callback_context(
-            self.id_submit_button, "n_clicks"
+                input_dict[hidden_id] = callback_context(hidden_id, "value")
+                input_dict[id_field] = callback_context(field_name, "contents")
+                input_dict[filename_id] = callback_context(field_name, "filename")
+                input_dict[delete_id] = callback_context(delete_id, "n_clicks")
+            elif field_type == "date-picker":
+                id_start_date = self.start_date_id_format.format(field_name=field_name)
+                id_end_date = self.end_date_id_format.format(field_name=field_name)
+                input_dict[id_start_date] = callback_context(field_name, "start_date")
+                input_dict[id_end_date] = callback_context(field_name, "end_date")
+            else:
+                input_dict[id_field] = callback_context(field_name, "value")
+
+        input_dict[self.id_check_input_button] = callback_context(
+            self.id_check_input_button, "n_clicks"
         )
         return input_dict
 
@@ -329,14 +344,21 @@ class FormFactory:
                 if field_type not in self.fieldtypes_not_to_validate:
                     output_dict[f"{field_name}_valid"] = False
                     output_dict[f"{field_name}_invalid"] = True
+                    output_dict[f"{id_feedback}_type"] = "invalid"
                 output_dict[f"{id_feedback}_children"] = msg
-                output_dict[f"{id_feedback}_type"] = "invalid"
             else:
                 if field_type not in self.fieldtypes_not_to_validate:
                     output_dict[f"{field_name}_valid"] = True
                     output_dict[f"{field_name}_invalid"] = False
+                    output_dict[f"{id_feedback}_type"] = "valid"
                 output_dict[f"{id_feedback}_children"] = ""
-                output_dict[f"{id_feedback}_type"] = "valid"
+
+            if field_type in [
+                "multiple-file-upload",
+                "file-upload",
+            ]:
+                hidden_id = self.hidden_id_format.format(field_name=field_name)
+                output_dict[hidden_id] = form_data[hidden_id]
 
         if len(exceptions) > 0:
             raise ValueError(f"Unhandeled form validation errors: {exceptions}")
@@ -347,42 +369,43 @@ class FormFactory:
         """Set the model from the form data."""
         model_dict = {}
         for field_name in self.pymodel.model_fields:
+            field_type = ModelWebsite.model_fields[field_name].json_schema_extra["type"]
             if field_name == "predictors":
                 predictors_stream = {
                     stream: None for stream in form_data["pred_streams"]
                 }
+                hidden_id = self.hidden_id_format.format(field_name="predictor_upload")
                 predictor_upload = (
-                    json.loads(form_data["predictor_upload"])
-                    if form_data["predictor_upload"].strip()
+                    json.loads(form_data[hidden_id])
+                    if form_data[hidden_id].strip()
                     else {}
                 )
                 model_dict["predictors"] = predictors_stream | predictor_upload
-            elif field_name == "predictor_upload":
-                model_dict["predictor_upload"] = (
-                    json.loads(form_data["predictor_upload"])
-                    if form_data["predictor_upload"].strip()
-                    else {}
-                )
             elif field_name == "soil_moisture_data":
+                hidden_id = self.hidden_id_format.format(field_name="crns_upload")
+                print(form_data[hidden_id])
                 crns_upload = (
-                    json.loads(form_data["crns_upload"])
-                    if form_data["crns_upload"].strip()
+                    json.loads(form_data[hidden_id])
+                    if form_data[hidden_id].strip()
                     else {}
                 )
                 try:
                     model_dict["soil_moisture_data"] = list(crns_upload.keys())[0]
                 except IndexError:
                     model_dict["soil_moisture_data"] = ""
-            elif field_name == "crns_upload":
-                model_dict["crns_upload"] = (
-                    json.loads(form_data["crns_upload"])
-                    if form_data["crns_upload"].strip()
+            elif field_type in ["multiple-file-upload", "file-upload"]:
+                hidden_id = self.hidden_id_format.format(field_name=field_name)
+                model_dict[field_name] = (
+                    json.loads(form_data[hidden_id])
+                    if form_data[hidden_id].strip()
                     else {}
                 )
-            elif field_name == "date_range":
-                model_dict["date_range"] = [
-                    form_data["date_range_start_date"],
-                    form_data["date_range_end_date"],
+            elif field_type == "date-picker":
+                id_start_date = self.start_date_id_format.format(field_name=field_name)
+                id_end_date = self.end_date_id_format.format(field_name=field_name)
+                model_dict[field_name] = [
+                    form_data[id_start_date],
+                    form_data[id_end_date],
                 ]
             else:
                 try:
@@ -390,16 +413,17 @@ class FormFactory:
                 except KeyError:
                     pass
 
+        print(f"Model dict: {model_dict}")
         self.pymodel = ModelWebsite(**model_dict)
 
     def get_file_content(
         self, state: Dict[str, Any], field_name: str
     ) -> Union[Tuple[str, str], Tuple[list, list]]:
         """Get the file(s) content and filename(s) from the state."""
-        id_content = f"{field_name}_content"
-        id_filename = f"{field_name}_filename"
+        id_content = self.id_format.format(field_name=field_name)
+        id_filename = self.file_name_id_format.format(field_name=field_name)
 
-        return state[id_content], state[id_filename]
+        return state[id_filename], state[id_content]
 
     def set_file_information(
         self, state: Dict[str, Any], upload_info: Dict[str, str], field_name: str
@@ -414,13 +438,15 @@ class FormFactory:
         """Get the file information from the state."""
         id = self.hidden_id_format.format(field_name=field_name)
         try:
-            return json.loads(state[id])
+            file_information_dict = json.loads(state[id])
         except (KeyError, json.JSONDecodeError):
-            return {}
+            file_information_dict = {}
+
+        return file_information_dict.items()
 
     def get_id_input_file_content(self, field_name) -> str:
         """Get the id of the input file content."""
-        return f"{field_name}_content"
+        return self.id_format.format(field_name=field_name)
 
     def get_id_delete_button(self, field_name) -> str:
         """Get the id of the delete button."""
@@ -428,4 +454,227 @@ class FormFactory:
 
     def get_key_submit_button(self) -> str:
         """Get the key of the submit button."""
-        return self.id_submit_button
+        return self.id_check_input_button
+
+
+def construct_selected_input(
+    model: ModelWebsite, input_type: str, full_info: bool = False
+) -> dbc.ListGroup:
+    """Construct html view of the selected inputs (predictors and crns data)."""
+    selected_input = []
+    chosen_input = {}
+    crns_data_info_dict = {
+        "station_data": ModelWebsite.__fields__["station_data"].description,
+        "rover_data": ModelWebsite.__fields__["rover_data"].description,
+        "train_data": ModelWebsite.__fields__["train_data"].description,
+    }
+
+    if input_type == "predictor_upload":
+        file_dict = model.predictor_upload
+    else:
+        file_dict = model.crns_upload
+
+    for file_name, file_info in file_dict.items():
+        if input_type == "predictor_upload":
+            general_info = (
+                f"Unit: {file_info['unit']}\n"
+                f"With deviation: {file_info['std_deviation']}\n"
+                f"Constant: {file_info['constant']}\n"
+                f"Predictor name: {file_info['predictor_name']}\n"
+            )
+            coverage = f"Coverage: {file_info['coverage']:.2f}%\n"
+            chosen_input[file_name] = (general_info, coverage)
+        else:
+            general_info = f"Time steps: {', '.join(file_info['time_steps'])}\n"
+            coverage = f"Number of measurments: {file_info['num_data_points']}\n"
+            chosen_input[file_name] = (general_info, coverage)
+
+    if input_type == "predictor_upload":
+        for stream in model.pred_streams:
+            chosen_input[stream] = (stream_dic[stream].class_info(stream), None)
+    else:
+        for source_name, crns_info in crns_data_info_dict.items():
+            if getattr(model, source_name):
+                chosen_input[source_name] = (crns_info, None)
+
+    for input_name, input_info in chosen_input.items():
+        general_info, coverage = input_info
+        if full_info and coverage is not None:
+            try:
+                file_info = file_dict[input_name]
+                coverage_percentage = file_info["coverage"]
+                coverage_okay = coverage_percentage > 50
+            except KeyError:
+                coverage_okay = True
+            content = [
+                html.Div(input_name, className="fw-bold"),
+                html.Div(
+                    coverage,
+                    style={"white-space": "pre-line"},
+                    className="" if coverage_okay else "text-danger",
+                ),
+                html.Small(
+                    general_info,
+                    style={"white-space": "pre-line"},
+                    className="text-muted",
+                ),
+            ]
+        else:
+            content = [
+                html.Div(input_name, className="fw-bold"),
+                html.Small(
+                    general_info,
+                    style={"white-space": "pre-line"},
+                    className="text-muted",
+                ),
+            ]
+
+        selected_input.append(
+            dbc.ListGroupItem(
+                html.Div(content),
+                className="d-flex align-items-start",
+            )
+        )
+    return dbc.ListGroup(selected_input, numbered=True, className="text-start")
+
+
+class FormTemplateFactory:
+    """Class to create the form layout."""
+
+    def __init__(
+        self,
+        job_id: str = "foo_bar",
+        active: bool = True,
+        preview_src: str = "",
+        selected_crns: Any = "",
+        selected_predictors: Any = "",
+    ) -> None:
+        """Init."""
+        self.active = active
+        self.preview_src = preview_src
+        self.job_id = job_id
+        self.selected_crns = selected_crns
+        self.selected_predictors = selected_predictors
+        if active:
+            self.job_id_key = "job_id"
+            self.selected_predictors_key = "selected_predictors"
+            self.selected_crns_key = "selected_crns"
+            self.area_preview_key = "area_preview"
+            self.new_area_preview_key = "new_area_preview"
+        else:
+            self.job_id_key = ""
+            self.selected_predictors_key = ""
+            self.selected_crns_key = ""
+            self.area_preview_key = ""
+            self.new_area_preview_key = ""
+
+    def generate_template(self) -> OrderedDict:
+        """Create form layout template."""
+        job_id_information = [
+            html.Div("Job ID", className="text-center fw-bold fs-4"),
+            html.Div(self.job_id, id=self.job_id_key, className="text-center"),
+        ]
+
+        selected_predictors = [
+            html.H5("Selected Predictors", className="text-center"),
+            html.Div(
+                self.selected_predictors,
+                id=self.selected_predictors_key,
+                className="text-center",
+            ),
+        ]
+
+        selected_crns = [
+            html.H5("Selected CRNS measurments", className="text-center"),
+            html.Div(
+                self.selected_crns, id=self.selected_crns_key, className="text-center"
+            ),
+        ]
+
+        area_preview_elements = [
+            html.H5("Area preview:"),
+            dbc.Spinner(
+                html.Img(
+                    id=self.area_preview_key,
+                    className="col-6 mx-auto d-block",
+                    src=self.preview_src,
+                    alt="area preview",
+                ),
+            ),
+        ]
+        if self.active:
+            area_preview_elements.append(
+                html.Div(
+                    dbc.Button(
+                        "Generate preview",
+                        id=self.new_area_preview_key,
+                        color="primary",
+                        class_name="my-2",
+                        style={"width": "auto"},
+                    ),
+                    className="d-flex justify-content-center",
+                )
+            )
+        area_preview = dbc.Row(area_preview_elements, className="text-center pt-2")
+
+        crns_data_base = dbc.Row(
+            [
+                html.H5("Use CRNS data from TimeIO:"),
+                dbc.FormText("Select the CRNS data to use for the prediction."),
+                dbc.FormText(
+                    "If you whish to use your own data, upload it in the file upload section."  # noqa
+                ),
+                dbc.FormText(
+                    "If you dont want to use any data from the data base uncheck all checkboxes."  # noqa
+                ),
+            ],
+            className="text-center pt-2",
+        )
+
+        form_template = OrderedDict()
+
+        form_template["Job Information"] = [[job_id_information], ["email"]]
+
+        form_template["Area of Interest"] = [
+            ["area_x1", "area_x2"],
+            ["area_y1", "area_y2"],
+            ["area_resolution", "projection"],
+            [area_preview],
+        ]
+
+        form_template["CRNS Measurments"] = []
+        if self.active:
+            form_template["CRNS Measurments"] += [[crns_data_base]]
+        form_template["CRNS Measurments"] += [["date_range"]]
+        if self.active:
+            form_template["CRNS Measurments"] += [
+                ["train_data"],
+                ["station_data"],
+                ["rover_data"],
+            ]
+        if self.active:
+            form_template["CRNS Measurments"] += [[html.Hr()], ["crns_upload"]]
+        form_template["CRNS Measurments"] += [[html.Hr()], [selected_crns]]
+
+        form_template["Predictors"] = []
+        if self.active:
+            form_template["Predictors"] += [["pred_streams"]]
+            form_template["Predictors"] += [
+                [html.Hr()],
+                ["predictor_upload"],
+                [html.Hr()],
+            ]
+        form_template["Predictors"] += [[selected_predictors]]
+
+        form_template["Model Parameters"] = [
+            ["monte_carlo_soil_moisture"],
+            ["monte_carlo_predictors"],
+            ["monte_carlo_iterations"],
+            ["past_prediction_as_feature"],
+            ["allow_nan_in_training"],
+            ["predictor_qmc_sampling"],
+            ["compute_slope"],
+            ["compute_aspect"],
+        ]
+
+        return form_template

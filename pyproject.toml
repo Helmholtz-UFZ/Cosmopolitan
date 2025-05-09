@@ -76,7 +76,6 @@ flake8-docstrings = "1.7.0"
 deptry = "^0.14.2"
 pytest-order = "^1.2.1"
 
-
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

@@ -1,13 +1,12 @@
 """Error handling utilities for Dash apps."""
 
-import functools
+import json
 import logging
 import traceback
-from copy import deepcopy
 
+import dash
 import dash_bootstrap_components as dbc
-from dash import Input, Output, callback, no_update
-from dash.exceptions import PreventUpdate
+from dash import Input, Output, callback, set_props
 from sqlalchemy.exc import OperationalError
 from werkzeug.exceptions import NotFound
 
@@ -122,9 +121,10 @@ error_toast = dbc.Toast(
 def register_error_modal(app):
     """Register the error modal with the app."""
 
-    @app.callback(
+    @callback(
         Output("error-modal", "is_open", allow_duplicate=True),
         Input("close-error", "n_clicks"),
+        prevent_initial_call=True,
     )
     def toggle_modal(n_clicks):
         """Toggle the error modal."""
@@ -133,128 +133,24 @@ def register_error_modal(app):
         return False
 
 
-def create_callback_with_error_handling(*args, **kwargs):
-    """Create a callback with error handling."""
+def handle_error(error):
+    """Handle the error and return a formatted message."""
+    logging.debug(f"Error: {error}")
 
-    def set_args(args, kwargs):
-        error_outputs_dict = {
-            "is_open-toast": Output("error-toast", "is_open", allow_duplicate=True),
-            "header-toast": Output("error-toast", "header", allow_duplicate=True),
-            "is_open-modal": Output("error-modal", "is_open", allow_duplicate=True),
-            "title-modal": Output("error-title", "children", allow_duplicate=True),
-            "message-modal": Output("error-message", "children", allow_duplicate=True),
-        }
-        if len(args) != 0:
-            if not isinstance(args, tuple):
-                raise NotImplementedError("Only Tuple is supported")
-            num_original_outputs = sum(1 for item in args if isinstance(item, Output))
-            error_outputs = tuple((output for output in error_outputs_dict.values()))
-            new_kwargs = deepcopy(kwargs)
-            new_args = error_outputs + args
-        else:
-            new_args = ()
-            new_kwargs = deepcopy(kwargs)
-            num_original_outputs = len(kwargs["output"])
-            if isinstance(new_kwargs["output"], list):
-                new_kwargs["output"] = list(error_outputs_dict.values())
-            else:
-                new_kwargs["output"].update(error_outputs_dict)
-
-        new_kwargs["prevent_initial_call"] = True
-
-        return new_args, num_original_outputs, new_kwargs
-
-    def decorator(func):
-        logging.debug(f"Decorator func: {func.__name__}")
-        new_args, num_original_outputs, new_kwargs = set_args(args, kwargs)
-
-        @callback(*new_args, **new_kwargs)
-        @functools.wraps(func)
-        def wrapper(*func_args, **func_kwargs):
-            try:
-                result = func(*func_args, **func_kwargs)
-
-                if not isinstance(result, tuple) and len(args) != 0:
-                    result = (result,)
-                if len(args) == 0 and result is None:
-                    result = {}
-                if len(args) != 0 and result is None:
-                    result = ()
-                if len(args) == 0 and not isinstance(result, dict):
-                    logging.warning(f"Args: {args}")
-                    logging.warning(f"Kwargs: {kwargs}")
-                    logging.warning(f"Result: {result}")
-                    raise ValueError(
-                        (
-                            f"Callback {func.__name__} returned not a dict, it should have a keyword based return. "  # noqa
-                            f"Returnded type {type(result)} with length {len(result)}."
-                        )
-                    )
-                if len(result) != num_original_outputs:
-                    logging.warning(f"Args: {args}")
-                    logging.warning(f"Kwargs: {kwargs}")
-                    logging.warning(f"Result: {result}")
-                    raise ValueError(
-                        (
-                            f"Callback {func.__name__} returned not the correct number of outputs. "  # noqa
-                            f"Expected {num_original_outputs}, got {len(result)}."
-                        )
-                    )
-
-                if len(args) == 0:
-                    result.update(
-                        {
-                            "is_open-toast": False,
-                            "header-toast": no_update,
-                            "is_open-modal": False,
-                            "title-modal": no_update,
-                            "message-modal": no_update,
-                        }
-                    )
-                else:
-                    result = (False, no_update, False, no_update, no_update) + result
-                return result
-
-            except PreventUpdate:
-                raise
-
-            except Exception as e:  # noqa
-                error_traceback = traceback.format_exc()
-
-                # Log the error
-                logging.warning(
-                    f"Callback error in {func.__name__}: {str(e)}\n{error_traceback}"
-                )
-                error_title = error_responds_dict.get(
-                    type(e), error_responds_dict[Exception]
-                )[0]
-                error_message = error_responds_dict.get(
-                    type(e), error_responds_dict[Exception]
-                )[1]
-
-                if len(args) == 0:
-                    updates = {key: no_update for key in kwargs["output"].keys()}
-                    updates.update(
-                        {
-                            "is_open-toast": True,
-                            "header-toast": error_title,
-                            "is_open-modal": True,
-                            "title-modal": error_title,
-                            "message-modal": error_message,
-                        }
-                    )
-                else:
-                    updates = tuple(no_update for _ in range(num_original_outputs))
-                    updates = (
-                        True,
-                        error_title,
-                        True,
-                        error_title,
-                        error_message,
-                    ) + updates
-
-                return updates
-
-        return wrapper
-
-    return decorator
+    callback_context = dash.ctx
+    email_subject = f"Error {str(error)}"
+    email_body = f"""
+    Traceback info: {traceback.format_exc()}\n\n
+    Input info: {json.dumps(callback_context.triggered)}
+    """
+    logging.debug(f"Send email: {email_subject}\n{email_body}")
+    error_title = error_responds_dict.get(type(error), error_responds_dict[Exception])[
+        0
+    ]
+    error_message = error_responds_dict.get(
+        type(error), error_responds_dict[Exception]
+    )[1]
+    set_props("error-toast", {"is_open": True, "header": error_title})
+    set_props("error-modal", {"is_open": True})
+    set_props("error-title", {"children": error_title})
+    set_props("error-message", {"children": error_message})

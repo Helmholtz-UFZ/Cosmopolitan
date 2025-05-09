@@ -31,7 +31,7 @@ def test_model():
     ModelWebsite(**default_values)
 
 
-def validate_job_id(job_id):
+def validate_job_id(job_id: str) -> str:
     """Validate job id.
 
     The function further creates input dir for the job. If the job id was
@@ -42,7 +42,7 @@ def validate_job_id(job_id):
 
     job_id_regex = r"^\w+$"
     if not re.match(job_id_regex, job_id):
-        raise ValueError("Username must contain only letters numbers or underscore")
+        raise ValueError("Job id must contain only letters numbers or underscore")
 
     min_job_id_length = 8
     max_job_id_length = 50
@@ -54,6 +54,7 @@ def validate_job_id(job_id):
 
     input_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=job_id)
     os.makedirs(input_dir, exist_ok=True)
+    return job_id
 
 
 def check_email(email: str) -> str:
@@ -61,7 +62,8 @@ def check_email(email: str) -> str:
     if email == "":
         return email
     try:
-        validate_email(email, check_deliverability=True)  # Checks syntax and domain
+        # Checks syntax and domain
+        validate_email(email, check_deliverability=True)
         return email  # Return email if valid
     except EmailNotValidError as e:
         raise ValueError(f"Invalid email: {e}")
@@ -203,3 +205,9 @@ class ModelWebsite(InputParameters):
             )
 
         return date_range
+
+    # Security feature: No model can have an invalid job_id
+    class Config:
+        """Pydantic config."""
+
+        validate_assignment = True

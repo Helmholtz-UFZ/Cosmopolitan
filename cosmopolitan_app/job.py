@@ -191,6 +191,7 @@ class Job:
         self.version = smp_version
         self.working_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=self.job_id)
         os.makedirs(self.working_dir, exist_ok=True)
+        self.preview_area()
         self.dump_parameters()
         self.save()
 
@@ -250,60 +251,6 @@ class Job:
         image.write_to_png(os.path.join(self.working_dir, filename))
         return filename
 
-    def delete_input_files(self, input_type):
-        """Delete input files from the working directory.
-
-        This method removes all files in the working directory that match the specified
-        input type.
-        """
-        logging.debug(f"Delete input files of type {input_type}")
-        for file_name in os.listdir(self.working_dir):
-            if file_name.startswith(input_type):
-                os.remove(os.path.join(self.working_dir, file_name))
-
-    def safe_input_file(self, file_name, file_content, input_type):
-        """Check the content of the files and override data with file name and hash."""
-        logging.info(f"Safe input file {file_name}")
-        # Set the geometry to infinity to not restrict the area
-        geometry = RectGeom(
-            [-float("inf"), float("inf"), -float("inf"), float("inf"), 0],
-            build_grid=False,
-        )
-
-        if input_type == "crn":
-            parser = SoilMoistureParser(geometry)
-        elif input_type == "pred":
-            parser = PredictorParser(geometry)
-        else:
-            raise ValueError(f"Invalid input type: {input_type}")
-
-        new_filename = input_type + "_" + secure_filename(file_name)
-        if new_filename in (c[0] for c in self.model.stream_choices):
-            new_filename = new_filename + "_file"
-
-        try:
-            if "," not in file_content:
-                raise ValueError("Missing comma in data URL")
-            base64_str = file_content.split(",")[1]
-            decoded_bytes = base64.b64decode(base64_str)
-            decoded_text = decoded_bytes.decode("utf-8")
-            text_stream = io.StringIO(decoded_text)
-        except (ValueError, binascii.Error, UnicodeDecodeError) as e:
-            raise ValueError(f"Invalid file content: {e}")
-
-        input_file_path = os.path.join(self.working_dir, new_filename)
-
-        # Parse file and write to input dir.
-        try:
-            with open(input_file_path, "w") as file:
-                for row in parser.parse(text_stream):
-                    file.write(",".join([str(e) for e in row if e is not None]) + "\n")
-        except FileValidationError as e:
-            os.remove(input_file_path)
-            raise ValueError(f"Invalid file content: {e}")
-
-        return new_filename, parser.get_file_information()
-
     def _draw_empty_preview(self, width, height):
         """Draw an empty preview if geometry is not valid."""
         # Create a new Cairo surface and context
@@ -332,6 +279,128 @@ class Job:
 
         surface.write_to_png(os.path.join(self.working_dir, filename))
         return filename
+
+    def get_preview_path(self):
+        """Get the path to the preview image."""
+        preview_area_wildcard = os.path.join(
+            self.working_dir, self.preview_area_filename_template.format(position="*")
+        )
+        for file in glob.glob(preview_area_wildcard):
+            return file
+        return None
+
+    def delete_input_files(self, input_type):
+        """Delete input files from the working directory.
+
+        This method removes all files in the working directory that match the specified
+        input type.
+        """
+        logging.debug(f"Delete input files of type {input_type}")
+        for file_name in os.listdir(self.working_dir):
+            if file_name.startswith(input_type):
+                os.remove(os.path.join(self.working_dir, file_name))
+
+    def prepare_input_files(self):
+        """Prepare input files for the job.
+
+        This method parses all input files once more but cut them to the area of the
+        model.
+        """
+        logging.debug("Prepare input files")
+        crns_upload = {}
+        predictors_upload = {}
+        for file_name in os.listdir(self.working_dir):
+            logging.debug(f"File {file_name}")
+            if file_name.startswith("orginal_crn_"):
+                logging.debug(f"Parse file {file_name}")
+                file_path = os.path.join(self.working_dir, file_name)
+                with open(file_path, "r") as file:
+                    file_name, file_info = self.safe_input_file(
+                        file_name, file, "crn", upload=False
+                    )
+                crns_upload[file_name] = file_info
+            elif file_name.startswith("orginal_pred_"):
+                logging.debug(f"Parse file {file_name}")
+                file_path = os.path.join(self.working_dir, file_name)
+                with open(file_path, "r") as file:
+                    file_name, file_info = self.safe_input_file(
+                        file_name, file, "pred", upload=False
+                    )
+                predictors_upload[file_name] = file_info
+
+        self.model.crns_upload = crns_upload
+        self.model.predictor_upload = predictors_upload
+        self.save()
+
+    def safe_input_file(self, file_name, file_content, input_type, upload: bool = True):
+        """Check the content of the files and override data with file name and hash."""
+        logging.info(f"Safe input file {file_name}")
+        if upload:
+            # Set the geometry to infinity to not restrict the area
+            geometry = RectGeom(
+                [-float("inf"), float("inf"), -float("inf"), float("inf"), 0],
+                build_grid=False,
+            )
+        else:
+            # Set the geometry to the area of the model
+            geometry = RectGeom(
+                [
+                    self.model.area_x1,
+                    self.model.area_x2,
+                    self.model.area_y1,
+                    self.model.area_y2,
+                    0,
+                ],
+                build_grid=False,
+            )
+
+        if input_type == "crn":
+            parser = SoilMoistureParser(geometry)
+        elif input_type == "pred":
+            parser = PredictorParser(geometry)
+        else:
+            raise ValueError(f"Invalid input type: {input_type}")
+
+        base_file_name = secure_filename(file_name)
+        prefixes = ["crn_", "orginal_crn_", "pred_", "orginal_pred_"]
+        for prefix in prefixes:
+            if base_file_name.startswith(prefix):
+                base_file_name = base_file_name[len(prefix) :]  # noqa
+        base_file_name = f"{input_type}_{base_file_name}"
+
+        if upload:
+            new_filename = f"orginal_{base_file_name}"
+        else:
+            new_filename = base_file_name
+
+        if upload:
+            try:
+                if "," not in file_content:
+                    raise ValueError("Missing comma in data URL")
+                base64_str = file_content.split(",")[1]
+                decoded_bytes = base64.b64decode(base64_str)
+                decoded_text = decoded_bytes.decode("utf-8")
+                file_content = io.StringIO(decoded_text)
+            except (ValueError, binascii.Error, UnicodeDecodeError) as e:
+                raise ValueError(f"Invalid file content: {e}")
+
+        input_file_path = os.path.join(self.working_dir, new_filename)
+
+        # Parse file and write to input dir.
+        try:
+            with open(input_file_path, "w") as file:
+                for row in parser.parse(file_content):
+                    if row[0] == "#":
+                        file.write(row + "\n")
+                    else:
+                        file.write(
+                            ",".join([str(e) for e in row if e is not None]) + "\n"
+                        )
+        except FileValidationError as e:
+            os.remove(input_file_path)
+            raise ValueError(f"Invalid file content: {e}")
+
+        return base_file_name, parser.get_file_information()
 
     def _get_column_data(self, name):
         if name == "logs":
