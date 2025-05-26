@@ -5,6 +5,7 @@ from logging.config import dictConfig
 
 import dash
 import dash_bootstrap_components as dbc
+from apscheduler.schedulers.background import BackgroundScheduler
 from dash import Dash, dcc, html
 
 from cosmopolitan_app.config import DEBUG
@@ -16,6 +17,7 @@ from cosmopolitan_app.error_handling import (
 )
 from cosmopolitan_app.files_route import serve_files
 from cosmopolitan_app.logger import get_logger_config_web
+from cosmopolitan_app.utils import clean_up
 
 logging.basicConfig(level=logging.DEBUG)
 # Initialize the Dash app
@@ -29,6 +31,9 @@ app = Dash(
 )
 
 dictConfig(get_logger_config_web(DEBUG))
+
+scheduler = BackgroundScheduler(daemon=True)
+scheduler.add_job(clean_up, "interval", hours=24)
 serve_files(app)
 register_error_modal(app)
 
@@ -57,15 +62,31 @@ nav_bar = html.Nav(
                         children=[
                             dbc.NavItem(
                                 dbc.NavLink(
-                                    "Input",
-                                    href=dash.page_registry["pages.input"][
+                                    "New Job",
+                                    href=dash.page_registry["pages.new_job"][
                                         "relative_path"
                                     ],
                                 )
-                            ),  # Update with appropriate link
+                            ),
                             dbc.NavItem(
                                 dbc.NavLink("Documentation", href="/documentation")
-                            ),  # Update with appropriate link
+                            ),
+                            dbc.NavItem(
+                                dbc.NavLink(
+                                    "Job Management",
+                                    href=dash.page_registry["pages.job_management"][
+                                        "relative_path"
+                                    ],
+                                )
+                            ),
+                            dbc.NavItem(
+                                dbc.NavLink(
+                                    "Logs",
+                                    href=dash.page_registry["pages.logs"][
+                                        "relative_path"
+                                    ],
+                                )
+                            ),
                         ],
                     ),
                     id="navbar-collapse",
@@ -123,4 +144,5 @@ app.layout = html.Div(
 
 
 if __name__ == "__main__":
+    scheduler.start()
     app.run(debug=True)

@@ -24,6 +24,8 @@ def getenv(name):
 DAYS_DELETE_SUMBITTED = 60
 # Number of days to keep an unsubmitted job entries in the database
 DAYS_DELETE_NOT_SUMBITTED = 2
+# Number of days to keep the logs
+LOG_RETENTION_DAYS = 60
 load_dotenv()
 
 # Needed for the test_env.py. Update!

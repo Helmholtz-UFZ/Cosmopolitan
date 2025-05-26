@@ -1,7 +1,6 @@
 """Dash form for the cosmopolitan job."""
 
 import logging
-import os
 import re
 from datetime import datetime
 from typing import Annotated, ClassVar, Dict, List, Literal, Tuple
@@ -13,7 +12,6 @@ from pydantic_core import PydanticCustomError
 from soil_moisture_prediction.input_data import stream_dic
 from soil_moisture_prediction.pydantic_models import InputParameters
 
-from cosmopolitan_app.config import JOB_WORK_DIR_TEMPLATE
 from cosmopolitan_app.postgres_manager import PostgresManager
 
 
@@ -51,9 +49,6 @@ def validate_job_id(job_id: str) -> str:
         raise ValueError(
             f"Job id must be between {min_job_id_length} and {max_job_id_length} characters"  # noqa
         )
-
-    input_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=job_id)
-    os.makedirs(input_dir, exist_ok=True)
     return job_id
 
 

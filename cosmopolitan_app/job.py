@@ -43,6 +43,7 @@ from cosmopolitan_app.postgres_manager import JobNotFound, JobTable, PostgresMan
 from cosmopolitan_app.pydantic_models import ModelWebsite, validate_job_id
 from cosmopolitan_app.utils import (
     InvalidJobID,
+    JobExists,
     send_finished_mail,
     send_submission_mail,
 )
@@ -114,10 +115,12 @@ class Job:
     version: str
     working_dir: str
     preview_area_filename_template: str = "preview_area_{position}.png"
+    original_file_prefix: str = "orginal_"
 
     def __init__(
         self,
         job_id=None,
+        new_job_id=None,
         model=None,
     ):
         """Init class either by id, by html form or make a new one."""
@@ -127,7 +130,7 @@ class Job:
         elif model is not None:
             self._init_from_model(model)
         else:
-            self._blank_job()
+            self._blank_job(new_job_id)
 
     def __str__(self):
         """Represent class as string."""
@@ -167,18 +170,24 @@ class Job:
         self.status = "PENDING"
         self.version = smp_version
         self.working_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=self.job_id)
+        shutil.rmtree(self.working_dir, ignore_errors=True)
         os.makedirs(self.working_dir, exist_ok=True)
+        self.preview_area()
         self.dump_parameters()
         self.save()
 
-    def _blank_job(self):
+    def _blank_job(self, new_job_id):
         """Create a new job with a new job id."""
         logging.info("Create new submission")
 
+        job_id = new_job_id if new_job_id else "_".join(generate(3))
+
         while True:
-            job_id = "_".join(generate(3))
             if not PostgresManager.check_existence(job_id):
                 break
+            if new_job_id is not None:
+                raise JobExists(job_id)
+            job_id = "_".join(generate(3))
 
         self.job_id = job_id
         self.model = ModelWebsite()
@@ -190,6 +199,7 @@ class Job:
         self.status = "PENDING"
         self.version = smp_version
         self.working_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=self.job_id)
+        shutil.rmtree(self.working_dir, ignore_errors=True)
         os.makedirs(self.working_dir, exist_ok=True)
         self.preview_area()
         self.dump_parameters()
@@ -239,7 +249,7 @@ class Job:
             staticmaps.Area(
                 [staticmaps.create_latlng(lat, lng) for lat, lng in bbox],
                 fill_color=staticmaps.parse_color("#00FF003F"),
-                width=2,
+                width=3,
                 color=staticmaps.BLUE,
             )
         )
@@ -311,7 +321,7 @@ class Job:
         predictors_upload = {}
         for file_name in os.listdir(self.working_dir):
             logging.debug(f"File {file_name}")
-            if file_name.startswith("orginal_crn_"):
+            if file_name.startswith(f"{self.original_file_prefix}_crn_"):
                 logging.debug(f"Parse file {file_name}")
                 file_path = os.path.join(self.working_dir, file_name)
                 with open(file_path, "r") as file:
@@ -319,7 +329,7 @@ class Job:
                         file_name, file, "crn", upload=False
                     )
                 crns_upload[file_name] = file_info
-            elif file_name.startswith("orginal_pred_"):
+            elif file_name.startswith(f"{self.original_file_prefix}_pred_"):
                 logging.debug(f"Parse file {file_name}")
                 file_path = os.path.join(self.working_dir, file_name)
                 with open(file_path, "r") as file:
@@ -338,19 +348,21 @@ class Job:
         if upload:
             # Set the geometry to infinity to not restrict the area
             geometry = RectGeom(
-                [-float("inf"), float("inf"), -float("inf"), float("inf"), 0],
+                xi=-float("inf"),
+                xf=float("inf"),
+                yi=-float("inf"),
+                yf=float("inf"),
+                resolution=0,
                 build_grid=False,
             )
         else:
             # Set the geometry to the area of the model
             geometry = RectGeom(
-                [
-                    self.model.area_x1,
-                    self.model.area_x2,
-                    self.model.area_y1,
-                    self.model.area_y2,
-                    0,
-                ],
+                xi=self.model.area_x1,
+                xf=self.model.area_x2,
+                yi=self.model.area_y1,
+                yf=self.model.area_y2,
+                resolution=0,
                 build_grid=False,
             )
 
@@ -362,14 +374,19 @@ class Job:
             raise ValueError(f"Invalid input type: {input_type}")
 
         base_file_name = secure_filename(file_name)
-        prefixes = ["crn_", "orginal_crn_", "pred_", "orginal_pred_"]
+        prefixes = [
+            "crn_",
+            f"{self.original_file_prefix}_crn_",
+            "pred_",
+            f"{self.original_file_prefix}_pred_",
+        ]
         for prefix in prefixes:
             if base_file_name.startswith(prefix):
                 base_file_name = base_file_name[len(prefix) :]  # noqa
         base_file_name = f"{input_type}_{base_file_name}"
 
         if upload:
-            new_filename = f"orginal_{base_file_name}"
+            new_filename = f"{self.original_file_prefix}_{base_file_name}"
         else:
             new_filename = base_file_name
 
@@ -405,16 +422,22 @@ class Job:
     def _get_column_data(self, name):
         if name == "logs":
             log_file = os.path.join(self.working_dir, LOG_FILE_NAME)
-            if os.path.isfile(log_file):
-                with open(
-                    os.path.join(self.working_dir, LOG_FILE_NAME), "r"
-                ) as f_handle:
+            try:
+                with open(log_file, "r") as f_handle:
                     return f_handle.read()
+            # Catch error log file can be deleted by other process (change input from
+            # submission page)
+            except FileNotFoundError:
+                return ""
 
         if name == "input_data":
             return json.dumps(self.model.dict())
 
         return getattr(self, name)
+
+    def reload_logs(self):
+        """Reload the logs from the log file."""
+        self.logs = self._get_column_data("logs")
 
     def save_attributes(self, attribute_list):
         """Save specicif job information to the database.
@@ -467,6 +490,7 @@ class Job:
     def submit(self):
         """Start job in a nother subprocess."""
         logging.info(f"Submit job {self.job_id}.")
+
         if PostgresManager.set_submitted(self.job_id):
             self.submitted = True
             self.status = "RUNNING"
@@ -479,6 +503,8 @@ class Job:
                 logging.error(f"Job {self.job_id} failed to start.\n{messsage}")
                 self.status = "FAILED"
             self.save()
+        else:
+            logging.debug(f"Job {self.job_id} was already submitted.")
 
     def time_to_life(self):
         """Return the number of days after which this job will be deleted."""
@@ -488,11 +514,24 @@ class Job:
         else:
             return DAYS_DELETE_NOT_SUMBITTED - days_passed
 
-    def copy_output_files(self, parent_work_dir):
-        """Copy output files of the job to the working directory of the job."""
-        logging.info(f"Remove output files of job {self.job_id}.")
+    def status_color(self):
+        """Return the color of the job status."""
+        if self.status == "PENDING":
+            return "bg-info"
+        elif self.status == "RUNNING":
+            return "bg-secondary"
+        elif self.status == "COMPLETED":
+            return "bg-success"
+        elif self.status == "FAILED":
+            return "bg-danger"
+        else:
+            return "bg-secondary"
+
+    def copy_input_files(self, parent_work_dir):
+        """Copy input files of the parent job to the working directory of the job."""
+        logging.info(f"Copy input files from parent for job {self.job_id}.")
         for file in os.listdir(parent_work_dir):
-            if file.startswith(("crn_", "pred_")):
+            if file.startswith(self.original_file_prefix):
                 source_path = os.path.join(parent_work_dir, file)
                 target_path = os.path.join(self.working_dir, file)
                 shutil.copy(source_path, target_path)
@@ -509,6 +548,30 @@ class Job:
             i += 1
 
         new_job = Job(model=new_model)
-        new_job.copy_output_files(self.working_dir)
+        new_job.copy_input_files(self.working_dir)
         new_job.save()
         return new_job
+
+    def clean_work_dir(self):
+        """Clean the working directory."""
+        logging.info(f"Clean work dir {self.working_dir}")
+
+        for file in os.listdir(self.working_dir):
+            if file.startswith(self.original_file_prefix):
+                continue
+            os.remove(os.path.join(self.working_dir, file))
+        delete_from_bucket(self.job_id)
+
+        self.preview_area()
+        self.dump_parameters()
+
+        self.save()
+
+    def delete_logs(self):
+        """Delete the logs."""
+        logging.info(f"Delete logs of job {self.job_id}")
+        log_file = os.path.join(self.working_dir, LOG_FILE_NAME)
+        if os.path.isfile(log_file):
+            os.remove(log_file)
+
+        delete_from_bucket(f"{self.job_id}/{LOG_FILE_NAME}")

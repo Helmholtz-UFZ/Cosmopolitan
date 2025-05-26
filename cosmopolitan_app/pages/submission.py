@@ -2,10 +2,11 @@
 
 import logging
 import os
+import re
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import Input, Output, State, callback, html
+from dash import Input, Output, State, callback, callback_context, dcc, html
 from flask import url_for
 
 from cosmopolitan_app.form_factory import (
@@ -23,6 +24,76 @@ dash.register_page(
 )
 
 
+status_button_config = {
+    "PENDING": {
+        "disabled_submit": False,
+        "disabled_change_input": False,
+        "disabled_spawn": True,
+        "disabled_result": True,
+    },
+    "RUNNING": {
+        "disabled_submit": True,
+        "disabled_change_input": True,
+        "disabled_spawn": True,
+        "disabled_result": True,
+    },
+    "FAILED": {
+        "disabled_submit": False,
+        "disabled_change_input": False,
+        "disabled_spawn": True,
+        "disabled_result": True,
+    },
+    "COMPLETED": {
+        "disabled_submit": True,
+        "disabled_change_input": True,
+        "disabled_spawn": False,
+        "disabled_result": False,
+    },
+}
+
+
+def swap_classes(new_class: str, class_name: str) -> str:
+    """Replace or add a class with the same prefix as new_class in a className string.
+
+    The prefix is automatically extracted from the new_class.
+
+    Parameters:
+    new_class (str): The new class to add (e.g., "bg-primary", "text-white")
+    class_name (str): The original className string
+
+    Returns:
+    str: The updated className string with the replaced class
+
+    Examples:
+    >>> swap_classes("bg-primary", "bg-info rounded-top py-2 mb-4")
+    'bg-primary rounded-top py-2 mb-4'
+    >>> swap_classes("text-danger", "bg-info text-dark py-2")
+    'bg-info text-danger py-2'
+    """
+    # Extract prefix from new_class
+    prefix_match = re.match(r"^([a-zA-Z0-9]+)-", new_class)
+    if not prefix_match:
+        raise ValueError(
+            f"New class '{new_class}' must have a prefix followed by a hyphen (e.g., 'bg-primary')"  # noqa
+        )
+
+    class_prefix = prefix_match.group(1)
+
+    # Pattern to match classes with the given prefix
+    class_pattern = rf"\b{class_prefix}-[a-zA-Z0-9]+"
+
+    # Check if a class with the given prefix exists
+    match = re.search(class_pattern, class_name)
+
+    if match:
+        # Replace existing class with the new one
+        updated_class_name = re.sub(class_pattern, new_class, class_name)
+        return updated_class_name
+    else:
+        # Add new class if none with the prefix exists
+        return f"{class_name} {new_class}"
+
+
 def wrap_button(button):
     """Wrap a button in a row and column for better layout."""
     return dbc.Row(
@@ -33,12 +104,44 @@ def wrap_button(button):
     )
 
 
-submit_button = dbc.Button("Submit", id="submit_button", color="primary")
-resubmit_button = dbc.Button("Resubmit", id="resubmit_button", color="primary")
-change_input_button = dbc.Button(
-    "Change input", id="change_input_button", color="primary"
-)
-spawn_button = dbc.Button("Spawn new job", id="spawn_button", color="primary")
+def create_button_set(status):
+    """Create a set of buttons based on the job status."""
+    disabled_submit = status_button_config[status]["disabled_submit"]
+    disabled_change_input = status_button_config[status]["disabled_change_input"]
+    disabled_spawn = status_button_config[status]["disabled_spawn"]
+    disabled_result = status_button_config[status]["disabled_result"]
+
+    submit_button = wrap_button(
+        dbc.Button(
+            "Submit", id="submit_button", color="primary", disabled=disabled_submit
+        )
+    )
+    change_input_button = wrap_button(
+        dbc.Button(
+            "Change input",
+            id="change_input_button",
+            color="primary",
+            disabled=disabled_change_input,
+        )
+    )
+    spawn_button = wrap_button(
+        dbc.Button(
+            "Spawn new job", id="spawn_button", color="primary", disabled=disabled_spawn
+        )
+    )
+    result_button = wrap_button(
+        dbc.Button(
+            "Result",
+            id="result_button",
+            color="primary",
+            disabled=disabled_result,
+        )
+    )
+    return [submit_button, change_input_button, spawn_button, result_button]
+
+
+deletion_information_template = "The job will be deleted after {time_to_life} days."
+status_information_template = "Status:\n {status}"
 
 
 def layout(job_id):
@@ -55,9 +158,9 @@ def layout(job_id):
             ]
         )
 
-    job.prepare_input_files()
-
-    header = create_header("Submission", job.job_id, bg_color=job.status)
+    header = create_header(
+        "Submission", job.job_id, bg_color=job.status_color(), id="submission_header"
+    )
     preview_path = job.get_preview_path()
     preview_file_name = os.path.basename(preview_path)
     preview_src = url_for("serve_file", job_id=job.job_id, filename=preview_file_name)
@@ -75,13 +178,24 @@ def layout(job_id):
     form_template = form_template_factory.generate_template()
     form_factory = FormFactory(job.model, form_template, active=False)
     form_layout = form_factory.generate_form()
-    print(job.logs)
+
+    icon_color = "icon-error" if job.status == "FAILED" else "icon-none"
+    if job.status == "PENDING":
+        active_item = "input_accordion"
+    else:
+        active_item = "logs_accordion"
+
+    accordion_item_style = {
+        "max-height": "70vh",
+        "overflow-y": "auto",
+    }
     accordion = dbc.Accordion(
         [
             dbc.AccordionItem(
                 form_layout,
                 title="Input",
                 item_id="input_accordion",
+                style=accordion_item_style,
             ),
             dbc.AccordionItem(
                 [
@@ -94,29 +208,41 @@ def layout(job_id):
                 ],
                 title=html.Span(
                     [
-                        html.I(className="bi bi-x-octagon-fill me-2"),
-                        "Item 1",
+                        "Logs",
+                        html.I(
+                            className=f"bi bi-x-octagon-fill ms-2 {icon_color}",
+                            id="submission_icon",
+                        ),
                     ]
                 ),
                 item_id="logs_accordion",
+                style=accordion_item_style,
             ),
         ],
         id="accordion",
+        active_item=active_item,
     )
 
     submission_layout = [
         accordion,
     ]
 
-    if job.status == "PENDING":
-        submission_layout += [
-            wrap_button(submit_button),
-            wrap_button(change_input_button),
-        ]
+    submission_layout += create_button_set(job.status)
 
     return [
+        dcc.Interval(id="interval", interval=2000, disabled=True),
         header,
-        html.Div(job.job_id, id="submission_job_id", style={"display": "none"}),
+        html.Div(
+            status_information_template.format(status=job.status),
+            id="submission_status",
+            className="text-center fs-4",
+            style={"white-space": "pre-line"},
+        ),
+        html.Div(
+            deletion_information_template.format(time_to_life=job.time_to_life()),
+            className="text-center fs-5 mb-2",
+            id="submission_time_to_life",
+        ),
         dbc.Row(
             dbc.Col(
                 submission_layout,
@@ -128,16 +254,87 @@ def layout(job_id):
 
 
 @callback(
+    Output("url", "pathname", allow_duplicate=True),
+    Output("logs", "children"),
+    Output("submission_header", "className"),
+    Output("interval", "disabled", allow_duplicate=True),
+    Output("submission_icon", "className"),
     Output("submit_button", "disabled"),
     Output("change_input_button", "disabled"),
+    Output("spawn_button", "disabled"),
+    Output("result_button", "disabled"),
+    Output("submission_status", "children"),
+    Output("submission_time_to_life", "children"),
     Output("accordion", "active_item"),
+    Input("interval", "n_intervals"),
     Input("submit_button", "n_clicks"),
-    State("submission_job_id", "children"),
+    Input("change_input_button", "n_clicks"),
+    Input("spawn_button", "n_clicks"),
+    Input("result_button", "n_clicks"),
+    State("url", "pathname"),
+    State("submission_header", "className"),
+    State("submission_icon", "className"),
     prevent_initial_call=True,
 )
-def submit_job(n_clicks, job_id):
-    """Submit the job."""
-    logging.info(f"Submit job {job_id}")
+def submission_manager(
+    n_intervals,
+    clicks_submit,
+    clicks_change_input,
+    clicks_spawn,
+    clicks_result,
+    path_name,
+    class_name_header,
+    class_name_icon,
+):
+    """Reload the logs."""
+    job_id = path_name.split("/")[-1]
+    logging.info(f"Submission manager for {job_id}")
+    triggered_id = callback_context.triggered[0]["prop_id"].split(".")[0]
+    num_outputs = len(dash.callback_context.outputs_list)
+    input_base_path = dash.page_registry["pages.input"]["path_template"]
+    logging.debug(f"Triggered id: {triggered_id}")
     job = Job(job_id)
-    job.submit()
-    return True, True, "logs_accordion"
+    if triggered_id == "submit_button":
+        job.delete_logs()
+        job.submit()
+    elif triggered_id == "change_input_button":
+        job.clean_work_dir()
+        input_path = input_base_path.replace("<job_id>", job.job_id)
+        return tuple([input_path] + [dash.no_update] * (num_outputs - 1))
+    elif triggered_id == "spawn_button":
+        new_job = job.spawn()
+        input_path = input_base_path.replace("<job_id>", new_job.job_id)
+        return tuple([input_path] + [dash.no_update] * (num_outputs - 1))
+    elif triggered_id == "result_button":
+        result_base_path = dash.page_registry["pages.results"]["path_template"]
+        result_path = result_base_path.replace("<job_id>", job.job_id)
+        return tuple([result_path] + [dash.no_update] * (num_outputs - 1))
+
+    job.reload_logs()
+    bg_color = job.status_color()
+    disable_interval = True if job.status != "RUNNING" else False
+    icon_color = "icon-error" if job.status == "FAILED" else "icon-none"
+    disabled_submit = status_button_config[job.status]["disabled_submit"]
+    disabled_change_input = status_button_config[job.status]["disabled_change_input"]
+    disabled_spawn = status_button_config[job.status]["disabled_spawn"]
+    disabled_result = status_button_config[job.status]["disabled_result"]
+    status_info = status_information_template.format(status=job.status)
+    time_to_life_info = deletion_information_template.format(
+        time_to_life=job.time_to_life()
+    )
+    active_item = "input_accordion" if job.status == "PENDING" else "logs_accordion"
+
+    return (
+        dash.no_update,
+        job.logs,
+        swap_classes(bg_color, class_name_header),
+        disable_interval,
+        swap_classes(icon_color, class_name_icon),
+        disabled_submit,
+        disabled_change_input,
+        disabled_spawn,
+        disabled_result,
+        status_info,
+        time_to_life_info,
+        active_item,
+    )

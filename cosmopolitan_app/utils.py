@@ -6,7 +6,7 @@ import shutil
 import smtplib
 import traceback
 import zipfile
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from io import BytesIO
@@ -23,6 +23,7 @@ from cosmopolitan_app.config import (
     EMAIL_SENDER,
     EMAIL_SERVER,
     EMAIL_USERNAME,
+    LOG_RETENTION_DAYS,
     WEB_WORK_DIR,
 )
 from cosmopolitan_app.minio_manager import MinioError
@@ -75,21 +76,38 @@ def lock_task(task):
 def clean_up():
     """Delete jobs older than a day and older than two months and their directories."""
     logging.info("Start cleaning up.")
+    clean_up_jobs()
+
+    log_cutoff = datetime.now() - timedelta(days=LOG_RETENTION_DAYS)
+    logging.info(f"Cleaning up logs older than {log_cutoff}")
+    PostgresManager.delete_logs_older_than(log_cutoff)
+
+
+def clean_up_jobs(
+    days_delete_not_submitted=DAYS_DELETE_NOT_SUMBITTED,
+    days_delete_submitted=DAYS_DELETE_SUMBITTED,
+):
+    """Delete jobs depending on their status and age."""
+    logging.info("Start cleaning up jobs.")
     kept_jobs = []
 
     # Define the time thresholds
     job_end_of_life_not_submitted = date.today() - timedelta(
-        days=DAYS_DELETE_NOT_SUMBITTED
+        days=days_delete_not_submitted
     )
-    job_end_of_life_submitted = date.today() - timedelta(days=DAYS_DELETE_SUMBITTED)
+    job_end_of_life_submitted = date.today() - timedelta(days=days_delete_submitted)
 
-    for job_id, (start_date, submitted) in PostgresManager.list_jobs().items():
+    for job_id, job_info in PostgresManager.list_jobs().items():
+        submitted = job_info["submitted"]
+        start_date = job_info["start_date"]
         logging.debug(f"Check job {job_id}.")
-        if not submitted and start_date < job_end_of_life_not_submitted:
-            logging.debug("Job was not submit and is older than two days.")
+        if not submitted and start_date <= job_end_of_life_not_submitted:
+            logging.debug(
+                f"Job was not submit and is older than {days_delete_not_submitted} days."  # noqa
+            )
             PostgresManager.delete_job(job_id)
-        elif start_date < job_end_of_life_submitted:
-            logging.debug("Job older than two month.")
+        elif start_date <= job_end_of_life_submitted:
+            logging.debug(f"Job older than {days_delete_submitted} days.")
             PostgresManager.delete_job(job_id)
         else:
             logging.debug("Job will be kept.")
@@ -202,7 +220,7 @@ def log_error():
 
     error = traceback.format_exc()
     content = (
-        f"Unexpected error in { route } using { route_function }:\n"
+        f"Unexpected error in {route} using {route_function}:\n"
         f"{error}\n"
         f"PID={os.getpid()}\n"
     )
@@ -242,7 +260,7 @@ def send_finished_mail(job):
     ) as f_handle:
         content = f_handle.read().format(job_id=job.job_id, url=url, status=job.status)
 
-    send_mail(job.model.email, f'Job "{ job.job_id }" finished', content)
+    send_mail(job.model.email, f'Job "{job.job_id}" finished', content)
     job.notified_end = True
     job.save_attributes(["notified_end"])
 
@@ -257,7 +275,7 @@ def send_submission_mail(job):
         "cosmopolitan_app/templates/submission_email.txt", "r", encoding="UTF-8"
     ) as f_handle:
         content = f_handle.read().format(job_id=job.job_id, url=url)
-    send_mail(job.model.email, f'Job "{ job.job_id }" submitted', content)
+    send_mail(job.model.email, f'Job "{job.job_id}" submitted', content)
 
 
 class InvalidJobID(Exception):
@@ -267,6 +285,15 @@ class InvalidJobID(Exception):
         """Add job id as attribute and format error message."""
         self.job_id = job_id
         super().__init__(f"{job_id} is not a valid job_id.")
+
+
+class JobExists(Exception):
+    """Raised by Job if a new job is created with an existing job id."""
+
+    def __init__(self, job_id):
+        """Add job id as attribute and format error message."""
+        self.job_id = job_id
+        super().__init__(f"{job_id} already exists.")
 
 
 class SubmittedException(Exception):

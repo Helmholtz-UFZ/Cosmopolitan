@@ -6,8 +6,9 @@ import traceback
 
 import dash
 import dash_bootstrap_components as dbc
+import psycopg2
 from dash import Input, Output, callback, set_props
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import DatabaseError, OperationalError
 from werkzeug.exceptions import NotFound
 
 from cosmopolitan_app.minio_manager import MinioError
@@ -50,10 +51,20 @@ class NotFinishedException(Exception):
         super().__init__(f"The job {job_id} is not yet finished.")
 
 
+database_error_title = "Database Connection Error"
+database_error_message = "Unfortunately, it is not possible to connect to the job database. Please try again later."  # noqa
 error_responds_dict = {
+    psycopg2.DatabaseError: (
+        database_error_title,
+        database_error_message,
+    ),
+    DatabaseError: (
+        database_error_title,
+        database_error_message,
+    ),
     OperationalError: (
-        "Database Connection Error",
-        "Unfortunately, it is not possible to connect to the job database. Please try again later.",  # noqa
+        database_error_title,
+        database_error_message,
     ),
     MinioError: (
         "Database Connection Error",

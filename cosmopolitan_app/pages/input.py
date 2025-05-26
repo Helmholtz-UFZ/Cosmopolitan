@@ -5,7 +5,7 @@ import os
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import Input, Output, callback, callback_context
+from dash import Input, Output, callback, callback_context, html
 from dash.exceptions import PreventUpdate
 from flask import url_for
 
@@ -18,17 +18,46 @@ from cosmopolitan_app.job import Job
 from cosmopolitan_app.layouts import create_header
 from cosmopolitan_app.pydantic_models import ModelWebsite
 
-dash.register_page(__name__)
+dash.register_page(
+    __name__,
+    path_template="/input/<job_id>",
+)
 
 form_template_factory = FormTemplateFactory(active=True)
 form_template = form_template_factory.generate_template()
 form_factory = FormFactory(ModelWebsite, form_template)
 
 
-def layout():
+def layout(job_id):
     """Layout for the input page."""
-    logging.info("Create input page")
-    job = Job()
+    logging.info(f"Create input page for job_id: {job_id}")
+    job = Job(job_id=job_id)
+    if job.status not in ["PENDING", "FAILED"]:
+        if job.status == "RUNNING":
+            header_mes = "Job is running. You can only spawn a new job."
+        elif job.status == "COMPLETED":
+            header_mes = "Job is completed. You can only spawn a new job."
+        header = create_header(
+            "Input",
+            header_mes,
+            bg_color="bg-danger",
+        )
+        base_path_submission = dash.page_registry["pages.input"]["path_template"]
+        submission_path = base_path_submission.replace("<job_id>", str(job_id))
+        return [
+            header,
+            dbc.Row(
+                dbc.Col(
+                    [
+                        html.Div(
+                            "You can find more information about your job in the submission page.",  # noqa
+                        ),
+                        html.A("Submission page", href=submission_path),
+                    ],
+                    className="col-11 col-xl-8 mx-auto",
+                )
+            ),
+        ]
 
     preview_path = job.get_preview_path()
     preview_file_name = os.path.basename(preview_path)
@@ -45,6 +74,7 @@ def layout():
     header = create_header(
         "Input",
         "Define new input",
+        bg_color="bg-info",
     )
 
     return [
@@ -175,9 +205,12 @@ def form_manager(**state):
         logging.debug("Submit button clicked")
         job = Job(model=form_factory.pymodel)
         job.prepare_input_files()
-        output_dict["redirect"] = f"/submission/{job.job_id}"
+        submission_base_path = dash.page_registry["pages.submission"]["path_template"]
+        output_dict["redirect"] = submission_base_path.replace(
+            "<job_id>", str(job.job_id)
+        )
     else:
-        output_dict["rerirect"] = dash.no_update
+        output_dict["redirect"] = dash.no_update
 
     output_dict["selected_predictors"] = construct_selected_input(
         form_factory.pymodel, "predictor_upload"

@@ -66,7 +66,7 @@ def create_navbar(page_registry):
     )
 
 
-def create_header(title, subtitle, bg_color="bg-info"):
+def create_header(title, subtitle, bg_color="bg-info", id=""):
     """Create a header layout."""
     layout = html.Div(
         className=f"{bg_color} rounded-top py-2",
@@ -74,6 +74,7 @@ def create_header(title, subtitle, bg_color="bg-info"):
             html.H2(title, className="text-center"),
             html.H3(subtitle, className="text-center") if subtitle != "" else None,
         ],
+        id=id,
     )
 
     return layout

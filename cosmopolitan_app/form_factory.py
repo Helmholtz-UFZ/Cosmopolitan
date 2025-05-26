@@ -413,7 +413,6 @@ class FormFactory:
                 except KeyError:
                     pass
 
-        print(f"Model dict: {model_dict}")
         self.pymodel = ModelWebsite(**model_dict)
 
     def get_file_content(
