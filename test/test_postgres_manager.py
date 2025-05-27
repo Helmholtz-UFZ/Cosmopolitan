@@ -20,7 +20,6 @@ def test_postgres_manager():
         "start_date": datetime.date(2024, 3, 12),
         "input_data": {"param1": 10, "param2": "value"},
         "submitted": True,
-        "email": "example@example.com",
         "notified_end": False,
         "logs": "Some log information",
         "status": "completed",

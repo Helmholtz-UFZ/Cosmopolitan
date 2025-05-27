@@ -7,7 +7,6 @@ import socket
 import subprocess
 
 import pytest
-from flask import Flask
 from sqlalchemy.exc import OperationalError
 
 from cosmopolitan_app.config import EMAIL_PASSWORD, MINIO_ALIAS, POSTGRES_PASSWORD
@@ -60,18 +59,6 @@ except OperationalError:
 # Save the current .env file
 if os.path.exists(".env"):
     shutil.copyfile(".env", "env_test_backup")
-
-
-@pytest.fixture(scope="session")
-def app():
-    """Create a minimal Flask app for the context of CosmopolitanJobForm."""
-    app = Flask(__name__)
-    app.config["SERVER_NAME"] = "localhost"
-
-    with app.app_context():
-        import cosmopolitan_app.routes  # noqa
-
-    yield app
 
 
 @pytest.fixture

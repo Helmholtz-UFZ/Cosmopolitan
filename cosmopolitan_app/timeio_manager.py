@@ -78,7 +78,7 @@ class TimeIOManager:
         while query:
             try:
                 start_time = datetime.now()
-                response = requests.get(query, timeout=60)
+                response = requests.get(query, timeout=240)
                 response.raise_for_status()
                 data = response.json()
                 logging.debug(f"Request took {datetime.now() - start_time}")

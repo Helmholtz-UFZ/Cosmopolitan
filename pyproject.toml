@@ -17,7 +17,7 @@ cfgv = "^3.4.0"
 charset-normalizer = "^3.3.2"
 click = "^8.1.7"
 coolname = "^2.2.0"
-dash = "^3.0.4"
+dash = {extras = ["testing"], version = "^3.0.4"}
 dash-bootstrap-components = "^2.0.2"
 dash-core-components = "^2.0.0"
 dash-dangerously-set-inner-html = "^0.0.2"
