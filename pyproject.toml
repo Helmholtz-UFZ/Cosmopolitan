@@ -26,6 +26,12 @@ coolname = "^2.2.0"
 pyproj = "^3.7.1"
 email-validator = "^2.2.0"
 
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.0"
+black = "^25.1.0"
+isort = "^6.0.1"
+flake8 = "^7.2.0"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
