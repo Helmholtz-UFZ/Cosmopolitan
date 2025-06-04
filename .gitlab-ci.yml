@@ -77,9 +77,14 @@ test:
 
     # Install ChromeDriver
     - CHROME_VERSION=$(google-chrome-stable --version | grep -oP '\d+\.\d+\.\d+' | head -1)
-    - CHROMEDRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_${CHROME_VERSION}" || curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE")
-    - wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip"
-    - unzip /tmp/chromedriver.zip -d /usr/local/bin
+    - CHROMEDRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json" | python3 -c "import sys, json; print(json.load(sys.stdin)['channels']['Stable']['version'])")
+
+    # Download ChromeDriver zip from the new location
+    - CHROMEDRIVER_BASE_URL="https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing"
+    - CHROMEDRIVER_ZIP_URL="${CHROMEDRIVER_BASE_URL}/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip"
+    - wget -O /tmp/chromedriver.zip "$CHROMEDRIVER_ZIP_URL"
+    - unzip /tmp/chromedriver.zip -d /tmp/
+    - mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver
     - chmod +x /usr/local/bin/chromedriver
     - "curl https://dl.min.io/client/mc/release/linux-amd64/mc --create-dirs -o /usr/local/bin/mc"
     - "chmod +x /usr/local/bin/mc"
