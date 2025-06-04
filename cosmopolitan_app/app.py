@@ -9,12 +9,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from dash import Dash, dcc, html
 
 from cosmopolitan_app.config import DEBUG
-from cosmopolitan_app.error_handling import (
-    error_modal,
-    error_toast,
-    handle_error,
-    register_error_modal,
-)
+from cosmopolitan_app.error_handling import error_modal, handle_error
 from cosmopolitan_app.files_route import serve_files
 from cosmopolitan_app.layouts import create_navbar, register_navbar_callbacks
 from cosmopolitan_app.logger import get_logger_config_web
@@ -36,7 +31,6 @@ dictConfig(get_logger_config_web(DEBUG))
 scheduler = BackgroundScheduler(daemon=True)
 scheduler.add_job(clean_up, "interval", hours=24)
 serve_files(app)
-register_error_modal(app)
 
 nav_bar = create_navbar(dash.page_registry)
 register_navbar_callbacks(app)
@@ -65,7 +59,6 @@ app.layout = html.Div(
     children=[
         dcc.Location(id="url", refresh=True),
         error_modal,
-        error_toast,
         nav_bar,
         content,
     ],

@@ -150,6 +150,7 @@ def form_manager(**state):
     triggered_id = callback_context.triggered[0]["prop_id"].split(".")[0]
     logging.debug(f"Triggered id: {triggered_id}")
     if triggered_id == active_form_factory.get_id_delete_button("crns_upload"):
+        raise ValueError
         logging.debug("Delete CRNS button clicked")
         job.delete_input_files("crn")
         active_form_factory.set_file_information(state, {}, "crns_upload")

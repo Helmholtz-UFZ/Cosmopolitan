@@ -3,6 +3,7 @@ DOCKER_UID=1000
 DOCKER_GID=1000
 FLASK_DEBUG=1
 GUNICORN=0
+MAINTAINER_EMAIL="test@test.de"
 
 ###  Webserver ###
 WEB_WORK_DIR="./cosmopolitan_app/work_dir"

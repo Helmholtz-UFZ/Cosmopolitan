@@ -7,12 +7,14 @@ import traceback
 import dash
 import dash_bootstrap_components as dbc
 import psycopg2
-from dash import Input, Output, callback, set_props
+from dash import set_props
 from sqlalchemy.exc import DatabaseError, OperationalError
 from werkzeug.exceptions import NotFound
 
+from cosmopolitan_app.config import MAINTAINER_EMAIL
 from cosmopolitan_app.minio_manager import MinioError
 from cosmopolitan_app.postgres_manager import JobNotFound
+from cosmopolitan_app.utils import send_mail
 
 
 class InvalidJobID(Exception):
@@ -102,46 +104,11 @@ error_modal = dbc.Modal(
             className="bg-light",
         ),
         dbc.ModalBody(id="error-message", className="text-danger bg-light"),
-        dbc.ModalFooter(
-            dbc.Button(
-                "Close",
-                id="close-error",
-                color="danger",
-                className="ms-auto",
-                n_clicks=0,
-            ),
-            className="bg-light",
-        ),
+        dbc.ModalFooter(className="bg-light"),
     ],
     id="error-modal",
     is_open=False,
-    backdrop="static",  # Prevent closing by clicking outside
 )
-error_toast = dbc.Toast(
-    id="error-toast",
-    header="",
-    is_open=False,
-    dismissable=False,
-    icon="danger",
-    # top: 66 positions the toast below the navbar
-    style={"position": "fixed", "top": 82, "right": 10, "width": 200},
-    body_style={"display": "none"},
-)
-
-
-def register_error_modal(app):
-    """Register the error modal with the app."""
-
-    @callback(
-        Output("error-modal", "is_open", allow_duplicate=True),
-        Input("close-error", "n_clicks"),
-        prevent_initial_call=True,
-    )
-    def toggle_modal(n_clicks):
-        """Toggle the error modal."""
-        if n_clicks:
-            return False
-        return False
 
 
 def handle_error(error):
@@ -155,13 +122,17 @@ def handle_error(error):
     Input info: {json.dumps(callback_context.triggered)}
     """
     logging.debug(f"Send email: {email_subject}\n{email_body}")
+    send_mail(
+        subject=email_subject,
+        body=email_body,
+        recipients=MAINTAINER_EMAIL,
+    )
     error_title = error_responds_dict.get(type(error), error_responds_dict[Exception])[
         0
     ]
     error_message = error_responds_dict.get(
         type(error), error_responds_dict[Exception]
     )[1]
-    set_props("error-toast", {"is_open": True, "header": error_title})
     set_props("error-modal", {"is_open": True})
     set_props("error-title", {"children": error_title})
     set_props("error-message", {"children": error_message})
