@@ -46,7 +46,7 @@ test:
   stage: "test"
   image: "python:3.11"
   services:
-    - name: postgis:latest
+    - name: postgis/postgis:latest
       alias: postgres
     - name: "mailhog/mailhog:latest"
       alias: mailhog
