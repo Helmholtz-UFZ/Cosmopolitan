@@ -41,10 +41,9 @@ def layout():
     date_selector = [
         html.Label("Select Date Range"),
         html.Br(),
-        dcc.DatePickerRange(
+        dcc.DatePickerSingle(
             id="log-date-range",
-            start_date=datetime.date.today() - datetime.timedelta(days=1),
-            end_date=datetime.date.today(),
+            date=datetime.date.today(),
         ),
     ]
 
@@ -159,8 +158,7 @@ def layout():
     Output("log-pid", "disabled"),
     Output("time-error", "children"),
     Output("time-input-group", "className"),
-    Input("log-date-range", "start_date"),
-    Input("log-date-range", "end_date"),
+    Input("log-date-range", "date"),
     Input("start-hour", "value"),
     Input("start-minute", "value"),
     Input("end-hour", "value"),
@@ -169,7 +167,7 @@ def layout():
     Input("pid-radio", "value"),
     Input("log-pid", "value"),
 )
-def log_manager(start_date, end_date, sh, sm, eh, em, levels, pid_radio, pid):
+def log_manager(date, sh, sm, eh, em, levels, pid_radio, pid):
     """Manage and display logs based on user input."""
     if pid_radio != ["on"]:
         pid = "all"
@@ -187,7 +185,7 @@ def log_manager(start_date, end_date, sh, sm, eh, em, levels, pid_radio, pid):
 
     if pid == "all":
         pid = None
-    logs = PostgresManager.query_logs(start_date, end_date, sh, sm, eh, em, levels, pid)
+    logs = PostgresManager.query_logs(date, sh, sm, eh, em, levels, pid)
     if not logs:
         return "No logs found for the selected criteria.", disabled_pid, "", ""
 

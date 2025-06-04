@@ -31,12 +31,8 @@ from soil_moisture_prediction.input_file_parser import (
 from soil_moisture_prediction.smp_cli import main
 from werkzeug.utils import secure_filename
 
-from cosmopolitan_app.config import (
-    DAYS_DELETE_NOT_SUMBITTED,
-    DAYS_DELETE_SUMBITTED,
-    DEBUG,
-    JOB_WORK_DIR_TEMPLATE,
-)
+from cosmopolitan_app.config import DEBUG, JOB_WORK_DIR_TEMPLATE
+from cosmopolitan_app.constants import DAYS_DELETE_NOT_SUMBITTED, DAYS_DELETE_SUMBITTED
 from cosmopolitan_app.logger import get_logger_config_compuation, get_logger_config_web
 from cosmopolitan_app.minio_manager import delete_from_bucket, sync_workdir
 from cosmopolitan_app.postgres_manager import JobNotFound, JobTable, PostgresManager
@@ -115,7 +111,7 @@ class Job:
     version: str
     working_dir: str
     preview_area_filename_template: str = "preview_area_{position}.png"
-    original_file_prefix: str = "orginal_"
+    original_file_prefix: str = "orginal"
 
     def __init__(
         self,
@@ -210,7 +206,14 @@ class Job:
         with open(
             os.path.join(self.working_dir, "parameters.json"), "w", encoding="UTF-8"
         ) as f_handle:
-            json.dump(self.model.dict(), f_handle, indent=4)
+            f_handle.write(
+                self.model.model_dump_json(
+                    indent=4,
+                    exclude_unset=False,
+                    exclude_none=True,
+                    exclude_defaults=False,
+                )
+            )
 
     def preview_area(self, draw_preview: bool = True):
         """Draw a preview of the area."""
@@ -362,7 +365,7 @@ class Job:
                 xf=self.model.area_x2,
                 yi=self.model.area_y1,
                 yf=self.model.area_y2,
-                resolution=0,
+                resolution=self.model.area_resolution,
                 build_grid=False,
             )
 
@@ -417,7 +420,11 @@ class Job:
             os.remove(input_file_path)
             raise ValueError(f"Invalid file content: {e}")
 
-        return base_file_name, parser.get_file_information()
+        file_information = parser.get_file_information()
+        if input_type == "pred":
+            file_information["file_path"] = base_file_name
+
+        return base_file_name, file_information
 
     def _get_column_data(self, name):
         if name == "logs":
@@ -431,7 +438,12 @@ class Job:
                 return ""
 
         if name == "input_data":
-            return json.dumps(self.model.dict())
+            return self.model.model_dump_json(
+                indent=4,
+                exclude_unset=False,
+                exclude_none=True,
+                exclude_defaults=False,
+            )
 
         return getattr(self, name)
 

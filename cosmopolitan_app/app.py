@@ -16,6 +16,7 @@ from cosmopolitan_app.error_handling import (
     register_error_modal,
 )
 from cosmopolitan_app.files_route import serve_files
+from cosmopolitan_app.layouts import create_navbar, register_navbar_callbacks
 from cosmopolitan_app.logger import get_logger_config_web
 from cosmopolitan_app.utils import clean_up
 
@@ -37,80 +38,8 @@ scheduler.add_job(clean_up, "interval", hours=24)
 serve_files(app)
 register_error_modal(app)
 
-nav_bar = html.Nav(
-    className="navbar navbar-expand-lg sticky-top navbar-dark bg-primary",
-    children=[
-        dbc.Container(
-            children=[
-                dbc.NavbarBrand(
-                    href=dash.page_registry["pages.home"]["relative_path"],
-                    children=[
-                        html.Img(
-                            src="/static/icon_white.svg",
-                            width="30",
-                            height="30",
-                            className="d-inline-block align-text-top",
-                            alt="Cosmopolitan Icon",
-                        ),
-                        " Cosmopolitan",
-                    ],
-                ),
-                dbc.NavbarToggler(id="navbar-toggler"),
-                dbc.Collapse(
-                    dbc.Nav(
-                        className="navbar-nav me-auto mb-2 mb-lg-0",
-                        children=[
-                            dbc.NavItem(
-                                dbc.NavLink(
-                                    "New Job",
-                                    href=dash.page_registry["pages.new_job"][
-                                        "relative_path"
-                                    ],
-                                )
-                            ),
-                            dbc.NavItem(
-                                dbc.NavLink("Documentation", href="/documentation")
-                            ),
-                            dbc.NavItem(
-                                dbc.NavLink(
-                                    "Job Management",
-                                    href=dash.page_registry["pages.job_management"][
-                                        "relative_path"
-                                    ],
-                                )
-                            ),
-                            dbc.NavItem(
-                                dbc.NavLink(
-                                    "Logs",
-                                    href=dash.page_registry["pages.logs"][
-                                        "relative_path"
-                                    ],
-                                )
-                            ),
-                        ],
-                    ),
-                    id="navbar-collapse",
-                    navbar=True,
-                ),
-                dbc.Form(
-                    className="d-flex",
-                    action="/search_submission",  # Update with appropriate endpoint
-                    method="post",
-                    children=[
-                        dbc.Input(
-                            className="form-control me-2",
-                            size=40,
-                            name="job_id",
-                            type="search",
-                            placeholder="job_id",
-                        ),
-                        dbc.Button("Search", color="success", type="submit"),
-                    ],
-                ),
-            ]
-        )
-    ],
-)
+nav_bar = create_navbar(dash.page_registry)
+register_navbar_callbacks(app)
 
 # Content layout
 class_names_content = (

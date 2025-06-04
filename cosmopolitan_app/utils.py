@@ -16,15 +16,17 @@ from sqlalchemy.exc import OperationalError
 from werkzeug.exceptions import NotFound
 
 from cosmopolitan_app.config import (
-    DAYS_DELETE_NOT_SUMBITTED,
-    DAYS_DELETE_SUMBITTED,
     EMAIL_PASSWORD,
     EMAIL_PORT,
     EMAIL_SENDER,
     EMAIL_SERVER,
     EMAIL_USERNAME,
-    LOG_RETENTION_DAYS,
     WEB_WORK_DIR,
+)
+from cosmopolitan_app.constants import (
+    DAYS_DELETE_NOT_SUMBITTED,
+    DAYS_DELETE_SUMBITTED,
+    LOG_RETENTION_DAYS,
 )
 from cosmopolitan_app.minio_manager import MinioError
 from cosmopolitan_app.postgres_manager import JobNotFound, PostgresManager

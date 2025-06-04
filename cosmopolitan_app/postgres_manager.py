@@ -135,15 +135,13 @@ class PostgresManager:
                 session.close()
 
     @classmethod
-    def query_logs(cls, start_date, end_date, sh, sm, eh, em, levels, pid=None):
+    def query_logs(cls, date, sh, sm, eh, em, levels, pid=None):
         """Query logs from the database with specified filters.
 
         Parameters:
         -----------
-        start_date : str
-            Start date in the format 'YYYY-MM-DD'
-        end_date : str
-            End date in the format 'YYYY-MM-DD'
+        date : str
+            Date in the format 'YYYY-MM-DD'
         sh : int
             Start hour (0-23)
         sm : int
@@ -162,18 +160,14 @@ class PostgresManager:
         list
             List of dictionaries containing log records
         """
-        logging.debug(
-            f"Querying logs from {start_date} {sh}:{sm} to {end_date} {eh}:{em}"
-        )
+        # logging.debug(f"Querying logs from {date} {sh}:{sm} to {date} {eh}:{em}")
 
-        # Parse dates and times to create datetime objects
         start_datetime = datetime.strptime(
-            f"{start_date} {sh:02d}:{sm:02d}:00", "%Y-%m-%d %H:%M:%S"
+            f"{date} {sh:02d}:{sm:02d}:00", "%Y-%m-%d %H:%M:%S"
         )
         end_datetime = datetime.strptime(
-            f"{end_date} {eh:02d}:{em:02d}:59", "%Y-%m-%d %H:%M:%S"
+            f"{date} {eh:02d}:{em:02d}:59", "%Y-%m-%d %H:%M:%S"
         )
-        print(start_datetime, end_datetime)
 
         with cls.session_scope() as session:
             query = session.query(LogTable).filter(
@@ -535,7 +529,7 @@ class LogTable(Base):
     __tablename__ = "logs"
 
     id = Column(Integer, primary_key=True)
-    timestamp = Column(DateTime(timezone=True), nullable=False)
+    timestamp = Column(DateTime(timezone=False), nullable=False)
     pid = Column(Integer, nullable=False)
     level = Column(String(10), nullable=False)
     module = Column(String(50), nullable=False)

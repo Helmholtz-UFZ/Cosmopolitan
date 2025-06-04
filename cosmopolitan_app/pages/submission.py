@@ -9,6 +9,12 @@ import dash_bootstrap_components as dbc
 from dash import Input, Output, State, callback, callback_context, dcc, html
 from flask import url_for
 
+from cosmopolitan_app.constants import (
+    JOB_LOGS_ID,
+    RESULT_BUTTON_ID,
+    SUBMISSION_STATUS_ID,
+    SUBMIT_JOB_ID,
+)
 from cosmopolitan_app.form_factory import (
     FormFactory,
     FormTemplateFactory,
@@ -113,7 +119,7 @@ def create_button_set(status):
 
     submit_button = wrap_button(
         dbc.Button(
-            "Submit", id="submit_button", color="primary", disabled=disabled_submit
+            "Submit", id=SUBMIT_JOB_ID, color="primary", disabled=disabled_submit
         )
     )
     change_input_button = wrap_button(
@@ -132,7 +138,7 @@ def create_button_set(status):
     result_button = wrap_button(
         dbc.Button(
             "Result",
-            id="result_button",
+            id=RESULT_BUTTON_ID,
             color="primary",
             disabled=disabled_result,
         )
@@ -201,7 +207,7 @@ def layout(job_id):
                 [
                     html.Div(
                         job.logs,
-                        id="logs",
+                        id=JOB_LOGS_ID,
                         className="w-100 bg-dark text-white p-3 rounded font-monospace",  # noqa
                         style={"white-space": "pre-wrap"},
                     ),
@@ -234,7 +240,7 @@ def layout(job_id):
         header,
         html.Div(
             status_information_template.format(status=job.status),
-            id="submission_status",
+            id=SUBMISSION_STATUS_ID,
             className="text-center fs-4",
             style={"white-space": "pre-line"},
         ),
@@ -255,19 +261,19 @@ def layout(job_id):
 
 @callback(
     Output("url", "pathname", allow_duplicate=True),
-    Output("logs", "children"),
+    Output(JOB_LOGS_ID, "children"),
     Output("submission_header", "className"),
     Output("interval", "disabled", allow_duplicate=True),
     Output("submission_icon", "className"),
-    Output("submit_button", "disabled"),
+    Output(SUBMIT_JOB_ID, "disabled"),
     Output("change_input_button", "disabled"),
     Output("spawn_button", "disabled"),
     Output("result_button", "disabled"),
-    Output("submission_status", "children"),
+    Output(SUBMISSION_STATUS_ID, "children"),
     Output("submission_time_to_life", "children"),
     Output("accordion", "active_item"),
     Input("interval", "n_intervals"),
-    Input("submit_button", "n_clicks"),
+    Input(SUBMIT_JOB_ID, "n_clicks"),
     Input("change_input_button", "n_clicks"),
     Input("spawn_button", "n_clicks"),
     Input("result_button", "n_clicks"),
@@ -294,7 +300,7 @@ def submission_manager(
     input_base_path = dash.page_registry["pages.input"]["path_template"]
     logging.debug(f"Triggered id: {triggered_id}")
     job = Job(job_id)
-    if triggered_id == "submit_button":
+    if triggered_id == SUBMIT_JOB_ID:
         job.delete_logs()
         job.submit()
     elif triggered_id == "change_input_button":

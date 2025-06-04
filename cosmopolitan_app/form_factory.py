@@ -8,6 +8,7 @@ import dash_bootstrap_components as dbc
 from dash import Input, Output, State, dcc, html
 from soil_moisture_prediction.input_data import stream_dic
 
+from cosmopolitan_app.constants import CHECK_INPUT_ID
 from cosmopolitan_app.pydantic_models import ModelWebsite
 
 
@@ -62,7 +63,7 @@ class FormFactory:
             self.delete_id_format = "delete_{field_name}"
             self.start_date_id_format = "{field_name}_start_date"
             self.end_date_id_format = "{field_name}_end_date"
-            self.id_check_input_button = "check_input_button"
+            self.id_check_input_button = CHECK_INPUT_ID
         else:
             self.id_format = ""
             self.feedback_id_format = ""
@@ -81,7 +82,7 @@ class FormFactory:
         """Create the component."""
         if not isinstance(field_name, str):
             return field_name
-        field = self.pymodel.model_fields[field_name]
+        field = ModelWebsite.model_fields[field_name]
 
         field_type = field.json_schema_extra["type"]
         try:
@@ -368,22 +369,26 @@ class FormFactory:
     def set_model(self, form_data: dict) -> None:
         """Set the model from the form data."""
         model_dict = {}
-        for field_name in self.pymodel.model_fields:
+        for field_name in ModelWebsite.model_fields:
             field_type = ModelWebsite.model_fields[field_name].json_schema_extra["type"]
             if field_name == "predictors":
                 predictors_stream = {
                     stream: None for stream in form_data["pred_streams"]
                 }
                 hidden_id = self.hidden_id_format.format(field_name="predictor_upload")
-                predictor_upload = (
+                predictor_upload_wrong_keys = (
                     json.loads(form_data[hidden_id])
                     if form_data[hidden_id].strip()
                     else {}
                 )
+                predictor_upload = {}
+                for key, value in predictor_upload_wrong_keys.items():
+                    predictor_name = value["predictor_name"]
+                    predictor_upload[predictor_name] = value
+
                 model_dict["predictors"] = predictors_stream | predictor_upload
             elif field_name == "soil_moisture_data":
                 hidden_id = self.hidden_id_format.format(field_name="crns_upload")
-                print(form_data[hidden_id])
                 crns_upload = (
                     json.loads(form_data[hidden_id])
                     if form_data[hidden_id].strip()
@@ -463,9 +468,9 @@ def construct_selected_input(
     selected_input = []
     chosen_input = {}
     crns_data_info_dict = {
-        "station_data": ModelWebsite.__fields__["station_data"].description,
-        "rover_data": ModelWebsite.__fields__["rover_data"].description,
-        "train_data": ModelWebsite.__fields__["train_data"].description,
+        "station_data": ModelWebsite.model_fields["station_data"].description,
+        "rover_data": ModelWebsite.model_fields["rover_data"].description,
+        "train_data": ModelWebsite.model_fields["train_data"].description,
     }
 
     if input_type == "predictor_upload":
@@ -677,3 +682,12 @@ class FormTemplateFactory:
         ]
 
         return form_template
+
+
+active_form_template_factory = FormTemplateFactory(active=True)
+active_form_template = active_form_template_factory.generate_template()
+active_form_factory = FormFactory(ModelWebsite, active_form_template)
+
+muted_form_template_factory = FormTemplateFactory(active=False)
+muted_form_template = muted_form_template_factory.generate_template()
+muted_form_factory = FormFactory(ModelWebsite, muted_form_template, active=False)

@@ -8,6 +8,7 @@ from coolname import generate
 from dash import Input, Output, State, callback, html
 from dash.exceptions import PreventUpdate
 
+from cosmopolitan_app.constants import PREPARE_INPUT_ID
 from cosmopolitan_app.job import Job
 from cosmopolitan_app.layouts import create_header
 from cosmopolitan_app.postgres_manager import PostgresManager
@@ -57,7 +58,7 @@ def layout():
                     html.Div(
                         dbc.Button(
                             "Prepare input",
-                            id="prepare_input",
+                            id=PREPARE_INPUT_ID,
                             color="primary",
                         ),
                         className="m-2 d-flex justify-content-center",
@@ -73,7 +74,7 @@ def layout():
 
 @callback(
     Output("url", "pathname", allow_duplicate=True),
-    Input("prepare_input", "n_clicks"),
+    Input(PREPARE_INPUT_ID, "n_clicks"),
     State("new_job_id", "value"),
     prevent_initial_call=True,
 )

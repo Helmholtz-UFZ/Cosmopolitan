@@ -1,6 +1,8 @@
 -- init.sql
 CREATE EXTENSION IF NOT EXISTS postgis;
 
+SET timezone = 'Europe/Berlin';
+
 -- Lock table for background jobs
 DROP TABLE IF EXISTS task_lock;
 
