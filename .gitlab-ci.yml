@@ -95,7 +95,7 @@ test:
     - "pip install poetry"
     - "poetry install"
   script:
-    - "poetry run pytest -s"
+    - poetry run pytest --webdriver=chrome --headless --capture=no
 
 # "latest" image will be built on every push to the main-branch
 build-latest:
