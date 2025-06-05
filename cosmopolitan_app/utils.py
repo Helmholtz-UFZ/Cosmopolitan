@@ -34,6 +34,17 @@ from cosmopolitan_app.postgres_manager import JobNotFound, PostgresManager
 submission_url = "{external_url}/submission/{job_id}"
 
 
+job_finished_template = """The job {job_id} finished.
+The exit status was {status}.
+To see further results visit:
+{url}"""
+
+job_submitted_template = """The job {job_id} finished.
+The exit status was {status}.
+To see further results visit:
+{url}"""
+
+
 def zip_directory(directory_path):
     """Create a zip archive of a directory and return it as a BytesIO object."""
     zip_buffer = BytesIO()
@@ -255,12 +266,11 @@ def send_finished_mail(job):
         return
     logging.info("Send mail about finished job.")
     url = submission_url.format(job_id=job.job_id, external_url=request.url_root)
-    with open(
-        "cosmopolitan_app/templates/job_finished_email.txt",
-        "r",
-        encoding="UTF-8",
-    ) as f_handle:
-        content = f_handle.read().format(job_id=job.job_id, url=url, status=job.status)
+    content = job_finished_template.format(
+        job_id=job.job_id,
+        status=job.status,
+        url=url,
+    )
 
     send_mail(job.model.email, f'Job "{job.job_id}" finished', content)
     job.notified_end = True
@@ -273,10 +283,11 @@ def send_submission_mail(job):
         return
     logging.info(f"Send mail about submitted job {job.job_id}.")
     url = submission_url.format(job_id=job.job_id, external_url=request.url_root)
-    with open(
-        "cosmopolitan_app/templates/submission_email.txt", "r", encoding="UTF-8"
-    ) as f_handle:
-        content = f_handle.read().format(job_id=job.job_id, url=url)
+    content = job_submitted_template.format(
+        job_id=job.job_id,
+        status=job.status,
+        url=url,
+    )
     send_mail(job.model.email, f'Job "{job.job_id}" submitted', content)
 
 
