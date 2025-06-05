@@ -48,7 +48,6 @@ def test_env_prod(logger):
         f.write("POSTGRES_PASSWORD='password'\n")
         f.write("MINIO_ACCESS_KEY='password'\n")
         f.write("MINIO_SECRET_KEY='password'\n")
-        f.write("MAINTAINER_EMAIL='test@test.de'\n")
 
     # Remove the env_vars from the environment
     for env_var in env_vars:
