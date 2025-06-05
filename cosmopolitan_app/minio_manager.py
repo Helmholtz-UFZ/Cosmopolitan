@@ -210,6 +210,7 @@ if __name__ == "__main__":
         level=logging.DEBUG,
     )
     folder_to_sync = "whimsical_affable_chipmunk"
+
     # create_bucket(reset_alias=True)
     sync_workdir(folder_to_sync, reset_alias=True)
     # delete_from_bucket(folder_to_sync, reset_alias=True)

@@ -26,6 +26,7 @@ CREATE TABLE jobs (
 );
 
 -- Create logs table for application logging
+DROP TABLE IF EXISTS logs;
 CREATE TABLE IF NOT EXISTS logs (
     id SERIAL PRIMARY KEY,
     timestamp TIMESTAMP NOT NULL,
@@ -39,12 +40,14 @@ CREATE TABLE IF NOT EXISTS logs (
 CREATE INDEX IF NOT EXISTS logs_timestamp_idx ON logs (timestamp);
 
 -- Table to store update times and success status
+DROP TABLE IF EXISTS update_times_crns;
 CREATE TABLE update_times_crns (
     update TIMESTAMP NOT NULL PRIMARY KEY,
     successful BOOLEAN NOT NULL
 );
 
 -- Table to store CRNS measurements
+DROP TABLE IF EXISTS crns_measurements;
 CREATE TABLE crns_measurements (
     date_time TIMESTAMP NOT NULL,
     sensor_id INTEGER NOT NULL,
@@ -60,7 +63,7 @@ CREATE TABLE crns_measurements (
 );
 
 -- Create a spatial index on the geometry column for efficient geo queries
-CREATE INDEX crns_measurements_geom_idx
+CREATE INDEX IF NOT EXISTS idx_crns_measurements_geom
     ON crns_measurements
     USING GIST (geom);
 

@@ -47,7 +47,7 @@ RUN poetry config virtualenvs.create false && \
 USER appuser
 
 CMD if [ "$GUNICORN" = 1 ] ; then \
-        gunicorn -w 4 -b 0.0.0.0:$FLASK_PORT cosmopolitan_app.cosmopolitan_web_server:app; \
+        gunicorn -w 4 -b 0.0.0.0:$FLASK_PORT cosmopolitan_app.app:server; \
     else \
-        python3 /python_docker/cosmopolitan/cosmopolitan_app/cosmopolitan_web_server.py; \
+        python3 /python_docker/cosmopolitan/cosmopolitan_app/app.py; \
     fi

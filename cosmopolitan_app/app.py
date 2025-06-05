@@ -8,7 +8,7 @@ import dash_bootstrap_components as dbc
 from apscheduler.schedulers.background import BackgroundScheduler
 from dash import Dash, dcc, html
 
-from cosmopolitan_app.config import DEBUG
+from cosmopolitan_app.config import DEBUG, PORT
 from cosmopolitan_app.error_handling import error_modal, handle_error
 from cosmopolitan_app.files_route import serve_files
 from cosmopolitan_app.layouts import create_navbar, register_navbar_callbacks
@@ -25,6 +25,7 @@ app = Dash(
     suppress_callback_exceptions=True,
     on_error=handle_error,
 )
+server = app.server
 
 dictConfig(get_logger_config_web(DEBUG))
 
@@ -67,4 +68,4 @@ app.layout = html.Div(
 
 if __name__ == "__main__":
     scheduler.start()
-    app.run(debug=True)
+    app.run(debug=DEBUG, port=PORT, host="0.0.0.0")

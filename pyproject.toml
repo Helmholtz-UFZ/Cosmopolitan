@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cosmopolitan"
-version = "0.0.37"
+version = "0.0.38"
 description = "COSmic ray based soil MOisture PredictiOn LIve descicion Tree ANalysis"
 authors = ["John Anders <john-eric.anders@ufz.de>"]
 readme = "README.md"
@@ -25,6 +25,7 @@ py-staticmaps = "^0.4.0"
 coolname = "^2.2.0"
 pyproj = "^3.7.1"
 email-validator = "^2.2.0"
+gunicorn = "^23.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.0"

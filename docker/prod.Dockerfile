@@ -47,4 +47,4 @@ RUN poetry config virtualenvs.create false && \
 # Switch to non-root user
 USER appuser
 
-CMD gunicorn --timeout 120 -w 4 -b 0.0.0.0:$FLASK_PORT cosmopolitan_app.cosmopolitan_web_server:app
+CMD gunicorn -w 4 -b 0.0.0.0:$FLASK_PORT cosmopolitan_app.app:server;
