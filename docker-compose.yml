@@ -22,7 +22,7 @@ services:
       - "${MAIL_HOG_PORT:-8025}:${MAIL_HOG_PORT:-8025}" # web ui
 
   postgres:
-    image: postgres:latest
+    image: postgis/postgis:latest
     ports:
       - "${POSTGRES_PORT}:${POSTGRES_PORT}"
     environment:

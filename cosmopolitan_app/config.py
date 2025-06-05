@@ -20,10 +20,6 @@ def getenv(name):
     return value
 
 
-# Number of days to keep a submitted job entries in the database
-DAYS_DELETE_SUMBITTED = 60
-# Number of days to keep an unsubmitted job entries in the database
-DAYS_DELETE_NOT_SUMBITTED = 2
 load_dotenv()
 
 # Needed for the test_env.py. Update!
@@ -47,6 +43,7 @@ env_vars = [
     "MINIO_SECRET_KEY",
     "MINIO_BUCKET",
     "MINIO_ALIAS",
+    "MAINTAINER_EMAIL",
 ]
 
 # s/=.*//g |'<,'> s/^.*$/& = getenv("&")/g | noh
@@ -69,5 +66,6 @@ MINIO_ACCESS_KEY = getenv("MINIO_ACCESS_KEY")
 MINIO_SECRET_KEY = getenv("MINIO_SECRET_KEY")
 MINIO_BUCKET = getenv("MINIO_BUCKET")
 MINIO_ALIAS = getenv("MINIO_ALIAS")
+MAINTAINER_EMAIL = getenv("MAINTAINER_EMAIL")
 
 JOB_WORK_DIR_TEMPLATE = os.path.join(WEB_WORK_DIR, "{job_id}")

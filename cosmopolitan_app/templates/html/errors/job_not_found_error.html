@@ -1,6 +1,0 @@
-{% extends "html/errors/error_page.html" %}
-
-{% block error_content %}
-	<h3>Could not find the job "{{ job_id }}".</h3>
-	<h3>Visit <a href="{{ url_for('input_job') }}">input</a> to make a new submission.</h3>
-{% endblock %}

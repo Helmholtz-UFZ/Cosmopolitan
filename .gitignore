@@ -11,3 +11,5 @@ python_path
 .config
 minio_config
 env_dev_prod_priv
+debug_source.html
+headless_debug.png

@@ -46,7 +46,7 @@ test:
   stage: "test"
   image: "python:3.11"
   services:
-    - name: postgres:latest
+    - name: postgis/postgis:latest
       alias: postgres
     - name: "mailhog/mailhog:latest"
       alias: mailhog
@@ -68,7 +68,24 @@ test:
   variables:
     MINIO_URL: "http://minio:9000"
   before_script:
-    - "apt-get update && apt-get install -y postgresql-client libc-dev libcairo2-dev curl"
+    - apt-get update && apt-get install -y postgresql-client libc-dev libcairo2-dev curl unzip wget gnupg2 libglib2.0-0 libnss3 libgconf-2-4 libfontconfig1 libxss1 libappindicator3-1 libasound2 xvfb
+
+    # Install Chrome
+    - wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
+    - echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
+    - apt-get update && apt-get install -y google-chrome-stable
+
+    # Install ChromeDriver
+    - CHROME_VERSION=$(google-chrome-stable --version | grep -oP '\d+\.\d+\.\d+' | head -1)
+    - CHROMEDRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json" | python3 -c "import sys, json; print(json.load(sys.stdin)['channels']['Stable']['version'])")
+
+    # Download ChromeDriver zip from the new location
+    - CHROMEDRIVER_BASE_URL="https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing"
+    - CHROMEDRIVER_ZIP_URL="${CHROMEDRIVER_BASE_URL}/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip"
+    - wget -O /tmp/chromedriver.zip "$CHROMEDRIVER_ZIP_URL"
+    - unzip /tmp/chromedriver.zip -d /tmp/
+    - mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver
+    - chmod +x /usr/local/bin/chromedriver
     - "curl https://dl.min.io/client/mc/release/linux-amd64/mc --create-dirs -o /usr/local/bin/mc"
     - "chmod +x /usr/local/bin/mc"
     - "export PGPASSWORD=${POSTGRES_PASSWORD}"
@@ -78,7 +95,7 @@ test:
     - "pip install poetry"
     - "poetry install"
   script:
-    - "poetry run pytest -s"
+    - poetry run pytest --webdriver=Chrome --headless --capture=no
 
 # "latest" image will be built on every push to the main-branch
 build-latest:

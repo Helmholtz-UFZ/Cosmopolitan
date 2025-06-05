@@ -1,0 +1,34 @@
+.icon-error {
+  color: red;
+}
+
+.icon-none {
+  color: transparent;
+}
+
+/* restyle radio items */
+.radio-group .form-check {
+  padding-left: 0;
+}
+
+.radio-group .btn-group > .form-check:not(:last-child) > .btn {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.radio-group .btn-group > .form-check:not(:first-child) > .btn {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  margin-left: -1px;
+}
+
+/* Reset paragraph and link style inside markdown cells */
+.dash-table-container .dash-cell div p {
+  margin: 0 !important;
+  padding: 0 !important;
+  display: inline !important;
+  font-family: monospace !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
+  text-align: inherit !important;
+}

@@ -1,3 +1,0 @@
-The job {job_id} was submitted to Cosmopolitan.
-You will receive a notification when the job is finished. You can check the status of the job by visiting the website:
-{url}

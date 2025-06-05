@@ -1,9 +1,0 @@
-{% from 'html/common_elements.html' import header %}
-{% extends "html/skeleton/content_layout.html" %}
-{% block head %}
-{{ header("Welcome", "To The Cosmopolitan Webservice <br> <strong>COS</strong><small>mic ray based soil </small><strong>MO</strong><small>isture </small><strong>P</strong><small>redicti</small><strong>O</strong><small>n </small><strong>LI</strong><small>ve </small><strong>T</strong><small>ree </small><strong>AN</strong><small>alysis</small>", "COMPLETED") }}
-{% endblock head %}
-
-{% block content_page %}
-<img style= "width: 40%" src="{{ url_for('static', filename='start_banner.png') }}" class="rounded mx-auto d-block m-3" alt="Welcome">
-{% endblock content_page %}
