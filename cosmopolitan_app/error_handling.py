@@ -121,12 +121,9 @@ def handle_error(error):
     Traceback info: {traceback.format_exc()}\n\n
     Input info: {json.dumps(callback_context.triggered)}
     """
-    logging.debug(f"Send email: {email_subject}\n{email_body}")
-    send_mail(
-        subject=email_subject,
-        body=email_body,
-        recipients=MAINTAINER_EMAIL,
-    )
+
+    send_mail(MAINTAINER_EMAIL, email_subject, email_body)
+
     error_title = error_responds_dict.get(type(error), error_responds_dict[Exception])[
         0
     ]

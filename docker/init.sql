@@ -5,7 +5,6 @@ SET timezone = 'Europe/Berlin';
 
 -- Lock table for background jobs
 DROP TABLE IF EXISTS task_lock;
-
 CREATE TABLE task_lock (
     task_type VARCHAR PRIMARY KEY,
     is_locked BOOLEAN NOT NULL DEFAULT FALSE

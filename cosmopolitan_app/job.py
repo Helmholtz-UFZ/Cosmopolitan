@@ -571,7 +571,7 @@ class Job:
         for file in os.listdir(self.working_dir):
             if file.startswith(self.original_file_prefix):
                 continue
-            os.remove(os.path.join(self.working_dir, file))
+            shutil.rmtree(os.path.join(self.working_dir, file), ignore_errors=True)
         delete_from_bucket(self.job_id)
 
         self.preview_area()
