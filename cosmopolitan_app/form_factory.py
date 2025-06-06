@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Tuple, Type, Union, get_args
 
 import dash_bootstrap_components as dbc
 from dash import Input, Output, State, dcc, html
+from pydantic_core import ValidationError
 from soil_moisture_prediction.input_data import stream_dic
 
 from cosmopolitan_app.constants import CHECK_INPUT_ID
@@ -322,9 +323,9 @@ class FormFactory:
         exceptions = {}
         try:
             self.set_model(form_data)
-        except ValueError as e:
+        except ValidationError as e:
             for error in e.errors():
-                msg = error["msg"]
+                msg = error["msg"].replace("Value error, ", "")
                 locs = error["loc"]
                 if len(locs) == 0:
                     # This should be a model validator that manually passed the location
