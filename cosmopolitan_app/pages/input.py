@@ -10,6 +10,7 @@ from dash.exceptions import PreventUpdate
 from flask import url_for
 
 from cosmopolitan_app.form_factory import (
+    FormFactory,
     active_form_factory,
     active_form_template_factory,
     construct_selected_input,
@@ -62,7 +63,7 @@ def layout(job_id):
     active_form_template_factory.job_id = job.job_id
     active_form_template = active_form_template_factory.generate_template()
 
-    active_form_factory.new_layout(active_form_template)
+    active_form_factory = FormFactory(job.model, active_form_template)
 
     form_layout = active_form_factory.generate_form()
 

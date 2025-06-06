@@ -76,23 +76,23 @@ error_responds_dict = {
     Exception: ("Internal Error", "Ups this should not happen. An error occurred."),
     NotFinishedException: (
         "Job Not Finished",
-        "The job '{{ job_id }}' is not yet finished. Visit submission to see the progress of the job.",  # noqa
+        "The job '{job_id}' is not yet finished. Visit submission to see the progress of the job.",  # noqa
     ),
     JobNotFound: (
         "Job Not Found",
-        "Could not find the job '{{ job_id }}'. Visit input to make a new submission.",
+        "Could not find the job '{job_id}'. Visit input to make a new submission.",
     ),
     InvalidJobID: (
         "Job Not Found",
-        "Could not find the job '{{ job_id }}'. Visit input to make a new submission.",
+        "Could not find the job '{job_id}'. Visit input to make a new submission.",
     ),
     NotSubmittedException: (
         "Job Not Submitted",
-        "The job '{{ job_id }}' was not yet submitted. Visit submit to submit the job.",  # noqa
+        "The job '{job_id}' was not yet submitted. Visit submit to submit the job.",  # noqa
     ),
     SubmittedException: (
         "Job Already Submitted",
-        "The job '{{ job_id }}' was already submitted. Visit job to see the status of the job. Or submit a new job at input.",  # noqa
+        "The job '{job_id}' was already submitted. Visit job to see the status of the job. Or submit a new job at input.",  # noqa
     ),
 }
 error_modal = dbc.Modal(
@@ -130,6 +130,17 @@ def handle_error(error):
     error_message = error_responds_dict.get(
         type(error), error_responds_dict[Exception]
     )[1]
+    if isinstance(
+        error,
+        (
+            NotFinishedException,
+            JobNotFound,
+            InvalidJobID,
+            NotSubmittedException,
+            SubmittedException,
+        ),
+    ):
+        error_message = error_message.format(job_id=error.job_id)
     set_props("error-modal", {"is_open": True})
     set_props("error-title", {"children": error_title})
     set_props("error-message", {"children": error_message})
