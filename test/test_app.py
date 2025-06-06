@@ -1,5 +1,6 @@
 """Test the Dash app."""
 
+import logging
 import time
 
 import pytest
@@ -226,6 +227,7 @@ def test_full_procedure(dash_duo, crns_file_path, pred_file_paths):
         break
 
     if "COMPLETED" not in status_element.text:
+        logging.error(f"Job finished with status: {status_element.text}")
         save_snapshot(dash_duo)
         job_logs = dash_duo.find_element(f"#{JOB_LOGS_ID}").text
         raise AssertionError("Job did not complete successfully. Logs:\n" + job_logs)
