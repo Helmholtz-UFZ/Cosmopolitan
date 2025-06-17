@@ -185,7 +185,8 @@ class FormFactory:
                 dbc.FormText(id=id_feedback, className="text-danger"),
             ]
         elif field_type in ["multiple-file-upload", "file-upload"]:
-            file_information = ";".join([",".join(info) for info in value])
+            # file_information = ";".join([",".join(info) for info in value])
+            file_information = json.dumps(value) if value else "{}"
             content = [
                 dbc.Label(field.title),
                 component_class(**props),

@@ -13,6 +13,7 @@ from selenium.common.exceptions import (
 
 from cosmopolitan_app.app import app
 from cosmopolitan_app.constants import (
+    CHANGE_INPUT_BUTTON_ID,
     CHECK_INPUT_ID,
     JOB_LOGS_ID,
     NAVBAR_TOGGLER_ID,
@@ -81,16 +82,8 @@ def check_all_errors(dash_duo):
             .map(img => img.src);
         """
     )
-    all_images = dash_duo.driver.execute_script(
-        """
-        return Array.from(document.querySelectorAll('img'))
-            .map(img => img.src);
-        """
-    )
-    print(f"All images: {all_images}")
     if broken_images:
         errors.extend([f"Broken image: {img}" for img in broken_images])
-    print(f"Broken images: {broken_images}")
 
     if errors:
         pytest.fail("Errors detected:\n" + "\n".join(errors))
@@ -210,6 +203,12 @@ def test_full_procedure(dash_duo, crns_file_path, pred_file_paths):
     # Check input
     scroll_to_element_and_click(dash_duo, CHECK_INPUT_ID)
     check_all_errors(dash_duo)
+    # Change input
+    scroll_to_element_and_click(dash_duo, CHANGE_INPUT_BUTTON_ID)
+    check_all_errors(dash_duo)
+    scroll_to_element_and_click(dash_duo, CHECK_INPUT_ID)
+    check_all_errors(dash_duo)
+
     # Submit job
     scroll_to_element_and_click(dash_duo, SUBMIT_JOB_ID)
     check_all_errors(dash_duo)
