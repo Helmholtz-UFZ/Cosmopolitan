@@ -10,6 +10,7 @@ from dash import Input, Output, State, callback, callback_context, dcc, html
 from flask import url_for
 
 from cosmopolitan_app.constants import (
+    CHANGE_INPUT_BUTTON_ID,
     JOB_LOGS_ID,
     RESULT_BUTTON_ID,
     SUBMISSION_STATUS_ID,
@@ -125,7 +126,7 @@ def create_button_set(status):
     change_input_button = wrap_button(
         dbc.Button(
             "Change input",
-            id="change_input_button",
+            id=CHANGE_INPUT_BUTTON_ID,
             color="primary",
             disabled=disabled_change_input,
         )
