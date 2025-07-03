@@ -12,6 +12,7 @@ from sqlalchemy.exc import DatabaseError, OperationalError
 from werkzeug.exceptions import NotFound
 
 from cosmopolitan_app.config import MAINTAINER_EMAIL
+from cosmopolitan_app.job import NoMeasurementPointsError
 from cosmopolitan_app.minio_manager import MinioError
 from cosmopolitan_app.postgres_manager import JobNotFound
 from cosmopolitan_app.utils import send_mail
@@ -94,6 +95,10 @@ error_responds_dict = {
         "Job Already Submitted",
         "The job '{job_id}' was already submitted. Visit job to see the status of the job. Or submit a new job at input.",  # noqa
     ),
+    NoMeasurementPointsError: (
+        "No Measurement Points",
+        "In the provided area and time range, no measurement points were found. Please adjust your input parameters. Or provide a input file with measurement points.",  # noqa
+    ),
 }
 error_modal = dbc.Modal(
     [
@@ -130,17 +135,15 @@ def handle_error(error):
     error_message = error_responds_dict.get(
         type(error), error_responds_dict[Exception]
     )[1]
-    if isinstance(
-        error,
-        (
-            NotFinishedException,
-            JobNotFound,
-            InvalidJobID,
-            NotSubmittedException,
-            SubmittedException,
-        ),
-    ):
+
+    try:
         error_message = error_message.format(job_id=error.job_id)
+    except AttributeError:
+        # If the error does not have a job_id attribute, we just use the message as is.
+        pass
+
+    logging.error(f"{error_title}: {error_message}")
+    logging.error(f"Error details: {traceback.format_exc()}")
     set_props("error-modal", {"is_open": True})
     set_props("error-title", {"children": error_title})
     set_props("error-message", {"children": error_message})

@@ -37,6 +37,7 @@ from cosmopolitan_app.logger import get_logger_config_compuation, get_logger_con
 from cosmopolitan_app.minio_manager import delete_from_bucket, sync_workdir
 from cosmopolitan_app.postgres_manager import JobNotFound, JobTable, PostgresManager
 from cosmopolitan_app.pydantic_models import ModelWebsite, validate_job_id
+from cosmopolitan_app.timeio_info import type_id_dict
 from cosmopolitan_app.utils import (
     InvalidJobID,
     JobExists,
@@ -91,6 +92,12 @@ def start_computation(job):
             send_finished_mail(job)
         except SMTPAuthenticationError:
             logging.error("Failed to send finished mail.")
+
+
+class NoMeasurementPointsError(Exception):
+    """Raised when no measurement points are found for the given parameters."""
+
+    ...
 
 
 class Job:
@@ -216,7 +223,7 @@ class Job:
             )
 
     def preview_area(self, draw_preview: bool = True):
-        """Draw a preview of the area."""
+        """Draw a preview of the area and add measurement points."""
         logging.debug("Draw preview")
 
         preview_area_wildcard = os.path.join(
@@ -238,28 +245,73 @@ class Job:
         transformer = Transformer.from_crs(
             self.model.projection, "EPSG:4326", always_xy=True
         )
-        lon_min, lat_min = transformer.transform(self.model.area_x1, self.model.area_y1)
-        lon_max, lat_max = transformer.transform(self.model.area_x2, self.model.area_y2)
-        bbox = [
-            (lat_min, lon_min),
-            (lat_max, lon_min),
-            (lat_max, lon_max),
-            (lat_min, lon_max),
-            (lat_min, lon_min),
+        # Transform area corners to lon/lat
+        lon1, lat1 = transformer.transform(self.model.area_x1, self.model.area_y1)
+        lon2, lat2 = transformer.transform(self.model.area_x2, self.model.area_y2)
+        min_lon, max_lon = min(lon1, lon2), max(lon1, lon2)
+        min_lat, max_lat = min(lat1, lat2), max(lat1, lat2)
+
+        # Bbox for PostGIS query
+        bbox_pg = (min_lon, min_lat, max_lon, max_lat)
+
+        # Area polygon for staticmaps (lat, lon order)
+        area_poly = [
+            (min_lat, min_lon),
+            (max_lat, min_lon),
+            (max_lat, max_lon),
+            (min_lat, max_lon),
+            (min_lat, min_lon),
         ]
 
+        # Add area polygon first
         context.add_object(
             staticmaps.Area(
-                [staticmaps.create_latlng(lat, lng) for lat, lng in bbox],
+                [staticmaps.create_latlng(lat, lon) for lat, lon in area_poly],
                 fill_color=staticmaps.parse_color("#00FF003F"),
                 width=3,
                 color=staticmaps.BLUE,
             )
         )
 
+        # Prepare types list
+        types = []
+        if self.model.train_data:
+            types.append("train")
+        if self.model.rover_data:
+            types.append("rover")
+        if self.model.station_data:
+            types.append("station")
+
+        # Get date range
+        start_date, end_date = self.model.date_range
+
+        # Retrieve measurement points
+        points_df = PostgresManager.get_measurement_points(
+            bbox_pg, types, start_date, end_date, representative=True
+        )
+
+        # Map sensor type to color
+        type_color = {
+            "train": staticmaps.GREEN,
+            "station": staticmaps.BLUE,
+            "rover": staticmaps.RED,
+        }
+
+        # Add markers on top of area
+        for _, row in points_df.iterrows():
+            sensor_type = type_id_dict[row["sensor_id"]]
+            color = type_color[sensor_type]
+            context.add_object(
+                staticmaps.Marker(
+                    staticmaps.create_latlng(row["latitude"], row["longitude"]),
+                    color=color,
+                    size=8,
+                )
+            )
+
         image = context.render_cairo(width, height)
         filename = self.preview_area_filename_template.format(
-            position=f"{lat_min}_{lon_min}_{lat_max}_{lon_max}"
+            position=f"{min_lat}_{min_lon}_{max_lat}_{max_lon}"
         )
         image.write_to_png(os.path.join(self.working_dir, filename))
         return filename
@@ -341,9 +393,77 @@ class Job:
                     )
                 predictors_upload[file_name] = file_info
 
-        self.model.crns_upload = crns_upload
+        if any((self.model.train_data, self.model.rover_data, self.model.station_data)):
+            logging.debug("Write CRNS data to CSV file")
+            crns_info = self._write_crns()
+            crns_upload["crns_data.csv"] = {
+                "file_path": "crns_data.csv",
+                "time_steps": crns_info["time_steps"],
+                "num_data_points": crns_info["num_data_points"],
+            }
+            self.model.soil_moisture_data = "crns_data.csv"
+        else:
+            self.model.crns_upload = crns_upload
         self.model.predictor_upload = predictors_upload
         self.save()
+
+    def _write_crns(self):
+        """Write CRNS data to CSV file."""
+        logging.debug("Write CRNS data to CSV file")
+        # Bbox for PostGIS query
+        transformer_to_wgs = Transformer.from_crs(
+            self.model.projection, "EPSG:4326", always_xy=True
+        )
+        x1, y1, x2, y2 = (
+            self.model.area_x1,
+            self.model.area_y1,
+            self.model.area_x2,
+            self.model.area_y2,
+        )
+        lon1, lat1 = transformer_to_wgs.transform(x1, y1)
+        lon2, lat2 = transformer_to_wgs.transform(x2, y2)
+        min_lon, max_lon = min(lon1, lon2), max(lon1, lon2)
+        min_lat, max_lat = min(lat1, lat2), max(lat1, lat2)
+        bbox = (min_lon, min_lat, max_lon, max_lat)
+
+        # Types of data to query
+        types = []
+        if self.model.train_data:
+            types.append("train")
+        if self.model.rover_data:
+            types.append("rover")
+        if self.model.station_data:
+            types.append("station")
+
+        start_date, end_date = self.model.date_range
+
+        df = PostgresManager.get_measurement_points(
+            bbox, types, start_date, end_date, representative=False
+        )
+        if df.empty:
+            raise NoMeasurementPointsError
+
+        # Transform coordinates to model projection
+        transformer_to_proj = Transformer.from_crs(
+            "EPSG:4326", self.model.projection, always_xy=True
+        )
+        xs, ys = transformer_to_proj.transform(
+            df["longitude"].values, df["latitude"].values
+        )
+        df["x"] = xs
+        df["y"] = ys
+
+        df["time_step"] = df["date_time"].dt.strftime("%Y-%m-%d")
+
+        out_df = df[["x", "y", "time_step", "soil_moisture", "error_low", "error_high"]]
+
+        csv_path = os.path.join(self.working_dir, "crns_data.csv")
+
+        out_df.to_csv(csv_path, index=False, float_format="%.4f")
+        return {
+            "time_steps": list(out_df["time_step"].unique()),
+            "num_data_points": len(out_df),
+        }
 
     def safe_input_file(self, file_name, file_content, input_type, upload: bool = True):
         """Check the content of the files and override data with file name and hash."""

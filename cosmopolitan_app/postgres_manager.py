@@ -6,7 +6,9 @@ from contextlib import contextmanager
 from datetime import datetime
 from typing import Any, Dict
 
+import pandas as pd
 from geoalchemy2 import Geometry
+from geoalchemy2.shape import from_shape
 from shapely.geometry import Point
 from sqlalchemy import (
     JSON,
@@ -20,8 +22,10 @@ from sqlalchemy import (
     Text,
     create_engine,
 )
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.sql import func
 
 from cosmopolitan_app.config import (
     POSTGRES_DB,
@@ -30,6 +34,7 @@ from cosmopolitan_app.config import (
     POSTGRES_PORT,
     POSTGRES_USER,
 )
+from cosmopolitan_app.timeio_info import type_id_dict
 
 # Number of retries for database operations
 max_retries = 3
@@ -498,6 +503,106 @@ class PostgresManager:
             )
             session.add(new_update)
 
+    @classmethod
+    def insert_crns_measurements_from_df(cls, df):
+        """Insert or update CRNS measurements from a DataFrame into the database.
+
+        Args:
+            df: DataFrame with all CRNSMeasurement columns except 'geom'.
+                latitude and longitude cannot be None/null.
+
+        Raises:
+            ValueError: If required columns are missing or lat/lon contain null values.
+        """
+        logging.info("Insert or update CRNS measurements from DataFrame")
+
+        # Get all table columns except geom
+        table = CRNSMeasurement.__table__
+        required_columns = {c.name for c in table.columns if c.name != "geom"}
+        df_columns = set(df.columns)
+
+        # Check for missing columns
+        missing_columns = required_columns - df_columns
+        if missing_columns:
+            raise ValueError(
+                f"DataFrame is missing required columns: {missing_columns}"
+            )
+
+        # Check for extra columns (optional validation)
+        extra_columns = df_columns - required_columns
+        if extra_columns:
+            logging.warning(
+                f"DataFrame contains extra columns that will be ignored: {extra_columns}"  # noqa: E501
+            )
+            # Keep only required columns
+            df = df[list(required_columns)]
+
+        # Validate latitude and longitude are not null
+        if df["latitude"].isnull().any() or df["longitude"].isnull().any():
+            null_lat_count = df["latitude"].isnull().sum()
+            null_lon_count = df["longitude"].isnull().sum()
+            raise ValueError(
+                f"latitude and longitude cannot be null. Found {null_lat_count} null latitude and {null_lon_count} null longitude values"  # noqa: E501
+            )
+
+        # Create geometry column from lat/lon
+        df = df.copy()  # Avoid modifying the original DataFrame
+        df["geom"] = df.apply(
+            lambda row: f"POINT({row['longitude']} {row['latitude']})", axis=1
+        )
+
+        # Insert/update records
+        records = df.to_dict(orient="records")
+        stmt = insert(table).values(records)
+        update_cols = {
+            c.name: getattr(stmt.excluded, c.name)
+            for c in table.columns
+            if c.name not in ("date_time", "sensor_id")
+        }
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["date_time", "sensor_id"], set_=update_cols
+        )
+
+        with cls.session_scope() as session:
+            session.execute(stmt)
+            logging.info(
+                f"Successfully inserted/updated {len(records)} CRNS measurements"
+            )
+
+    @classmethod
+    def get_measurement_points(cls, bbox, types, start_date, end_date, representative):
+        """Retrieve measurement points."""
+        logging.debug(
+            f"Get measurement points for types: {types} in bbox: {bbox} and date range: {start_date} to {end_date}"  # noqa: E501
+        )
+        sensor_ids = [id for id, t in type_id_dict.items() if t in types]
+        min_lon, min_lat, max_lon, max_lat = bbox
+        with cls.session_scope() as session:
+            columns = [
+                CRNSMeasurement.date_time,
+                CRNSMeasurement.sensor_id,
+                CRNSMeasurement.soil_moisture,
+                CRNSMeasurement.error_high,
+                CRNSMeasurement.error_low,
+                CRNSMeasurement.latitude,
+                CRNSMeasurement.longitude,
+                CRNSMeasurement.sensor_name,
+                CRNSMeasurement.representative,
+            ]
+            query = session.query(*columns).filter(
+                CRNSMeasurement.sensor_id.in_(sensor_ids),
+                CRNSMeasurement.representative == representative,
+                CRNSMeasurement.date_time >= start_date,
+                CRNSMeasurement.date_time <= end_date,
+                func.ST_Within(
+                    CRNSMeasurement.geom,
+                    func.ST_MakeEnvelope(min_lon, min_lat, max_lon, max_lat, 4326),
+                ),
+            )
+            col_names = [col.key for col in columns]
+            data = [dict(zip(col_names, row)) for row in query.all()]
+        return pd.DataFrame(data)
+
 
 class TaskLockTable(Base):
     """Represents the 'task_lock' table in the database."""
@@ -572,5 +677,5 @@ class CRNSMeasurement(Base):
 
     @classmethod
     def create_point(cls, longitude, latitude):
-        """Create a Shapely Point for PostGIS geometry column."""
-        return Point(longitude, latitude)
+        """Create a WKT string for PostGIS geometry column."""
+        return from_shape(Point(longitude, latitude))

@@ -1,84 +1,45 @@
 """This module manages the data acquisition from the STI API."""
 
+import hashlib
 import json
 import logging
 import time
 from asyncio.exceptions import TimeoutError
 from datetime import date, datetime, timedelta
 from math import atan2, cos, radians, sin, sqrt
+from pprint import pformat
 from typing import Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 import requests
-from requests.exceptions import RequestException
+from requests.exceptions import HTTPError, RequestException
 
 from cosmopolitan_app.postgres_manager import PostgresManager
+from cosmopolitan_app.timeio_info import (
+    ignore_things,
+    thing_datastream_dict,
+    thing_info_dict,
+    type_id_dict,
+)
 
 
 class TimeIOManager:
     """This class manages the data acquisition from the STI API."""
 
     base_url = "https://tsm.ufz.de/sta/crnscosmicrayneutronsens_b1b36815413f48ea92ba3a0fbc795f7b/v1.1"  # noqa: E501
-    values_list = [
-        "Atmospheric pressure",
-        "Air temperature",
-        "Relative humidity",
-        "Neutron counts",
-    ]
-
-    thing_datastream_dict = {
-        44: {
-            3180: "Neutron counts",
-        },
-        85: {
-            3762: "Neutron counts",
-        },
-        92: {
-            3716: "Neutron counts",
-        },
-        93: {
-            3808: "Neutron counts",
-        },
-        94: {
-            3898: "Neutron counts",
-        },
-        95: {
-            3921: "Neutron counts",
-        },
-        97: {
-            3831: "Neutron counts",
-        },
-        99: {
-            3739: "Neutron counts",
-        },
-        107: {
-            3785: "Neutron counts",
-        },
-    }
-    thing_info_dict = {
-        44: "CRNS - Hohes Holz 4m",
-        85: "CRNS - Hordorf",
-        92: "CRNS - Cunnersdorf",
-        93: "CRNS - Grosses Bruch",
-        94: "CRNS - Harzgerode",
-        95: "CRNS - Falkenberg",
-        97: "CRNS - Zugspitze",
-        99: "CRNS - Zerbst",
-        107: "CRNS - Svalbard",
-    }
-    ignore_things = [145]
 
     date_format = "%Y-%m-%dT%H:%M:%SZ"
 
     @classmethod
     def request_data(cls, query: str):
         """Request data from the STI API and yield results synchronously."""
-        max_retries = 5
+        max_retries = 3
         logging.debug(f"Query: {query}")
+        original_query = query
         while query:
             try:
                 start_time = datetime.now()
-                response = requests.get(query, timeout=240)
+                response = requests.get(query, timeout=60)
                 response.raise_for_status()
                 data = response.json()
                 logging.debug(f"Request took {datetime.now() - start_time}")
@@ -89,13 +50,20 @@ class TimeIOManager:
             except (
                 RequestException,
                 TimeoutError,
+                HTTPError,
             ) as error:
+                logging.error(f"Error: {error}")
+                logging.error(f"Query: {query}")
+                logging.error(
+                    f"Hash of query: {hashlib.md5(query.encode()).hexdigest()}"
+                )
                 if max_retries == 0:
+                    logging.error("Max retries reached. Exiting.")
+                    logging.error(f"Original query: {original_query}")
+                    logging.error(f"Time of error: {datetime.now()}")
                     raise error
-                logging.warning(f"Error: {error}")
-                logging.warning(f"Query: {query}")
-                logging.warning("Retrying request.")
-                time.sleep(10)
+                logging.error("Retrying request.")
+                time.sleep(3)
                 max_retries -= 1
 
     @classmethod
@@ -139,7 +107,7 @@ class TimeIOManager:
     @classmethod
     def is_stationary(cls, thing_id: int) -> bool:
         """Check if the thing is stationary."""
-        datastream_dict = cls.thing_datastream_dict[thing_id]
+        datastream_dict = thing_datastream_dict[thing_id]
         return "longitude" not in datastream_dict.values()
 
     @classmethod
@@ -159,11 +127,17 @@ class TimeIOManager:
         """
         dataframes: List[pd.DataFrame] = []
 
-        for datastream_id, datastream_name in cls.thing_datastream_dict[
-            thing_id
-        ].items():
+        for datastream_id, datastream_name in thing_datastream_dict[thing_id].items():
             dates, results = cls.get_values(start_date, end_date, datastream_id)
             new_df: pd.DataFrame = pd.DataFrame({datastream_name: results}, index=dates)
+            # Find duplicate indices
+            duplicates = new_df.index[new_df.index.duplicated(keep=False)]
+            if len(duplicates) > 0:
+                logging.warning(
+                    f"Duplicate timestamps for datastream {datastream_name}:"
+                )
+                logging.warning(new_df.loc[duplicates])
+            new_df = new_df[~new_df.index.duplicated(keep="first")]
             dataframes.append(new_df)
 
         if not dataframes:
@@ -171,18 +145,18 @@ class TimeIOManager:
 
         if len(dataframes) == 1:
             df: pd.DataFrame = dataframes[0].reset_index()
-            df.rename(columns={"index": "date_time"}, inplace=True)
-            return df
+        else:
+            df: pd.DataFrame = pd.concat(dataframes, axis=1)
+            df = df.reset_index()
 
-        df = pd.concat(dataframes, axis=1)
-
-        df = df.reset_index()
         df.rename(columns={"index": "date_time"}, inplace=True)
 
         if cls.is_stationary(thing_id):
             longitude, latitude = cls.get_location_of_thing(thing_id)
             df["longitude"] = longitude
             df["latitude"] = latitude
+
+        df["date_time"] = pd.to_datetime(df["date_time"], errors="raise")
 
         return df
 
@@ -222,15 +196,18 @@ class TimeIOManager:
     @classmethod
     def check_things(cls) -> None:
         """Check if the known things are available."""
-        if cls.thing_info_dict.keys() != cls.thing_datastream_dict.keys():
+        logging.info("Checking if all things are available.")
+        if thing_info_dict.keys() != thing_datastream_dict.keys():
             raise ValueError("Thing info and datastream dict are not in sync")
         things = cls.get_things()
+
         new_thing_datastream_dict = {}
         new_thing_info_dict = {}
+
         for thing in things:
-            if thing["@iot.id"] in cls.thing_info_dict:
+            if thing["@iot.id"] in thing_info_dict:
                 continue
-            if thing["@iot.id"] in cls.ignore_things:
+            if thing["@iot.id"] in ignore_things:
                 continue
             thing_name = thing["name"]
             thing_id = thing["@iot.id"]
@@ -247,10 +224,12 @@ class TimeIOManager:
 
         if len(new_thing_datastream_dict) > 0:
             logging.warning(
-                f"Please add new things to datastream_ids:\n{json.dumps(new_thing_datastream_dict, indent=4)}"  # noqa
+                "Please add new things to datastream_ids:\n"
+                + pformat(new_thing_datastream_dict)
             )
             logging.warning(
-                f"Please add new things to thing_info_dict:\n{json.dumps(new_thing_info_dict, indent=4)}"  # noqa
+                "Please add new things to thing_info_dict:\n"
+                + pformat(new_thing_info_dict)
             )
 
 
@@ -264,7 +243,7 @@ class GeoProximityTracker:
         :param proximity_threshold_meters: Distance threshold for considering positions
                close
         """
-        self.device_positions: Dict[Tuple[str, date], List[Tuple[float, float]]] = {}
+        self.device_positions: Dict[date, List[Tuple[float, float]]] = {}
         self.proximity_threshold = proximity_threshold_meters
 
     def haversine_distance(
@@ -296,7 +275,6 @@ class GeoProximityTracker:
 
     def is_position_new(
         self,
-        device_id: str,
         latitude: float,
         longitude: float,
         tracking_date: date,
@@ -304,25 +282,18 @@ class GeoProximityTracker:
         """
         Check if the position is new compared to all previously recorded positions.
 
-        :param device_id: Unique identifier for the device
         :param latitude: Current latitude
         :param longitude: Current longitude
         :param tracking_date: Date of the position (defaults to today)
         :return: True if position is new, False if too close to any previous position
         """
-        # Use today's date if no date provided
-        if tracking_date is None:
-            tracking_date = date.today()
-
-        device_key = (device_id, tracking_date)
-
         # If no previous positions for this device and date, add and return True
-        if device_key not in self.device_positions:
-            self.device_positions[device_key] = {(latitude, longitude)}
+        if tracking_date not in self.device_positions:
+            self.device_positions[tracking_date] = {(latitude, longitude)}
             return True
 
         # Check against all previous positions for this device and date
-        for prev_lat, prev_lon in self.device_positions[device_key]:
+        for prev_lat, prev_lon in self.device_positions[tracking_date]:
             distance = self.haversine_distance(prev_lat, prev_lon, latitude, longitude)
 
             # If too close to any previous position, return False
@@ -330,12 +301,48 @@ class GeoProximityTracker:
                 return False
 
         # Add new position and return True
-        self.device_positions[device_key].add((latitude, longitude))
+        self.device_positions[tracking_date].add((latitude, longitude))
         return True
+
+
+def find_representative_points_mobile(df, proximity_threshold_meters=10):
+    """Find representative points from a DataFrame based on proximity."""
+    logging.info("Finding representative points for mobile devices.")
+    df["date"] = df["date_time"].dt.date
+    is_representative_mask = []
+
+    for current_date in df["date"].unique():
+        daily_data = df[df["date"] == current_date].sort_values("date_time")
+        tracker = GeoProximityTracker(proximity_threshold_meters)
+
+        for idx, row in daily_data.iterrows():
+            is_rep = tracker.is_position_new(
+                latitude=row["latitude"],
+                longitude=row["longitude"],
+                tracking_date=current_date,
+            )
+            is_representative_mask.append(is_rep)
+
+    df["is_representative"] = is_representative_mask
+    return df.drop(columns=["date"])
+
+
+def find_representative_points_stationary(df):
+    """Mark the first point of each device per day as representative (stationary)."""
+    logging.info("Finding representative points for stationary devices.")
+    df = df.copy()
+    df["date"] = df["date_time"].dt.date
+
+    df = df.sort_values(["date", "date_time"])
+
+    df["is_representative"] = df.groupby(["date"]).cumcount() == 0
+
+    return df.drop(columns=["date"])
 
 
 def update_crns_measurments() -> None:
     """Transfer data to the postgres database."""
+    logging.info("Updating CRNS measurements.")
     last_update = PostgresManager.last_update_crns()
     if last_update is None:
         start_date = None
@@ -344,161 +351,108 @@ def update_crns_measurments() -> None:
         start_date = last_update
         end_date = datetime.combine(datetime.now().date(), datetime.min.time())
 
-    start_date = datetime.utcnow() - timedelta(days=1)
+    # TODO
+    start_date = datetime.utcnow() - timedelta(days=30)
     end_date = datetime.utcnow()
+
+    TimeIOManager.check_things()
+
     for thing_dict in TimeIOManager.get_things():
         thing_id = thing_dict["@iot.id"]
         thing_name = thing_dict["name"]
-        if thing_id in TimeIOManager.ignore_things:
+        if thing_id in ignore_things:
             continue
 
         logging.info(f"Processing thing: {thing_name} (ID: {thing_id})")
 
-        if thing_id not in TimeIOManager.thing_datastream_dict:
+        if thing_id not in thing_datastream_dict:
             datastreams = TimeIOManager.get_datastreams_of_thing(thing_id)
             logging.warning(f"Thing {thing_name} with ID {thing_id} unknown.")
             logging.warning(json.dumps(datastreams, indent=4))
             continue
 
         df = TimeIOManager.collect_datastreams(thing_id, start_date, end_date)
-        if TimeIOManager.is_stationary(thing_id):
-            print(df)
-
-        print(df)
-
-    return
-    for data_stream_id, data_stream_name in TimeIOManager.thing_datastream_dict.get(
-        thing_id, {}
-    ).items():
-        if data_stream_name not in TimeIOManager.values_list:
+        if df.empty:
+            logging.warning("No data found for this thing.")
             continue
-        logging.info(
-            f"Processing datastream: {data_stream_name} (ID: {data_stream_id})"
-        )
-        dates, results = TimeIOManager.get_values(start_date, end_date, data_stream_id)
-        for date_time, value in zip(dates, results):
-            data_to_insert = {
-                "date_time": date_time,
-                "value": value,
-                "thing_id": thing_id,
-                "data_stream_id": data_stream_id,
+        logging.info(f"Found {len(df)} measurements for {thing_name}.")
+
+        if TimeIOManager.is_stationary(thing_id):
+            df = find_representative_points_stationary(df)
+        else:
+            df = find_representative_points_mobile(df)
+
+        df_new = df.rename(
+            columns={
+                "Neutron counts": "soil_moisture",
+                "is_representative": "representative",
             }
-            PostgresManager.add_crns_measurement(data_to_insert)
-    geo_proximity_tracker = GeoProximityTracker()
-
-    loop_variabel_dict = {}
-    for measurement in TimeIOManager.get_neutron_counts(start_date, end_date):
-        (
-            query,
-            date_time,
-            soil_moisture,
-            error_high,
-            error_low,
-            latitude,
-            longitude,
-            sensor_name,
-            sensor_id,
-        ) = measurement
-        entry = (
-            date_time,
-            soil_moisture,
-            error_high,
-            error_low,
-            latitude,
-            longitude,
-            sensor_name,
-            sensor_id,
         )
-        for prev_query, prev_entry in loop_variabel_dict.items():
-            if entry == prev_entry:
-                logging.info("Duplicate measurement found.")
-                logging.info(f"Query: {query}")
-                logging.info(f"Pervious query: {prev_query}")
-                logging.info(entry)
+        df_new["error_high"] = df_new["soil_moisture"] * 0.05
+        df_new["error_low"] = df_new["soil_moisture"] * 0.05
+        df_new["sensor_name"] = thing_name
+        df_new["sensor_id"] = thing_id
 
-        loop_variabel_dict[query] = entry
+        # Drop all columns that are not in the Postgres table
+        df_new = df_new[
+            [
+                "date_time",
+                "soil_moisture",
+                "error_high",
+                "error_low",
+                "sensor_name",
+                "sensor_id",
+                "representative",
+                "longitude",
+                "latitude",
+            ]
+        ]
 
-        if start_date > date_time or end_date < date_time:
-            logging.info(f"Measurement out of range: {date_time}")
-        representative = geo_proximity_tracker.is_position_new(
-            sensor_name, latitude, longitude, date_time.date()
-        )
-        data_to_insert = {
-            "date_time": date_time,
-            "soil_moisture": soil_moisture,
-            "error_high": error_high,
-            "error_low": error_low,
-            "latitude": latitude,
-            "longitude": longitude,
-            "sensor_name": sensor_name,
-            "sensor_id": sensor_id,
-            "representative": representative,
-        }
-        PostgresManager.add_soil_moisture(data_to_insert)
+        PostgresManager.insert_crns_measurements_from_df(df_new)
 
 
-async def collect_values():
-    """Run main."""
-    yesterday = datetime.utcnow() - timedelta(days=1)
-    today = datetime.utcnow()
-    yesterday = None
-    today = None
-    # for thing_id, data_streams in TimeIOManager.thing_datastream_dict.items():
-    #     print(f"Thing: {thing_id}, {TimeIOManager.thing_info_dict[thing_id]}")
-    #     for data_stream_id, data_stream_name in data_streams.items():
-    #         async for date_time, value, position in TimeIOManager.get_values(
-    #             yesterday, today, data_stream_id
-    #         ):
-    #             if thing_id in TimeIOManager.stationary_things and position != []:
-    #                 print("Stationary thing with position")
-    #                 print(date_time, value, position)
-    #                 break
-    #             if position == []:
-    #                 print("No position")
-    #                 print(date_time, value, position)
-    #                 break
+def get_some_points():
+    """Test function to get some points."""
+    # Coordinates of the point
+    lon = 12.126402  # 714635.4541364739
+    lat = 51.993319  # 5764911.233944339
 
-    for thing_id, data_streams in TimeIOManager.thing_datastream_dict.items():
-        print(f"Thing: {thing_id}, {TimeIOManager.thing_info_dict[thing_id]}")
-        for data_stream_id, data_stream_name in data_streams.items():
-            async for date_time, value in TimeIOManager.get_values(
-                yesterday, today, data_stream_id
-            ):
-                print(date_time, value)
+    # X1 714000
+    # X2 715000
+    # Y1 5764000
+    # Y2 5766000
+
+    # X1 649000
+    # X2 650000
+    # Y1 5763000
+    # Y1 5764000
+    # Small bbox around the point
+    bbox = (lon - 0.001, lat - 0.001, lon + 0.001, lat + 0.001)
+
+    # Find the type for sensor_id 99
+    types = [t for id, t in type_id_dict.items() if 99 == id]
+
+    # Date range covering the timestamp
+    start_date = datetime(2025, 6, 17, 10, 20, 0)
+    end_date = datetime(2025, 6, 17, 10, 22, 0)
+
+    representative = True
+
+    print(types)
+    results = PostgresManager.get_measurement_points(
+        bbox, types, start_date, end_date, representative
+    )
+    print(results[:10])
 
 
 def main():
     """Run main."""
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     logging.getLogger("urllib3").setLevel(logging.ERROR)
     logging.getLogger("asyncio").setLevel(logging.ERROR)
     update_crns_measurments()
+    get_some_points()
 
 
 if __name__ == "__main__":
     main()
-
-# query_url = build_sti_query(yesterday, today)
-# print(query_url)
-#
-# response = requests.get(query_url, timeout=5)
-#
-# if response.status_code != 200:
-#     logging.warning("Requst failed.")
-#     logging.warning(f"Status code: {response.status_code}")
-#     logging.warning(f"URL: {query_url}")
-#     logging.warning("Response:")
-#     try:
-#         logging.warning(json.dumps(response.json(), indent=2))
-#     except IndexError:
-#         logging.warning("No json returned!")
-#     response.raise_for_status()
-#
-# information = response.json()
-# print(json.dumps(information, indent=2))
-# for station in information["value"]:
-#     print(f"Station: {station['@iot.id']}")
-#     print(f"Name: {station['name']}")
-#     print(
-#         f"Location: {station['location']['type']} at {station['location']['coordinates']}"  # noqa: E501
-#     )

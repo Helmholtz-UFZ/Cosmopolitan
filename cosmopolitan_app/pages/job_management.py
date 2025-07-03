@@ -5,9 +5,10 @@ from datetime import datetime
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import Input, Output, State, callback, dash_table, html
+from dash import Input, Output, State, callback, dash_table
 
 from cosmopolitan_app.job import Job
+from cosmopolitan_app.layouts import create_header
 from cosmopolitan_app.postgres_manager import PostgresManager
 from cosmopolitan_app.utils import clean_up_jobs
 
@@ -87,28 +88,25 @@ button_group = [
     ),
 ]
 
-layout = html.Div(
-    [
-        dbc.Row(
-            dbc.Col(
-                html.H1("Job Management Dashboard"),
-                className="text-center m-2",
-            ),
+layout = [
+    create_header(
+        "Job Management",
+        "Overview and management of jobs in the Cosmopolitan App",
+        bg_color="bg-info",
+    ),
+    dbc.Row(
+        dbc.Col(
+            button_group,
         ),
-        dbc.Row(
-            dbc.Col(
-                button_group,
-            ),
-            className="m-2",
+        className="m-2",
+    ),
+    dbc.Row(
+        dbc.Col(
+            table,
         ),
-        dbc.Row(
-            dbc.Col(
-                table,
-            ),
-            className="m-2",
-        ),
-    ]
-)
+        className="m-2",
+    ),
+]
 
 
 @callback(

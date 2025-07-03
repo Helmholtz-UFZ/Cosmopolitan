@@ -70,6 +70,7 @@ CREATE INDEX IF NOT EXISTS idx_crns_measurements_geom
 -- SELECT job_id, status FROM jobs;
 -- SELECT job_id, cluster_job_id FROM jobs;
 -- SELECT message FROM logs WHERE timestamp > NOW() - INTERVAL '1 day';
+-- SELECT sensor_id, date_time, latitude, longitude, soil_moisture, representative FROM crns_measurements;
 -- psql -U somweb_prod_adm -p 5432 -h postgres.intranet.ufz.de -d somweb_prod
 -- psql -U somweb_stage_adm -p 5432 -h postgres-dev.intranet.ufz.de -d somweb_stage
 -- psql -U somweb_stage_rw -p 5432 -h localhost -d somweb_stage

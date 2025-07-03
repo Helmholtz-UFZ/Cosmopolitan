@@ -92,7 +92,7 @@ class ModelWebsite(InputParameters):
     date_range: Annotated[
         Tuple[str, str],
         Field(
-            ("2021-01-01", "2021-01-31"),
+            ("2025-06-01", "2025-06-28"),
             description="Choose a date range for the CRNS measurements.",
             title="Date range",
             type="date-picker",
@@ -162,13 +162,35 @@ class ModelWebsite(InputParameters):
         """Ensure that eiterh crns data stations are selected or uploaded."""
         if (
             not any([self.train_data, self.station_data, self.rover_data])
-            and self.soil_moisture_data == ""
+            and len(self.crns_upload) == 0
         ):
             # Need to raise a custom error. Any validation error should be associated
             # with the field that caused it.
             raise PydanticCustomError(
                 "value_error",
                 "Either select a CRNS data source or upload CRNS data.",
+                {
+                    "loc_tuple": (
+                        "crns_upload",
+                        "train_data",
+                        "station_data",
+                        "rover_data",
+                    )
+                },
+            )
+        if (
+            any(
+                [
+                    self.train_data,
+                    self.station_data,
+                    self.rover_data,
+                ]
+            )
+            and len(self.crns_upload) > 0
+        ):
+            raise PydanticCustomError(
+                "value_error",
+                "Either select a CRNS data source or upload CRNS data, not both.",
                 {
                     "loc_tuple": (
                         "crns_upload",
