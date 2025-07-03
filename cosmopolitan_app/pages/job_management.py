@@ -1,6 +1,7 @@
 """Job Management Dashboard for Cosmopolitan App."""
 
 import logging
+import re
 from datetime import datetime
 
 import dash
@@ -111,6 +112,7 @@ layout = [
 
 @callback(
     Output("jobs-table", "data"),
+    Output("jobs-table", "selected_rows"),
     [
         Input("delete_btn", "n_clicks"),
         Input("clean_btn", "n_clicks"),
@@ -128,11 +130,9 @@ def job_mangament_dashboard(
 
     if button_id == "delete_btn" and selected_rows:
         logging.info("Deleting selected jobs")
-        logging.debug(f"Selected rows: {selected_rows}")
-        selected_job_ids = [
-            table_data[i]["job_id"].strip("[]").split("/")[1] for i in selected_rows
-        ]
-        for job_id in selected_job_ids:
+        for i in selected_rows:
+            job_id = re.findall(r"\[(.*?)\]", table_data[i]["job_id"])[0]
+            logging.debug(f"Deleting job with ID: {job_id}")
             job = Job(job_id)
             job.delete()
     elif button_id == "clean_btn":
@@ -162,4 +162,7 @@ def job_mangament_dashboard(
             }
         )
 
-    return rows
+    # Reset selected_rows after delete or clean
+    if button_id in ["delete_btn", "clean_btn"]:
+        return rows, []
+    return rows, dash.no_update

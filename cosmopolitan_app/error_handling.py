@@ -120,14 +120,19 @@ def handle_error(error):
     """Handle the error and return a formatted message."""
     logging.debug(f"Error: {error}")
 
-    callback_context = dash.ctx
-    email_subject = f"Error {str(error)}"
-    email_body = f"""
-    Traceback info: {traceback.format_exc()}\n\n
-    Input info: {json.dumps(callback_context.triggered)}
-    """
-
-    send_mail(MAINTAINER_EMAIL, email_subject, email_body)
+    if not isinstance(
+        error,
+        (NotFound, NotFinishedException, JobNotFound, InvalidJobID, SubmittedException),
+    ):
+        callback_context = dash.ctx
+        email_subject = f"Error {str(error)}"
+        email_body = f"""
+        Traceback info: {traceback.format_exc()}\n\n
+        Input info: {json.dumps(callback_context.triggered)}
+        """
+        send_mail(MAINTAINER_EMAIL, email_subject, email_body)
+        logging.error(f"Unhandled error: {error}")
+        logging.error(email_body)
 
     error_title = error_responds_dict.get(type(error), error_responds_dict[Exception])[
         0
