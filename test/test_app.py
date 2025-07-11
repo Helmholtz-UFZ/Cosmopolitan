@@ -179,6 +179,14 @@ def test_full_procedure(dash_duo, crns_file_path, pred_file_paths):
             )
 
     # Upload CRNS file
+
+    # Uncheck all CRNS measurement fields
+    for crns_measurment_field_name in ["train_data", "station_data", "rover_data"]:
+        crns_measurment_id = active_form_factory.id_format.format(
+            field_name=crns_measurment_field_name
+        )
+        scroll_to_element_and_click(dash_duo, crns_measurment_id)
+
     crns_file_name = str(crns_file_path.name)
     crns_field_name = "crns_upload"
     assert (
