@@ -20,6 +20,7 @@ type_id_dict = {
     170: "station",
     171: "station",
     205: "station",
+    216: "train",
 }
 
 thing_datastream_dict = {
@@ -118,3 +119,25 @@ thing_info_dict = {
     216: "CRNS - RR5",
 }
 ignore_things = [145]
+# ignore_things = [
+#     145,
+#     44,
+#     85,
+#     92,
+#     93,
+#     94,
+#     95,
+#     97,
+#     99,
+#     107,
+#     146,
+#     148,
+#     149,
+#     162,
+#     167,
+#     168,
+#     170,
+#     171,
+#     205,
+#     216,
+# ]

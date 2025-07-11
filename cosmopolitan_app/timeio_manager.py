@@ -4,12 +4,14 @@ import hashlib
 import json
 import logging
 import time
+import traceback
 from asyncio.exceptions import TimeoutError
 from datetime import date, datetime, timedelta
 from math import atan2, cos, radians, sin, sqrt
 from pprint import pformat
 from typing import Dict, List, Optional, Tuple, Union
 
+import numpy as np
 import pandas as pd
 import requests
 from requests.exceptions import HTTPError, RequestException
@@ -21,6 +23,8 @@ from cosmopolitan_app.timeio_info import (
     thing_info_dict,
     type_id_dict,
 )
+
+EARLIEST_START_DATE = datetime(2016, 1, 1, 0, 0, 0)
 
 
 class TimeIOManager:
@@ -34,36 +38,38 @@ class TimeIOManager:
     def request_data(cls, query: str):
         """Request data from the STI API and yield results synchronously."""
         max_retries = 3
-        logging.debug(f"Query: {query}")
         original_query = query
         while query:
             try:
-                start_time = datetime.now()
-                response = requests.get(query, timeout=60)
+                response = requests.get(query, timeout=120)
                 response.raise_for_status()
                 data = response.json()
-                logging.debug(f"Request took {datetime.now() - start_time}")
                 for item in data.get("value", []):
                     yield query, item
                 query = data.get("@iot.nextLink")
-                logging.debug(f"Next link: {query}")
+                max_retries = 3
             except (
                 RequestException,
                 TimeoutError,
                 HTTPError,
             ) as error:
-                logging.error(f"Error: {error}")
-                logging.error(f"Query: {query}")
-                logging.error(
+                logging.info(f"Error: {error}")
+                logging.info(f"Query: {query}")
+                logging.info(
                     f"Hash of query: {hashlib.md5(query.encode()).hexdigest()}"
                 )
+                logging.info(f"Time of error: {datetime.now()}")
                 if max_retries == 0:
                     logging.error("Max retries reached. Exiting.")
                     logging.error(f"Original query: {original_query}")
-                    logging.error(f"Time of error: {datetime.now()}")
                     raise error
-                logging.error("Retrying request.")
-                time.sleep(3)
+                logging.info("Retrying request.")
+                if max_retries == 3:
+                    time.sleep(10)
+                elif max_retries == 2:
+                    time.sleep(120)
+                elif max_retries == 1:
+                    time.sleep(300)
                 max_retries -= 1
 
     @classmethod
@@ -80,6 +86,7 @@ class TimeIOManager:
     def get_things(cls) -> list:
         """Get the things from the STI API."""
         url = f"{cls.base_url}/Things?$select=id,name"
+        logging.debug(f"Requesting things from {url}")
         querys, items = cls.collect_data(url)
         return items
 
@@ -87,6 +94,7 @@ class TimeIOManager:
     def get_datastreams_of_thing(cls, thing_id: int) -> list:
         """Get the datastreams for a thing from the STI API."""
         url = f"{cls.base_url}/Things({thing_id})/Datastreams?$select=id,name"
+        logging.debug(f"Requesting datastreams for thing {thing_id} from {url}")
         querys, items = cls.collect_data(url)
         return items
 
@@ -94,6 +102,7 @@ class TimeIOManager:
     def get_location_of_thing(cls, thing_id: int) -> Optional[Dict[str, float]]:
         """Get the location of a thing from the STI API."""
         url = f"{cls.base_url}/Things({thing_id})/Locations"
+        logging.debug(f"Requesting location for thing {thing_id} from {url}")
         querys, items = cls.collect_data(url)
         if not items:
             return None
@@ -137,6 +146,12 @@ class TimeIOManager:
                     f"Duplicate timestamps for datastream {datastream_name}:"
                 )
                 logging.warning(new_df.loc[duplicates])
+
+            if datastream_name == "Neutron counts":
+                # Convert neutron counts to soil moisture
+                new_df[datastream_name] = np.minimum(
+                    0.13 * np.sqrt(new_df[datastream_name]) + 0.1, 0.6
+                )
             new_df = new_df[~new_df.index.duplicated(keep="first")]
             dataframes.append(new_df)
 
@@ -199,6 +214,10 @@ class TimeIOManager:
         logging.info("Checking if all things are available.")
         if thing_info_dict.keys() != thing_datastream_dict.keys():
             raise ValueError("Thing info and datastream dict are not in sync")
+
+        if thing_info_dict.keys() != type_id_dict.keys():
+            raise ValueError("Thing info and type id dict are not in sync")
+
         things = cls.get_things()
 
         new_thing_datastream_dict = {}
@@ -305,9 +324,9 @@ class GeoProximityTracker:
         return True
 
 
-def find_representative_points_mobile(df, proximity_threshold_meters=10):
+def find_representative_points_mobile(df, proximity_threshold_meters=100):
     """Find representative points from a DataFrame based on proximity."""
-    logging.info("Finding representative points for mobile devices.")
+    logging.debug("Finding representative points for mobile devices.")
     df["date"] = df["date_time"].dt.date
     is_representative_mask = []
 
@@ -329,7 +348,7 @@ def find_representative_points_mobile(df, proximity_threshold_meters=10):
 
 def find_representative_points_stationary(df):
     """Mark the first point of each device per day as representative (stationary)."""
-    logging.info("Finding representative points for stationary devices.")
+    logging.debug("Finding representative points for stationary devices.")
     df = df.copy()
     df["date"] = df["date_time"].dt.date
 
@@ -340,22 +359,12 @@ def find_representative_points_stationary(df):
     return df.drop(columns=["date"])
 
 
-def update_crns_measurments() -> None:
+def transfer_data_by_day(start_date: datetime) -> None:
     """Transfer data to the postgres database."""
-    logging.info("Updating CRNS measurements.")
-    last_update = PostgresManager.last_update_crns()
-    if last_update is None:
-        start_date = None
-        end_date = None
-    else:
-        start_date = last_update
-        end_date = datetime.combine(datetime.now().date(), datetime.min.time())
+    logging.info(f"Transferring data for {start_date.strftime('%Y-%m-%d')}")
 
-    # TODO
-    start_date = datetime.utcnow() - timedelta(days=30)
-    end_date = datetime.utcnow()
-
-    TimeIOManager.check_things()
+    start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    end_date = start_date.replace(hour=23, minute=59, second=59, microsecond=999999)
 
     for thing_dict in TimeIOManager.get_things():
         thing_id = thing_dict["@iot.id"]
@@ -373,9 +382,9 @@ def update_crns_measurments() -> None:
 
         df = TimeIOManager.collect_datastreams(thing_id, start_date, end_date)
         if df.empty:
-            logging.warning("No data found for this thing.")
+            logging.debug("No data found for this thing.")
             continue
-        logging.info(f"Found {len(df)} measurements for {thing_name}.")
+        logging.debug(f"Found {len(df)} measurements for {thing_name}.")
 
         if TimeIOManager.is_stationary(thing_id):
             df = find_representative_points_stationary(df)
@@ -388,8 +397,8 @@ def update_crns_measurments() -> None:
                 "is_representative": "representative",
             }
         )
-        df_new["error_high"] = df_new["soil_moisture"] * 0.05
-        df_new["error_low"] = df_new["soil_moisture"] * 0.05
+        df_new["error_high"] = df_new["soil_moisture"] + df_new["soil_moisture"] * 0.1
+        df_new["error_low"] = df_new["soil_moisture"] - df_new["soil_moisture"] * 0.1
         df_new["sensor_name"] = thing_name
         df_new["sensor_id"] = thing_id
 
@@ -409,6 +418,47 @@ def update_crns_measurments() -> None:
         ]
 
         PostgresManager.insert_crns_measurements_from_df(df_new)
+        logging.info(
+            f"Inserted {len(df_new)} measurements for {thing_name} into the database."
+        )
+
+
+def update_crns_measurments() -> None:
+    """Update CRNS measurements from the STI API."""
+    logging.info("Updating CRNS measurements from STI API.")
+
+    TimeIOManager.check_things()
+
+    start_date = PostgresManager.get_earliest_missing_or_failed_date(
+        EARLIEST_START_DATE
+    )
+
+    current_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    yesterday_date = (datetime.now() - timedelta(days=1)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+
+    while current_date <= yesterday_date:
+        if PostgresManager.was_update_successful(current_date):
+            current_date += timedelta(days=1)
+            continue
+
+        try:
+            transfer_data_by_day(current_date)
+            PostgresManager.add_update_crns(current_date)
+        except Exception as e:  # noqa: BLE001
+            logging.error(f"Error while transferring data for {current_date}: {e}")
+            logging.error(f"Traceback: {traceback.format_exc()}")
+
+        current_date += timedelta(days=1)
+
+
+def repopulate_crns_measurements() -> None:
+    """Repopulate CRNS measurements from the STI API."""
+    logging.info("Repopulating CRNS measurements from STI API.")
+    PostgresManager.purge_measurement_points()
+    PostgresManager.reset_update_crns()
+    update_crns_measurments()
 
 
 def get_some_points():

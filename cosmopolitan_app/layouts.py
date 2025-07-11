@@ -63,6 +63,14 @@ def create_navbar(page_registry):
                                         ],
                                     )
                                 ),
+                                dbc.NavItem(
+                                    dbc.NavLink(
+                                        "Measurments",
+                                        href=page_registry["pages.measurment_view"][
+                                            "relative_path"
+                                        ],
+                                    )
+                                ),
                             ],
                         ),
                         id=NAVBAR_COLLAPSE_ID,

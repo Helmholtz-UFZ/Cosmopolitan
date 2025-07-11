@@ -3,7 +3,7 @@
 import logging
 import time
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict
 
 import pandas as pd
@@ -486,22 +486,127 @@ class PostgresManager:
                 return None
 
     @classmethod
-    def add_update_crns(cls, successful):
-        """Add a new update time for CRNS measurements.
+    def get_earliest_missing_or_failed_date(cls, start_date):
+        """Get the earliest missing or failed date for CRNS measurements.
 
-        This method adds a new update time for CRNS measurements to the
-        'update_times_crns' table in the database.
+        This method analyzes CRNS measurement update times and returns:
+        - Start date if the table is empty
+        - The earliest unsuccessful date if any exist
+        - The earliest missing date if there are gaps in the sequence
+        - The next expected date if all dates from start are successful
+        - The start_date if the first entry is after start_date
 
-        Parameters:
-        successful (bool): Indicates whether the update was successful.
+        Args:
+            start_date (datetime): The starting date for analysis
+
+        Returns:
+            datetime or None: The appropriate date based on the analysis logic
         """
+        logging.debug("Get earliest missing or failed date for CRNS measurements")
+
+        with cls.session_scope() as session:
+            # Check if table is empty
+            total_count = session.query(UpdateTimesCRNS).count()
+            if total_count == 0:
+                return start_date
+
+            # Get the earliest date in the database
+            earliest_entry = (
+                session.query(UpdateTimesCRNS)
+                .order_by(UpdateTimesCRNS.update.asc())
+                .first()
+            )
+
+            # If first entry is after start_date, return start_date
+            if earliest_entry.update.date() > start_date.date():
+                return start_date
+
+            # Get all entries from start_date onwards, ordered by date
+            all_updates = (
+                session.query(UpdateTimesCRNS)
+                .filter(UpdateTimesCRNS.update >= start_date)
+                .order_by(UpdateTimesCRNS.update.asc())
+                .all()
+            )
+
+            if not all_updates:
+                return start_date
+
+            # Find the earliest unsuccessful date
+            earliest_unsuccessful = None
+            for update in all_updates:
+                if not update.successful:
+                    earliest_unsuccessful = update.update
+                    break
+
+            # Find the earliest gap (missing date)
+            current_date = start_date.date()
+            update_dates = {update.update.date() for update in all_updates}
+            earliest_gap = None
+
+            while current_date <= max(update_dates):
+                if current_date not in update_dates:
+                    earliest_gap = datetime.combine(current_date, datetime.min.time())
+                    break
+                current_date += timedelta(days=1)
+
+            # If no gap found within existing range, the gap is the next day after the
+            # last entry
+            if earliest_gap is None:
+                last_date = max(update_dates)
+                earliest_gap = datetime.combine(
+                    last_date + timedelta(days=1), datetime.min.time()
+                )
+
+            # Return whichever is earlier: gap or unsuccessful date
+            if earliest_unsuccessful is None:
+                return earliest_gap
+            elif earliest_gap is None:
+                return earliest_unsuccessful
+            else:
+                return min(earliest_gap, earliest_unsuccessful)
+
+    @classmethod
+    def add_update_crns(cls, day: datetime, successful: bool = True):
+        """Add or update a new update time for CRNS measurements."""
         logging.debug("Add new update time for CRNS measurements")
 
         with cls.session_scope() as session:
-            new_update = UpdateTimesCRNS(
-                update=datetime.utcnow(), successful=successful
-            )
-            session.add(new_update)
+            existing = session.query(UpdateTimesCRNS).filter_by(update=day).first()
+            if existing:
+                existing.successful = successful
+            else:
+                new_update = UpdateTimesCRNS(update=day, successful=successful)
+                session.add(new_update)
+
+    @classmethod
+    def was_update_successful(cls, day: datetime) -> bool:
+        """Check if the update for CRNS measurements was successful.
+
+        This method checks if the update for CRNS measurements on a specific
+        date was successful by querying the 'update_times_crns' table in the
+        database.
+
+        Parameters:
+        day (datetime): The date and time of the update.
+
+        Returns:
+        bool: True if the update was successful, False otherwise.
+        """
+        logging.debug(f"Check if update on {day} was successful")
+
+        with cls.session_scope() as session:
+            update = session.query(UpdateTimesCRNS).filter_by(update=day).first()
+            return update.successful if update else False
+
+    @classmethod
+    def reset_update_crns(cls):
+        """Reset all update times for CRNS measurements."""
+        logging.info("Reset all update times for CRNS measurements")
+
+        with cls.session_scope() as session:
+            session.query(UpdateTimesCRNS).delete(synchronize_session=False)
+            logging.info("All CRNS update times have been reset")
 
     @classmethod
     def insert_crns_measurements_from_df(cls, df):
@@ -514,7 +619,7 @@ class PostgresManager:
         Raises:
             ValueError: If required columns are missing or lat/lon contain null values.
         """
-        logging.info("Insert or update CRNS measurements from DataFrame")
+        logging.debug("Insert or update CRNS measurements from DataFrame")
 
         # Get all table columns except geom
         table = CRNSMeasurement.__table__
@@ -539,11 +644,16 @@ class PostgresManager:
 
         # Validate latitude and longitude are not null
         if df["latitude"].isnull().any() or df["longitude"].isnull().any():
-            null_lat_count = df["latitude"].isnull().sum()
-            null_lon_count = df["longitude"].isnull().sum()
-            raise ValueError(
-                f"latitude and longitude cannot be null. Found {null_lat_count} null latitude and {null_lon_count} null longitude values"  # noqa: E501
+            logging.warning(
+                "DataFrame contains null values in latitude or longitude columns. "
+                "These rows will be skipped."
             )
+            logging.warning(f"Null latitude rows: {df[df['latitude'].isnull()]}")
+            df = df.dropna(subset=["latitude", "longitude"])
+
+        if df.empty:
+            logging.warning("DataFrame is empty after dropping null values.")
+            return
 
         # Create geometry column from lat/lon
         df = df.copy()  # Avoid modifying the original DataFrame
@@ -565,7 +675,7 @@ class PostgresManager:
 
         with cls.session_scope() as session:
             session.execute(stmt)
-            logging.info(
+            logging.debug(
                 f"Successfully inserted/updated {len(records)} CRNS measurements"
             )
 
@@ -591,7 +701,6 @@ class PostgresManager:
             ]
             query = session.query(*columns).filter(
                 CRNSMeasurement.sensor_id.in_(sensor_ids),
-                CRNSMeasurement.representative == representative,
                 CRNSMeasurement.date_time >= start_date,
                 CRNSMeasurement.date_time <= end_date,
                 func.ST_Within(
@@ -599,9 +708,37 @@ class PostgresManager:
                     func.ST_MakeEnvelope(min_lon, min_lat, max_lon, max_lat, 4326),
                 ),
             )
+
+            if representative:
+                query = query.filter(CRNSMeasurement.representative == True)  # noqa
+
             col_names = [col.key for col in columns]
             data = [dict(zip(col_names, row)) for row in query.all()]
+
+        logging.debug(f"Retrieved {len(data)} measurement points")
         return pd.DataFrame(data)
+
+    @classmethod
+    def purge_measurement_points(cls, sensor_ids=None):
+        """Purge measurement points from the database.
+
+        If sensor_ids is provided, only those sensors will be purged.
+        Otherwise, all measurement points will be deleted.
+
+        Parameters:
+        sensor_ids (list): List of sensor IDs to purge. If None, all sensors are purged.
+        """
+        logging.info(f"Purging measurement points for sensors: {sensor_ids}")
+
+        with cls.session_scope() as session:
+            if sensor_ids is not None:
+                session.query(CRNSMeasurement).filter(
+                    CRNSMeasurement.sensor_id.in_(sensor_ids)
+                ).delete(synchronize_session=False)
+            else:
+                session.query(CRNSMeasurement).delete(synchronize_session=False)
+
+            logging.info("Measurement points purged successfully")
 
 
 class TaskLockTable(Base):

@@ -139,6 +139,14 @@ def layout(job_id):
     image_name = get_image_name(job_id, start_plot_id, 0)
     img_url = url_for("serve_file", job_id=job_id, filename=image_name)
 
+    submission_path = dash.page_registry["pages.submission"]["path_template"]
+    submission_url = submission_path.replace("<job_id>", str(job_id))
+
+    submission_button = dcc.Link(
+        dbc.Button("Back to Submission", color="primary", className="mt-3"),
+        href=submission_url,
+    )
+
     pill_group = html.Div(
         dbc.RadioItems(
             id="plot_pill_group",
@@ -160,6 +168,7 @@ def layout(job_id):
                     [
                         html.H3("Select Plot"),
                         pill_group,
+                        submission_button,
                     ],
                     className="text-center pb-4",
                 ),

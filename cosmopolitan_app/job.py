@@ -17,7 +17,6 @@ from logging.config import dictConfig
 from smtplib import SMTPAuthenticationError
 from typing import Literal, Self
 
-import cairo
 import staticmaps
 from coolname import generate
 from pyproj import Transformer
@@ -92,6 +91,95 @@ def start_computation(job):
             send_finished_mail(job)
         except SMTPAuthenticationError:
             logging.error("Failed to send finished mail.")
+
+
+def draw_preview(
+    filepath,
+    min_lon,
+    min_lat,
+    max_lon,
+    max_lat,
+    types,
+    start_date,
+    end_date,
+):
+    """Draw a preview of the area and add measurement points.
+
+    Args:
+        filepath: Path to save PNG file. If None, returns base64 encoded image.
+        min_lon, min_lat, max_lon, max_lat: Bounding box coordinates
+        types: List of measurement types
+        start_date, end_date: Date range for measurements
+
+    Returns:
+        If filepath is None: base64 encoded image string
+        If filepath is provided: None (writes to file)
+    """
+    logging.info(f"Draw preview for area: {min_lat}, {min_lon}, {max_lat}, {max_lon}")
+    width = 800
+    height = 500
+    context = staticmaps.Context()
+    context.set_tile_provider(staticmaps.tile_provider_OSM)
+
+    # Bbox for PostGIS query
+    bbox_pg = (min_lon, min_lat, max_lon, max_lat)
+
+    # Area polygon for staticmaps (lat, lon order)
+    area_poly = [
+        (min_lat, min_lon),
+        (max_lat, min_lon),
+        (max_lat, max_lon),
+        (min_lat, max_lon),
+        (min_lat, min_lon),
+    ]
+
+    # Add area polygon first
+    context.add_object(
+        staticmaps.Area(
+            [staticmaps.create_latlng(lat, lon) for lat, lon in area_poly],
+            fill_color=staticmaps.parse_color("#00FF003F"),
+            width=3,
+            color=staticmaps.BLUE,
+        )
+    )
+
+    # Retrieve measurement points
+    points_df = PostgresManager.get_measurement_points(
+        bbox_pg, types, start_date, end_date, representative=True
+    )
+
+    # Map sensor type to color
+    type_color = {
+        "train": staticmaps.GREEN,
+        "station": staticmaps.BLUE,
+        "rover": staticmaps.RED,
+    }
+
+    # Add markers on top of area
+    for _, row in points_df.iterrows():
+        sensor_type = type_id_dict[row["sensor_id"]]
+        color = type_color[sensor_type]
+        context.add_object(
+            staticmaps.Marker(
+                staticmaps.create_latlng(row["latitude"], row["longitude"]),
+                color=color,
+                size=8,
+            )
+        )
+
+    # Render the image
+    image = context.render_cairo(width, height)
+
+    if filepath is None:
+        # Return base64 encoded image
+        buf = io.BytesIO()
+        image.write_to_png(buf)
+        buf.seek(0)
+        return base64.b64encode(buf.read()).decode()
+    else:
+        # Write to file
+        image.write_to_png(filepath)
+        return None
 
 
 class NoMeasurementPointsError(Exception):
@@ -222,7 +310,7 @@ class Job:
                 )
             )
 
-    def preview_area(self, draw_preview: bool = True):
+    def preview_area(self, draw_empty: bool = True):
         """Draw a preview of the area and add measurement points."""
         logging.debug("Draw preview")
 
@@ -233,46 +321,18 @@ class Job:
             logging.debug(f"Remove file {file}")
             os.remove(file)
 
-        width = 800
-        height = 500
-        if not draw_preview:
-            logging.debug("Draw empty preview")
-            return self._draw_empty_preview(width, height)
-
-        context = staticmaps.Context()
-        context.set_tile_provider(staticmaps.tile_provider_OSM)
-
+        # Transform area corners to lon/lat
         transformer = Transformer.from_crs(
             self.model.projection, "EPSG:4326", always_xy=True
         )
-        # Transform area corners to lon/lat
         lon1, lat1 = transformer.transform(self.model.area_x1, self.model.area_y1)
         lon2, lat2 = transformer.transform(self.model.area_x2, self.model.area_y2)
         min_lon, max_lon = min(lon1, lon2), max(lon1, lon2)
         min_lat, max_lat = min(lat1, lat2), max(lat1, lat2)
-
-        # Bbox for PostGIS query
-        bbox_pg = (min_lon, min_lat, max_lon, max_lat)
-
-        # Area polygon for staticmaps (lat, lon order)
-        area_poly = [
-            (min_lat, min_lon),
-            (max_lat, min_lon),
-            (max_lat, max_lon),
-            (min_lat, max_lon),
-            (min_lat, min_lon),
-        ]
-
-        # Add area polygon first
-        context.add_object(
-            staticmaps.Area(
-                [staticmaps.create_latlng(lat, lon) for lat, lon in area_poly],
-                fill_color=staticmaps.parse_color("#00FF003F"),
-                width=3,
-                color=staticmaps.BLUE,
-            )
+        filename = self.preview_area_filename_template.format(
+            position=f"{min_lat}_{min_lon}_{max_lat}_{max_lon}"
         )
-
+        file_path = os.path.join(self.working_dir, filename)
         # Prepare types list
         types = []
         if self.model.train_data:
@@ -285,64 +345,16 @@ class Job:
         # Get date range
         start_date, end_date = self.model.date_range
 
-        # Retrieve measurement points
-        points_df = PostgresManager.get_measurement_points(
-            bbox_pg, types, start_date, end_date, representative=True
+        draw_preview(
+            file_path,
+            min_lon,
+            min_lat,
+            max_lon,
+            max_lat,
+            types,
+            start_date,
+            end_date,
         )
-
-        # Map sensor type to color
-        type_color = {
-            "train": staticmaps.GREEN,
-            "station": staticmaps.BLUE,
-            "rover": staticmaps.RED,
-        }
-
-        # Add markers on top of area
-        for _, row in points_df.iterrows():
-            sensor_type = type_id_dict[row["sensor_id"]]
-            color = type_color[sensor_type]
-            context.add_object(
-                staticmaps.Marker(
-                    staticmaps.create_latlng(row["latitude"], row["longitude"]),
-                    color=color,
-                    size=8,
-                )
-            )
-
-        image = context.render_cairo(width, height)
-        filename = self.preview_area_filename_template.format(
-            position=f"{min_lat}_{min_lon}_{max_lat}_{max_lon}"
-        )
-        image.write_to_png(os.path.join(self.working_dir, filename))
-        return filename
-
-    def _draw_empty_preview(self, width, height):
-        """Draw an empty preview if geometry is not valid."""
-        # Create a new Cairo surface and context
-        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
-        ctx = cairo.Context(surface)
-
-        # Fill background with white
-        ctx.set_source_rgb(1, 1, 1)
-        ctx.paint()
-
-        # Set up text properties
-        ctx.set_source_rgb(0.5, 0.5, 0.5)  # Gray color for text
-        ctx.select_font_face("Arial", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
-        ctx.set_font_size(32)
-
-        # Center the text
-        text = "No preview available"
-        extents = ctx.text_extents(text)
-        x = width / 2 - extents.width / 2
-        y = height / 2 + extents.height / 2
-
-        # Draw the text
-        ctx.move_to(x, y)
-        ctx.show_text(text)
-        filename = self.preview_area_filename_template.format(position="empty")
-
-        surface.write_to_png(os.path.join(self.working_dir, filename))
         return filename
 
     def get_preview_path(self):
@@ -394,7 +406,6 @@ class Job:
                 predictors_upload[file_name] = file_info
 
         if any((self.model.train_data, self.model.rover_data, self.model.station_data)):
-            logging.debug("Write CRNS data to CSV file")
             crns_info = self._write_crns()
             crns_upload["crns_data.csv"] = {
                 "file_path": "crns_data.csv",
@@ -404,7 +415,9 @@ class Job:
             self.model.soil_moisture_data = "crns_data.csv"
         else:
             self.model.crns_upload = crns_upload
+
         self.model.predictor_upload = predictors_upload
+        self.dump_parameters()
         self.save()
 
     def _write_crns(self):
@@ -414,12 +427,14 @@ class Job:
         transformer_to_wgs = Transformer.from_crs(
             self.model.projection, "EPSG:4326", always_xy=True
         )
+
         x1, y1, x2, y2 = (
             self.model.area_x1,
             self.model.area_y1,
             self.model.area_x2,
             self.model.area_y2,
         )
+
         lon1, lat1 = transformer_to_wgs.transform(x1, y1)
         lon2, lat2 = transformer_to_wgs.transform(x2, y2)
         min_lon, max_lon = min(lon1, lon2), max(lon1, lon2)
@@ -691,10 +706,12 @@ class Job:
         for file in os.listdir(self.working_dir):
             if file.startswith(self.original_file_prefix):
                 continue
+
             if os.path.isfile(os.path.join(self.working_dir, file)):
                 os.remove(os.path.join(self.working_dir, file))
             else:
                 shutil.rmtree(os.path.join(self.working_dir, file))
+
         delete_from_bucket(self.job_id)
 
         self.preview_area()
