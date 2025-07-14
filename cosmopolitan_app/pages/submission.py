@@ -169,6 +169,10 @@ def layout(job_id):
         "Submission", job.job_id, bg_color=job.status_color(), id="submission_header"
     )
     preview_path = job.get_preview_path()
+    if preview_path is None:
+        logging.info("No preview path found, generating new preview.")
+        job.preview_area()
+        preview_path = job.get_preview_path()
     preview_file_name = os.path.basename(preview_path)
     preview_src = url_for("serve_file", job_id=job.job_id, filename=preview_file_name)
     selected_predictors = construct_selected_input(

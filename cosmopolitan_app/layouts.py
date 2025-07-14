@@ -9,6 +9,19 @@ from cosmopolitan_app.constants import (
     NEW_JOB_LINK_ID,
 )
 
+loading_overlay = dbc.Modal(
+    dbc.ModalBody(
+        [dbc.Spinner(size="lg"), html.H4("Loading...", className="text-center mt-3")],
+        className="text-center",
+    ),
+    id="loading-overlay",
+    is_open=False,
+    backdrop="static",  # Prevents closing by clicking outside
+    keyboard=False,  # Prevents closing with escape key
+    centered=True,
+    size="sm",
+)
+
 
 def create_navbar(page_registry):
     """Create a navbar layout."""

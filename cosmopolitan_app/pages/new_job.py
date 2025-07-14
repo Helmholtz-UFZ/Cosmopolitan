@@ -1,10 +1,12 @@
 """Page for creating a new job."""
 
 import logging
+import os
+import random
 
+import coolname
 import dash
 import dash_bootstrap_components as dbc
-from coolname import generate
 from dash import Input, Output, State, callback, html
 from dash.exceptions import PreventUpdate
 
@@ -28,9 +30,11 @@ header = create_header(
 def layout():
     """Layout for the new job page."""
     logging.info("Create new job page")
+    seed = os.urandom(128)
+    coolname.replace_random(random.Random(seed))
 
     while True:
-        job_id = "_".join(generate(3))
+        job_id = "_".join(coolname.generate(3))
         if not PostgresManager.check_existence(job_id):
             break
 
@@ -70,6 +74,18 @@ def layout():
             justify="center",
         ),
     ]
+
+
+@callback(
+    Output("loading-overlay", "is_open"),
+    Input(PREPARE_INPUT_ID, "n_clicks"),
+    prevent_initial_call=True,
+)
+def show_loading(n_clicks):
+    """Show loading overlay when preparing input."""
+    if n_clicks:
+        return True
+    return False
 
 
 @callback(

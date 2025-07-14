@@ -263,13 +263,12 @@ class Job:
         self.working_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=self.job_id)
         shutil.rmtree(self.working_dir, ignore_errors=True)
         os.makedirs(self.working_dir, exist_ok=True)
-        self.preview_area()
         self.dump_parameters()
         self.save()
 
     def _blank_job(self, new_job_id):
         """Create a new job with a new job id."""
-        logging.info("Create new submission")
+        logging.info("Create new job")
 
         job_id = new_job_id if new_job_id else "_".join(generate(3))
 
@@ -292,7 +291,6 @@ class Job:
         self.working_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=self.job_id)
         shutil.rmtree(self.working_dir, ignore_errors=True)
         os.makedirs(self.working_dir, exist_ok=True)
-        self.preview_area()
         self.dump_parameters()
         self.save()
 

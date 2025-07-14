@@ -56,6 +56,10 @@ def layout(job_id):
         ]
 
     preview_path = job.get_preview_path()
+    if preview_path is None:
+        logging.info("No preview path found, generating new preview.")
+        job.preview_area()
+        preview_path = job.get_preview_path()
     preview_file_name = os.path.basename(preview_path)
     preview_src = url_for("serve_file", job_id=job.job_id, filename=preview_file_name)
 
@@ -144,21 +148,26 @@ def form_manager(**state):
     """Wrap all input logic of the form into one callback."""
     logging.info("Form manager")
 
-    job_id = state["job_id"]
-    job = Job(job_id=job_id)
     file_upload_error = {}
 
     triggered_id = callback_context.triggered[0]["prop_id"].split(".")[0]
     logging.debug(f"Triggered id: {triggered_id}")
+
     if triggered_id == active_form_factory.get_id_delete_button("crns_upload"):
+        job_id = state["job_id"]
+        job = Job(job_id=job_id)
         logging.debug("Delete CRNS button clicked")
         job.delete_input_files("crn")
         active_form_factory.set_file_information(state, {}, "crns_upload")
     elif triggered_id == active_form_factory.get_id_delete_button("predictor_upload"):
+        job_id = state["job_id"]
+        job = Job(job_id=job_id)
         logging.debug("Delete predictor button clicked")
         job.delete_input_files("pred")
         active_form_factory.set_file_information(state, {}, "predictor_upload")
     elif triggered_id == active_form_factory.get_id_input_file_content("crns_upload"):
+        job_id = state["job_id"]
+        job = Job(job_id=job_id)
         logging.debug("CRNS file uploaded")
         job.delete_input_files("crn")
 
@@ -178,6 +187,8 @@ def form_manager(**state):
     elif triggered_id == active_form_factory.get_id_input_file_content(
         "predictor_upload"
     ):
+        job_id = state["job_id"]
+        job = Job(job_id=job_id)
         logging.debug("Predictor file(s) uploaded")
         job.delete_input_files("pred")
 
@@ -198,7 +209,7 @@ def form_manager(**state):
             file_upload_error["predictor_upload"] = str(e)
 
     valid, output_dict = active_form_factory.validate_callback(state, file_upload_error)
-    active_form_factory.pymodel.job_id = job.job_id
+    active_form_factory.pymodel.job_id = state["job_id"]
 
     if triggered_id == active_form_factory.get_key_submit_button() and valid:
         logging.debug("Submit button clicked")

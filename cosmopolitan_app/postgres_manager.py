@@ -642,14 +642,7 @@ class PostgresManager:
             # Keep only required columns
             df = df[list(required_columns)]
 
-        # Validate latitude and longitude are not null
-        if df["latitude"].isnull().any() or df["longitude"].isnull().any():
-            logging.warning(
-                "DataFrame contains null values in latitude or longitude columns. "
-                "These rows will be skipped."
-            )
-            logging.warning(f"Null latitude rows: {df[df['latitude'].isnull()]}")
-            df = df.dropna(subset=["latitude", "longitude"])
+        df = df.dropna()
 
         if df.empty:
             logging.warning("DataFrame is empty after dropping null values.")
@@ -716,7 +709,9 @@ class PostgresManager:
             data = [dict(zip(col_names, row)) for row in query.all()]
 
         logging.debug(f"Retrieved {len(data)} measurement points")
-        return pd.DataFrame(data)
+        df = pd.DataFrame(data).dropna()
+        logging.debug(f"Returning {len(df)} measurement points after dropping NaNs")
+        return df
 
     @classmethod
     def purge_measurement_points(cls, sensor_ids=None):

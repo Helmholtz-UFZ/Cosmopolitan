@@ -11,7 +11,11 @@ from dash import Dash, dcc, html
 from cosmopolitan_app.config import DEBUG, PORT
 from cosmopolitan_app.error_handling import error_modal, handle_error
 from cosmopolitan_app.files_route import serve_files
-from cosmopolitan_app.layouts import create_navbar, register_navbar_callbacks
+from cosmopolitan_app.layouts import (
+    create_navbar,
+    loading_overlay,
+    register_navbar_callbacks,
+)
 from cosmopolitan_app.logger import get_logger_config_web
 from cosmopolitan_app.utils import clean_up
 
@@ -62,6 +66,7 @@ app.layout = html.Div(
         error_modal,
         nav_bar,
         content,
+        loading_overlay,
     ],
 )
 
