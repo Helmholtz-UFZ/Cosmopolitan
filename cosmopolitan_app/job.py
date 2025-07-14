@@ -261,7 +261,6 @@ class Job:
         self.status = "PENDING"
         self.version = smp_version
         self.working_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=self.job_id)
-        shutil.rmtree(self.working_dir, ignore_errors=True)
         os.makedirs(self.working_dir, exist_ok=True)
         self.dump_parameters()
         self.save()
@@ -296,6 +295,7 @@ class Job:
 
     def dump_parameters(self):
         """Dump the parameters of the model to the working directory."""
+        logging.debug("Dump parameters to JSON file")
         with open(
             os.path.join(self.working_dir, "parameters.json"), "w", encoding="UTF-8"
         ) as f_handle:
@@ -404,6 +404,7 @@ class Job:
                 predictors_upload[file_name] = file_info
 
         if any((self.model.train_data, self.model.rover_data, self.model.station_data)):
+            logging.debug("Prepare CRNS data from database")
             crns_info = self._write_crns()
             crns_upload["crns_data.csv"] = {
                 "file_path": "crns_data.csv",

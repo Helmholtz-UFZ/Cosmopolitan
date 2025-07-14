@@ -206,6 +206,7 @@ def test_full_procedure(dash_duo, crns_file_path, pred_file_paths):
         raise AssertionError(
             f"CRNS file {crns_file_name} not found in the list after upload"
         )
+
     check_all_errors(dash_duo)
 
     # Check input

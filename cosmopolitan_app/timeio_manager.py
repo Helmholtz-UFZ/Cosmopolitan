@@ -3,12 +3,12 @@
 import hashlib
 import json
 import logging
-import time
 import traceback
 from asyncio.exceptions import TimeoutError
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from math import atan2, cos, radians, sin, sqrt
 from pprint import pformat
+from time import sleep
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -65,11 +65,11 @@ class TimeIOManager:
                     raise error
                 logging.info("Retrying request.")
                 if max_retries == 3:
-                    time.sleep(10)
+                    sleep(10)
                 elif max_retries == 2:
-                    time.sleep(120)
+                    sleep(120)
                 elif max_retries == 1:
-                    time.sleep(300)
+                    sleep(300)
                 max_retries -= 1
 
     @classmethod
@@ -433,13 +433,16 @@ def update_crns_measurments() -> None:
         EARLIEST_START_DATE
     )
 
-    current_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    current_date = datetime.combine(start_date, time(0, 0, 0, 0))
     yesterday_date = (datetime.now() - timedelta(days=1)).replace(
         hour=0, minute=0, second=0, microsecond=0
     )
 
     while current_date <= yesterday_date:
         if PostgresManager.was_update_successful(current_date):
+            logging.info(
+                f"Data for {current_date.strftime('%Y-%m-%d')} already transferred."
+            )
             current_date += timedelta(days=1)
             continue
 
@@ -497,7 +500,7 @@ def get_some_points():
 
 def main():
     """Run main."""
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
     logging.getLogger("urllib3").setLevel(logging.ERROR)
     logging.getLogger("asyncio").setLevel(logging.ERROR)
     update_crns_measurments()

@@ -3,8 +3,8 @@
 import logging
 import time
 from contextlib import contextmanager
-from datetime import datetime, timedelta
-from typing import Any, Dict
+from datetime import date, datetime, timedelta
+from typing import Any, Dict, Union
 
 import pandas as pd
 from geoalchemy2 import Geometry
@@ -459,16 +459,23 @@ class PostgresManager:
                 task_lock.is_locked = False
 
     @classmethod
-    def last_update_crns(cls):
-        """Get the last update time for CRNS measurements.
+    def _extract_date(cls, date_input: Union[date, datetime]) -> date:
+        """Extract date from datetime or date object."""
+        if isinstance(date_input, datetime):
+            return date_input.date()
+        return date_input
 
-        This method retrieves the last update time for CRNS measurements
+    @classmethod
+    def last_update_crns(cls):
+        """Get the last update date for CRNS measurements.
+
+        This method retrieves the last update date for CRNS measurements
         from the 'update_times_crns' table in the database.
 
         Returns:
-        datetime: The last update time for CRNS measurements.
+        date: The last update date for CRNS measurements.
         """
-        logging.debug("Get last update time for CRNS measurements")
+        logging.debug("Get last update date for CRNS measurements")
 
         with cls.session_scope() as session:
             update = session.query(UpdateTimesCRNS).order_by(
@@ -486,7 +493,7 @@ class PostgresManager:
                 return None
 
     @classmethod
-    def get_earliest_missing_or_failed_date(cls, start_date):
+    def get_earliest_missing_or_failed_date(cls, start_date: Union[date, datetime]):
         """Get the earliest missing or failed date for CRNS measurements.
 
         This method analyzes CRNS measurement update times and returns:
@@ -497,12 +504,15 @@ class PostgresManager:
         - The start_date if the first entry is after start_date
 
         Args:
-            start_date (datetime): The starting date for analysis
+            start_date (date or datetime): The starting date for analysis
 
         Returns:
-            datetime or None: The appropriate date based on the analysis logic
+            date or None: The appropriate date based on the analysis logic
         """
         logging.debug("Get earliest missing or failed date for CRNS measurements")
+
+        # Convert to date if datetime
+        start_date = cls._extract_date(start_date)
 
         with cls.session_scope() as session:
             # Check if table is empty
@@ -518,7 +528,7 @@ class PostgresManager:
             )
 
             # If first entry is after start_date, return start_date
-            if earliest_entry.update.date() > start_date.date():
+            if earliest_entry.update > start_date:
                 return start_date
 
             # Get all entries from start_date onwards, ordered by date
@@ -540,13 +550,13 @@ class PostgresManager:
                     break
 
             # Find the earliest gap (missing date)
-            current_date = start_date.date()
-            update_dates = {update.update.date() for update in all_updates}
+            current_date = start_date
+            update_dates = {update.update for update in all_updates}
             earliest_gap = None
 
             while current_date <= max(update_dates):
                 if current_date not in update_dates:
-                    earliest_gap = datetime.combine(current_date, datetime.min.time())
+                    earliest_gap = current_date
                     break
                 current_date += timedelta(days=1)
 
@@ -554,9 +564,7 @@ class PostgresManager:
             # last entry
             if earliest_gap is None:
                 last_date = max(update_dates)
-                earliest_gap = datetime.combine(
-                    last_date + timedelta(days=1), datetime.min.time()
-                )
+                earliest_gap = last_date + timedelta(days=1)
 
             # Return whichever is earlier: gap or unsuccessful date
             if earliest_unsuccessful is None:
@@ -567,20 +575,30 @@ class PostgresManager:
                 return min(earliest_gap, earliest_unsuccessful)
 
     @classmethod
-    def add_update_crns(cls, day: datetime, successful: bool = True):
-        """Add or update a new update time for CRNS measurements."""
-        logging.debug("Add new update time for CRNS measurements")
+    def add_update_crns(cls, day: Union[date, datetime], successful: bool = True):
+        """Add or update a new update date for CRNS measurements.
+
+        Args:
+            day: The date (as date or datetime object) to add/update
+            successful: Whether the update was successful
+        """
+        # Convert to date if datetime
+        update_date = cls._extract_date(day)
+
+        logging.debug(f"Add new update date for CRNS measurements: {update_date}")
 
         with cls.session_scope() as session:
-            existing = session.query(UpdateTimesCRNS).filter_by(update=day).first()
+            existing = (
+                session.query(UpdateTimesCRNS).filter_by(update=update_date).first()
+            )
             if existing:
                 existing.successful = successful
             else:
-                new_update = UpdateTimesCRNS(update=day, successful=successful)
+                new_update = UpdateTimesCRNS(update=update_date, successful=successful)
                 session.add(new_update)
 
     @classmethod
-    def was_update_successful(cls, day: datetime) -> bool:
+    def was_update_successful(cls, day: Union[date, datetime]) -> bool:
         """Check if the update for CRNS measurements was successful.
 
         This method checks if the update for CRNS measurements on a specific
@@ -588,25 +606,29 @@ class PostgresManager:
         database.
 
         Parameters:
-        day (datetime): The date and time of the update.
+        day (date or datetime): The date of the update.
 
         Returns:
         bool: True if the update was successful, False otherwise.
         """
-        logging.debug(f"Check if update on {day} was successful")
+        # Convert to date if datetime
+        check_date = cls._extract_date(day)
+
+        logging.debug(f"Check if update on {check_date} was successful")
 
         with cls.session_scope() as session:
-            update = session.query(UpdateTimesCRNS).filter_by(update=day).first()
+            update = session.query(UpdateTimesCRNS).filter_by(update=check_date).first()
+            print(f"Update found: {update}")
             return update.successful if update else False
 
     @classmethod
     def reset_update_crns(cls):
-        """Reset all update times for CRNS measurements."""
-        logging.info("Reset all update times for CRNS measurements")
+        """Reset all update dates for CRNS measurements."""
+        logging.info("Reset all update dates for CRNS measurements")
 
         with cls.session_scope() as session:
             session.query(UpdateTimesCRNS).delete(synchronize_session=False)
-            logging.info("All CRNS update times have been reset")
+            logging.info("All CRNS update dates have been reset")
 
     @classmethod
     def insert_crns_measurements_from_df(cls, df):
@@ -788,7 +810,7 @@ class UpdateTimesCRNS(Base):
 
     __tablename__ = "update_times_crns"
 
-    update = Column(DateTime, primary_key=True, nullable=False)
+    update = Column(Date, primary_key=True, nullable=False)
     successful = Column(Boolean, nullable=False)
 
 
