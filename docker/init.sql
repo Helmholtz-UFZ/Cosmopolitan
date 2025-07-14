@@ -41,7 +41,7 @@ CREATE INDEX IF NOT EXISTS logs_timestamp_idx ON logs (timestamp);
 -- Table to store update times and success status
 DROP TABLE IF EXISTS update_times_crns;
 CREATE TABLE update_times_crns (
-    update TIMESTAMP NOT NULL PRIMARY KEY,
+    update DATE NOT NULL PRIMARY KEY,
     successful BOOLEAN NOT NULL
 );
 
