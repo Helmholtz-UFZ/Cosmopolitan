@@ -1,12 +1,12 @@
 """Unit tests for the PostgresManager's update CRNS functionality."""
 
-from datetime import datetime, timedelta
+from datetime import date, timedelta
 
 import pytest
 
 from cosmopolitan_app.postgres_manager import PostgresManager
 
-START_DATE = datetime(2024, 1, 1)
+START_DATE = date(2024, 1, 1)
 
 
 @pytest.fixture(autouse=True)
@@ -24,7 +24,7 @@ def populate_table_from_dict(data_dict):
             Format: {'2024-01-01': True, '2024-01-02': False, ...}
     """
     for date_str, successful in data_dict.items():
-        date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+        date_obj = date.fromisoformat(date_str)
         PostgresManager.add_update_crns(date_obj, successful)
 
 
@@ -55,7 +55,7 @@ def test_earliest_unsuccessful_date():
     populate_table_from_dict(data)
 
     result = PostgresManager.get_earliest_missing_or_failed_date(START_DATE)
-    expected = datetime(2024, 1, 3)
+    expected = date(2024, 1, 3)
     assert result == expected
 
 
@@ -70,7 +70,7 @@ def test_gap_in_sequence():
     populate_table_from_dict(data)
 
     result = PostgresManager.get_earliest_missing_or_failed_date(START_DATE)
-    expected = datetime(2024, 1, 3)
+    expected = date(2024, 1, 3)
     assert result == expected
 
 
@@ -86,7 +86,7 @@ def test_gap_vs_unsuccessful_earlier_gap():
     populate_table_from_dict(data)
 
     result = PostgresManager.get_earliest_missing_or_failed_date(START_DATE)
-    expected = datetime(2024, 1, 3)  # Gap is earlier
+    expected = date(2024, 1, 3)  # Gap is earlier
     assert result == expected
 
 
@@ -102,7 +102,7 @@ def test_gap_vs_unsuccessful_earlier_unsuccessful():
     populate_table_from_dict(data)
 
     result = PostgresManager.get_earliest_missing_or_failed_date(START_DATE)
-    expected = datetime(2024, 1, 2)  # Unsuccessful is earlier
+    expected = date(2024, 1, 2)  # Unsuccessful is earlier
     assert result == expected
 
 
@@ -112,7 +112,7 @@ def test_all_successful_consecutive():
     populate_table_from_dict(data)
 
     result = PostgresManager.get_earliest_missing_or_failed_date(START_DATE)
-    expected = datetime(2024, 1, 4)  # Next date after last successful
+    expected = date(2024, 1, 4)  # Next date after last successful
     assert result == expected
 
 
@@ -129,7 +129,7 @@ def test_update_process_with_gaps_and_failures():
     }
     populate_table_from_dict(initial_data)
 
-    end_date = datetime(2024, 1, 9)
+    end_date = date(2024, 1, 9)
 
     # Run update process
     while True:

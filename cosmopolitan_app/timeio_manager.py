@@ -500,7 +500,7 @@ def get_some_points():
 
 def main():
     """Run main."""
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     logging.getLogger("urllib3").setLevel(logging.ERROR)
     logging.getLogger("asyncio").setLevel(logging.ERROR)
     update_crns_measurments()
