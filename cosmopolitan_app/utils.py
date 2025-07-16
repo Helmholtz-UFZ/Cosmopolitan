@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 import shutil
 import smtplib
 import traceback
@@ -43,6 +44,48 @@ job_submitted_template = """The job {job_id} finished.
 The exit status was {status}.
 To see further results visit:
 {url}"""
+
+
+def swap_classes(new_class: str, class_name: str) -> str:
+    """Replace or add a class with the same prefix as new_class in a className string.
+
+    The prefix is automatically extracted from the new_class.
+
+    Parameters:
+    new_class (str): The new class to add (e.g., "bg-primary", "text-white")
+    class_name (str): The original className string
+
+    Returns:
+    str: The updated className string with the replaced class
+
+    Examples:
+    >>> swap_classes("bg-primary", "bg-info rounded-top py-2 mb-4")
+    'bg-primary rounded-top py-2 mb-4'
+    >>> swap_classes("text-danger", "bg-info text-dark py-2")
+    'bg-info text-danger py-2'
+    """
+    # Extract prefix from new_class
+    prefix_match = re.match(r"^([a-zA-Z0-9]+)-", new_class)
+    if not prefix_match:
+        raise ValueError(
+            f"New class '{new_class}' must have a prefix followed by a hyphen (e.g., 'bg-primary')"  # noqa
+        )
+
+    class_prefix = prefix_match.group(1)
+
+    # Pattern to match classes with the given prefix
+    class_pattern = rf"\b{class_prefix}-[a-zA-Z0-9]+"
+
+    # Check if a class with the given prefix exists
+    match = re.search(class_pattern, class_name)
+
+    if match:
+        # Replace existing class with the new one
+        updated_class_name = re.sub(class_pattern, new_class, class_name)
+        return updated_class_name
+    else:
+        # Add new class if none with the prefix exists
+        return f"{class_name} {new_class}"
 
 
 def zip_directory(directory_path):

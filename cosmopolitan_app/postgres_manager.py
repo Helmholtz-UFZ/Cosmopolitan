@@ -21,6 +21,7 @@ from sqlalchemy import (
     String,
     Text,
     create_engine,
+    text,
 )
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
@@ -83,14 +84,12 @@ class PostgresManager:
         Provides a transactional scope around a series of operations.
         Automatically handles commits, rollbacks, and session closing.
         Includes retry logic for transient database errors.
-
         Parameters:
         -----------
         max_retries : int, optional
             Maximum number of retry attempts for transient errors
         retry_delay : int, optional
             Delay in seconds between retry attempts
-
         Yields:
         -------
         session : Session
@@ -106,13 +105,13 @@ class PostgresManager:
 
         attempt = 0
 
-        while True:
+        while attempt <= max_retries:
             session = cls.Session()
             try:
                 yield session
                 session.commit()
-                # Success - exit the retry loop
-                return
+                # Success - exit normally
+                break
             except OperationalError as e:
                 # Handle transient database errors (connection issues, deadlocks, etc.)
                 session.rollback()
@@ -618,7 +617,6 @@ class PostgresManager:
 
         with cls.session_scope() as session:
             update = session.query(UpdateTimesCRNS).filter_by(update=check_date).first()
-            print(f"Update found: {update}")
             return update.successful if update else False
 
     @classmethod
@@ -734,6 +732,43 @@ class PostgresManager:
         df = pd.DataFrame(data).dropna()
         logging.debug(f"Returning {len(df)} measurement points after dropping NaNs")
         return df
+
+    @classmethod
+    def rebuild_geo_index(cls):
+        """Rebuild the spatial index on the geometry column.
+
+        This method drops and recreates the spatial index on the geom column
+        to optimize geo queries and resolve any index corruption issues.
+
+        Raises:
+            Exception: If there's an error during index operations.
+        """
+        logging.info("Rebuilding spatial index on crns_measurements.geom")
+
+        with cls.session_scope() as session:
+            # Drop the existing spatial index if it exists
+            drop_index_sql = """
+                DROP INDEX IF EXISTS idx_crns_measurements_geom;
+            """
+
+            # Recreate the spatial index
+            create_index_sql = """
+                CREATE INDEX idx_crns_measurements_geom
+                ON crns_measurements
+                USING GIST (geom);
+            """
+
+            # Execute the SQL commands
+            session.execute(text(drop_index_sql))
+            logging.debug("Dropped existing spatial index")
+
+            session.execute(text(create_index_sql))
+            logging.debug("Created new spatial index")
+
+            # Commit the transaction
+            session.commit()
+
+            logging.info("Successfully rebuilt spatial index on crns_measurements.geom")
 
     @classmethod
     def purge_measurement_points(cls, sensor_ids=None):

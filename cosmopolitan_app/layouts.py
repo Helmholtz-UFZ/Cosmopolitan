@@ -4,6 +4,7 @@ import dash_bootstrap_components as dbc
 from dash import Input, Output, State, callback, html
 
 from cosmopolitan_app.constants import (
+    LOADING_OVERLAY_ID,
     NAVBAR_COLLAPSE_ID,
     NAVBAR_TOGGLER_ID,
     NEW_JOB_LINK_ID,
@@ -14,7 +15,7 @@ loading_overlay = dbc.Modal(
         [dbc.Spinner(size="lg"), html.H4("Loading...", className="text-center mt-3")],
         className="text-center",
     ),
-    id="loading-overlay",
+    id=LOADING_OVERLAY_ID,
     is_open=False,
     backdrop="static",  # Prevents closing by clicking outside
     keyboard=False,  # Prevents closing with escape key
@@ -130,8 +131,12 @@ def create_header(title, subtitle, bg_color="bg-info", id=""):
     layout = html.Div(
         className=f"{bg_color} rounded-top py-2",
         children=[
-            html.H2(title, className="text-center"),
-            html.H3(subtitle, className="text-center") if subtitle != "" else None,
+            html.H2(title, className="text-center", id=f"{id}-title"),
+            (
+                html.H3(subtitle, className="text-center", id=f"{id}-subtitle")
+                if subtitle != ""
+                else None
+            ),
         ],
         id=id,
     )

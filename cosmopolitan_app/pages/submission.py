@@ -2,7 +2,6 @@
 
 import logging
 import os
-import re
 
 import dash
 import dash_bootstrap_components as dbc
@@ -12,7 +11,10 @@ from flask import url_for
 from cosmopolitan_app.constants import (
     CHANGE_INPUT_BUTTON_ID,
     JOB_LOGS_ID,
+    LOADING_OVERLAY_ID,
     RESULT_BUTTON_ID,
+    SPAWN_BUTTON_ID,
+    SUBMISSION_HEADER_ID,
     SUBMISSION_STATUS_ID,
     SUBMIT_JOB_ID,
 )
@@ -23,7 +25,7 @@ from cosmopolitan_app.form_factory import (
 )
 from cosmopolitan_app.job import Job
 from cosmopolitan_app.layouts import create_header
-from cosmopolitan_app.utils import InvalidJobID, JobNotFound
+from cosmopolitan_app.utils import InvalidJobID, JobNotFound, swap_classes
 
 dash.register_page(
     __name__,
@@ -59,48 +61,6 @@ status_button_config = {
 }
 
 
-def swap_classes(new_class: str, class_name: str) -> str:
-    """Replace or add a class with the same prefix as new_class in a className string.
-
-    The prefix is automatically extracted from the new_class.
-
-    Parameters:
-    new_class (str): The new class to add (e.g., "bg-primary", "text-white")
-    class_name (str): The original className string
-
-    Returns:
-    str: The updated className string with the replaced class
-
-    Examples:
-    >>> swap_classes("bg-primary", "bg-info rounded-top py-2 mb-4")
-    'bg-primary rounded-top py-2 mb-4'
-    >>> swap_classes("text-danger", "bg-info text-dark py-2")
-    'bg-info text-danger py-2'
-    """
-    # Extract prefix from new_class
-    prefix_match = re.match(r"^([a-zA-Z0-9]+)-", new_class)
-    if not prefix_match:
-        raise ValueError(
-            f"New class '{new_class}' must have a prefix followed by a hyphen (e.g., 'bg-primary')"  # noqa
-        )
-
-    class_prefix = prefix_match.group(1)
-
-    # Pattern to match classes with the given prefix
-    class_pattern = rf"\b{class_prefix}-[a-zA-Z0-9]+"
-
-    # Check if a class with the given prefix exists
-    match = re.search(class_pattern, class_name)
-
-    if match:
-        # Replace existing class with the new one
-        updated_class_name = re.sub(class_pattern, new_class, class_name)
-        return updated_class_name
-    else:
-        # Add new class if none with the prefix exists
-        return f"{class_name} {new_class}"
-
-
 def wrap_button(button):
     """Wrap a button in a row and column for better layout."""
     return dbc.Row(
@@ -133,7 +93,10 @@ def create_button_set(status):
     )
     spawn_button = wrap_button(
         dbc.Button(
-            "Spawn new job", id="spawn_button", color="primary", disabled=disabled_spawn
+            "Spawn new job",
+            id=SPAWN_BUTTON_ID,
+            color="primary",
+            disabled=disabled_spawn,
         )
     )
     result_button = wrap_button(
@@ -152,33 +115,83 @@ status_information_template = "Status:\n {status}"
 
 
 def layout(job_id):
-    """Layout for the submission page."""
-    logging.info(f"Create submission page for job {job_id}")
+    """Create static layout for the submission page."""
+    header = create_header(
+        "Submission", "Loading ...", bg_color="bg-secondary", id=SUBMISSION_HEADER_ID
+    )
+
+    return [
+        dcc.Store(id="job-id-store", data=job_id),
+        header,
+        html.Div(
+            dbc.Container(
+                dbc.Row(
+                    dbc.Col(
+                        dbc.Spinner(
+                            size="lg",
+                            color="primary",
+                            type="border",
+                            fullscreen=False,
+                        ),
+                        className="d-flex justify-content-center align-items-center",
+                    ),
+                    style={"height": "100vh"},
+                ),
+                fluid=True,
+                style={"height": "100vh"},
+            ),
+            id="main-content-container",
+        ),
+    ]
+
+
+@callback(
+    [
+        Output(SUBMISSION_HEADER_ID, "className", allow_duplicate=True),
+        Output(f"{SUBMISSION_HEADER_ID}-subtitle", "children"),
+        Output("main-content-container", "children"),
+    ],
+    [Input("job-id-store", "data")],
+    [State(SUBMISSION_HEADER_ID, "className")],
+    prevent_initial_call="initial_duplicate",
+)
+def load_submission_content(job_id, header_class_name):
+    """Load the main submission content triggered by job-id-store."""
+    logging.info(f"Loading submission content for job {job_id}")
     try:
         job = Job(job_id)
     except (JobNotFound, InvalidJobID):
         logging.info(f"Job {job_id} not found")
-        return html.Div(
+        error_content = html.Div(
             [
-                create_header("Error", "Job not found"),
-                html.P("The job you are looking for does not exist."),
+                html.P(
+                    "The job you are looking for does not exist.",
+                    className="text-center mt-4",
+                )
             ]
         )
+        return (create_header("Error", "Job not found"), error_content)
 
-    header = create_header(
-        "Submission", job.job_id, bg_color=job.status_color(), id="submission_header"
-    )
+    # Create the header with job information
+    header_class_name = swap_classes(job.status_color(), header_class_name)
+    header_subtitle = job.job_id
+
+    # Generate preview
     preview_path = job.get_preview_path()
     if preview_path is None:
         logging.info("No preview path found, generating new preview.")
         job.preview_area()
         preview_path = job.get_preview_path()
+
     preview_file_name = os.path.basename(preview_path)
     preview_src = url_for("serve_file", job_id=job.job_id, filename=preview_file_name)
+
+    # Construct form components
     selected_predictors = construct_selected_input(
         job.model, "predictor_upload", full_info=True
     )
     selected_crns = construct_selected_input(job.model, "crns_upload", full_info=True)
+
     form_template_factory = FormTemplateFactory(
         job_id=job.job_id,
         active=False,
@@ -190,6 +203,7 @@ def layout(job_id):
     form_factory = FormFactory(job.model, form_template, active=False)
     form_layout = form_factory.generate_form()
 
+    # Determine icon and active accordion item
     icon_color = "icon-error" if job.status == "FAILED" else "icon-none"
     if job.status == "PENDING":
         active_item = "input_accordion"
@@ -200,6 +214,8 @@ def layout(job_id):
         "max-height": "70vh",
         "overflow-y": "auto",
     }
+
+    # Create accordion
     accordion = dbc.Accordion(
         [
             dbc.AccordionItem(
@@ -213,7 +229,7 @@ def layout(job_id):
                     html.Div(
                         job.logs,
                         id=JOB_LOGS_ID,
-                        className="w-100 bg-dark text-white p-3 rounded font-monospace",  # noqa
+                        className="w-100 bg-dark text-white p-3 rounded font-monospace",
                         style={"white-space": "pre-wrap"},
                     ),
                 ],
@@ -234,56 +250,72 @@ def layout(job_id):
         active_item=active_item,
     )
 
-    submission_layout = [
-        accordion,
-    ]
-
+    # Create submission layout
+    submission_layout = [accordion]
     submission_layout += create_button_set(job.status)
 
-    return [
-        dcc.Interval(id="interval", interval=2000, disabled=True),
-        header,
-        html.Div(
-            status_information_template.format(status=job.status),
-            id=SUBMISSION_STATUS_ID,
-            className="text-center fs-4",
-            style={"white-space": "pre-line"},
-        ),
-        html.Div(
-            deletion_information_template.format(time_to_life=job.time_to_life()),
-            className="text-center fs-5 mb-2",
-            id="submission_time_to_life",
-        ),
-        dbc.Row(
-            dbc.Col(
-                submission_layout,
-                id="form-container",
-                className="col-11 col-xl-8 mx-auto",
-            )
-        ),
-    ]
+    # Create main content with interval (returned by callback)
+    main_content = html.Div(
+        [
+            dcc.Interval(id="interval", interval=2000, disabled=True),
+            html.Div(
+                status_information_template.format(status=job.status),
+                id=SUBMISSION_STATUS_ID,
+                className="text-center fs-4",
+                style={"white-space": "pre-line"},
+            ),
+            html.Div(
+                deletion_information_template.format(time_to_life=job.time_to_life()),
+                className="text-center fs-5 mb-2",
+                id="submission_time_to_life",
+            ),
+            dbc.Row(
+                dbc.Col(
+                    submission_layout,
+                    id="form-container",
+                    className="col-11 col-xl-8 mx-auto",
+                )
+            ),
+        ]
+    )
+
+    return header_class_name, header_subtitle, main_content
+
+
+@callback(
+    Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
+    Input(SPAWN_BUTTON_ID, "n_clicks"),
+    Input(SUBMIT_JOB_ID, "n_clicks"),
+    Input(RESULT_BUTTON_ID, "n_clicks"),
+    Input(CHANGE_INPUT_BUTTON_ID, "n_clicks"),
+    prevent_initial_call=True,
+)
+def show_loading(*n_clicks_list):
+    """Show loading overlay when preparing input."""
+    return any(n_clicks for n_clicks in n_clicks_list if n_clicks)
 
 
 @callback(
     Output("url", "pathname", allow_duplicate=True),
+    Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
     Output(JOB_LOGS_ID, "children"),
-    Output("submission_header", "className"),
+    Output(SUBMISSION_HEADER_ID, "className", allow_duplicate=True),
     Output("interval", "disabled", allow_duplicate=True),
     Output("submission_icon", "className"),
     Output(SUBMIT_JOB_ID, "disabled"),
-    Output("change_input_button", "disabled"),
-    Output("spawn_button", "disabled"),
-    Output("result_button", "disabled"),
+    Output(CHANGE_INPUT_BUTTON_ID, "disabled"),
+    Output(SPAWN_BUTTON_ID, "disabled"),
+    Output(RESULT_BUTTON_ID, "disabled"),
     Output(SUBMISSION_STATUS_ID, "children"),
     Output("submission_time_to_life", "children"),
     Output("accordion", "active_item"),
     Input("interval", "n_intervals"),
     Input(SUBMIT_JOB_ID, "n_clicks"),
-    Input("change_input_button", "n_clicks"),
-    Input("spawn_button", "n_clicks"),
-    Input("result_button", "n_clicks"),
+    Input(CHANGE_INPUT_BUTTON_ID, "n_clicks"),
+    Input(SPAWN_BUTTON_ID, "n_clicks"),
+    Input(RESULT_BUTTON_ID, "n_clicks"),
     State("url", "pathname"),
-    State("submission_header", "className"),
+    State(SUBMISSION_HEADER_ID, "className"),
     State("submission_icon", "className"),
     prevent_initial_call=True,
 )
@@ -308,21 +340,23 @@ def submission_manager(
     if triggered_id == SUBMIT_JOB_ID:
         job.delete_logs()
         job.submit()
-    elif triggered_id == "change_input_button":
+    elif triggered_id == CHANGE_INPUT_BUTTON_ID:
         job.clean_work_dir()
         input_path = input_base_path.replace("<job_id>", job.job_id)
         return tuple([input_path] + [dash.no_update] * (num_outputs - 1))
-    elif triggered_id == "spawn_button":
+    elif triggered_id == SPAWN_BUTTON_ID:
         new_job = job.spawn()
         input_path = input_base_path.replace("<job_id>", new_job.job_id)
         return tuple([input_path] + [dash.no_update] * (num_outputs - 1))
-    elif triggered_id == "result_button":
+    elif triggered_id == RESULT_BUTTON_ID:
         result_base_path = dash.page_registry["pages.results"]["path_template"]
         result_path = result_base_path.replace("<job_id>", job.job_id)
         return tuple([result_path] + [dash.no_update] * (num_outputs - 1))
 
     job.reload_logs()
     bg_color = job.status_color()
+    url = dash.no_update
+    show_loading = False
     disable_interval = True if job.status != "RUNNING" else False
     icon_color = "icon-error" if job.status == "FAILED" else "icon-none"
     disabled_submit = status_button_config[job.status]["disabled_submit"]
@@ -336,7 +370,8 @@ def submission_manager(
     active_item = "input_accordion" if job.status == "PENDING" else "logs_accordion"
 
     return (
-        dash.no_update,
+        url,
+        show_loading,
         job.logs,
         swap_classes(bg_color, class_name_header),
         disable_interval,

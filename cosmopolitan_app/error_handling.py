@@ -12,6 +12,7 @@ from sqlalchemy.exc import DatabaseError, OperationalError
 from werkzeug.exceptions import NotFound
 
 from cosmopolitan_app.config import MAINTAINER_EMAIL
+from cosmopolitan_app.constants import ERROR_MESSAGE_ID, ERROR_MODAL_ID, ERROR_TITLE_ID
 from cosmopolitan_app.job import NoMeasurementPointsError
 from cosmopolitan_app.minio_manager import MinioError
 from cosmopolitan_app.postgres_manager import JobNotFound
@@ -104,14 +105,14 @@ error_modal = dbc.Modal(
     [
         dbc.ModalHeader(
             dbc.ModalTitle("Error"),
-            id="error-title",
+            id=ERROR_TITLE_ID,
             close_button=False,
             className="bg-light",
         ),
-        dbc.ModalBody(id="error-message", className="text-danger bg-light"),
+        dbc.ModalBody(id=ERROR_MESSAGE_ID, className="text-danger bg-light"),
         dbc.ModalFooter(className="bg-light"),
     ],
-    id="error-modal",
+    id=ERROR_MODAL_ID,
     is_open=False,
 )
 
@@ -149,6 +150,6 @@ def handle_error(error):
 
     logging.error(f"{error_title}: {error_message}")
     logging.error(f"Error details: {traceback.format_exc()}")
-    set_props("error-modal", {"is_open": True})
-    set_props("error-title", {"children": error_title})
-    set_props("error-message", {"children": error_message})
+    set_props(ERROR_MODAL_ID, {"is_open": True})
+    set_props(ERROR_TITLE_ID, {"children": error_title})
+    set_props(ERROR_MESSAGE_ID, {"children": error_message})

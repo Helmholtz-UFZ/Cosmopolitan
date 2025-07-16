@@ -10,7 +10,7 @@ import dash_bootstrap_components as dbc
 from dash import Input, Output, State, callback, html
 from dash.exceptions import PreventUpdate
 
-from cosmopolitan_app.constants import PREPARE_INPUT_ID
+from cosmopolitan_app.constants import LOADING_OVERLAY_ID, PREPARE_INPUT_ID
 from cosmopolitan_app.job import Job
 from cosmopolitan_app.layouts import create_header
 from cosmopolitan_app.postgres_manager import PostgresManager
@@ -77,7 +77,7 @@ def layout():
 
 
 @callback(
-    Output("loading-overlay", "is_open"),
+    Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
     Input(PREPARE_INPUT_ID, "n_clicks"),
     prevent_initial_call=True,
 )
