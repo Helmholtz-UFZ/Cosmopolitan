@@ -17,6 +17,7 @@ from cosmopolitan_app.layouts import (
     register_navbar_callbacks,
 )
 from cosmopolitan_app.logger import get_logger_config_web
+from cosmopolitan_app.timeio_manager import update_crns_measurments
 from cosmopolitan_app.utils import clean_up
 
 logging.basicConfig(level=logging.DEBUG)
@@ -35,6 +36,8 @@ dictConfig(get_logger_config_web(DEBUG))
 
 scheduler = BackgroundScheduler(daemon=True)
 scheduler.add_job(clean_up, "interval", hours=24)
+scheduler.add_job(update_crns_measurments, "interval", hours=3)
+
 serve_files(app)
 
 nav_bar = create_navbar(dash.page_registry)
