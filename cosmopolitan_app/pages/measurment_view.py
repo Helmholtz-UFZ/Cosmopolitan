@@ -1,20 +1,4 @@
-"""Measurement Database Dashboard for Cosmopolitan App.
-
-Example coordinates:
-X1 663336
-Y1 5774534
-X2 708516
-Y2 5808725
-
-
-X1 580000
-Y1 5710000
-X2 660000
-Y2 5777000
-
-2024-02-01
-2024-02-29
-"""
+"""Measurement Database Dashboard for Cosmopolitan App."""
 
 import logging
 from datetime import date, datetime, timedelta
@@ -141,8 +125,8 @@ filter_controls = dbc.Card(
                                 html.Label("Date Range:", className="form-label"),
                                 dcc.DatePickerRange(
                                     id="date-range-picker",
-                                    start_date=date.today() - timedelta(days=7),
-                                    end_date=date.today(),
+                                    start_date=date(2024, 2, 1),
+                                    end_date=date(2024, 2, 29),
                                     display_format="YYYY-MM-DD",
                                     style={"width": "100%"},
                                 ),
@@ -179,39 +163,34 @@ filter_controls = dbc.Card(
                                         dbc.Input(
                                             id="bbox-min-lon",
                                             type="number",
-                                            placeholder="Min X",
-                                            value=280000,
+                                            value=580000,
                                             step=1,
                                         ),
                                         dbc.InputGroupText("Y1"),
                                         dbc.Input(
                                             id="bbox-min-lat",
                                             type="number",
-                                            placeholder="Min Y",
-                                            value=5235000,
+                                            value=5710000,
                                             step=1,
                                         ),
                                         dbc.InputGroupText("X2"),
                                         dbc.Input(
                                             id="bbox-max-lon",
                                             type="number",
-                                            placeholder="Max X",
-                                            value=920000,
+                                            value=660000,
                                             step=1,
                                         ),
                                         dbc.InputGroupText("Y2"),
                                         dbc.Input(
                                             id="bbox-max-lat",
                                             type="number",
-                                            placeholder="Max Y",
-                                            value=6100000,
+                                            value=5777000,
                                             step=1,
                                         ),
                                         dbc.InputGroupText("EPSG:"),
                                         dbc.Input(
                                             id="projection-input",
                                             type="text",
-                                            placeholder="25832",
                                             value="25832",
                                         ),
                                     ],
@@ -263,8 +242,23 @@ stats_card = dbc.Card(
     [
         dbc.CardBody(
             [
-                html.H5("Data Statistics", className="card-title"),
+                html.H5("Data Statistics", className="card-title text-center"),
                 html.Div(id="stats-content"),
+            ]
+        ),
+    ],
+    className="mb-3",
+)
+
+preview_card = dbc.Card(
+    [
+        dbc.CardBody(
+            [
+                html.H5("Area Preview", className="card-title text-center mb-3"),
+                dbc.Spinner(
+                    html.Div(id="preview-image", style={"text-align": "center"}),
+                    color="primary",
+                ),
             ]
         ),
     ],
@@ -291,9 +285,9 @@ layout = [
         [
             dbc.Col(
                 [
-                    html.Div(id="preview-image", style={"text-align": "center"}),
+                    preview_card,
                 ],
-                className="mx-3 mb-3",
+                className="m-3",
             ),
         ]
     ),
@@ -329,28 +323,13 @@ layout = [
 ]
 
 
-def transform_bbox_coordinates(bbox, source_proj, target_proj="EPSG:4326"):
-    """Transform bounding box coordinates from source to target projection."""
+def create_coordinate_transformer(source_proj, target_proj="EPSG:4326"):
+    """Create a coordinate transformer from source to target projection."""
     # Ensure source projection has EPSG: prefix if it's just a number
     if source_proj.isdigit():
         source_proj = f"EPSG:{source_proj}"
     elif not source_proj.startswith("EPSG:"):
         source_proj = f"EPSG:{source_proj}"
-
-    # Create transformer from source to target projection
-    transformer = Transformer.from_crs(source_proj, target_proj, always_xy=True)
-
-    # Transform coordinates
-    min_x, min_y = transformer.transform(bbox[0], bbox[1])
-    max_x, max_y = transformer.transform(bbox[2], bbox[3])
-
-    return [min_x, min_y, max_x, max_y], None
-
-
-def transform_coordinates_to_projection(df, target_proj="EPSG:4326"):
-    """Transform longitude/latitude coordinates to specified projection for display."""
-    if df.empty or target_proj == "4326":
-        return df
 
     # Ensure target projection has EPSG: prefix if it's just a number
     if target_proj.isdigit():
@@ -358,8 +337,26 @@ def transform_coordinates_to_projection(df, target_proj="EPSG:4326"):
     elif not target_proj.startswith("EPSG:"):
         target_proj = f"EPSG:{target_proj}"
 
-    # Create transformer from WGS84 to target projection
-    transformer = Transformer.from_crs("EPSG:4326", target_proj, always_xy=True)
+    transformer = Transformer.from_crs(source_proj, target_proj, always_xy=True)
+    return transformer
+
+
+def transform_bbox_coordinates(bbox, source_proj, target_proj="EPSG:4326"):
+    """Transform bounding box coordinates from source to target projection."""
+    transformer = create_coordinate_transformer(source_proj, target_proj)
+
+    # Transform coordinates
+    min_x, min_y = transformer.transform(bbox[0], bbox[1])
+    max_x, max_y = transformer.transform(bbox[2], bbox[3])
+    return [min_x, min_y, max_x, max_y]
+
+
+def transform_coordinates_to_projection(df, target_proj="EPSG:4326"):
+    """Transform longitude/latitude coordinates to specified projection for display."""
+    if df.empty or target_proj == "4326":
+        return df
+
+    transformer = create_coordinate_transformer("EPSG:4326", target_proj)
 
     # Transform coordinates
     df_copy = df.copy()
@@ -378,6 +375,90 @@ def transform_coordinates_to_projection(df, target_proj="EPSG:4326"):
 
 
 @callback(
+    Output("preview-image", "children"),
+    [Input("load-btn", "n_clicks")],
+    [
+        State("type-dropdown", "value"),
+        State("date-range-picker", "start_date"),
+        State("date-range-picker", "end_date"),
+        State("bbox-min-lon", "value"),
+        State("bbox-min-lat", "value"),
+        State("bbox-max-lon", "value"),
+        State("bbox-max-lat", "value"),
+        State("projection-input", "value"),
+    ],
+    prevent_initial_call=True,
+)
+def update_preview_image(
+    n_clicks,
+    selected_types,
+    start_date,
+    end_date,
+    min_lon,
+    min_lat,
+    max_lon,
+    max_lat,
+    projection,
+):
+    """Update the preview image independently of the data loading."""
+    if not n_clicks or not selected_types:
+        return html.P(
+            "No preview available. Please select filters and click 'Load Data'.",
+            className="text-muted",
+        )
+
+    # Convert date strings to datetime objects
+    start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
+    end_datetime = (
+        datetime.strptime(end_date, "%Y-%m-%d")
+        + timedelta(days=1)
+        - timedelta(seconds=1)
+    )
+
+    # Create bounding box
+    bbox = [min_lon, min_lat, max_lon, max_lat]
+
+    # Transform coordinates if projection is not WGS84 (EPSG:4326)
+    if projection and projection != "4326":
+        bbox = transform_bbox_coordinates(bbox, projection, "EPSG:4326")
+
+    # Generate preview image (always generate, even if no data points)
+    img_data = draw_preview(
+        None,  # filepath=None returns base64
+        bbox[0],  # min_lon
+        bbox[1],  # min_lat
+        bbox[2],  # max_lon
+        bbox[3],  # max_lat
+        selected_types,
+        start_datetime,
+        end_datetime,
+    )
+
+    # Create HTML image element
+    preview_element = html.Div(
+        [
+            html.Img(
+                src=f"data:image/png;base64,{img_data}",
+                style={
+                    "max-width": "100%",
+                    "height": "auto",
+                    "border": "1px solid #dee2e6",
+                    "border-radius": "4px",
+                    "box-shadow": "0 2px 4px rgba(0,0,0,0.1)",
+                },
+            ),
+            html.P(
+                "Green area shows the selected bounding box. Markers show measurement points (Green: train, Blue: station, Red: rover).",  # noqa
+                className="text-muted text-center mt-2",
+                style={"font-size": "12px"},
+            ),
+        ]
+    )
+
+    return preview_element
+
+
+@callback(
     [
         Output("measurements-table", "data"),
         Output("stats-content", "children"),
@@ -386,7 +467,6 @@ def transform_coordinates_to_projection(df, target_proj="EPSG:4326"):
         Output("bbox-input-group", "invalid"),
         Output("transformation-feedback", "children"),
         Output("transformation-feedback", "style"),
-        Output("preview-image", "children"),
     ],
     [Input("load-btn", "n_clicks")],
     [
@@ -424,9 +504,6 @@ def load_measurement_data(
             False,
             "",
             {"display": "none"},
-            html.P(
-                "No preview available. Please load data first.", className="text-muted"
-            ),
         )
 
     logging.info(
@@ -448,28 +525,7 @@ def load_measurement_data(
 
     # Transform coordinates if projection is not WGS84 (EPSG:4326)
     if projection and projection != "4326":
-        transformed_bbox, error_msg = transform_bbox_coordinates(
-            bbox, projection, "EPSG:4326"
-        )
-        if transformed_bbox is None:
-            # Transformation failed - return with error feedback
-            return (
-                [],
-                html.P(
-                    "Cannot load data due to coordinate transformation error.",
-                    className="text-muted",
-                ),
-                True,
-                "",
-                True,  # Mark input group as invalid
-                error_msg,
-                {"display": "block"},  # Show error message
-                html.P(
-                    "Preview unavailable due to coordinate error.",
-                    className="text-muted",
-                ),
-            )
-        bbox = transformed_bbox
+        bbox = transform_bbox_coordinates(bbox, projection, "EPSG:4326")
         logging.info(f"Transformed bbox from EPSG:{projection} to EPSG:4326: {bbox}")
 
     # Get measurement data
@@ -493,7 +549,6 @@ def load_measurement_data(
             False,
             "",
             {"display": "none"},
-            html.P("No preview available for empty dataset.", className="text-muted"),
         )
 
     # Transform coordinates back to display projection for the table
@@ -520,11 +575,6 @@ def load_measurement_data(
     # Store original data (in WGS84) for export (convert to JSON string)
     export_data = df.to_json(orient="records", date_format="iso")
 
-    # Generate preview image
-    preview_image = generate_preview_image(
-        bbox, selected_types, start_datetime, end_datetime
-    )
-
     return (
         table_data,
         stats_content,
@@ -533,7 +583,6 @@ def load_measurement_data(
         False,
         "",
         {"display": "none"},
-        preview_image,
     )
 
 
@@ -636,42 +685,3 @@ def generate_stats(df):
         )
 
     return html.Div(stats_elements)
-
-
-def generate_preview_image(bbox, types, start_date, end_date):
-    """Generate a preview image of the area with measurement points."""
-    # Generate the preview using the imported function with filepath=None to get base64
-    img_data = draw_preview(
-        None,  # filepath=None returns base64
-        bbox[0],  # min_lon
-        bbox[1],  # min_lat
-        bbox[2],  # max_lon
-        bbox[3],  # max_lat
-        types,
-        start_date,
-        end_date,
-    )
-
-    # Create HTML image element
-    preview_element = html.Div(
-        [
-            html.H5("Area Preview", className="text-center mb-3"),
-            html.Img(
-                src=f"data:image/png;base64,{img_data}",
-                style={
-                    "max-width": "100%",
-                    "height": "auto",
-                    "border": "1px solid #dee2e6",
-                    "border-radius": "4px",
-                    "box-shadow": "0 2px 4px rgba(0,0,0,0.1)",
-                },
-            ),
-            html.P(
-                "Green area shows the selected bounding box. Markers show measurement points (Green: train, Blue: station, Red: rover).",  # noqa
-                className="text-muted text-center mt-2",
-                style={"font-size": "12px"},
-            ),
-        ]
-    )
-
-    return preview_element
