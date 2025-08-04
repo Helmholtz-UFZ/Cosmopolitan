@@ -86,8 +86,14 @@ test:
     - unzip /tmp/chromedriver.zip -d /tmp/
     - mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver
     - chmod +x /usr/local/bin/chromedriver
-    - "curl https://dl.min.io/client/mc/release/linux-amd64/mc --create-dirs -o /usr/local/bin/mc"
-    - "chmod +x /usr/local/bin/mc"
+
+    # Install rclone
+    - "curl -O https://downloads.rclone.org/rclone-current-linux-amd64.zip"
+    - "unzip rclone-current-linux-amd64.zip"
+    - "cp rclone-*-linux-amd64/rclone /usr/local/bin/"
+    - "chmod +x /usr/local/bin/rclone"
+    - "rm -rf rclone-*"
+
     - "export PGPASSWORD=${POSTGRES_PASSWORD}"
     - "psql -h ${POSTGRES_HOST_NAME} -U ${POSTGRES_USER} -d ${POSTGRES_DB} < docker/init.sql"
     - "cp env_test .env"

@@ -25,6 +25,7 @@ RUN curl -O https://downloads.rclone.org/rclone-current-linux-amd64.zip && \
     chmod +x /home/appuser/rclone-binaries/rclone && \
     chown -R appuser:appuser /home/appuser/rclone-binaries && \
     rm -rf rclone-*
+RUN rclone --version
 # Set up Python environment
 RUN pip install --upgrade pip && pip install poetry
 WORKDIR /python_docker/cosmopolitan
