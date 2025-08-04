@@ -29,7 +29,7 @@ from cosmopolitan_app.constants import (
     DAYS_DELETE_SUMBITTED,
     LOG_RETENTION_DAYS,
 )
-from cosmopolitan_app.minio_manager import MinioError
+from cosmopolitan_app.object_storage_manager import ObjectStorageError
 from cosmopolitan_app.postgres_manager import JobNotFound, PostgresManager
 
 submission_url = "{external_url}/submission/{job_id}"
@@ -238,7 +238,7 @@ def error_response_args(e):
             True,
         )
 
-    if isinstance(e, MinioError):
+    if isinstance(e, ObjectStorageError):
         return (
             {
                 "error_page": "html/errors/db_no_connection_error.html",

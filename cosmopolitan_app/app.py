@@ -17,10 +17,13 @@ from cosmopolitan_app.layouts import (
     register_navbar_callbacks,
 )
 from cosmopolitan_app.logger import get_logger_config_web
+from cosmopolitan_app.object_storage_manager import setup_remote
 from cosmopolitan_app.timeio_manager import update_crns_measurments
 from cosmopolitan_app.utils import clean_up
 
+# Configure logging before real server logging can be set up
 logging.basicConfig(level=logging.DEBUG)
+
 # Initialize the Dash app
 app = Dash(
     __name__,
@@ -32,14 +35,21 @@ app = Dash(
 )
 server = app.server
 
+# Real server logging configuration
 dictConfig(get_logger_config_web(DEBUG))
 
+# Set the rclone configuration
+setup_remote()
+
+# Background tasks
 scheduler = BackgroundScheduler(daemon=True)
 scheduler.add_job(clean_up, "interval", hours=24)
 scheduler.add_job(update_crns_measurments, "interval", hours=3)
 
+# Serve static files
 serve_files(app)
 
+# Layout components
 nav_bar = create_navbar(dash.page_registry)
 register_navbar_callbacks(app)
 

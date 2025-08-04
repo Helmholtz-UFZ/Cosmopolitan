@@ -14,7 +14,7 @@ from werkzeug.exceptions import NotFound
 from cosmopolitan_app.config import MAINTAINER_EMAIL
 from cosmopolitan_app.constants import ERROR_MESSAGE_ID, ERROR_MODAL_ID, ERROR_TITLE_ID
 from cosmopolitan_app.job import NoMeasurementPointsError
-from cosmopolitan_app.minio_manager import MinioError
+from cosmopolitan_app.object_storage_manager import ObjectStorageError
 from cosmopolitan_app.postgres_manager import JobNotFound
 from cosmopolitan_app.utils import send_mail
 
@@ -70,9 +70,9 @@ error_responds_dict = {
         database_error_title,
         database_error_message,
     ),
-    MinioError: (
-        "Database Connection Error",
-        "Unfortunately, it is not possible to connect to the job database. Please try again later.",  # noqa
+    ObjectStorageError: (
+        database_error_title,
+        database_error_message,
     ),
     NotFound: ("File Not Found", "The file could not be found."),
     Exception: ("Internal Error", "Ups this should not happen. An error occurred."),

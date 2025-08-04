@@ -12,8 +12,13 @@ import pytest
 from soil_moisture_prediction.create_usage_information import file_exeptions
 from sqlalchemy.exc import OperationalError
 
-from cosmopolitan_app.config import EMAIL_PASSWORD, MINIO_ALIAS, POSTGRES_PASSWORD
-from cosmopolitan_app.minio_manager import MinioError, create_bucket
+from cosmopolitan_app.config import (
+    EMAIL_PASSWORD,
+    OBJECT_STORAGE_REMOTE_NAME,
+    OBJECT_STORAGE_SECRET_KEY,
+    POSTGRES_PASSWORD,
+)
+from cosmopolitan_app.object_storage_manager import ObjectStorageError, setup_remote
 from cosmopolitan_app.postgres_manager import PostgresManager
 from cosmopolitan_app.utils import send_mail
 
@@ -40,12 +45,20 @@ except FileNotFoundError:
     pytest.exit("mc command not available")
 
 try:
-    create_bucket(reset_alias=True)
-    subprocess.run(["mc", "ping", "-x", MINIO_ALIAS], check=True, capture_output=True)
-except MinioError:
+    setup_remote()
+    subprocess.run(
+        ["rclone", "listremotes", OBJECT_STORAGE_REMOTE_NAME + ":"],
+        check=True,
+        capture_output=True,
+    )
+except ObjectStorageError:
     pytest.exit("Can not set mc alias")
 
-if any(var != "test" for var in [POSTGRES_PASSWORD, EMAIL_PASSWORD, MINIO_ALIAS]):
+if (
+    POSTGRES_PASSWORD != "test"
+    or EMAIL_PASSWORD != "test"
+    or OBJECT_STORAGE_SECRET_KEY != "secretkey"
+):
     pytest.exit("Environment variables not set")
 
 try:
