@@ -52,7 +52,7 @@ try:
         capture_output=True,
     )
 except ObjectStorageError:
-    pytest.exit("Can not set mc alias")
+    pytest.exit("Can not set rclone config")
 
 if (
     POSTGRES_PASSWORD != "test"

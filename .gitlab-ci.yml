@@ -93,6 +93,9 @@ test:
     - "cp rclone-*-linux-amd64/rclone /usr/local/bin/"
     - "chmod +x /usr/local/bin/rclone"
     - "rm -rf rclone-*"
+    - "rclone config create minio s3 provider=Minio access_key_id=${MINIO_ACCESS_KEY} secret_access_key=${MINIO_SECRET_KEY} endpoint=http://minio:9000"
+    - "rclone mkdir minio:cosmopolitan-dev"
+    - "rclone lsd minio:" # List available buckets
 
     - "export PGPASSWORD=${POSTGRES_PASSWORD}"
     - "psql -h ${POSTGRES_HOST_NAME} -U ${POSTGRES_USER} -d ${POSTGRES_DB} < docker/init.sql"
