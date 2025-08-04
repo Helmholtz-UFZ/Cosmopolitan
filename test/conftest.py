@@ -40,9 +40,9 @@ def create_logger():
 log = create_logger()
 
 try:
-    subprocess.run(["mc", "-v"], check=True, text=True, capture_output=True)
+    subprocess.run(["rclone", "--version"], check=True, text=True, capture_output=True)
 except FileNotFoundError:
-    pytest.exit("mc command not available")
+    pytest.exit("rclone command not available")
 
 try:
     setup_remote()
