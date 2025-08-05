@@ -33,7 +33,7 @@ from werkzeug.utils import secure_filename
 from cosmopolitan_app.config import DEBUG, JOB_WORK_DIR_TEMPLATE
 from cosmopolitan_app.constants import DAYS_DELETE_NOT_SUMBITTED, DAYS_DELETE_SUMBITTED
 from cosmopolitan_app.logger import get_logger_config_compuation, get_logger_config_web
-from cosmopolitan_app.minio_manager import delete_from_bucket, sync_workdir
+from cosmopolitan_app.object_storage_manager import delete_from_storage, sync_workdir
 from cosmopolitan_app.postgres_manager import JobNotFound, JobTable, PostgresManager
 from cosmopolitan_app.pydantic_models import ModelWebsite, validate_job_id
 from cosmopolitan_app.timeio_info import type_id_dict
@@ -308,6 +308,24 @@ class Job:
                 )
             )
 
+    def delete_item(self, item_name):
+        """Delete a file or folder both locally and from object storage.
+
+        Args:
+            item_name: Name of the file or folder to delete (relative to working_dir)
+        """
+        logging.debug(f"Delete item {item_name} from job {self.job_id}")
+
+        # Delete from local storage
+        item_path = os.path.join(self.working_dir, item_name)
+        if os.path.isfile(item_path):
+            os.remove(item_path)
+        elif os.path.isdir(item_path):
+            shutil.rmtree(item_path)
+
+        # Delete from object storage
+        delete_from_storage(f"{self.job_id}/{item_name}")
+
     def preview_area(self, draw_empty: bool = True):
         """Draw a preview of the area and add measurement points."""
         logging.debug("Draw preview")
@@ -317,7 +335,8 @@ class Job:
         )
         for file in glob.glob(preview_area_wildcard):
             logging.debug(f"Remove file {file}")
-            os.remove(file)
+            file_name = os.path.basename(file)
+            self.delete_item(file_name)
 
         # Transform area corners to lon/lat
         transformer = Transformer.from_crs(
@@ -373,7 +392,7 @@ class Job:
         logging.debug(f"Delete input files of type {input_type}")
         for file_name in os.listdir(self.working_dir):
             if file_name.startswith(input_type):
-                os.remove(os.path.join(self.working_dir, file_name))
+                self.delete_item(file_name)
 
     def prepare_input_files(self):
         """Prepare input files for the job.
@@ -551,7 +570,7 @@ class Job:
                             ",".join([str(e) for e in row if e is not None]) + "\n"
                         )
         except FileValidationError as e:
-            os.remove(input_file_path)
+            self.delete_item(new_filename)
             raise ValueError(f"Invalid file content: {e}")
 
         file_information = parser.get_file_information()
@@ -631,7 +650,7 @@ class Job:
             shutil.rmtree(self.working_dir)
         if delete_db:
             PostgresManager.delete_job(self.job_id)
-            delete_from_bucket(self.job_id)
+            delete_from_storage(self.job_id)
 
     def submit(self):
         """Start job in a nother subprocess."""
@@ -706,12 +725,7 @@ class Job:
             if file.startswith(self.original_file_prefix):
                 continue
 
-            if os.path.isfile(os.path.join(self.working_dir, file)):
-                os.remove(os.path.join(self.working_dir, file))
-            else:
-                shutil.rmtree(os.path.join(self.working_dir, file))
-
-        delete_from_bucket(self.job_id)
+            self.delete_item(file)
 
         self.preview_area()
         self.dump_parameters()
@@ -721,8 +735,4 @@ class Job:
     def delete_logs(self):
         """Delete the logs."""
         logging.info(f"Delete logs of job {self.job_id}")
-        log_file = os.path.join(self.working_dir, LOG_FILE_NAME)
-        if os.path.isfile(log_file):
-            os.remove(log_file)
-
-        delete_from_bucket(f"{self.job_id}/{LOG_FILE_NAME}")
+        self.delete_item(LOG_FILE_NAME)
