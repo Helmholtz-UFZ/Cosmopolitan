@@ -85,7 +85,7 @@ def sync_workdir(dirname: str) -> None:
     remote_path = f"{OBJECT_STORAGE_REMOTE_NAME}:{OBJECT_STORAGE_BUCKET}/{dirname}"
 
     result = subprocess.run(
-        ["rclone", "sync", local_path, remote_path, "--progress"],
+        ["rclone", "copy", local_path, remote_path, "--progress", "--checksum"],
         capture_output=True,
         text=True,
     )
@@ -93,7 +93,7 @@ def sync_workdir(dirname: str) -> None:
 
     # Download remote changes to local
     result = subprocess.run(
-        ["rclone", "sync", remote_path, local_path, "--progress"],
+        ["rclone", "copy", remote_path, local_path, "--progress", "--checksum"],
         capture_output=True,
         text=True,
         check=True,
