@@ -89,6 +89,11 @@ def sync_workdir(dirname: str) -> None:
         capture_output=True,
         text=True,
     )
+    print(
+        " ".join(
+            ["rclone", "copy", local_path, remote_path, "--progress", "--checksum"]
+        )
+    )
     check_result(result)
 
     # Download remote changes to local
@@ -96,7 +101,6 @@ def sync_workdir(dirname: str) -> None:
         ["rclone", "copy", remote_path, local_path, "--progress", "--checksum"],
         capture_output=True,
         text=True,
-        check=True,
     )
     check_result(result)
 
@@ -114,7 +118,6 @@ def delete_from_storage(dirname: str) -> None:
         ["rclone", "purge", remote_path],
         capture_output=True,
         text=True,
-        check=True,
     )
     check_result(result)
     logging.debug(f"Successfully deleted directory {dirname} from object storage")
