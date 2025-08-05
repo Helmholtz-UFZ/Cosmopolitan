@@ -1,0 +1,6 @@
+.env
+./cosmopolitan_app/work_dir/*
+*swp
+*swo
+env_dev_prod_priv
+env_dev_stage_priv

@@ -1,18 +1,14 @@
-<div>
-<h1 align="center">COSMOPOLITAN</h1>
-<h2 align="center"><strong>COS</strong><small>mic ray based soil </small><strong>MO</strong><small>isture </small><strong>P</strong><small>redicti</small><strong>O</strong><small>n </small><strong>LI</strong><small>ve </small><strong>T</strong><small>ree </small><strong>AN</strong><small>alysis</small></h2>
-<p align="center">
-	<img src="cosmopolitan_app/static/start_banner.png" alt="Welcome" width="30%">
-</p>
-</div>
+# CLAUDE.md
 
-This is a web service for analyzing cosmic ray data to predict soil moisture content. The prediction is based on a random forest model and aims to provide a live soil moisture map of Germany.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-The model was developed by Ségolène Dega and the scripts are available in this [repository](https://git.ufz.de/dega/sm_prediction).
+## Project Overview
+
+COSMOPOLITAN is a web service for analyzing cosmic ray data to predict soil moisture content using random forest models. The application aims to provide a live soil moisture map of Germany based on cosmic ray neutron sensor (CRNS) data.
 
 ## Architecture
 
-The web service is built as a Dash web application with the following key components:
+The application is built as a Dash web application with the following key components:
 
 - **Web Framework**: Dash (plotly) with Flask server backend
 - **Database**: PostgreSQL with PostGIS extension for spatial data
@@ -38,10 +34,9 @@ The web service is built as a Dash web application with the following key compon
 4. Prediction models (from external `soil-moisture-prediction` library) process data
 5. Results are stored in object storage and displayed through web interface
 
-## Development
+## Development Commands
 
 ### Quick Start
-
 ```bash
 # Mock development (no external services)
 ./dev_up.sh mock
@@ -53,7 +48,6 @@ cp env_dev_prod env_dev_prod_priv
 ```
 
 ### Docker Development
-
 ```bash
 # Start all services
 docker compose up
@@ -63,7 +57,6 @@ docker compose up --no-log-prefix cosmopolitan
 ```
 
 ### Testing
-
 ```bash
 # Run full test suite with temporary services
 ./run_pytest.sh
@@ -73,7 +66,6 @@ pytest -s
 ```
 
 ### Code Quality
-
 ```bash
 # Format code
 poetry run black .
@@ -88,7 +80,6 @@ pre-commit run --all-files
 ```
 
 ### Poetry Commands
-
 ```bash
 # Install dependencies
 poetry install
@@ -115,19 +106,17 @@ Key environment variables:
 - `OBJECT_STORAGE_*` - MinIO/S3 configuration variables
 - `POSTGRES_*` - Database connection settings
 
-## External Services
+## Database Schema
 
-The web service relies on external services:
-
-1. **Mail server**: [MailHog](https://github.com/mailhog/MailHog) service is used to catch emails during development
-2. **PostgreSQL Database**: PostGIS-enabled database for spatial data storage
-3. **MinIO**: Object storage for job files and results
-4. **TimeIO API**: Source for cosmic ray neutron sensor data
+The application uses PostgreSQL with PostGIS for spatial data. Key tables include:
+- Jobs table with spatial geometry columns for prediction areas
+- Measurements table for CRNS sensor data
+- Results storage linked to job IDs
 
 ## Deployment
 
 Production deployment uses Docker containers:
-- Built via GitLab CI pipeline (`.gitlab-ci.yml`)
+- Built via GitLab CI pipeline (.gitlab-ci.yml)
 - Uses `docker/prod.Dockerfile` for production builds
 - Tagged releases created from git tags matching `^\d+.\d+.\d+` pattern
 - Latest builds from main branch tagged as `latest`
@@ -140,3 +129,9 @@ Production deployment uses Docker containers:
 - `cosmopolitan_app/work_dir/` - Job working directories (generated content)
 - `docker/` - Docker configuration files
 - `test/` - Test suite
+
+## Important Notes
+
+- Forms are generated dynamically using Pydantic models via `form_factory.py`
+- CI/CD includes comprehensive testing with Chrome/ChromeDriver for Selenium tests
+- The project uses rclone for object storage operations with MinIO backend

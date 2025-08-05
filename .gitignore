@@ -15,5 +15,4 @@ env_dev_stage_priv
 debug_source.html
 headless_debug.png
 env_dev_stage_priv
-cosmopolitan_app/timeio_manager_rclone.py
 timeIO*.logs

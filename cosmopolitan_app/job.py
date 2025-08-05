@@ -33,7 +33,7 @@ from werkzeug.utils import secure_filename
 from cosmopolitan_app.config import DEBUG, JOB_WORK_DIR_TEMPLATE
 from cosmopolitan_app.constants import DAYS_DELETE_NOT_SUMBITTED, DAYS_DELETE_SUMBITTED
 from cosmopolitan_app.logger import get_logger_config_compuation, get_logger_config_web
-from cosmopolitan_app.minio_manager import delete_from_bucket, sync_workdir
+from cosmopolitan_app.object_storage_manager import delete_from_storage, sync_workdir
 from cosmopolitan_app.postgres_manager import JobNotFound, JobTable, PostgresManager
 from cosmopolitan_app.pydantic_models import ModelWebsite, validate_job_id
 from cosmopolitan_app.timeio_info import type_id_dict
@@ -631,7 +631,7 @@ class Job:
             shutil.rmtree(self.working_dir)
         if delete_db:
             PostgresManager.delete_job(self.job_id)
-            delete_from_bucket(self.job_id)
+            delete_from_storage(self.job_id)
 
     def submit(self):
         """Start job in a nother subprocess."""
@@ -711,7 +711,7 @@ class Job:
             else:
                 shutil.rmtree(os.path.join(self.working_dir, file))
 
-        delete_from_bucket(self.job_id)
+        delete_from_storage(self.job_id)
 
         self.preview_area()
         self.dump_parameters()
@@ -725,4 +725,4 @@ class Job:
         if os.path.isfile(log_file):
             os.remove(log_file)
 
-        delete_from_bucket(f"{self.job_id}/{LOG_FILE_NAME}")
+        delete_from_storage(f"{self.job_id}/{LOG_FILE_NAME}")

@@ -79,23 +79,7 @@ class PostgresManager:
     @classmethod
     @contextmanager
     def session_scope(cls, max_retries=None, retry_delay=None):
-        """Context manager for database sessions with retry logic.
-
-        Provides a transactional scope around a series of operations.
-        Automatically handles commits, rollbacks, and session closing.
-        Includes retry logic for transient database errors.
-        Parameters:
-        -----------
-        max_retries : int, optional
-            Maximum number of retry attempts for transient errors
-        retry_delay : int, optional
-            Delay in seconds between retry attempts
-        Yields:
-        -------
-        session : Session
-            SQLAlchemy session object
-        """
-        # Use default values if not specified
+        """Context manager for database sessions with retry logic."""
         max_retries = (
             max_retries if max_retries is not None else cls.DEFAULT_MAX_RETRIES
         )
@@ -103,40 +87,37 @@ class PostgresManager:
             retry_delay if retry_delay is not None else cls.DEFAULT_RETRY_DELAY
         )
 
-        attempt = 0
-
-        while attempt <= max_retries:
+        for attempt in range(max_retries + 1):
             session = cls.Session()
             try:
                 yield session
                 session.commit()
-                # Success - exit normally
-                break
+                return  # Success - exit normally
             except OperationalError as e:
-                # Handle transient database errors (connection issues, deadlocks, etc.)
                 session.rollback()
-                attempt += 1
-                if attempt <= max_retries:
+                session.close()
+                if attempt < max_retries:
                     logging.warning(f"Database OperationalError: {e}")
                     logging.warning(
-                        f"Retrying operation (attempt {attempt}/{max_retries})"
+                        f"Retrying operation (attempt {attempt + 1}/{max_retries + 1})"
                     )
                     time.sleep(retry_delay)
+                    continue
                 else:
                     logging.error(f"Max retries ({max_retries}) exceeded")
                     raise
-            except SQLAlchemyError as e:
-                # Handle other SQLAlchemy errors (integrity errors, etc.)
-                logging.error(f"Database error: {e}")
+            except (SQLAlchemyError, Exception) as e:  # noqa
                 session.rollback()
-                raise
-            except Exception as e:  # noqa: B902
-                # Handle unexpected errors
-                logging.error(f"Unexpected error during database operation: {e}")
-                session.rollback()
+                session.close()
+                if isinstance(e, SQLAlchemyError):
+                    logging.error(f"Database error: {e}")
+                else:
+                    logging.error(f"Unexpected error during database operation: {e}")
                 raise
             finally:
-                session.close()
+                # Only close if we haven't already closed it in the except blocks
+                if session.is_active:
+                    session.close()
 
     @classmethod
     def query_logs(cls, date, sh, sm, eh, em, levels, pid=None):
