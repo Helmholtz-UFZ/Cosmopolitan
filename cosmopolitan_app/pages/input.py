@@ -281,7 +281,6 @@ def form_manager(**state):
             file_upload_error["predictor_upload"] = str(e)
 
     valid, output_dict = active_form_factory.validate_callback(state, file_upload_error)
-    print(output_dict)
 
     output_dict["error_modal"] = False
     output_dict["error_title"] = ""
@@ -311,11 +310,8 @@ def form_manager(**state):
     output_dict["selected_predictors"] = construct_selected_input(
         active_form_factory.pymodel, "predictor_upload"
     )
-    print(active_form_factory.pymodel)
-    print(output_dict["selected_predictors"])
     output_dict["selected_crns"] = construct_selected_input(
         active_form_factory.pymodel, "crns_upload"
     )
-    print(output_dict["selected_crns"])
 
     return output_dict

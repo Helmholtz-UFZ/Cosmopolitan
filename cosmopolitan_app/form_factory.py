@@ -433,7 +433,6 @@ class FormFactory:
                 if len(locs) == 0:
                     # This should be a model validator that manually passed the location
                     locs = error["ctx"]["loc_tuple"]
-                    print(locs)
 
                 field = locs[0]
                 if field in ModelWebsite.__fields__:

@@ -33,7 +33,11 @@ from werkzeug.utils import secure_filename
 from cosmopolitan_app.config import DEBUG, JOB_WORK_DIR_TEMPLATE
 from cosmopolitan_app.constants import DAYS_DELETE_NOT_SUMBITTED, DAYS_DELETE_SUMBITTED
 from cosmopolitan_app.logger import get_logger_config_compuation, get_logger_config_web
-from cosmopolitan_app.object_storage_manager import delete_from_storage, sync_workdir
+from cosmopolitan_app.object_storage_manager import (
+    delete_directory_from_storage,
+    delete_file_from_storage,
+    sync_workdir,
+)
 from cosmopolitan_app.postgres_manager import JobNotFound, JobTable, PostgresManager
 from cosmopolitan_app.pydantic_models import ModelWebsite, validate_job_id
 from cosmopolitan_app.timeio_info import type_id_dict
@@ -320,11 +324,12 @@ class Job:
         item_path = os.path.join(self.working_dir, item_name)
         if os.path.isfile(item_path):
             os.remove(item_path)
+            # Delete file from object storage
+            delete_file_from_storage(f"{self.job_id}/{item_name}")
         elif os.path.isdir(item_path):
             shutil.rmtree(item_path)
-
-        # Delete from object storage
-        delete_from_storage(f"{self.job_id}/{item_name}")
+            # Delete directory from object storage
+            delete_directory_from_storage(f"{self.job_id}/{item_name}")
 
     def preview_area(self, draw_empty: bool = True):
         """Draw a preview of the area and add measurement points."""
@@ -650,7 +655,7 @@ class Job:
             shutil.rmtree(self.working_dir)
         if delete_db:
             PostgresManager.delete_job(self.job_id)
-            delete_from_storage(self.job_id)
+            delete_directory_from_storage(self.job_id)
 
     def submit(self):
         """Start job in a nother subprocess."""

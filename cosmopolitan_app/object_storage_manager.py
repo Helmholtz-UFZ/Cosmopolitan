@@ -89,11 +89,6 @@ def sync_workdir(dirname: str) -> None:
         capture_output=True,
         text=True,
     )
-    print(
-        " ".join(
-            ["rclone", "copy", local_path, remote_path, "--progress", "--checksum"]
-        )
-    )
     check_result(result)
 
     # Download remote changes to local
@@ -105,22 +100,42 @@ def sync_workdir(dirname: str) -> None:
     check_result(result)
 
 
-def delete_from_storage(dirname: str) -> None:
-    """Delete all files with dirname from the object storage using rclone.
+def delete_file_from_storage(filepath: str) -> None:
+    """Delete a file from the object storage using rclone.
 
     Args:
-        dirname: Name of the directory to delete from object storage
+        filepath: Path of the file to delete from object storage
     """
-    logging.debug(f"Deleting directory {dirname} from object storage.")
+    logging.debug(f"Deleting file {filepath} from object storage.")
 
-    remote_path = f"{OBJECT_STORAGE_REMOTE_NAME}:{OBJECT_STORAGE_BUCKET}/{dirname}"
+    remote_path = f"{OBJECT_STORAGE_REMOTE_NAME}:{OBJECT_STORAGE_BUCKET}/{filepath}"
+
+    result = subprocess.run(
+        ["rclone", "delete", remote_path],
+        capture_output=True,
+        text=True,
+    )
+    check_result(result)
+    logging.debug(f"Successfully deleted file {filepath} from object storage")
+
+
+def delete_directory_from_storage(dirpath: str) -> None:
+    """Delete a directory from the object storage using rclone.
+
+    Args:
+        dirpath: Path of the directory to delete from object storage
+    """
+    logging.debug(f"Deleting directory {dirpath} from object storage.")
+
+    remote_path = f"{OBJECT_STORAGE_REMOTE_NAME}:{OBJECT_STORAGE_BUCKET}/{dirpath}"
+
     result = subprocess.run(
         ["rclone", "purge", remote_path],
         capture_output=True,
         text=True,
     )
     check_result(result)
-    logging.debug(f"Successfully deleted directory {dirname} from object storage")
+    logging.debug(f"Successfully deleted directory {dirpath} from object storage")
 
 
 if __name__ == "__main__":
@@ -132,4 +147,4 @@ if __name__ == "__main__":
 
     setup_remote()
     sync_workdir(folder_to_sync)
-    delete_from_storage(folder_to_sync)
+    delete_directory_from_storage(folder_to_sync)
