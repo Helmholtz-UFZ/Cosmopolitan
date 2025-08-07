@@ -2,8 +2,8 @@
 
 import logging
 import time
-from contextlib import contextmanager
 from datetime import date, datetime, timedelta
+from functools import wraps
 from typing import Any, Dict, Union
 
 import pandas as pd
@@ -39,6 +39,58 @@ from cosmopolitan_app.timeio_info import type_id_dict
 
 # Number of retries for database operations
 max_retries = 3
+
+
+def with_session(max_retries=3, retry_delay=1):
+    """Decorat a function to handle database sessions with retry logic.
+
+    Args:
+        max_retries: Maximum number of retry attempts
+        retry_delay: Delay between retries in seconds
+    """
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(cls, *args, **kwargs):
+            for attempt in range(max_retries + 1):
+                session = cls.Session()
+                try:
+                    result = func(cls, session, *args, **kwargs)
+                    session.commit()
+                    return result
+                except OperationalError as e:
+                    session.rollback()
+                    session.close()
+                    if attempt < max_retries:
+                        logging.warning(f"Database OperationalError: {e}")
+                        logging.warning(
+                            f"Retrying operation (attempt {attempt + 1}/{max_retries + 1})"  # noqa: E501
+                        )
+                        time.sleep(retry_delay)
+                        continue
+                    else:
+                        logging.error(f"Max retries ({max_retries}) exceeded")
+                        raise
+                except Exception as e:  # noqa
+                    session.rollback()
+                    session.close()
+                    error_str = str(e)
+                    if len(error_str) > 500:
+                        error_str = error_str[:200] + "\n...\n" + error_str[-200:]
+                    if isinstance(e, SQLAlchemyError):
+                        logging.error(f"Database error: {error_str}")
+                    else:
+                        logging.error(
+                            f"Unexpected error during database operation: {error_str}"
+                        )
+                    raise
+                finally:
+                    if session.is_active:
+                        session.close()
+
+        return wrapper
+
+    return decorator
 
 
 class Base(DeclarativeBase):
@@ -77,50 +129,8 @@ class PostgresManager:
     DEFAULT_RETRY_DELAY = 1
 
     @classmethod
-    @contextmanager
-    def session_scope(cls, max_retries=None, retry_delay=None):
-        """Context manager for database sessions with retry logic."""
-        max_retries = (
-            max_retries if max_retries is not None else cls.DEFAULT_MAX_RETRIES
-        )
-        retry_delay = (
-            retry_delay if retry_delay is not None else cls.DEFAULT_RETRY_DELAY
-        )
-
-        for attempt in range(max_retries + 1):
-            session = cls.Session()
-            try:
-                yield session
-                session.commit()
-                return  # Success - exit normally
-            except OperationalError as e:
-                session.rollback()
-                session.close()
-                if attempt < max_retries:
-                    logging.warning(f"Database OperationalError: {e}")
-                    logging.warning(
-                        f"Retrying operation (attempt {attempt + 1}/{max_retries + 1})"
-                    )
-                    time.sleep(retry_delay)
-                    continue
-                else:
-                    logging.error(f"Max retries ({max_retries}) exceeded")
-                    raise
-            except (SQLAlchemyError, Exception) as e:  # noqa
-                session.rollback()
-                session.close()
-                if isinstance(e, SQLAlchemyError):
-                    logging.error(f"Database error: {e}")
-                else:
-                    logging.error(f"Unexpected error during database operation: {e}")
-                raise
-            finally:
-                # Only close if we haven't already closed it in the except blocks
-                if session.is_active:
-                    session.close()
-
-    @classmethod
-    def query_logs(cls, date, sh, sm, eh, em, levels, pid=None):
+    @with_session()
+    def query_logs(cls, session, date, sh, sm, eh, em, levels, pid=None):
         """Query logs from the database with specified filters.
 
         Parameters:
@@ -154,35 +164,35 @@ class PostgresManager:
             f"{date} {eh:02d}:{em:02d}:59", "%Y-%m-%d %H:%M:%S"
         )
 
-        with cls.session_scope() as session:
-            query = session.query(LogTable).filter(
-                LogTable.timestamp >= start_datetime,
-                LogTable.timestamp <= end_datetime,
-                LogTable.level.in_(levels),
-            )
+        query = session.query(LogTable).filter(
+            LogTable.timestamp >= start_datetime,
+            LogTable.timestamp <= end_datetime,
+            LogTable.level.in_(levels),
+        )
 
-            if pid is not None:
-                query = query.filter(LogTable.pid == pid)
+        if pid is not None:
+            query = query.filter(LogTable.pid == pid)
 
-            # Order results by timestamp
-            query = query.order_by(LogTable.timestamp)
+        # Order results by timestamp
+        query = query.order_by(LogTable.timestamp)
 
-            # Execute query and convert results to dictionaries
-            logs = [log.to_dict() for log in query.all()]
+        # Execute query and convert results to dictionaries
+        logs = [log.to_dict() for log in query.all()]
 
         return logs
 
     @classmethod
-    def delete_logs_older_than(cls, cutoff_datetime):
+    @with_session()
+    def delete_logs_older_than(cls, session, cutoff_datetime):
         """Delete all log records older than the given datetime."""
         logging.info(f"Deleting logs older than {cutoff_datetime}")
-        with cls.session_scope() as session:
-            session.query(LogTable).filter(LogTable.timestamp < cutoff_datetime).delete(
-                synchronize_session=False
-            )
+        session.query(LogTable).filter(LogTable.timestamp < cutoff_datetime).delete(
+            synchronize_session=False
+        )
 
     @classmethod
-    def check_existence(cls, job_id):
+    @with_session()
+    def check_existence(cls, session, job_id):
         """Check if a job with the given job ID exists in the database.
 
         This method queries the 'jobs' table in the database to determine
@@ -195,12 +205,12 @@ class PostgresManager:
         bool: True if a job with the given job ID exists, False otherwise.
         """
         logging.debug(f"Check existence of job: {job_id}")
-        with cls.session_scope() as session:
-            job_row = session.query(JobTable.job_id).filter_by(job_id=job_id).first()
+        job_row = session.query(JobTable.job_id).filter_by(job_id=job_id).first()
         return job_row is not None
 
     @classmethod
-    def add_entry(cls, data_to_insert):
+    @with_session()
+    def add_entry(cls, session, data_to_insert):
         """Add or update a job entry in the database.
 
         This method takes a dictionary containing job information and
@@ -210,32 +220,32 @@ class PostgresManager:
         equivalent to the columns in JobTable.
         """
         logging.debug(f"Add entry to database: {data_to_insert['job_id']}")
-        with cls.session_scope() as session:
-            # Check existence within this session
-            job_row = (
-                session.query(JobTable.job_id)
+        # Check existence within this session
+        job_row = (
+            session.query(JobTable.job_id)
+            .filter_by(job_id=data_to_insert["job_id"])
+            .first()
+        )
+
+        if job_row is not None:
+            # Update existing entry
+            logging.debug("Update entry.")
+            job = (
+                session.query(JobTable)
                 .filter_by(job_id=data_to_insert["job_id"])
                 .first()
             )
-
-            if job_row is not None:
-                # Update existing entry
-                logging.debug("Update entry.")
-                job = (
-                    session.query(JobTable)
-                    .filter_by(job_id=data_to_insert["job_id"])
-                    .first()
-                )
-                for column_name, column_value in data_to_insert.items():
-                    setattr(job, column_name, column_value)
-            else:
-                # Create new entry
-                logging.debug("New entry.")
-                job_row = JobTable(**data_to_insert)
-                session.add(job_row)
+            for column_name, column_value in data_to_insert.items():
+                setattr(job, column_name, column_value)
+        else:
+            # Create new entry
+            logging.debug("New entry.")
+            job_row = JobTable(**data_to_insert)
+            session.add(job_row)
 
     @classmethod
-    def update_column(cls, job_id, column_dic):
+    @with_session()
+    def update_column(cls, session, job_id, column_dic):
         """Update specific columns in the 'JobTable' for a given job ID.
 
         Parameters:
@@ -247,16 +257,16 @@ class PostgresManager:
         """
         logging.debug(f"Update columns for job: {job_id}")
 
-        with cls.session_scope() as session:
-            job = session.query(JobTable).filter_by(job_id=job_id).first()
-            if job is None:
-                raise JobNotFound(job_id)
+        job = session.query(JobTable).filter_by(job_id=job_id).first()
+        if job is None:
+            raise JobNotFound(job_id)
 
-            for column_name, column_value in column_dic.items():
-                setattr(job, column_name, column_value)
+        for column_name, column_value in column_dic.items():
+            setattr(job, column_name, column_value)
 
     @classmethod
-    def set_submitted(cls, job_id):
+    @with_session()
+    def set_submitted(cls, session, job_id):
         """Update the 'submitted' column in the 'JobTable' for a given job ID.
 
         The method works as well as a lock so that the job is not submitted twice.
@@ -273,24 +283,19 @@ class PostgresManager:
         """
         logging.debug(f"Set submitted for job: {job_id}")
 
-        with cls.session_scope() as session:
-            job = (
-                session.query(JobTable)
-                .filter_by(job_id=job_id)
-                .with_for_update()
-                .first()
-            )
-            if job is None:
-                raise JobNotFound(job_id)
+        job = session.query(JobTable).filter_by(job_id=job_id).with_for_update().first()
+        if job is None:
+            raise JobNotFound(job_id)
 
-            if job.submitted and job.status in ["RUNNING", "COMPLETED"]:
-                return False
-            else:
-                job.submitted = True
-                return True
+        if job.submitted and job.status in ["RUNNING", "COMPLETED"]:
+            return False
+        else:
+            job.submitted = True
+            return True
 
     @classmethod
-    def get_job_columns(cls, job_id):
+    @with_session()
+    def get_job_columns(cls, session, job_id):
         """Retrieve all columns of a specific job entry based on its job ID.
 
         This method queries the 'jobs' table in the database to retrieve all
@@ -308,22 +313,22 @@ class PostgresManager:
         """
         logging.debug(f"Get columns for job: {job_id}")
 
-        with cls.session_scope() as session:
-            job_row = session.query(JobTable).filter_by(job_id=job_id).first()
+        job_row = session.query(JobTable).filter_by(job_id=job_id).first()
 
-            if job_row is None:
-                raise JobNotFound(job_id)
+        if job_row is None:
+            raise JobNotFound(job_id)
 
-            # Convert all columns to a dictionary
-            job_columns = {
-                column.name: getattr(job_row, column.name)
-                for column in JobTable.__table__.columns
-            }
+        # Convert all columns to a dictionary
+        job_columns = {
+            column.name: getattr(job_row, column.name)
+            for column in JobTable.__table__.columns
+        }
 
         return job_columns
 
     @classmethod
-    def delete_job(cls, job_id):
+    @with_session()
+    def delete_job(cls, session, job_id):
         """Delete a job entry from the database based on its job ID.
 
         This method deletes a job entry from the 'jobs' table in the database
@@ -336,16 +341,16 @@ class PostgresManager:
         JobNotFound: If the job with the provided job ID does not exist.
         """
         logging.debug(f"Delete job: {job_id}")
-        with cls.session_scope() as session:
-            job = session.query(JobTable).filter_by(job_id=job_id).first()
+        job = session.query(JobTable).filter_by(job_id=job_id).first()
 
-            if job is None:
-                raise JobNotFound(job_id)
+        if job is None:
+            raise JobNotFound(job_id)
 
-            session.delete(job)
+        session.delete(job)
 
     @classmethod
-    def list_jobs(cls):
+    @with_session()
+    def list_jobs(cls, session):
         """List all jobs in the database with their submission date and status.
 
         This method retrieves all job entries from the 'jobs' table in the
@@ -366,24 +371,24 @@ class PostgresManager:
         """
         logging.debug("List all jobs.")
 
-        with cls.session_scope() as session:
-            job_rows = session.query(JobTable).all()
+        job_rows = session.query(JobTable).all()
 
-            job_info = {}
-            for job_row in job_rows:
-                job_info[job_row.job_id] = {
-                    "start_date": job_row.start_date,
-                    "input_data": job_row.input_data,
-                    "status": job_row.status,
-                    "submitted": job_row.submitted,
-                    "notified_end": job_row.notified_end,
-                    "logs": job_row.logs,
-                    "version": job_row.version,
-                }
+        job_info = {}
+        for job_row in job_rows:
+            job_info[job_row.job_id] = {
+                "start_date": job_row.start_date,
+                "input_data": job_row.input_data,
+                "status": job_row.status,
+                "submitted": job_row.submitted,
+                "notified_end": job_row.notified_end,
+                "logs": job_row.logs,
+                "version": job_row.version,
+            }
         return job_info
 
     @classmethod
-    def get_lock(cls, task_type):
+    @with_session()
+    def get_lock(cls, session, task_type):
         """Get a lock for a specific background task type.
 
         This method queries the TaskLockTable in the database to retrieve
@@ -400,25 +405,25 @@ class PostgresManager:
         """
         logging.debug(f"Get lock for task type: {task_type}")
 
-        with cls.session_scope() as session:
-            task_lock = (
-                session.query(TaskLockTable)
-                .filter_by(task_type=task_type)
-                .with_for_update()
-                .first()
-            )
-            if task_lock is None:
-                task_lock = TaskLockTable(task_type=task_type, is_locked=True)
-                session.add(task_lock)
-                return True
-            elif task_lock.is_locked:
-                return False
-            else:
-                task_lock.is_locked = True
-                return True
+        task_lock = (
+            session.query(TaskLockTable)
+            .filter_by(task_type=task_type)
+            .with_for_update()
+            .first()
+        )
+        if task_lock is None:
+            task_lock = TaskLockTable(task_type=task_type, is_locked=True)
+            session.add(task_lock)
+            return True
+        elif task_lock.is_locked:
+            return False
+        else:
+            task_lock.is_locked = True
+            return True
 
     @classmethod
-    def release_lock(cls, task_type):
+    @with_session()
+    def release_lock(cls, session, task_type):
         """Release the lock for a specific background task type.
 
         This method releases the lock for a specific background task type in the
@@ -430,13 +435,10 @@ class PostgresManager:
         """
         logging.debug(f"Release lock for task type: {task_type}")
 
-        with cls.session_scope() as session:
-            task_lock = (
-                session.query(TaskLockTable).filter_by(task_type=task_type).first()
-            )
+        task_lock = session.query(TaskLockTable).filter_by(task_type=task_type).first()
 
-            if task_lock:
-                task_lock.is_locked = False
+        if task_lock:
+            task_lock.is_locked = False
 
     @classmethod
     def _extract_date(cls, date_input: Union[date, datetime]) -> date:
@@ -446,7 +448,8 @@ class PostgresManager:
         return date_input
 
     @classmethod
-    def last_update_crns(cls):
+    @with_session()
+    def last_update_crns(cls, session):
         """Get the last update date for CRNS measurements.
 
         This method retrieves the last update date for CRNS measurements
@@ -457,23 +460,23 @@ class PostgresManager:
         """
         logging.debug("Get last update date for CRNS measurements")
 
-        with cls.session_scope() as session:
-            update = session.query(UpdateTimesCRNS).order_by(
-                UpdateTimesCRNS.update.desc()
-            )
-            for last_update in update:
-                if last_update.successful:
-                    break
-            else:
-                return None
+        update = session.query(UpdateTimesCRNS).order_by(UpdateTimesCRNS.update.desc())
+        for last_update in update:
+            if last_update.successful:
+                break
+        else:
+            return None
 
-            if last_update:
-                return last_update.update
-            else:
-                return None
+        if last_update:
+            return last_update.update
+        else:
+            return None
 
     @classmethod
-    def get_earliest_missing_or_failed_date(cls, start_date: Union[date, datetime]):
+    @with_session()
+    def get_earliest_missing_or_failed_date(
+        cls, session, start_date: Union[date, datetime]
+    ):
         """Get the earliest missing or failed date for CRNS measurements.
 
         This method analyzes CRNS measurement update times and returns:
@@ -494,68 +497,70 @@ class PostgresManager:
         # Convert to date if datetime
         start_date = cls._extract_date(start_date)
 
-        with cls.session_scope() as session:
-            # Check if table is empty
-            total_count = session.query(UpdateTimesCRNS).count()
-            if total_count == 0:
-                return start_date
+        # Check if table is empty
+        total_count = session.query(UpdateTimesCRNS).count()
+        if total_count == 0:
+            return start_date
 
-            # Get the earliest date in the database
-            earliest_entry = (
-                session.query(UpdateTimesCRNS)
-                .order_by(UpdateTimesCRNS.update.asc())
-                .first()
-            )
+        # Get the earliest date in the database
+        earliest_entry = (
+            session.query(UpdateTimesCRNS)
+            .order_by(UpdateTimesCRNS.update.asc())
+            .first()
+        )
 
-            # If first entry is after start_date, return start_date
-            if earliest_entry.update > start_date:
-                return start_date
+        # If first entry is after start_date, return start_date
+        if earliest_entry.update > start_date:
+            return start_date
 
-            # Get all entries from start_date onwards, ordered by date
-            all_updates = (
-                session.query(UpdateTimesCRNS)
-                .filter(UpdateTimesCRNS.update >= start_date)
-                .order_by(UpdateTimesCRNS.update.asc())
-                .all()
-            )
+        # Get all entries from start_date onwards, ordered by date
+        all_updates = (
+            session.query(UpdateTimesCRNS)
+            .filter(UpdateTimesCRNS.update >= start_date)
+            .order_by(UpdateTimesCRNS.update.asc())
+            .all()
+        )
 
-            if not all_updates:
-                return start_date
+        if not all_updates:
+            return start_date
 
-            # Find the earliest unsuccessful date
-            earliest_unsuccessful = None
-            for update in all_updates:
-                if not update.successful:
-                    earliest_unsuccessful = update.update
-                    break
+        # Find the earliest unsuccessful date
+        earliest_unsuccessful = None
+        for update in all_updates:
+            if not update.successful:
+                earliest_unsuccessful = update.update
+                break
 
-            # Find the earliest gap (missing date)
-            current_date = start_date
-            update_dates = {update.update for update in all_updates}
-            earliest_gap = None
+        # Find the earliest gap (missing date)
+        current_date = start_date
+        update_dates = {update.update for update in all_updates}
+        earliest_gap = None
 
-            while current_date <= max(update_dates):
-                if current_date not in update_dates:
-                    earliest_gap = current_date
-                    break
-                current_date += timedelta(days=1)
+        while current_date <= max(update_dates):
+            if current_date not in update_dates:
+                earliest_gap = current_date
+                break
+            current_date += timedelta(days=1)
 
-            # If no gap found within existing range, the gap is the next day after the
-            # last entry
-            if earliest_gap is None:
-                last_date = max(update_dates)
-                earliest_gap = last_date + timedelta(days=1)
+        # If no gap found within existing range, the gap is the next day after the
+        # last entry
+        if earliest_gap is None:
+            last_date = max(update_dates)
+            earliest_gap = last_date + timedelta(days=1)
 
-            # Return whichever is earlier: gap or unsuccessful date
-            if earliest_unsuccessful is None:
-                return earliest_gap
-            elif earliest_gap is None:
-                return earliest_unsuccessful
-            else:
-                return min(earliest_gap, earliest_unsuccessful)
+        # Return whichever is earlier: gap or unsuccessful date
+        if earliest_unsuccessful is None:
+            return earliest_gap
+        elif earliest_gap is None:
+            return earliest_unsuccessful
+        else:
+            return min(earliest_gap, earliest_unsuccessful)
 
     @classmethod
-    def add_update_crns(cls, day: Union[date, datetime], successful: bool = True):
+    @with_session()
+    def add_update_crns(
+        cls, session, day: Union[date, datetime], successful: bool = True
+    ):
         """Add or update a new update date for CRNS measurements.
 
         Args:
@@ -567,18 +572,16 @@ class PostgresManager:
 
         logging.debug(f"Add new update date for CRNS measurements: {update_date}")
 
-        with cls.session_scope() as session:
-            existing = (
-                session.query(UpdateTimesCRNS).filter_by(update=update_date).first()
-            )
-            if existing:
-                existing.successful = successful
-            else:
-                new_update = UpdateTimesCRNS(update=update_date, successful=successful)
-                session.add(new_update)
+        existing = session.query(UpdateTimesCRNS).filter_by(update=update_date).first()
+        if existing:
+            existing.successful = successful
+        else:
+            new_update = UpdateTimesCRNS(update=update_date, successful=successful)
+            session.add(new_update)
 
     @classmethod
-    def was_update_successful(cls, day: Union[date, datetime]) -> bool:
+    @with_session()
+    def was_update_successful(cls, session, day: Union[date, datetime]) -> bool:
         """Check if the update for CRNS measurements was successful.
 
         This method checks if the update for CRNS measurements on a specific
@@ -596,21 +599,21 @@ class PostgresManager:
 
         logging.debug(f"Check if update on {check_date} was successful")
 
-        with cls.session_scope() as session:
-            update = session.query(UpdateTimesCRNS).filter_by(update=check_date).first()
-            return update.successful if update else False
+        update = session.query(UpdateTimesCRNS).filter_by(update=check_date).first()
+        return update.successful if update else False
 
     @classmethod
-    def reset_update_crns(cls):
+    @with_session()
+    def reset_update_crns(cls, session):
         """Reset all update dates for CRNS measurements."""
         logging.info("Reset all update dates for CRNS measurements")
 
-        with cls.session_scope() as session:
-            session.query(UpdateTimesCRNS).delete(synchronize_session=False)
-            logging.info("All CRNS update dates have been reset")
+        session.query(UpdateTimesCRNS).delete(synchronize_session=False)
+        logging.info("All CRNS update dates have been reset")
 
     @classmethod
-    def insert_crns_measurements_from_df(cls, df):
+    @with_session()
+    def insert_crns_measurements_from_df(cls, session, df):
         """Insert or update CRNS measurements from a DataFrame into the database.
 
         Args:
@@ -664,50 +667,49 @@ class PostgresManager:
             if c.name not in ("date_time", "sensor_id")
         }
         stmt = stmt.on_conflict_do_update(
-            index_elements=["date_time", "sensor_id"], set_=update_cols
+            constraint="crns_measurements_pkey", set_=update_cols
         )
 
-        with cls.session_scope() as session:
-            session.execute(stmt)
-            logging.debug(
-                f"Successfully inserted/updated {len(records)} CRNS measurements"
-            )
+        session.execute(stmt)
+        logging.debug(f"Successfully inserted/updated {len(records)} CRNS measurements")
 
     @classmethod
-    def get_measurement_points(cls, bbox, types, start_date, end_date, representative):
+    @with_session()
+    def get_measurement_points(
+        cls, session, bbox, types, start_date, end_date, representative
+    ):
         """Retrieve measurement points."""
         logging.debug(
             f"Get measurement points for types: {types} in bbox: {bbox} and date range: {start_date} to {end_date}"  # noqa: E501
         )
         sensor_ids = [id for id, t in type_id_dict.items() if t in types]
         min_lon, min_lat, max_lon, max_lat = bbox
-        with cls.session_scope() as session:
-            columns = [
-                CRNSMeasurement.date_time,
-                CRNSMeasurement.sensor_id,
-                CRNSMeasurement.soil_moisture,
-                CRNSMeasurement.error_high,
-                CRNSMeasurement.error_low,
-                CRNSMeasurement.latitude,
-                CRNSMeasurement.longitude,
-                CRNSMeasurement.sensor_name,
-                CRNSMeasurement.representative,
-            ]
-            query = session.query(*columns).filter(
-                CRNSMeasurement.sensor_id.in_(sensor_ids),
-                CRNSMeasurement.date_time >= start_date,
-                CRNSMeasurement.date_time <= end_date,
-                func.ST_Within(
-                    CRNSMeasurement.geom,
-                    func.ST_MakeEnvelope(min_lon, min_lat, max_lon, max_lat, 4326),
-                ),
-            )
+        columns = [
+            CRNSMeasurement.date_time,
+            CRNSMeasurement.sensor_id,
+            CRNSMeasurement.soil_moisture,
+            CRNSMeasurement.error_high,
+            CRNSMeasurement.error_low,
+            CRNSMeasurement.latitude,
+            CRNSMeasurement.longitude,
+            CRNSMeasurement.sensor_name,
+            CRNSMeasurement.representative,
+        ]
+        query = session.query(*columns).filter(
+            CRNSMeasurement.sensor_id.in_(sensor_ids),
+            CRNSMeasurement.date_time >= start_date,
+            CRNSMeasurement.date_time <= end_date,
+            func.ST_Within(
+                CRNSMeasurement.geom,
+                func.ST_MakeEnvelope(min_lon, min_lat, max_lon, max_lat, 4326),
+            ),
+        )
 
-            if representative:
-                query = query.filter(CRNSMeasurement.representative == True)  # noqa
+        if representative:
+            query = query.filter(CRNSMeasurement.representative == True)  # noqa
 
-            col_names = [col.key for col in columns]
-            data = [dict(zip(col_names, row)) for row in query.all()]
+        col_names = [col.key for col in columns]
+        data = [dict(zip(col_names, row)) for row in query.all()]
 
         logging.debug(f"Retrieved {len(data)} measurement points")
         df = pd.DataFrame(data).dropna()
@@ -715,7 +717,11 @@ class PostgresManager:
         return df
 
     @classmethod
-    def rebuild_geo_index(cls):
+    @with_session()
+    def rebuild_geo_index(
+        cls,
+        session,
+    ):
         """Rebuild the spatial index on the geometry column.
 
         This method drops and recreates the spatial index on the geom column
@@ -726,33 +732,33 @@ class PostgresManager:
         """
         logging.info("Rebuilding spatial index on crns_measurements.geom")
 
-        with cls.session_scope() as session:
-            # Drop the existing spatial index if it exists
-            drop_index_sql = """
-                DROP INDEX IF EXISTS idx_crns_measurements_geom;
-            """
+        # Drop the existing spatial index if it exists
+        drop_index_sql = """
+            DROP INDEX IF EXISTS idx_crns_measurements_geom;
+        """
 
-            # Recreate the spatial index
-            create_index_sql = """
-                CREATE INDEX idx_crns_measurements_geom
-                ON crns_measurements
-                USING GIST (geom);
-            """
+        # Recreate the spatial index
+        create_index_sql = """
+            CREATE INDEX idx_crns_measurements_geom
+            ON crns_measurements
+            USING GIST (geom);
+        """
 
-            # Execute the SQL commands
-            session.execute(text(drop_index_sql))
-            logging.debug("Dropped existing spatial index")
+        # Execute the SQL commands
+        session.execute(text(drop_index_sql))
+        logging.debug("Dropped existing spatial index")
 
-            session.execute(text(create_index_sql))
-            logging.debug("Created new spatial index")
+        session.execute(text(create_index_sql))
+        logging.debug("Created new spatial index")
 
-            # Commit the transaction
-            session.commit()
+        # Commit the transaction
+        session.commit()
 
-            logging.info("Successfully rebuilt spatial index on crns_measurements.geom")
+        logging.info("Successfully rebuilt spatial index on crns_measurements.geom")
 
     @classmethod
-    def purge_measurement_points(cls, sensor_ids=None):
+    @with_session()
+    def purge_measurement_points(cls, session, sensor_ids=None):
         """Purge measurement points from the database.
 
         If sensor_ids is provided, only those sensors will be purged.
@@ -763,15 +769,14 @@ class PostgresManager:
         """
         logging.info(f"Purging measurement points for sensors: {sensor_ids}")
 
-        with cls.session_scope() as session:
-            if sensor_ids is not None:
-                session.query(CRNSMeasurement).filter(
-                    CRNSMeasurement.sensor_id.in_(sensor_ids)
-                ).delete(synchronize_session=False)
-            else:
-                session.query(CRNSMeasurement).delete(synchronize_session=False)
+        if sensor_ids is not None:
+            session.query(CRNSMeasurement).filter(
+                CRNSMeasurement.sensor_id.in_(sensor_ids)
+            ).delete(synchronize_session=False)
+        else:
+            session.query(CRNSMeasurement).delete(synchronize_session=False)
 
-            logging.info("Measurement points purged successfully")
+        logging.info("Measurement points purged successfully")
 
 
 class TaskLockTable(Base):

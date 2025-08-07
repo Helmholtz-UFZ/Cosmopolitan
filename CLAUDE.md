@@ -108,10 +108,12 @@ Key environment variables:
 
 ## Database Schema
 
-The application uses PostgreSQL with PostGIS for spatial data. Key tables include:
-- Jobs table with spatial geometry columns for prediction areas
-- Measurements table for CRNS sensor data
-- Results storage linked to job IDs
+The application uses PostgreSQL with PostGIS for spatial data. The complete database schema is defined in `docker/init.sql`. Key tables include:
+- `jobs` - Job tracking with spatial geometry columns for prediction areas
+- `crns_measurements` - CRNS sensor data with composite primary key (date_time, sensor_id)
+- `update_times_crns` - Tracking successful data updates
+- `task_lock` - Background task locking mechanism
+- `logs` - Application logging with timestamp indexing
 
 ## Deployment
 
