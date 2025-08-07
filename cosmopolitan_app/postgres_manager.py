@@ -312,6 +312,7 @@ class PostgresManager:
         JobNotFound: If the job with the provided job ID does not exist.
         """
         logging.debug(f"Get columns for job: {job_id}")
+        logging.debug(f"Session type: {type(session)}, job_id type: {type(job_id)}")
 
         job_row = session.query(JobTable).filter_by(job_id=job_id).first()
 

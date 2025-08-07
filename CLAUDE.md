@@ -132,6 +132,64 @@ Production deployment uses Docker containers:
 - `docker/` - Docker configuration files
 - `test/` - Test suite
 
+## Global Loading Overlay
+
+The application includes a global loading overlay defined in `layouts.py` that can be used across all pages to show loading states during long-running operations.
+
+### Usage Pattern
+
+1. **Import the constant**:
+   ```python
+   from cosmopolitan_app.constants import LOADING_OVERLAY_ID
+   ```
+
+2. **Create a callback to show the overlay** when buttons are clicked:
+   ```python
+   @callback(
+       Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
+       Input("button_id", "n_clicks"),
+       prevent_initial_call=True,
+   )
+   def show_loading(n_clicks):
+       """Show loading overlay when button is clicked."""
+       return any(n_clicks for n_clicks in [n_clicks] if n_clicks)
+   ```
+   
+   **Note**: If the `show_loading` callback has identical inputs to your main callback, you must add a dummy input to differentiate them:
+   ```python
+   # Add a dummy store to the layout
+   layout = [
+       dcc.Store(id="dummy_store", data=0),
+       # ... rest of layout
+   ]
+   
+   # Include dummy input in show_loading callback
+   @callback(
+       Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
+       Input("button_id", "n_clicks"),
+       Input("dummy_store", "data"),  # Dummy input
+       prevent_initial_call=True,
+   )
+   def show_loading(n_clicks, dummy_data):
+       return any(n_clicks for n_clicks in [n_clicks] if n_clicks)
+   ```
+
+3. **Hide the overlay** in your main callback by returning `False`:
+   ```python
+   @callback(
+       # ... other outputs
+       Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
+       # ... inputs and states
+   )
+   def main_callback():
+       # ... your logic
+       return result, False  # False hides the overlay
+   ```
+
+### Example Implementation
+
+See `pages/job_management.py` or `pages/submission.py` for complete examples.
+
 ## Important Notes
 
 - Forms are generated dynamically using Pydantic models via `form_factory.py`

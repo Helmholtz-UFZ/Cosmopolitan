@@ -250,6 +250,10 @@ class TimeIOManager:
                 "Please add new things to thing_info_dict:\n"
                 + pformat(new_thing_info_dict)
             )
+            raise ValueError(
+                "New things found in STI API. Please update the thing_datastream_dict "
+                "and thing_info_dict."
+            )
 
 
 class GeoProximityTracker:
@@ -383,7 +387,10 @@ def transfer_data_by_day(start_date: datetime) -> None:
             datastreams = TimeIOManager.get_datastreams_of_thing(thing_id)
             logging.warning(f"Thing {thing_name} with ID {thing_id} unknown.")
             logging.warning(json.dumps(datastreams, indent=4))
-            continue
+            raise ValueError(
+                f"Thing {thing_name} with ID {thing_id} unknown. "
+                "Please add it to the thing_datastream_dict."
+            )
 
         df = TimeIOManager.collect_datastreams(thing_id, start_date, end_date)
         if df.empty:

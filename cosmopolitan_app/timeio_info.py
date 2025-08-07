@@ -118,7 +118,7 @@ thing_info_dict = {
     205: "CRNS Greudnitz",
     216: "CRNS - RR5",
 }
-ignore_things = [145]
+ignore_things = [145, 219]
 # ignore_things = [
 #     145,
 #     44,

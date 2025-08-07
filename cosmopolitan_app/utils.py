@@ -22,6 +22,7 @@ from cosmopolitan_app.config import (
     EMAIL_SENDER,
     EMAIL_SERVER,
     EMAIL_USERNAME,
+    MAINTAINER_EMAIL,
     WEB_WORK_DIR,
 )
 from cosmopolitan_app.constants import (
@@ -29,8 +30,12 @@ from cosmopolitan_app.constants import (
     DAYS_DELETE_SUMBITTED,
     LOG_RETENTION_DAYS,
 )
-from cosmopolitan_app.object_storage_manager import ObjectStorageError
+from cosmopolitan_app.object_storage_manager import (
+    ObjectStorageError,
+    delete_directory_from_storage,
+)
 from cosmopolitan_app.postgres_manager import JobNotFound, PostgresManager
+from cosmopolitan_app.timeio_manager import update_crns_measurments
 
 submission_url = "{external_url}/submission/{job_id}"
 
@@ -139,6 +144,22 @@ def clean_up():
     PostgresManager.delete_logs_older_than(log_cutoff)
 
 
+@lock_task
+def update_db():
+    """Update the database with CRNS measurements."""
+    logging.info("Start updating database.")
+    try:
+        update_crns_measurments()
+    except Exception as error:  # noqa
+        email_subject = f"Error updating database: {error}"
+        email_body = f"""
+        Traceback info: {traceback.format_exc()}\n\n
+        """
+        send_mail(MAINTAINER_EMAIL, email_subject, email_body)
+        logging.error(email_subject)
+        logging.error(email_body)
+
+
 def clean_up_jobs(
     days_delete_not_submitted=DAYS_DELETE_NOT_SUMBITTED,
     days_delete_submitted=DAYS_DELETE_SUMBITTED,
@@ -175,6 +196,7 @@ def clean_up_jobs(
         dir_path = os.path.join(WEB_WORK_DIR, dir_name)
         if os.path.isdir(dir_path) and dir_name not in kept_jobs:
             shutil.rmtree(dir_path)
+            delete_directory_from_storage(dir_name)
 
 
 def error_response_args(e):

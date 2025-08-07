@@ -6,8 +6,9 @@ from datetime import datetime
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import Input, Output, State, callback, dash_table
+from dash import Input, Output, State, callback, dash_table, dcc
 
+from cosmopolitan_app.constants import LOADING_OVERLAY_ID
 from cosmopolitan_app.job import Job
 from cosmopolitan_app.layouts import create_header
 from cosmopolitan_app.postgres_manager import PostgresManager
@@ -95,6 +96,8 @@ layout = [
         "Overview and management of jobs in the Cosmopolitan App",
         bg_color="bg-info",
     ),
+    # Needed to get a different set inputs for the loading overlay
+    dcc.Store(id="dummy_store", data=0),
     dbc.Row(
         dbc.Col(
             button_group,
@@ -111,17 +114,34 @@ layout = [
 
 
 @callback(
+    Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
+    Input("delete_btn", "n_clicks"),
+    Input("clean_btn", "n_clicks"),
+    Input("refresh_btn", "n_clicks"),
+    Input("dummy_store", "data"),
+    prevent_initial_call=True,
+)
+def show_loading(delete_clicks, clean_clicks, refresh_clicks, dummy_data):
+    """Show loading overlay when buttons are clicked."""
+    return any(
+        n_clicks
+        for n_clicks in [delete_clicks, clean_clicks, refresh_clicks]
+        if n_clicks
+    )
+
+
+@callback(
     Output("jobs-table", "data"),
     Output("jobs-table", "selected_rows"),
-    [
-        Input("delete_btn", "n_clicks"),
-        Input("clean_btn", "n_clicks"),
-        Input("refresh_btn", "n_clicks"),
-    ],
-    [State("jobs-table", "selected_rows"), State("jobs-table", "data")],
-    prevent_initial_call=False,
+    Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
+    Input("delete_btn", "n_clicks"),
+    Input("clean_btn", "n_clicks"),
+    Input("refresh_btn", "n_clicks"),
+    State("jobs-table", "selected_rows"),
+    State("jobs-table", "data"),
+    prevent_initial_call=True,
 )
-def job_mangament_dashboard(
+def job_management_dashboard(
     delete_clicks, clean_clicks, refresh_clicks, selected_rows, table_data
 ):
     """Manage job actions in the dashboard."""
@@ -162,7 +182,7 @@ def job_mangament_dashboard(
             }
         )
 
-    # Reset selected_rows after delete or clean
+    # Reset selected_rows after delete or clean, hide loading overlay
     if button_id in ["delete_btn", "clean_btn"]:
-        return rows, []
-    return rows, dash.no_update
+        return rows, [], False
+    return rows, dash.no_update, False
