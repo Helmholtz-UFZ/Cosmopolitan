@@ -30,6 +30,8 @@ RUN curl -O https://downloads.rclone.org/rclone-current-linux-amd64.zip && \
     chown -R appuser:appuser /home/appuser/rclone-binaries && \
     rm -rf rclone-*
 
+RUN rclone --version
+
 # Set up Python environment
 RUN pip install --upgrade pip && pip install poetry
 
@@ -43,7 +45,6 @@ ENV PYTHONPATH=/python_docker/cosmopolitan/
 
 # Copy dependency files
 COPY --chown=appuser:appuser . .
-COPY --chown=appuser:appuser env_prod .env
 
 # Install dependencies
 RUN poetry config virtualenvs.create false && \
@@ -52,8 +53,20 @@ RUN poetry config virtualenvs.create false && \
 # Switch to non-root user
 USER appuser
 
-# Setup rclone config 
-RUN python3 /python_docker/cosmopolitan/cosmopolitan_app/object_storage_manager.py setup_remote
+# Setup rclone config
+RUN python3 /python_docker/cosmopolitan/cosmopolitan_app/object_storage_manager.py
 
-
-CMD gunicorn -w 4 -b 0.0.0.0:$FLASK_PORT cosmopolitan_app.app:server;
+# Worker-specific command with conditional debug mode
+CMD if [ "$FLASK_DEBUG" = "1" ] ; then \
+        echo "Starting Celery worker in DEBUG mode with auto-reload..."; \
+        python3 /python_docker/cosmopolitan/dev_worker.py; \
+    else \
+        echo "Starting Celery worker in PRODUCTION mode..."; \
+        celery -A cosmopolitan_app.background_job_manager.celery worker \
+            --loglevel=info \
+            --concurrency=4 \
+            --queues=default,computation,maintenance \
+            --hostname=worker@%h \
+            --without-gossip \
+            --without-mingle; \
+    fi

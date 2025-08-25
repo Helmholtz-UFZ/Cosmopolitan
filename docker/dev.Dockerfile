@@ -1,10 +1,13 @@
 # syntax=docker/dockerfile:1
 FROM python:3.11-slim-bookworm
+
 ENV MPLCONFIGDIR=/python_docker/cosmopolitan/.config/matplotlib
 ENV PATH=$PATH:/home/appuser/rclone-binaries/
+
 # Create non-root user early
 RUN useradd -m -u 1000 appuser
 # Install system dependencies
+
 RUN apt-get update && \
     apt-get -y upgrade && \
     apt-get -y install --no-install-recommends \
@@ -17,6 +20,7 @@ RUN apt-get update && \
         curl \
         unzip && \
     rm -rf /var/lib/apt/lists/*
+
 # Install rclone
 RUN curl -O https://downloads.rclone.org/rclone-current-linux-amd64.zip && \
     unzip rclone-current-linux-amd64.zip && \
@@ -25,21 +29,34 @@ RUN curl -O https://downloads.rclone.org/rclone-current-linux-amd64.zip && \
     chmod +x /home/appuser/rclone-binaries/rclone && \
     chown -R appuser:appuser /home/appuser/rclone-binaries && \
     rm -rf rclone-*
+
 RUN rclone --version
+
 # Set up Python environment
 RUN pip install --upgrade pip && pip install poetry
+
 WORKDIR /python_docker/cosmopolitan
+
 # Set up matplotlib directory
 RUN mkdir -p $MPLCONFIGDIR && \
     chmod 777 $MPLCONFIGDIR
+
 ENV PYTHONPATH=/python_docker/cosmopolitan/
+
 # Copy dependency files
 COPY --chown=appuser:appuser . .
+
 # Install dependencies
 RUN poetry config virtualenvs.create false && \
     poetry install --no-interaction --no-ansi
+
 # Switch to non-root user
 USER appuser
+
+# Setup rclone config and create bucket
+RUN python3 /python_docker/cosmopolitan/cosmopolitan_app/object_storage_manager.py setup_remote
+RUN python3 /python_docker/cosmopolitan/cosmopolitan_app/object_storage_manager.py create_bucket
+
 CMD if [ "$GUNICORN" = 1 ] ; then \
         gunicorn -w 4 -b 0.0.0.0:$FLASK_PORT cosmopolitan_app.app:server; \
     else \

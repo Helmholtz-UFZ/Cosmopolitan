@@ -27,6 +27,19 @@ def level_badge(level):
     return dbc.Badge(level, color=color_map.get(level, "primary"), className="me-1")
 
 
+def origin_badge(origin):
+    """Format logs with color-coded origins."""
+    color_map = {
+        "webserver": "primary",
+        "worker": "success",
+        "scheduler": "warning",
+        "unknown": "secondary",
+    }
+    return dbc.Badge(
+        origin.upper(), color=color_map.get(origin, "secondary"), className="me-1"
+    )
+
+
 def layout():
     """Layout for the logs page."""
     start_hour = datetime.datetime.now().hour - 1
@@ -106,6 +119,20 @@ def layout():
         ),
     ]
 
+    origin_filter = [
+        html.Label("Origin"),
+        dcc.Dropdown(
+            id="log-origins",
+            options=[
+                {"label": "All", "value": "all"},
+                {"label": "Webserver", "value": "webserver"},
+                {"label": "Worker", "value": "worker"},
+                {"label": "Scheduler", "value": "scheduler"},
+            ],
+            value="all",
+        ),
+    ]
+
     pid_selector = [
         html.Label("PID"),
         dbc.InputGroup(
@@ -138,7 +165,11 @@ def layout():
                     className="mb-4",
                 ),
                 dbc.Row(
-                    [dbc.Col(log_levels, width=6), dbc.Col(pid_selector, width=6)],
+                    [
+                        dbc.Col(log_levels, width=4),
+                        dbc.Col(origin_filter, width=4),
+                        dbc.Col(pid_selector, width=4),
+                    ],
                     className="mb-4",
                 ),
                 html.Div(
@@ -164,10 +195,11 @@ def layout():
     Input("end-hour", "value"),
     Input("end-minute", "value"),
     Input("log-levels", "value"),
+    Input("log-origins", "value"),
     Input("pid-radio", "value"),
     Input("log-pid", "value"),
 )
-def log_manager(date, sh, sm, eh, em, levels, pid_radio, pid):
+def log_manager(date, sh, sm, eh, em, levels, origin, pid_radio, pid):
     """Manage and display logs based on user input."""
     if pid_radio != ["on"]:
         pid = "all"
@@ -185,7 +217,7 @@ def log_manager(date, sh, sm, eh, em, levels, pid_radio, pid):
 
     if pid == "all":
         pid = None
-    logs = PostgresManager.query_logs(date, sh, sm, eh, em, levels, pid)
+    logs = PostgresManager.query_logs(date, sh, sm, eh, em, levels, pid, origin)
     if not logs:
         return "No logs found for the selected criteria.", disabled_pid, "", ""
 
@@ -194,6 +226,7 @@ def log_manager(date, sh, sm, eh, em, levels, pid_radio, pid):
             html.Li(
                 [
                     level_badge(log["level"]),
+                    origin_badge(log["origin"]),
                     f" at {log['timestamp']} ",
                     f"in {log['module']} [PID {log['pid']}]:\n{log['message']}",
                 ],

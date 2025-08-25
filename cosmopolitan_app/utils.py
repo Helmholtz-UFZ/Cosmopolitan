@@ -23,6 +23,7 @@ from cosmopolitan_app.config import (
     EMAIL_SERVER,
     EMAIL_USERNAME,
     MAINTAINER_EMAIL,
+    WEB_OUTSIDE_URL,
     WEB_WORK_DIR,
 )
 from cosmopolitan_app.constants import (
@@ -330,7 +331,16 @@ def send_finished_mail(job):
     if job.model.email == "" or job.notified_end:
         return
     logging.info("Send mail about finished job.")
-    url = submission_url.format(job_id=job.job_id, external_url=request.url_root)
+
+    # Use configured external URL instead of Flask request context
+    try:
+        # Try to get URL from Flask request context (when called from webserver)
+        external_url = request.url_root
+    except RuntimeError:
+        # Fallback to configured URL (when called from Celery worker)
+        external_url = WEB_OUTSIDE_URL
+
+    url = submission_url.format(job_id=job.job_id, external_url=external_url)
     content = job_finished_template.format(
         job_id=job.job_id,
         status=job.status,
@@ -347,7 +357,16 @@ def send_submission_mail(job):
     if job.model.email == "":
         return
     logging.info(f"Send mail about submitted job {job.job_id}.")
-    url = submission_url.format(job_id=job.job_id, external_url=request.url_root)
+
+    # Use configured external URL instead of Flask request context
+    try:
+        # Try to get URL from Flask request context (when called from webserver)
+        external_url = request.url_root
+    except RuntimeError:
+        # Fallback to configured URL (when called from Celery worker)
+        external_url = WEB_OUTSIDE_URL
+
+    url = submission_url.format(job_id=job.job_id, external_url=external_url)
     content = job_submitted_template.format(
         job_id=job.job_id,
         status=job.status,

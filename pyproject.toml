@@ -14,7 +14,7 @@ selenium = ">=4.0.0"
 dash = {extras = ["testing"], version = "^3.0.4"}
 soil-moisture-prediction = "^0.0.42"
 dash-bootstrap-components = "^2.0.3"
-apscheduler = "^3.11.0"
+celery = {extras = ["sqlalchemy"], version = "^5.3.0"}
 dotenv = "^0.9.9"
 psycopg2 = "^2.9.10"
 sqlalchemy = "^2.0.41"
@@ -32,6 +32,7 @@ pytest = "^8.4.0"
 black = "^25.1.0"
 isort = "^6.0.1"
 flake8 = "^7.2.0"
+watchdog = "^3.0.0"
 
 [build-system]
 requires = ["poetry-core"]

@@ -21,7 +21,8 @@ CREATE TABLE jobs (
     notified_end BOOL,
     logs VARCHAR,
     status VARCHAR,
-    version VARCHAR
+    version VARCHAR,
+    celery_task_id VARCHAR
 );
 
 -- Create logs table for application logging
@@ -32,11 +33,13 @@ CREATE TABLE IF NOT EXISTS logs (
     pid INTEGER NOT NULL,
     level VARCHAR(10) NOT NULL,
     module VARCHAR(50) NOT NULL,
-    message TEXT NOT NULL
+    message TEXT NOT NULL,
+    origin VARCHAR(20) NOT NULL DEFAULT 'unknown'
 );
 
 --Create indexes to improve query performance
 CREATE INDEX IF NOT EXISTS logs_timestamp_idx ON logs (timestamp);
+CREATE INDEX IF NOT EXISTS logs_origin_idx ON logs (origin);
 
 -- Table to store update times and success status
 DROP TABLE IF EXISTS update_times_crns;
@@ -65,6 +68,44 @@ CREATE TABLE crns_measurements (
 CREATE INDEX IF NOT EXISTS idx_crns_measurements_geom
     ON crns_measurements
     USING GIST (geom);
+
+-- Celery result backend tables
+-- Create the sequence that Celery expects
+DROP SEQUENCE IF EXISTS task_id_sequence;
+CREATE SEQUENCE task_id_sequence;
+
+DROP TABLE IF EXISTS celery_taskmeta;
+CREATE TABLE celery_taskmeta (
+    id INTEGER DEFAULT nextval('task_id_sequence') PRIMARY KEY,
+    task_id VARCHAR(255) UNIQUE NOT NULL,
+    status VARCHAR(50) DEFAULT 'PENDING',
+    result BYTEA,
+    date_done TIMESTAMP,
+    traceback TEXT,
+    name VARCHAR(255),
+    args BYTEA,
+    kwargs BYTEA,
+    worker VARCHAR(255),
+    retries INTEGER DEFAULT 0,
+    queue VARCHAR(255)
+);
+
+-- Create index for faster task lookups
+CREATE INDEX IF NOT EXISTS celery_taskmeta_task_id_idx ON celery_taskmeta (task_id);
+CREATE INDEX IF NOT EXISTS celery_taskmeta_status_idx ON celery_taskmeta (status);
+CREATE INDEX IF NOT EXISTS celery_taskmeta_date_done_idx ON celery_taskmeta (date_done);
+
+-- Celery task sets (for group tasks)
+DROP TABLE IF EXISTS celery_tasksetmeta;
+CREATE TABLE celery_tasksetmeta (
+    id SERIAL PRIMARY KEY,
+    taskset_id VARCHAR(255) UNIQUE NOT NULL,
+    result BYTEA,
+    date_done TIMESTAMP
+);
+
+-- Create index for faster taskset lookups
+CREATE INDEX IF NOT EXISTS celery_tasksetmeta_taskset_id_idx ON celery_tasksetmeta (taskset_id);
 
 -- SELECT job_id, start_date FROM jobs;
 -- SELECT job_id, status FROM jobs;

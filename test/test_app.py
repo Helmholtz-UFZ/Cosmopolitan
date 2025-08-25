@@ -116,8 +116,14 @@ def save_snapshot(dash_duo):
     dash_duo.driver.save_screenshot("headless_debug.png")
 
 
-def test_full_procedure(dash_duo, crns_file_path, pred_file_paths):
+def test_full_procedure(dash_duo, crns_file_path, pred_file_paths, celery_worker):
     """Test the full procedure of the Dash app."""
+    # Ensure Celery worker is running before starting tests
+    if celery_worker.poll() is not None:
+        logging.error("Celery worker process terminated unexpectedly")
+        raise RuntimeError("Celery worker not available for testing")
+
+    logging.info("Starting full procedure test with Celery worker")
     dash_duo.start_server(app)
     dash_duo.driver.set_window_size(1920, 1080)
     dash_duo.driver.execute_cdp_cmd("Runtime.enable", {})

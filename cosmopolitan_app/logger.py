@@ -13,19 +13,32 @@ from cosmopolitan_app.config import (
     POSTGRES_USER,
 )
 
+format_string = (
+    "[%(asctime)s] [PID:%(process)d] %(levelname)s in %(module)s: %(message)s"
+)
+postgres_params = {
+    "dbname": POSTGRES_DB,
+    "user": POSTGRES_USER,
+    "password": POSTGRES_PASSWORD,
+    "host": POSTGRES_HOST_NAME,
+    "port": POSTGRES_PORT,
+}
+
 
 class PostgreSQLHandler(logging.Handler):
     """A log handler that writes log records to a PostgreSQL database."""
 
-    def __init__(self, connection_params):
+    def __init__(self, connection_params, origin="unknown"):
         """Initialize the handler with PostgreSQL connection parameters.
 
         Args:
             connection_params (dict): Connection parameters for PostgreSQL
                                      (dbname, user, password, host, port)
+            origin (str): Origin identifier (e.g., 'webserver', 'worker')
         """
         super().__init__()
         self.connection_params = connection_params
+        self.origin = origin
         # Create a connection pool for better performance
         self.connection_pool = pool.SimpleConnectionPool(
             1,
@@ -47,8 +60,8 @@ class PostgreSQLHandler(logging.Handler):
                 cursor.execute(
                     """
                     INSERT INTO logs
-                    (timestamp, pid, level, module, message)
-                    VALUES (%s, %s, %s, %s, %s)
+                    (timestamp, pid, level, module, message, origin)
+                    VALUES (%s, %s, %s, %s, %s, %s)
                     """,
                     (
                         datetime.datetime.fromtimestamp(record.created),
@@ -56,6 +69,7 @@ class PostgreSQLHandler(logging.Handler):
                         record.levelname,
                         record.module,
                         self.format(record),
+                        self.origin,
                     ),
                 )
                 connection.commit()
@@ -79,7 +93,7 @@ class ExcludeSubmodulesFilter(logging.Filter):
 
     def filter(self, record):
         """Filter."""
-        excluded_modules = ["matplotlib", "PIL", "rasterio"]
+        excluded_modules = ["matplotlib", "PIL", "rasterio", "watchdog"]
         return not any(record.name.startswith(module) for module in excluded_modules)
 
 
@@ -112,23 +126,13 @@ def get_logger_config_compuation(log_file_path):
     }
 
 
-def get_logger_config_web(debug):
+def get_logger_config_web(debug, origin="webserver"):
     """Get the config dic for the webservice logger."""
-    postgres_params = {
-        "dbname": POSTGRES_DB,
-        "user": POSTGRES_USER,
-        "password": POSTGRES_PASSWORD,
-        "host": POSTGRES_HOST_NAME,
-        "port": POSTGRES_PORT,
-    }
-
     logging_config = {
         "version": 1,
         "disable_existing_loggers": True,
         "formatters": {
-            "default": {
-                "format": "[%(asctime)s] [PID:%(process)d] %(levelname)s in %(module)s: %(message)s",  # noqa
-            },
+            "default": {"format": format_string},
             "message_only": {
                 "format": "%(message)s",
             },
@@ -147,35 +151,14 @@ def get_logger_config_web(debug):
                 "formatter": "message_only",
                 "filters": ["exclude_submodules"],
                 "connection_params": postgres_params,
+                "origin": origin,
             },
         },
         "root": {
-            "handlers": ["wsgi"],
+            "handlers": ["wsgi", "postgres"],
             "level": "DEBUG",
             "filters": ["exclude_submodules"],
         },
-        "loggers": {
-            "cosmopolitan_app": {
-                "level": "DEBUG",
-                "handlers": ["wsgi"],
-                "propagate": False,
-            },
-            "matplotlib": {
-                "level": "WARNING",
-                "handlers": [],
-                "propagate": False,
-            },
-            "rasterio": {
-                "level": "WARNING",
-                "handlers": [],
-                "propagate": False,
-            },
-        },
     }
 
-    # if not debug:
-    #     logging_config["root"]["handlers"].append("postgres")
-    #     logging_config["loggers"]["cosmopolitan_app"]["handlers"].append("postgres")
-    logging_config["root"]["handlers"].append("postgres")
-    logging_config["loggers"]["cosmopolitan_app"]["handlers"].append("postgres")
     return logging_config

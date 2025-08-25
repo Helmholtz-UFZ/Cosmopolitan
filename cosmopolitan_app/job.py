@@ -7,7 +7,6 @@ import glob
 import io
 import json
 import logging
-import multiprocessing
 import os
 import shutil
 import traceback
@@ -209,6 +208,7 @@ class Job:
     status: Literal["PENDING", "RUNNING", "COMPLETED", "FAILED"]
     version: str
     working_dir: str
+    celery_task_id: str
     preview_area_filename_template: str = "preview_area_{position}.png"
     original_file_prefix: str = "orginal"
 
@@ -264,6 +264,7 @@ class Job:
         self.logs = ""
         self.status = "PENDING"
         self.version = smp_version
+        self.celery_task_id = None
         self.working_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=self.job_id)
         os.makedirs(self.working_dir, exist_ok=True)
         self.dump_parameters()
@@ -291,6 +292,7 @@ class Job:
         self.logs = ""
         self.status = "PENDING"
         self.version = smp_version
+        self.celery_task_id = None
         self.working_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=self.job_id)
         shutil.rmtree(self.working_dir, ignore_errors=True)
         os.makedirs(self.working_dir, exist_ok=True)
@@ -658,20 +660,35 @@ class Job:
             delete_directory_from_storage(self.job_id)
 
     def submit(self):
-        """Start job in a nother subprocess."""
+        """Submit job to Celery queue for background processing."""
         logging.info(f"Submit job {self.job_id}.")
 
         if PostgresManager.set_submitted(self.job_id):
             self.submitted = True
-            self.status = "RUNNING"
             try:
-                job = multiprocessing.Process(target=start_computation, args=(self,))
-                job.start()
-                logging.info(f"Job started with PID: {job.pid}.")
+                # Import here to avoid circular imports and enable lazy loading
+                from cosmopolitan_app.background_job_manager import (
+                    get_background_job_manager,
+                )
+
+                # Get the background job manager (lazy initialization)
+                job_manager = get_background_job_manager()
+
+                # Submit job to Celery queue
+                celery_task_id = job_manager.submit_computation_job(self)
+
+                # Store the Celery task ID for tracking
+                self.celery_task_id = celery_task_id
+
+                logging.info(
+                    f"Job {self.job_id} submitted to Celery with task ID: {celery_task_id}"  # noqa
+                )
+
             except Exception as e:  # noqa
-                messsage = f"{repr(e)}\n\n{traceback.format_exc()}"
-                logging.error(f"Job {self.job_id} failed to start.\n{messsage}")
+                message = f"{repr(e)}\n\n{traceback.format_exc()}"
+                logging.error(f"Job {self.job_id} failed to start.\n{message}")
                 self.status = "FAILED"
+
             self.save()
         else:
             logging.debug(f"Job {self.job_id} was already submitted.")

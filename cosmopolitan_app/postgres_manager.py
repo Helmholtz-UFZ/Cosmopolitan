@@ -125,7 +125,7 @@ class PostgresManager:
         return SessionScope(session_factory=cls.Session)
 
     @classmethod
-    def query_logs(cls, date, sh, sm, eh, em, levels, pid=None):
+    def query_logs(cls, date, sh, sm, eh, em, levels, pid=None, origin=None):
         """Query logs from the database with specified filters.
 
         Parameters:
@@ -144,6 +144,8 @@ class PostgresManager:
             List of log levels to include (e.g., ['INFO', 'ERROR'])
         pid : int, optional
             Process ID to filter logs by
+        origin : str, optional
+            Origin to filter logs by (e.g., 'webserver', 'worker')
 
         Returns:
         --------
@@ -168,6 +170,9 @@ class PostgresManager:
 
             if pid is not None:
                 query = query.filter(LogTable.pid == pid)
+
+            if origin is not None and origin != "all":
+                query = query.filter(LogTable.origin == origin)
 
             # Order results by timestamp
             query = query.order_by(LogTable.timestamp)
@@ -814,6 +819,7 @@ class LogTable(Base):
     level = Column(String(10), nullable=False)
     module = Column(String(50), nullable=False)
     message = Column(Text, nullable=False)
+    origin = Column(String(20), nullable=False, default="unknown")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert log record to dictionary format."""
@@ -823,6 +829,7 @@ class LogTable(Base):
             "level": self.level,
             "message": self.message,
             "module": self.module,
+            "origin": self.origin,
         }
 
 

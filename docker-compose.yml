@@ -1,7 +1,7 @@
 services:
-  cosmopolitan:
-    image: cosmopolitan
-    container_name: cosmopolitan
+  webserver:
+    image: cosmopolitan-webserver
+    container_name: cosmopolitan-webserver
     build:
       context: .
       dockerfile: ./docker/dev.Dockerfile
@@ -11,6 +11,25 @@ services:
     user: "${DOCKER_UID}:${DOCKER_GID}"
     ports:
       - "${FLASK_PORT}:${FLASK_PORT}"
+    depends_on:
+      - postgres
+      - minio
+
+  worker:
+    image: cosmopolitan-worker
+    container_name: cosmopolitan-worker
+    build:
+      context: .
+      dockerfile: ./docker/worker.Dockerfile
+    env_file: .env
+    volumes:
+      - "./:/python_docker/cosmopolitan"
+    user: "${DOCKER_UID}:${DOCKER_GID}"
+    depends_on:
+      - postgres
+      - minio
+    # Memory limit for workers (can be adjusted based on requirements)
+    mem_limit: 2g
 
   mailhog:
     image: mailhog/mailhog

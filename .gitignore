@@ -16,3 +16,5 @@ debug_source.html
 headless_debug.png
 env_dev_stage_priv
 timeIO*.logs
+celerybeat-schedule
+.env.bak

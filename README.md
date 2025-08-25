@@ -17,7 +17,7 @@ The web service is built as a Dash web application with the following key compon
 - **Web Framework**: Dash (plotly) with Flask server backend
 - **Database**: PostgreSQL with PostGIS extension for spatial data
 - **Object Storage**: MinIO for file storage with rclone integration
-- **Background Tasks**: APScheduler for periodic data updates and cleanup
+- **Background Tasks**: Celery with PostgreSQL broker for distributed task processing
 - **External Services**: MailHog for email testing, TimeIO API for CRNS data
 
 ### Core Modules
@@ -29,14 +29,31 @@ The web service is built as a Dash web application with the following key compon
 - `pages/` - Individual page components for the multi-page application
 - `job.py` - Job processing and workflow management
 - `form_factory.py` - Dynamic form generation from Pydantic models
+- `background_job_manager.py` - Celery task management and job orchestration
+- `tasks/` - Celery task definitions for computation and maintenance
 
 ### Data Flow
 
 1. Users submit prediction jobs through web forms
-2. Jobs are stored in PostgreSQL with spatial geometry data
-3. Background tasks fetch CRNS data from TimeIO API
+2. Jobs are stored in PostgreSQL
+3. Jobs are queued to Celery workers for background processing
 4. Prediction models (from external `soil-moisture-prediction` library) process data
 5. Results are stored in object storage and displayed through web interface
+
+### Background Task Processing
+
+The application uses **Celery** for distributed background task processing:
+
+- **Message Broker**: PostgreSQL database (same as main DB)
+- **Task Queues**: Separate queues for computation jobs and maintenance tasks
+- **Workers**: Dedicated worker containers process tasks independently
+- **Monitoring**: All worker activity logged to PostgreSQL database
+- **Scheduling**: Periodic tasks for cleanup and data updates using Celery Beat
+
+#### Task Types
+
+- **Computation Tasks**: Soil moisture prediction jobs submitted by users
+- **Maintenance Tasks**: Periodic cleanup of old jobs and CRNS data updates
 
 ## Development
 
@@ -54,13 +71,49 @@ cp env_dev_prod env_dev_prod_priv
 
 ### Docker Development
 
-```bash
-# Start all services
-docker compose up
+The application runs in multiple containers:
 
-# Start only the web service (requires external services)
-docker compose up --no-log-prefix cosmopolitan
+- **webserver**: Dash web application (job submission interface)
+- **worker**: Celery worker for background task processing
+- **postgres**: Database with PostGIS and Celery broker tables
+- **minio**: Object storage for job files
+- **mailhog**: Email testing service
+
+```bash
+# Start all services (uses PyPI soil-moisture-prediction)
+docker compose up --build
 ```
+
+#### Local soil-moisture-prediction Development
+
+To develop with a local version of the `soil-moisture-prediction` package instead of the
+PyPI version:
+
+```bash
+# Use local package for development
+docker compose -f docker-compose.yml -f docker-compose.local_smp.yml up --build
+
+# Stop services
+docker compose -f docker-compose.yml -f docker-compose.local_smp.yml down
+```
+
+**Requirements:**
+
+- Local `soil-moisture-prediction` repository at `/home/andersj/git/soil-moisture-prediction`
+- Or set `SOIL_MOISTURE_PREDICTION_PATH` environment variable to custom path
+
+**Example with custom path:**
+
+```bash
+export SOIL_MOISTURE_PREDICTION_PATH=/path/to/your/soil-moisture-prediction
+docker compose -f docker-compose.yml -f docker-compose.local_smp.yml up --build
+```
+
+**Features:**
+
+- Live development: Changes to soil-moisture-prediction code are immediately available
+- Same environment: Both webserver and worker use the local package
+- Easy switching: Use regular `docker compose up` to return to PyPI version
 
 ### Testing
 
@@ -103,12 +156,14 @@ poetry update
 ## Environment Configuration
 
 The application uses different environment files:
+
 - `env_dev_mock` - Mock services for development
 - `env_dev_prod_priv` - Production services with credentials (not in repo)
 - `env_test` - Testing configuration
 - `env_prod` - Production deployment
 
 Key environment variables:
+
 - `FLASK_DEBUG=1` - Enable debug mode with auto-reload
 - `GUNICORN=0` - Use Flask dev server instead of Gunicorn
 - `WEB_WORK_DIR` - Working directory for job files
@@ -127,6 +182,7 @@ The web service relies on external services:
 ## Deployment
 
 Production deployment uses Docker containers:
+
 - Built via GitLab CI pipeline (`.gitlab-ci.yml`)
 - Uses `docker/prod.Dockerfile` for production builds
 - Tagged releases created from git tags matching `^\d+.\d+.\d+` pattern
