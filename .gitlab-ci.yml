@@ -68,23 +68,26 @@ test:
   variables:
     MINIO_URL: "http://minio:9000"
   before_script:
-    - apt-get update && apt-get install -y postgresql-client libc-dev libcairo2-dev curl unzip wget gnupg2 libglib2.0-0 libnss3 libfontconfig1 libxss1 libappindicator3-1 libasound2 xvfb
+    # System deps
+    - apt-get update && apt-get install -y \
+      postgresql-client libc-dev libcairo2-dev curl unzip wget gnupg2 \
+      libglib2.0-0 libnss3 libfontconfig1 libxss1 libappindicator3-1 libasound2 xvfb \
+      ca-certificates
 
-    # Install Chrome
-    - wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
-    - echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
+    # Install Chrome (modern way, no apt-key)
+    - wget -qO /usr/share/keyrings/google-linux-signing-keyring.gpg https://dl.google.com/linux/linux_signing_key.pub
+    - echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-linux-signing-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" \
+      > /etc/apt/sources.list.d/google-chrome.list
     - apt-get update && apt-get install -y google-chrome-stable
 
-    # Install ChromeDriver
-    - CHROME_VERSION=$(google-chrome-stable --version | grep -oP '\d+\.\d+\.\d+' | head -1)
-    - CHROMEDRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json" | python3 -c "import sys, json; print(json.load(sys.stdin)['channels']['Stable']['version'])")
-
-    # Download ChromeDriver zip from the new location
-    - CHROMEDRIVER_BASE_URL="https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing"
-    - CHROMEDRIVER_ZIP_URL="${CHROMEDRIVER_BASE_URL}/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip"
-    - wget -O /tmp/chromedriver.zip "$CHROMEDRIVER_ZIP_URL"
-    - unzip /tmp/chromedriver.zip -d /tmp/
-    - mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver
+    # Install ChromeDriver (matches Chrome automatically)
+    - CHROME_VERSION=$(google-chrome-stable --version | grep -oP '\d+\.\d+\.\d+')
+    - CHROMEDRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json" \
+      | python3 -c "import sys, json; v=json.load(sys.stdin)['channels']['Stable']['version']; print(v)")
+    - CHROMEDRIVER_URL="https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip"
+    - wget -q -O /tmp/chromedriver.zip "$CHROMEDRIVER_URL"
+    - unzip -q /tmp/chromedriver.zip -d /usr/local/bin/
+    - mv /usr/local/bin/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver
     - chmod +x /usr/local/bin/chromedriver
 
     # Install rclone
