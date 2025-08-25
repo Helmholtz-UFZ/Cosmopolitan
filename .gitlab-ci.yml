@@ -68,7 +68,7 @@ test:
   variables:
     MINIO_URL: "http://minio:9000"
   before_script:
-    - apt-get update && apt-get install -y postgresql-client libc-dev libcairo2-dev curl unzip wget gnupg2 libglib2.0-0 libnss3 libgconf-2-4 libfontconfig1 libxss1 libappindicator3-1 libasound2 xvfb
+    - apt-get update && apt-get install -y postgresql-client libc-dev libcairo2-dev curl unzip wget gnupg2 libglib2.0-0 libnss3 libfontconfig1 libxss1 libappindicator3-1 libasound2 xvfb
 
     # Install Chrome
     - wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
