@@ -1,78 +1,29 @@
 services:
   webserver:
-    image: cosmopolitan-webserver:latest
+    image: cosmopolitan-webserver
     container_name: cosmopolitan-webserver
     build:
       context: .
       dockerfile: ./docker/prod.Dockerfile
-    env_file: 
+    env_file:
       - .env.prod
-    environment:
-      - GUNICORN=1
-      - FLASK_DEBUG=0
     ports:
-      - "${FLASK_PORT:-8080}:${FLASK_PORT:-8080}"
+      - "${FLASK_PORT}:${FLASK_PORT}"
     volumes:
-      # Only mount work directory for job files
       - "${WEB_WORK_DIR}:/python_docker/cosmopolitan/work_dir"
-    restart: unless-stopped
 
   worker:
-    image: cosmopolitan-worker:latest
+    image: cosmopolitan-worker
     container_name: cosmopolitan-worker
     build:
       context: .
       dockerfile: ./docker/worker.Dockerfile
     env_file:
-      - .env.prod
-    environment:
-      - FLASK_DEBUG=0
-    volumes:
-      # Only mount work directory for job files
-      - "${WEB_WORK_DIR}:/python_docker/cosmopolitan/work_dir"
-    restart: unless-stopped
-    # Memory limit for global memory management
-    mem_limit: 2g
-    # CPU limits to prevent resource hogging
-    cpus: '2.0'
-
-  # Optional: Celery Beat for periodic tasks (if not handled by worker)
-  scheduler:
-    image: cosmopolitan-worker:latest
-    container_name: cosmopolitan-scheduler
-    build:
-      context: .
-      dockerfile: ./docker/worker.Dockerfile
-    env_file:
-      - .env.prod
-    environment:
-      - FLASK_DEBUG=0
+      - env_prod
     volumes:
       - "${WEB_WORK_DIR}:/python_docker/cosmopolitan/work_dir"
-    command: celery -A cosmopolitan_app.background_job_manager.celery beat --loglevel=info --schedule=/tmp/celerybeat-schedule
-    restart: unless-stopped
-    depends_on:
-      - worker
-
-networks:
-  default:
-    name: cosmopolitan-network
-
-# External services (managed by sysadmin):
-# - PostgreSQL database with PostGIS
-# - MinIO object storage
-# - Email server (SMTP)
-#
-# Required environment variables in .env.prod:
-# - POSTGRES_HOST_NAME=<external_postgres_host>
-# - POSTGRES_PORT=5432
-# - POSTGRES_DB=<database_name>
-# - POSTGRES_USER=<username>
-# - POSTGRES_PASSWORD=<password>
-# - OBJECT_STORAGE_HOST=<minio_host>
-# - OBJECT_STORAGE_ACCESS_KEY=<access_key>
-# - OBJECT_STORAGE_SECRET_KEY=<secret_key>
-# - EMAIL_SERVER=<smtp_server>
-# - EMAIL_PORT=<smtp_port>
-# - EMAIL_USERNAME=<smtp_username>
-# - EMAIL_PASSWORD=<smtp_password>
+# Environment variables managed by system administration
+# EMAIL_PASSWORD
+# POSTGRES_PASSWORD
+# OBJECT_STORAGE_REMOTE_NAME
+# OBJECT_STORAGE_SECRET_KEY
