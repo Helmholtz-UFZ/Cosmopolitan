@@ -119,7 +119,7 @@ error_modal = dbc.Modal(
 
 def handle_error(error):
     """Handle the error and return a formatted message."""
-    logging.debug(f"Error: {error}")
+    logging.debug(f"Error: {error}", extra={"tag": "frontend"})
 
     if not isinstance(
         error,
@@ -132,8 +132,8 @@ def handle_error(error):
         Input info: {json.dumps(callback_context.triggered)}
         """
         send_mail(MAINTAINER_EMAIL, email_subject, email_body)
-        logging.error(f"Unhandled error: {error}")
-        logging.error(email_body)
+        logging.error(f"Unhandled error: {error}", extra={"tag": "frontend"})
+        logging.error(email_body, extra={"tag": "frontend"})
 
     error_title = error_responds_dict.get(type(error), error_responds_dict[Exception])[
         0
@@ -148,8 +148,8 @@ def handle_error(error):
         # If the error does not have a job_id attribute, we just use the message as is.
         pass
 
-    logging.error(f"{error_title}: {error_message}")
-    logging.error(f"Error details: {traceback.format_exc()}")
+    logging.error(f"{error_title}: {error_message}", extra={"tag": "frontend"})
+    logging.error(f"Error details: {traceback.format_exc()}", extra={"tag": "frontend"})
     set_props(ERROR_MODAL_ID, {"is_open": True})
     set_props(ERROR_TITLE_ID, {"children": error_title})
     set_props(ERROR_MESSAGE_ID, {"children": error_message})

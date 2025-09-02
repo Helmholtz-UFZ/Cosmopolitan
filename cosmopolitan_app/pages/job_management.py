@@ -145,18 +145,22 @@ def job_management_dashboard(
     delete_clicks, clean_clicks, refresh_clicks, selected_rows, table_data
 ):
     """Manage job actions in the dashboard."""
-    logging.info("Job management dashboard callback triggered.")
+    logging.info(
+        "Job management dashboard callback triggered.", extra={"tag": "frontend"}
+    )
     button_id = dash.callback_context.triggered[0]["prop_id"].split(".")[0]
 
     if button_id == "delete_btn" and selected_rows:
-        logging.info("Deleting selected jobs")
+        logging.info("Deleting selected jobs", extra={"tag": "job_submission"})
         for i in selected_rows:
             job_id = re.findall(r"\[(.*?)\]", table_data[i]["job_id"])[0]
-            logging.debug(f"Deleting job with ID: {job_id}")
+            logging.debug(
+                f"Deleting job with ID: {job_id}", extra={"tag": "job_submission"}
+            )
             job = Job(job_id)
             job.delete()
     elif button_id == "clean_btn":
-        logging.info("Cleaning unsubmitted jobs")
+        logging.info("Cleaning unsubmitted jobs", extra={"tag": "job_submission"})
         clean_up_jobs(days_delete_not_submitted=0)
 
     jobs_dict = PostgresManager.list_jobs()

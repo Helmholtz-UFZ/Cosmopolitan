@@ -17,7 +17,7 @@ from cosmopolitan_app.tasks.maintenance_tasks import cleanup_task, update_db_tas
 @worker_process_init.connect
 def configure_worker_logging(sender=None, conf=None, **kwargs):
     """Configure database logging for Celery worker processes."""
-    dictConfig(get_logger_config_web(DEBUG, origin="worker"))
+    dictConfig(get_logger_config_web(DEBUG, tag="worker"))
 
 
 class BackgroundJobManager:
@@ -65,8 +65,7 @@ class BackgroundJobManager:
         self.app.conf.beat_schedule = {
             "cleanup-at-3am": {
                 "task": "cosmopolitan_app.tasks.maintenance_tasks.cleanup",
-                # Every day at 3:00 AM
-                "schedule": crontab(minute=16, hour=12),
+                "schedule": crontab(minute=0, hour=3),  # Every day at 3:00 AM
                 "options": {"queue": "maintenance"},
             },
             "update-db-at-4am": {
@@ -85,11 +84,10 @@ class BackgroundJobManager:
         Returns:
             str: Celery task ID
         """
-        logging.info(f"Submitting computation job {job.job_id} to Celery")
-
-        # Update job status
-        job.status = "RUNNING"
-        job.save()
+        logging.info(
+            f"Submitting computation job {job.job_id} to Celery",
+            extra={"tag": "job_submission"},
+        )
 
         # Submit to Celery (pass job_id, not job object)
         result = self.computation_task.apply_async(
@@ -104,8 +102,13 @@ class BackgroundJobManager:
             },
         )
 
-        logging.info(f"Job {job.job_id} submitted with Celery task ID: {result.id}")
-        return result.id
+        logging.info(result)
+        logging.info(
+            f"Job {job.job_id} submitted with Celery task ID: {result.id}",
+            extra={"tag": "job_submission"},
+        )
+
+        return result.id, False
 
     def get_job_status(self, task_id: str) -> dict:
         """Get the status of a Celery task."""
@@ -123,10 +126,15 @@ class BackgroundJobManager:
         """Revoke/cancel a running task."""
         try:
             self.app.control.revoke(task_id, terminate=terminate)
-            logging.info(f"Task {task_id} revoked (terminate={terminate})")
+            logging.info(
+                f"Task {task_id} revoked (terminate={terminate})",
+                extra={"tag": "job_submission"},
+            )
             return True
         except Exception as e:  # noqa
-            logging.error(f"Failed to revoke task {task_id}: {e}")
+            logging.error(
+                f"Failed to revoke task {task_id}: {e}", extra={"tag": "job_submission"}
+            )
             return False
 
 

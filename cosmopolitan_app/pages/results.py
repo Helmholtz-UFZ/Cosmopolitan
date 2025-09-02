@@ -117,11 +117,11 @@ plot_parameter["pred_dist"] = [
 
 def layout(job_id):
     """Layout for the submission page."""
-    logging.info(f"Create result page for job {job_id}")
+    logging.info(f"Create result page for job {job_id}", extra={"tag": "frontend"})
     try:
         job = Job(job_id)
     except (JobNotFound, InvalidJobID):
-        logging.info(f"Job {job_id} not found")
+        logging.info(f"Job {job_id} not found", extra={"tag": "job_submission"})
         return html.Div(
             [
                 create_header("Error", "Job not found"),
@@ -208,7 +208,10 @@ def layout(job_id):
 )
 def image_swap(plot_id, time_index, pathname):
     """Swap image on button click."""
-    logging.info(f"Swap image to {plot_id} with time index {time_index}")
+    logging.info(
+        f"Swap image to {plot_id} with time index {time_index}",
+        extra={"tag": "frontend"},
+    )
     job_id = pathname.split("/")[-1]
     image_name = get_image_name(job_id, plot_id, time_index - 1)
     img_url = url_for("serve_file", job_id=job_id, filename=image_name)

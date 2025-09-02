@@ -12,8 +12,6 @@ import shutil
 import traceback
 from copy import deepcopy
 from datetime import date
-from logging.config import dictConfig
-from smtplib import SMTPAuthenticationError
 from typing import Literal, Self
 
 import staticmaps
@@ -26,12 +24,10 @@ from soil_moisture_prediction.input_file_parser import (
     PredictorParser,
     SoilMoistureParser,
 )
-from soil_moisture_prediction.smp_cli import main
 from werkzeug.utils import secure_filename
 
-from cosmopolitan_app.config import DEBUG, JOB_WORK_DIR_TEMPLATE
+from cosmopolitan_app.config import JOB_WORK_DIR_TEMPLATE
 from cosmopolitan_app.constants import DAYS_DELETE_NOT_SUMBITTED, DAYS_DELETE_SUMBITTED
-from cosmopolitan_app.logger import get_logger_config_compuation, get_logger_config_web
 from cosmopolitan_app.object_storage_manager import (
     delete_directory_from_storage,
     delete_file_from_storage,
@@ -40,60 +36,9 @@ from cosmopolitan_app.object_storage_manager import (
 from cosmopolitan_app.postgres_manager import JobNotFound, JobTable, PostgresManager
 from cosmopolitan_app.pydantic_models import ModelWebsite, validate_job_id
 from cosmopolitan_app.timeio_info import type_id_dict
-from cosmopolitan_app.utils import (
-    InvalidJobID,
-    JobExists,
-    send_finished_mail,
-    send_submission_mail,
-)
+from cosmopolitan_app.utils import InvalidJobID, JobExists
 
 LOG_FILE_NAME = "logs"
-
-
-def start_computation(job):
-    """Start a computation job."""
-    try:
-        try:
-            send_submission_mail(job)
-        except SMTPAuthenticationError:
-            logging.error("Failed to send submission mail.")
-
-        dictConfig(
-            get_logger_config_compuation(os.path.join(job.working_dir, LOG_FILE_NAME))
-        )
-        try:
-            rfo_model = main(verbosity="debug", work_dir=job.working_dir)
-            if rfo_model is None:
-                job.status = "FAILED"
-            else:
-                job.status = "COMPLETED"
-        except Exception as e:  # noqa
-            # Log error to log file
-            logging.error("An error occurred")
-            logging.error(traceback.format_exc())
-            # Log error to web logs
-            dictConfig(get_logger_config_web(DEBUG))
-            job.status = "FAILED"
-            logging.error(f"Computation failed:\n{repr(e)}\n\n{traceback.format_exc()}")
-        dictConfig(get_logger_config_web(DEBUG))
-        logging.info("Computation finished.")
-
-        job.save()
-        try:
-            send_finished_mail(job)
-        except SMTPAuthenticationError:
-            logging.error("Failed to send finished mail.")
-    except Exception as e:  # noqa
-        dictConfig(get_logger_config_web(DEBUG))
-        job.status = "FAILED"
-        logging.error(
-            f"Job {job.job_id} failed:\n{repr(e)}\n\n{traceback.format_exc()}"
-        )
-        job.save()
-        try:
-            send_finished_mail(job)
-        except SMTPAuthenticationError:
-            logging.error("Failed to send finished mail.")
 
 
 def draw_preview(
@@ -118,7 +63,10 @@ def draw_preview(
         If filepath is None: base64 encoded image string
         If filepath is provided: None (writes to file)
     """
-    logging.info(f"Draw preview for area: {min_lat}, {min_lon}, {max_lat}, {max_lon}")
+    logging.info(
+        f"Draw preview for area: {min_lat}, {min_lon}, {max_lat}, {max_lon}",
+        extra={"tag": "job_submission"},
+    )
     width = 800
     height = 500
     context = staticmaps.Context()
@@ -233,26 +181,33 @@ class Job:
 
     def load(self):
         """Load job from database and store files in working dir."""
-        logging.info(f"Load submission {self.job_id}")
+        logging.info(f"Load submission {self.job_id}", extra={"tag": "job_submission"})
 
         try:
             validate_job_id(self.job_id)
         except ValueError:
             raise InvalidJobID(self.job_id)
 
-        logging.debug(f"Job id: {self.job_id} is valid")
+        logging.debug(
+            f"Job id: {self.job_id} is valid", extra={"tag": "job_submission"}
+        )
 
         for name, value in PostgresManager.get_job_columns(self.job_id).items():
             if name == "input_data":
                 self.model = ModelWebsite(**json.loads(value))
             setattr(self, name, value)
 
-        logging.debug(f"Job {self.job_id} loaded from database")
+        logging.debug(
+            f"Job {self.job_id} loaded from database", extra={"tag": "job_submission"}
+        )
 
         self.working_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=self.job_id)
         os.makedirs(self.working_dir, exist_ok=True)
         sync_workdir(self.job_id)
-        logging.debug(f"Job {self.job_id} synced to local work directory")
+        logging.debug(
+            f"Job {self.job_id} synced to local work directory",
+            extra={"tag": "job_submission"},
+        )
 
     def _init_from_model(self, model):
         """Initialize job from model."""
@@ -272,7 +227,7 @@ class Job:
 
     def _blank_job(self, new_job_id):
         """Create a new job with a new job id."""
-        logging.info("Create new job")
+        logging.info("Create new job", extra={"tag": "job_submission"})
 
         job_id = new_job_id if new_job_id else "_".join(generate(3))
 
@@ -301,7 +256,7 @@ class Job:
 
     def dump_parameters(self):
         """Dump the parameters of the model to the working directory."""
-        logging.debug("Dump parameters to JSON file")
+        logging.debug("Dump parameters to JSON file", extra={"tag": "job_submission"})
         with open(
             os.path.join(self.working_dir, "parameters.json"), "w", encoding="UTF-8"
         ) as f_handle:
@@ -320,7 +275,10 @@ class Job:
         Args:
             item_name: Name of the file or folder to delete (relative to working_dir)
         """
-        logging.debug(f"Delete item {item_name} from job {self.job_id}")
+        logging.debug(
+            f"Delete item {item_name} from job {self.job_id}",
+            extra={"tag": "job_submission"},
+        )
 
         # Delete from local storage
         item_path = os.path.join(self.working_dir, item_name)
@@ -335,13 +293,12 @@ class Job:
 
     def preview_area(self, draw_empty: bool = True):
         """Draw a preview of the area and add measurement points."""
-        logging.debug("Draw preview")
+        logging.debug("Draw preview", extra={"tag": "job_submission"})
 
         preview_area_wildcard = os.path.join(
             self.working_dir, self.preview_area_filename_template.format(position="*")
         )
         for file in glob.glob(preview_area_wildcard):
-            logging.debug(f"Remove file {file}")
             file_name = os.path.basename(file)
             self.delete_item(file_name)
 
@@ -396,7 +353,9 @@ class Job:
         This method removes all files in the working directory that match the specified
         input type.
         """
-        logging.debug(f"Delete input files of type {input_type}")
+        logging.debug(
+            f"Delete input files of type {input_type}", extra={"tag": "job_submission"}
+        )
         for file_name in os.listdir(self.working_dir):
             if file_name.startswith(input_type):
                 self.delete_item(file_name)
@@ -407,13 +366,15 @@ class Job:
         This method parses all input files once more but cut them to the area of the
         model.
         """
-        logging.debug("Prepare input files")
+        logging.debug("Prepare input files", extra={"tag": "job_submission"})
         crns_upload = {}
         predictors_upload = {}
         for file_name in os.listdir(self.working_dir):
-            logging.debug(f"File {file_name}")
+            logging.debug(f"File {file_name}", extra={"tag": "job_submission"})
             if file_name.startswith(f"{self.original_file_prefix}_crn_"):
-                logging.debug(f"Parse file {file_name}")
+                logging.debug(
+                    f"Parse file {file_name}", extra={"tag": "job_submission"}
+                )
                 file_path = os.path.join(self.working_dir, file_name)
                 with open(file_path, "r") as file:
                     file_name, file_info = self.safe_input_file(
@@ -421,7 +382,9 @@ class Job:
                     )
                 crns_upload[file_name] = file_info
             elif file_name.startswith(f"{self.original_file_prefix}_pred_"):
-                logging.debug(f"Parse file {file_name}")
+                logging.debug(
+                    f"Parse file {file_name}", extra={"tag": "job_submission"}
+                )
                 file_path = os.path.join(self.working_dir, file_name)
                 with open(file_path, "r") as file:
                     file_name, file_info = self.safe_input_file(
@@ -430,7 +393,9 @@ class Job:
                 predictors_upload[file_name] = file_info
 
         if any((self.model.train_data, self.model.rover_data, self.model.station_data)):
-            logging.debug("Prepare CRNS data from database")
+            logging.debug(
+                "Prepare CRNS data from database", extra={"tag": "job_submission"}
+            )
             crns_info = self._write_crns()
             crns_upload["crns_data.csv"] = {
                 "file_path": "crns_data.csv",
@@ -447,7 +412,7 @@ class Job:
 
     def _write_crns(self):
         """Write CRNS data to CSV file."""
-        logging.debug("Write CRNS data to CSV file")
+        logging.debug("Write CRNS data to CSV file", extra={"tag": "job_submission"})
         # Bbox for PostGIS query
         transformer_to_wgs = Transformer.from_crs(
             self.model.projection, "EPSG:4326", always_xy=True
@@ -507,7 +472,7 @@ class Job:
 
     def safe_input_file(self, file_name, file_content, input_type, upload: bool = True):
         """Check the content of the files and override data with file name and hash."""
-        logging.info(f"Safe input file {file_name}")
+        logging.info(f"Safe input file {file_name}", extra={"tag": "job_submission"})
         if upload:
             # Set the geometry to infinity to not restrict the area
             geometry = RectGeom(
@@ -620,7 +585,8 @@ class Job:
         If the job can not be found in data base safe all attributes.
         """
         logging.debug(
-            f"Save attributes {', '.join(attribute_list)} to job {self.job_id}"
+            f"Save attributes {', '.join(attribute_list)} to job {self.job_id}",
+            extra={"tag": "job_submission"},
         )
         data_to_insert = {name: self._get_column_data(name) for name in attribute_list}
         try:
@@ -635,7 +601,7 @@ class Job:
         instance. It then uses a PostgresManager instance to add the collected
         data as a new entry in the database.
         """
-        logging.debug(f"Save job {self.job_id}")
+        logging.debug(f"Save job {self.job_id}", extra={"tag": "job_submission"})
         column_names = JobTable.__table__.columns.keys()
         data_to_insert = {name: self._get_column_data(name) for name in column_names}
         for key, value in data_to_insert.items():
@@ -652,7 +618,7 @@ class Job:
         This method uses a PostgresManager instance to delete the job entry from
         the database based on the job's unique identifier ('job_id').
         """
-        logging.debug(f"Delete job {self.job_id}")
+        logging.debug(f"Delete job {self.job_id}", extra={"tag": "job_submission"})
         if delete_work_dir:
             shutil.rmtree(self.working_dir)
         if delete_db:
@@ -661,7 +627,7 @@ class Job:
 
     def submit(self):
         """Submit job to Celery queue for background processing."""
-        logging.info(f"Submit job {self.job_id}.")
+        logging.info(f"Submit job {self.job_id}.", extra={"tag": "job_submission"})
 
         if PostgresManager.set_submitted(self.job_id):
             self.submitted = True
@@ -675,23 +641,30 @@ class Job:
                 job_manager = get_background_job_manager()
 
                 # Submit job to Celery queue
-                celery_task_id = job_manager.submit_computation_job(self)
-
-                # Store the Celery task ID for tracking
-                self.celery_task_id = celery_task_id
-
-                logging.info(
-                    f"Job {self.job_id} submitted to Celery with task ID: {celery_task_id}"  # noqa
-                )
+                celery_task_id, failed = job_manager.submit_computation_job(self)
 
             except Exception as e:  # noqa
                 message = f"{repr(e)}\n\n{traceback.format_exc()}"
-                logging.error(f"Job {self.job_id} failed to start.\n{message}")
+                logging.error(
+                    f"Job {self.job_id} failed to start.\n{message}",
+                    extra={"tag": "job_submission"},
+                )
                 self.status = "FAILED"
 
             self.save()
         else:
-            logging.debug(f"Job {self.job_id} was already submitted.")
+            logging.debug(
+                f"Job {self.job_id} was already submitted.",
+                extra={"tag": "job_submission"},
+            )
+
+        self.celery_task_id = celery_task_id
+        if failed:
+            self.status = "FAILED"
+        else:
+            self.status = "RUNNING"
+
+        self.save()
 
     def time_to_life(self):
         """Return the number of days after which this job will be deleted."""
@@ -716,7 +689,10 @@ class Job:
 
     def copy_input_files(self, parent_work_dir):
         """Copy input files of the parent job to the working directory of the job."""
-        logging.info(f"Copy input files from parent for job {self.job_id}.")
+        logging.info(
+            f"Copy input files from parent for job {self.job_id}.",
+            extra={"tag": "job_submission"},
+        )
         for file in os.listdir(parent_work_dir):
             if file.startswith(self.original_file_prefix):
                 source_path = os.path.join(parent_work_dir, file)
@@ -725,7 +701,7 @@ class Job:
 
     def spawn(self) -> Self:
         """Clone the job."""
-        logging.info(f"Spawn job {self.job_id}.")
+        logging.info(f"Spawn job {self.job_id}.", extra={"tag": "job_submission"})
         new_model = deepcopy(self.model)
         i = 1
         while True:
@@ -741,7 +717,9 @@ class Job:
 
     def clean_work_dir(self):
         """Clean the working directory."""
-        logging.info(f"Clean work dir {self.working_dir}")
+        logging.info(
+            f"Clean work dir {self.working_dir}", extra={"tag": "job_submission"}
+        )
 
         for file in os.listdir(self.working_dir):
             if file.startswith(self.original_file_prefix):
@@ -756,5 +734,7 @@ class Job:
 
     def delete_logs(self):
         """Delete the logs."""
-        logging.info(f"Delete logs of job {self.job_id}")
+        logging.info(
+            f"Delete logs of job {self.job_id}", extra={"tag": "job_submission"}
+        )
         self.delete_item(LOG_FILE_NAME)

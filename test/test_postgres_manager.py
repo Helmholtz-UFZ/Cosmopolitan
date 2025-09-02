@@ -1,15 +1,11 @@
 """Test the postgres_manager class."""
 
 import datetime
-import logging
 
 
 def test_postgres_manager():
     """Test the postgres_manager class."""
     # Set up logger inside the test function so pytest only show logs of failed tests
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
-
     # Need to import here to assure that the .env is set up before import
     from cosmopolitan_app.postgres_manager import PostgresManager
 

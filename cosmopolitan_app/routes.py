@@ -36,7 +36,7 @@ def start():
 @app.route("/spwan/<job_id>", methods=["GET", "POST"])
 def spawn_child(job_id):
     """Create new job from an old job."""
-    logging.info(f"Spawn new job from job: {job_id}")
+    logging.info(f"Spawn new job from job: {job_id}", extra={"tag": "frontend"})
     job = CosmopolitanJob(job_id=job_id)
     new_job = job.spawn()
     return render_template("html/job/input.html", form=new_job.form)
@@ -45,7 +45,7 @@ def spawn_child(job_id):
 @app.route("/input/<job_id>", methods=["GET", "POST"])
 def change_input(job_id):
     """Change input of an unsubmitted job."""
-    logging.info(f"Make changes to job {job_id}")
+    logging.info(f"Make changes to job {job_id}", extra={"tag": "frontend"})
     job = CosmopolitanJob(job_id=job_id)
     if job.submitted:
         raise SubmittedException
@@ -58,15 +58,15 @@ def input_job():
     """Input site for the job."""
     # Make new job and form if empty request form
     if len(request.form) == 0:
-        logging.info("Input for new job")
+        logging.info("Input for new job", extra={"tag": "frontend"})
         job = CosmopolitanJob()
         form = job.form
     # If form was submitted validate
     else:
         form = CosmopolitanJobForm()
-        logging.info(f"Check form {form.job_id.data}")
+        logging.info(f"Check form {form.job_id.data}", extra={"tag": "frontend"})
         if form.validate_on_submit():
-            logging.info("Form is valid")
+            logging.info("Form is valid", extra={"tag": "frontend"})
             job = CosmopolitanJob(form=form)
             job.save()
             return redirect(url_for("confirm", job_id=job.job_id))
@@ -76,7 +76,7 @@ def input_job():
 @app.route("/confirm/<job_id>")
 def confirm(job_id):
     """Confirm input and submit."""
-    logging.info(f"Confirm submisison for job {job_id}")
+    logging.info(f"Confirm submisison for job {job_id}", extra={"tag": "frontend"})
     job = CosmopolitanJob(job_id=job_id)
     if job.submitted:
         raise SubmittedException(job_id)
@@ -86,7 +86,7 @@ def confirm(job_id):
 @app.route("/submission", methods=["GET", "POST"])
 def search_submission():
     """Route to be accessed by navbar search form."""
-    logging.info("Search submisison")
+    logging.info("Search submisison", extra={"tag": "frontend"})
     try:
         return redirect(url_for("submission", job_id=request.form["job_id"]))
     except BadRequestKeyError:
@@ -97,7 +97,7 @@ def search_submission():
 @app.route("/submission/<job_id>", methods=["GET", "POST"])
 def submission(job_id):
     """Site for submitting and presenting progress and results of a job."""
-    logging.info("Submisison site")
+    logging.info("Submisison site", extra={"tag": "frontend"})
     job = CosmopolitanJob(job_id=job_id)
     job.submit()
 
@@ -117,7 +117,10 @@ def submission(job_id):
 @app.route("/results/<job_id>/<file_name>")
 def result_file(job_id, file_name):
     """Serve result files."""
-    logging.info(f"Visiting /results/{job_id}/{file_name} to result_file()")
+    logging.info(
+        f"Visiting /results/{job_id}/{file_name} to result_file()",
+        extra={"tag": "frontend"},
+    )
     download_path = os.path.join(*WEB_WORK_DIR.split(os.sep)[2:], job_id)
     safe_file_name = os.path.basename(file_name)
 
@@ -127,7 +130,9 @@ def result_file(job_id, file_name):
 @app.route("/download/<job_id>", methods=["GET"])
 def download_results(job_id):
     """Download results."""
-    logging.info(f"Visiting /download/{job_id} to download_results()")
+    logging.info(
+        f"Visiting /download/{job_id} to download_results()", extra={"tag": "frontend"}
+    )
     job = CosmopolitanJob(job_id=job_id)
     if not job.submitted:
         raise NotSubmittedException(job.job_id)
@@ -149,7 +154,7 @@ def documentation():
 @app.route("/putzen")
 def putzen():
     """Manually start the clean up."""
-    logging.info("Manually start the clean up.")
+    logging.info("Manually start the clean up.", extra={"tag": "maintenance"})
     clean_up()
     return render_template(
         "html/content/template_content.html",

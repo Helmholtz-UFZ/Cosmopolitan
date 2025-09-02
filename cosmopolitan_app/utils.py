@@ -7,7 +7,7 @@ import shutil
 import smtplib
 import traceback
 import zipfile
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from io import BytesIO
@@ -22,21 +22,15 @@ from cosmopolitan_app.config import (
     EMAIL_SENDER,
     EMAIL_SERVER,
     EMAIL_USERNAME,
-    MAINTAINER_EMAIL,
     WEB_OUTSIDE_URL,
     WEB_WORK_DIR,
 )
-from cosmopolitan_app.constants import (
-    DAYS_DELETE_NOT_SUMBITTED,
-    DAYS_DELETE_SUMBITTED,
-    LOG_RETENTION_DAYS,
-)
+from cosmopolitan_app.constants import DAYS_DELETE_NOT_SUMBITTED, DAYS_DELETE_SUMBITTED
 from cosmopolitan_app.object_storage_manager import (
     ObjectStorageError,
     delete_directory_from_storage,
 )
 from cosmopolitan_app.postgres_manager import JobNotFound, PostgresManager
-from cosmopolitan_app.timeio_manager import update_crns_measurments
 
 submission_url = "{external_url}/submission/{job_id}"
 
@@ -114,59 +108,12 @@ def zip_directory(directory_path):
     return zip_buffer
 
 
-def lock_task(task):
-    """Decorate a background tasks to lock the function.
-
-    Uses the function name as lock name, so only one function of the same name can run
-    at a time.
-    """
-
-    def lock_function(*args, **kwargs):
-        logging.debug(f"Lock function {task.__name__}.")
-        if PostgresManager.get_lock(task.__name__):
-            logging.debug(f"Lock acquired for {task.__name__}.")
-            try:
-                task(*args, **kwargs)
-            finally:
-                PostgresManager.release_lock(task.__name__)
-                logging.debug(f"Lock released for {task.__name__}.")
-
-    return lock_function
-
-
-@lock_task
-def clean_up():
-    """Delete jobs older than a day and older than two months and their directories."""
-    logging.info("Start cleaning up.")
-    clean_up_jobs()
-
-    log_cutoff = datetime.now() - timedelta(days=LOG_RETENTION_DAYS)
-    logging.info(f"Cleaning up logs older than {log_cutoff}")
-    PostgresManager.delete_logs_older_than(log_cutoff)
-
-
-@lock_task
-def update_db():
-    """Update the database with CRNS measurements."""
-    logging.info("Start updating database.")
-    try:
-        update_crns_measurments()
-    except Exception as error:  # noqa
-        email_subject = f"Error updating database: {error}"
-        email_body = f"""
-        Traceback info: {traceback.format_exc()}\n\n
-        """
-        send_mail(MAINTAINER_EMAIL, email_subject, email_body)
-        logging.error(email_subject)
-        logging.error(email_body)
-
-
 def clean_up_jobs(
     days_delete_not_submitted=DAYS_DELETE_NOT_SUMBITTED,
     days_delete_submitted=DAYS_DELETE_SUMBITTED,
 ):
     """Delete jobs depending on their status and age."""
-    logging.info("Start cleaning up jobs.")
+    logging.info("Start cleaning up jobs.", extra={"tag": "maintenance"})
     kept_jobs = []
 
     # Define the time thresholds
@@ -178,21 +125,25 @@ def clean_up_jobs(
     for job_id, job_info in PostgresManager.list_jobs().items():
         submitted = job_info["submitted"]
         start_date = job_info["start_date"]
-        logging.debug(f"Check job {job_id}.")
+        logging.debug(f"Check job {job_id}.", extra={"tag": "maintenance"})
         if not submitted and start_date <= job_end_of_life_not_submitted:
             logging.debug(
-                f"Job was not submit and is older than {days_delete_not_submitted} days."  # noqa
+                f"Job was not submit and is older than {days_delete_not_submitted} days.",  # noqa
+                extra={"tag": "maintenance"},
             )
             PostgresManager.delete_job(job_id)
         elif start_date <= job_end_of_life_submitted:
-            logging.debug(f"Job older than {days_delete_submitted} days.")
+            logging.debug(
+                f"Job older than {days_delete_submitted} days.",
+                extra={"tag": "maintenance"},
+            )
             PostgresManager.delete_job(job_id)
         else:
-            logging.debug("Job will be kept.")
+            logging.debug("Job will be kept.", extra={"tag": "maintenance"})
             kept_jobs.append(job_id)
 
     # Delete directorys locally
-    logging.debug("Clean up directorys locally.")
+    logging.debug("Clean up directorys locally.", extra={"tag": "maintenance"})
     for dir_name in os.listdir(WEB_WORK_DIR):
         dir_path = os.path.join(WEB_WORK_DIR, dir_name)
         if os.path.isdir(dir_path) and dir_name not in kept_jobs:
@@ -303,12 +254,15 @@ def log_error():
         f"{error}\n"
         f"PID={os.getpid()}\n"
     )
-    logging.error(content)
+    logging.error(content, extra={"tag": "frontend"})
 
 
 def send_mail(recipient, subject, content):
     """Send an email using the provided details."""
-    logging.debug(f"Send mail to {recipient} with subject {subject}.")
+    logging.debug(
+        f"Send mail to {recipient} with subject {subject}.",
+        extra={"tag": "email_service"},
+    )
     msg = MIMEMultipart()
     msg["From"] = EMAIL_SENDER
     msg["To"] = recipient
@@ -317,7 +271,10 @@ def send_mail(recipient, subject, content):
     body = content
     msg.attach(MIMEText(body, "plain"))
 
-    logging.debug(f"Connect to email server {EMAIL_SERVER}:{EMAIL_PORT}.")
+    logging.debug(
+        f"Connect to email server {EMAIL_SERVER}:{EMAIL_PORT}.",
+        extra={"tag": "email_service"},
+    )
     server = smtplib.SMTP(EMAIL_SERVER, EMAIL_PORT)
     if EMAIL_PASSWORD != "test":
         server.starttls()
@@ -330,7 +287,7 @@ def send_finished_mail(job):
     """Send a notification email to the user that the job finished."""
     if job.model.email == "" or job.notified_end:
         return
-    logging.info("Send mail about finished job.")
+    logging.info("Send mail about finished job.", extra={"tag": "email_service"})
 
     # Use configured external URL instead of Flask request context
     try:
@@ -356,7 +313,9 @@ def send_submission_mail(job):
     """Send a notification email to the user that the job was submitted."""
     if job.model.email == "":
         return
-    logging.info(f"Send mail about submitted job {job.job_id}.")
+    logging.info(
+        f"Send mail about submitted job {job.job_id}.", extra={"tag": "email_service"}
+    )
 
     # Use configured external URL instead of Flask request context
     try:

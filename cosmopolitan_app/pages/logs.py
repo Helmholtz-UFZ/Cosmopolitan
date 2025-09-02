@@ -7,6 +7,7 @@ import dash_bootstrap_components as dbc
 from dash import Input, Output, callback, dcc, html
 
 from cosmopolitan_app.layouts import create_header
+from cosmopolitan_app.logger import log_categories
 from cosmopolitan_app.postgres_manager import PostgresManager
 
 dash.register_page(
@@ -27,17 +28,20 @@ def level_badge(level):
     return dbc.Badge(level, color=color_map.get(level, "primary"), className="me-1")
 
 
-def origin_badge(origin):
-    """Format logs with color-coded origins."""
+def tag_badge(tag):
+    """Format logs with color-coded tags."""
+    # Determine category for the tag
+    for category, tags in log_categories.items():
+        if tag in tags:
+            break
+
     color_map = {
-        "webserver": "primary",
-        "worker": "success",
-        "scheduler": "warning",
+        "Core Areas": "primary",
+        "User Areas": "success",
+        "System Areas": "warning",
         "unknown": "secondary",
     }
-    return dbc.Badge(
-        origin.upper(), color=color_map.get(origin, "secondary"), className="me-1"
-    )
+    return dbc.Badge(tag.upper(), color=color_map[category], className="me-1")
 
 
 def layout():
@@ -119,17 +123,17 @@ def layout():
         ),
     ]
 
-    origin_filter = [
-        html.Label("Origin"),
+    available_tags = [tag for tags in log_categories.values() for tag in tags]
+    tag_options = [
+        {"label": tag.replace("_", " ").title(), "value": tag} for tag in available_tags
+    ]
+    tag_filter = [
+        html.Label("Tag"),
         dcc.Dropdown(
-            id="log-origins",
-            options=[
-                {"label": "All", "value": "all"},
-                {"label": "Webserver", "value": "webserver"},
-                {"label": "Worker", "value": "worker"},
-                {"label": "Scheduler", "value": "scheduler"},
-            ],
-            value="all",
+            id="log-tags",
+            options=tag_options,
+            value=available_tags,
+            multi=True,
         ),
     ]
 
@@ -167,7 +171,7 @@ def layout():
                 dbc.Row(
                     [
                         dbc.Col(log_levels, width=4),
-                        dbc.Col(origin_filter, width=4),
+                        dbc.Col(tag_filter, width=4),
                         dbc.Col(pid_selector, width=4),
                     ],
                     className="mb-4",
@@ -195,11 +199,11 @@ def layout():
     Input("end-hour", "value"),
     Input("end-minute", "value"),
     Input("log-levels", "value"),
-    Input("log-origins", "value"),
+    Input("log-tags", "value"),
     Input("pid-radio", "value"),
     Input("log-pid", "value"),
 )
-def log_manager(date, sh, sm, eh, em, levels, origin, pid_radio, pid):
+def log_manager(date, sh, sm, eh, em, levels, tag, pid_radio, pid):
     """Manage and display logs based on user input."""
     if pid_radio != ["on"]:
         pid = "all"
@@ -217,7 +221,7 @@ def log_manager(date, sh, sm, eh, em, levels, origin, pid_radio, pid):
 
     if pid == "all":
         pid = None
-    logs = PostgresManager.query_logs(date, sh, sm, eh, em, levels, pid, origin)
+    logs = PostgresManager.query_logs(date, sh, sm, eh, em, levels, pid, tag)
     if not logs:
         return "No logs found for the selected criteria.", disabled_pid, "", ""
 
@@ -226,7 +230,7 @@ def log_manager(date, sh, sm, eh, em, levels, origin, pid_radio, pid):
             html.Li(
                 [
                     level_badge(log["level"]),
-                    origin_badge(log["origin"]),
+                    tag_badge(log["tag"]),
                     f" at {log['timestamp']} ",
                     f"in {log['module']} [PID {log['pid']}]:\n{log['message']}",
                 ],

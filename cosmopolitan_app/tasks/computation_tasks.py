@@ -20,8 +20,8 @@ class ComputationTask(Task):
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         """Handle task failure."""
-        logging.error(f"Task {task_id} failed: {exc}")
-        logging.error(f"Traceback: {einfo}")
+        logging.error(f"Task {task_id} failed: {exc}", extra={"tag": "job_submission"})
+        logging.error(f"Traceback: {einfo}", extra={"tag": "job_submission"})
 
 
 def start_computation_task(self, job_id):
@@ -42,7 +42,9 @@ def start_computation_task(self, job_id):
         try:
             send_submission_mail(job)
         except SMTPAuthenticationError:
-            logging.error("Failed to send submission mail.")
+            logging.error(
+                "Failed to send submission mail.", extra={"tag": "email_service"}
+            )
 
         dictConfig(
             get_logger_config_compuation(os.path.join(job.working_dir, LOG_FILE_NAME))
@@ -59,22 +61,27 @@ def start_computation_task(self, job_id):
                 job.status = "COMPLETED"
         except Exception as e:  # noqa
             # Log error to log file
-            logging.error("An error occurred")
-            logging.error(traceback.format_exc())
+            logging.error("An error occurred", extra={"tag": "job_submission"})
+            logging.error(traceback.format_exc(), extra={"tag": "job_submission"})
             # Log error to web logs
             dictConfig(get_logger_config_web(DEBUG))
             job.status = "FAILED"
-            logging.error(f"Computation failed:\n{repr(e)}\n\n{traceback.format_exc()}")
+            logging.error(
+                f"Computation failed:\n{repr(e)}\n\n{traceback.format_exc()}",
+                extra={"tag": "job_submission"},
+            )
 
         sleep(1)
         dictConfig(get_logger_config_web(DEBUG))
-        logging.info("Computation finished.")
+        logging.info("Computation finished.", extra={"tag": "job_submission"})
 
         job.save()
         try:
             send_finished_mail(job)
         except SMTPAuthenticationError:
-            logging.error("Failed to send finished mail.")
+            logging.error(
+                "Failed to send finished mail.", extra={"tag": "email_service"}
+            )
 
     except Exception as e:  # noqa
         dictConfig(get_logger_config_web(DEBUG))
@@ -86,4 +93,6 @@ def start_computation_task(self, job_id):
         try:
             send_finished_mail(job)
         except SMTPAuthenticationError:
-            logging.error("Failed to send finished mail.")
+            logging.error(
+                "Failed to send finished mail.", extra={"tag": "email_service"}
+            )

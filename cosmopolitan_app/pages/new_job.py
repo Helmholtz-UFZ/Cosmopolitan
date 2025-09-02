@@ -29,7 +29,8 @@ header = create_header(
 
 def layout():
     """Layout for the new job page."""
-    logging.info("Create new job page")
+    logging.info("Create new job page", extra={"tag": "job_submission"})
+    logging.debug("Generate random job ID")
     seed = os.urandom(128)
     coolname.replace_random(random.Random(seed))
 
@@ -96,7 +97,7 @@ def show_loading(n_clicks):
 )
 def prepare_input(n_clicks, job_id):
     """Prepare the input for the new job."""
-    logging.info("Prepare input")
+    logging.info("Prepare input", extra={"tag": "frontend"})
     if n_clicks is None:
         raise PreventUpdate
     Job(new_job_id=job_id)
@@ -113,7 +114,7 @@ def prepare_input(n_clicks, job_id):
 )
 def validate_new_job_id(job_id):
     """Validate the job ID."""
-    logging.info("Validate job ID")
+    logging.info("Validate job ID", extra={"tag": "job_submission"})
     try:
         validate_job_id(job_id)
     except ValueError as e:

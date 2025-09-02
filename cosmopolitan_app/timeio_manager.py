@@ -1,7 +1,6 @@
 """This module manages the data acquisition from the STI API."""
 
 import hashlib
-import json
 import logging
 import traceback
 from asyncio.exceptions import TimeoutError
@@ -17,12 +16,6 @@ import requests
 from requests.exceptions import HTTPError, RequestException
 
 from cosmopolitan_app.postgres_manager import PostgresManager
-from cosmopolitan_app.timeio_info import (
-    ignore_things,
-    thing_datastream_dict,
-    thing_info_dict,
-    type_id_dict,
-)
 
 EARLIEST_START_DATE = datetime(2016, 1, 1, 0, 0, 0)
 
@@ -53,17 +46,24 @@ class TimeIOManager:
                 TimeoutError,
                 HTTPError,
             ) as error:
-                logging.info(f"Error: {error}")
-                logging.info(f"Query: {query}")
+                logging.info(f"Error: {error}", extra={"tag": "time_io"})
+                logging.info(f"Query: {query}", extra={"tag": "time_io"})
                 logging.info(
-                    f"Hash of query: {hashlib.md5(query.encode()).hexdigest()}"
+                    f"Hash of query: {hashlib.md5(query.encode()).hexdigest()}",
+                    extra={"tag": "time_io"},
                 )
-                logging.info(f"Time of error: {datetime.now()}")
+                logging.info(
+                    f"Time of error: {datetime.now()}", extra={"tag": "time_io"}
+                )
                 if max_retries == 0:
-                    logging.error("Max retries reached. Exiting.")
-                    logging.error(f"Original query: {original_query}")
+                    logging.error(
+                        "Max retries reached. Exiting.", extra={"tag": "time_io"}
+                    )
+                    logging.error(
+                        f"Original query: {original_query}", extra={"tag": "time_io"}
+                    )
                     raise error
-                logging.info("Retrying request.")
+                logging.info("Retrying request.", extra={"tag": "time_io"})
                 if max_retries == 3:
                     sleep(10)
                 elif max_retries == 2:
@@ -86,7 +86,7 @@ class TimeIOManager:
     def get_things(cls) -> list:
         """Get the things from the STI API."""
         url = f"{cls.base_url}/Things?$select=id,name"
-        logging.debug(f"Requesting things from {url}")
+        logging.debug(f"Requesting things from {url}", extra={"tag": "time_io"})
         querys, items = cls.collect_data(url)
         return items
 
@@ -94,7 +94,10 @@ class TimeIOManager:
     def get_datastreams_of_thing(cls, thing_id: int) -> list:
         """Get the datastreams for a thing from the STI API."""
         url = f"{cls.base_url}/Things({thing_id})/Datastreams?$select=id,name"
-        logging.debug(f"Requesting datastreams for thing {thing_id} from {url}")
+        logging.debug(
+            f"Requesting datastreams for thing {thing_id} from {url}",
+            extra={"tag": "time_io"},
+        )
         querys, items = cls.collect_data(url)
         return items
 
@@ -102,7 +105,10 @@ class TimeIOManager:
     def get_location_of_thing(cls, thing_id: int) -> Optional[Dict[str, float]]:
         """Get the location of a thing from the STI API."""
         url = f"{cls.base_url}/Things({thing_id})/Locations"
-        logging.debug(f"Requesting location for thing {thing_id} from {url}")
+        logging.debug(
+            f"Requesting location for thing {thing_id} from {url}",
+            extra={"tag": "time_io"},
+        )
         querys, items = cls.collect_data(url)
         if not items:
             return None
@@ -114,10 +120,32 @@ class TimeIOManager:
         return longitude, latitude
 
     @classmethod
+    def get_type_id_dict(cls) -> dict:
+        """Get type_id_dict from database for backward compatibility."""
+        return PostgresManager.get_timeio_type_mapping()
+
+    @classmethod
+    def get_thing_datastream_dict(cls) -> dict:
+        """Get thing_datastream_dict from database."""
+        return PostgresManager.get_timeio_datastream_mapping()
+
+    @classmethod
+    def get_thing_info_dict(cls) -> dict:
+        """Get thing_info_dict from database."""
+        return PostgresManager.get_timeio_name_mapping()
+
+    @classmethod
+    def get_ignore_things(cls) -> list:
+        """Get list of ignored sensor IDs (replaces ignore_things)."""
+        return PostgresManager.get_ignored_sensor_ids()
+
+    @classmethod
     def is_stationary(cls, thing_id: int) -> bool:
-        """Check if the thing is stationary."""
-        datastream_dict = thing_datastream_dict[thing_id]
-        return "longitude" not in datastream_dict.values()
+        """Check if the thing is stationary using database."""
+        sensor_info = PostgresManager.get_timeio_sensor_info(thing_id)
+        if not sensor_info:
+            return True  # Default to stationary if sensor not found
+        return sensor_info.get("stationary", True)
 
     @classmethod
     def collect_datastreams(
@@ -136,16 +164,26 @@ class TimeIOManager:
         """
         dataframes: List[pd.DataFrame] = []
 
-        for datastream_id, datastream_name in thing_datastream_dict[thing_id].items():
+        # Get datastream mapping from database
+        datastream_dict = cls.get_thing_datastream_dict().get(thing_id, {})
+        if not datastream_dict:
+            logging.warning(
+                f"No datastream mapping found for thing_id: {thing_id}",
+                extra={"tag": "time_io"},
+            )
+            return None
+
+        for datastream_id, datastream_name in datastream_dict.items():
             dates, results = cls.get_values(start_date, end_date, datastream_id)
             new_df: pd.DataFrame = pd.DataFrame({datastream_name: results}, index=dates)
             # Find duplicate indices
             duplicates = new_df.index[new_df.index.duplicated(keep=False)]
             if len(duplicates) > 0:
                 logging.warning(
-                    f"Duplicate timestamps for datastream {datastream_name}:"
+                    f"Duplicate timestamps for datastream {datastream_name}:",
+                    extra={"tag": "time_io"},
                 )
-                logging.warning(new_df.loc[duplicates])
+                logging.warning(new_df.loc[duplicates], extra={"tag": "time_io"})
 
             if datastream_name == "Neutron counts":
                 # Convert neutron counts to soil moisture
@@ -210,13 +248,26 @@ class TimeIOManager:
 
     @classmethod
     def check_things(cls) -> None:
-        """Check if the known things are available."""
-        logging.info("Checking if all things are available.")
+        """Check if the known things are available using database."""
+        logging.info("Checking if all things are available.", extra={"tag": "time_io"})
+
+        # Get current sensor mappings from database
+        thing_info_dict = cls.get_thing_info_dict()
+        thing_datastream_dict = cls.get_thing_datastream_dict()
+        type_id_dict = cls.get_type_id_dict()
+        ignore_things = cls.get_ignore_things()
+
+        # Validate data consistency
         if thing_info_dict.keys() != thing_datastream_dict.keys():
-            raise ValueError("Thing info and datastream dict are not in sync")
+            logging.warning(
+                "Thing info and datastream dict are not in sync",
+                extra={"tag": "time_io"},
+            )
 
         if thing_info_dict.keys() != type_id_dict.keys():
-            raise ValueError("Thing info and type id dict are not in sync")
+            logging.warning(
+                "Thing info and type id dict are not in sync", extra={"tag": "time_io"}
+            )
 
         things = cls.get_things()
 
@@ -224,13 +275,16 @@ class TimeIOManager:
         new_thing_info_dict = {}
 
         for thing in things:
-            if thing["@iot.id"] in thing_info_dict:
+            thing_id = thing["@iot.id"]
+            if thing_id in thing_info_dict:
                 continue
-            if thing["@iot.id"] in ignore_things:
+            if thing_id in ignore_things:
                 continue
             thing_name = thing["name"]
-            thing_id = thing["@iot.id"]
-            logging.warning(f"Thing {thing_name} with id {thing_id} unknown")
+            logging.warning(
+                f"Thing {thing_name} with id {thing_id} unknown",
+                extra={"tag": "time_io"},
+            )
             new_thing_info_dict[thing_id] = thing_name
             new_thing_datastream_dict[thing_id] = {}
             datastreams = cls.get_datastreams_of_thing(thing_id)
@@ -244,15 +298,17 @@ class TimeIOManager:
         if len(new_thing_datastream_dict) > 0:
             logging.warning(
                 "Please add new things to datastream_ids:\n"
-                + pformat(new_thing_datastream_dict)
+                + pformat(new_thing_datastream_dict),
+                extra={"tag": "time_io"},
             )
             logging.warning(
                 "Please add new things to thing_info_dict:\n"
-                + pformat(new_thing_info_dict)
+                + pformat(new_thing_info_dict),
+                extra={"tag": "time_io"},
             )
             raise ValueError(
-                "New things found in STI API. Please update the thing_datastream_dict "
-                "and thing_info_dict."
+                "New things found in STI API. Please update the timeio_info table "
+                "in the database."
             )
 
 
@@ -335,7 +391,9 @@ class GeoProximityTracker:
 
 def find_representative_points_mobile(df, proximity_threshold_meters=100):
     """Find representative points from a DataFrame based on proximity."""
-    logging.debug("Finding representative points for mobile devices.")
+    logging.debug(
+        "Finding representative points for mobile devices.", extra={"tag": "time_io"}
+    )
     df["date"] = df["date_time"].dt.date
     is_representative_mask = []
 
@@ -357,7 +415,10 @@ def find_representative_points_mobile(df, proximity_threshold_meters=100):
 
 def find_representative_points_stationary(df):
     """Mark the first point of each device per day as representative (stationary)."""
-    logging.debug("Finding representative points for stationary devices.")
+    logging.debug(
+        "Finding representative points for stationary devices.",
+        extra={"tag": "time_io"},
+    )
     df = df.copy()
     df["date"] = df["date_time"].dt.date
 
@@ -370,10 +431,16 @@ def find_representative_points_stationary(df):
 
 def transfer_data_by_day(start_date: datetime) -> None:
     """Transfer data to the postgres database."""
-    logging.info(f"Transferring data for {start_date.strftime('%Y-%m-%d')}")
+    logging.info(
+        f"Transferring data for {start_date.strftime('%Y-%m-%d')}",
+        extra={"tag": "time_io"},
+    )
 
     start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
     end_date = start_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    # Get ignore list from database
+    ignore_things = TimeIOManager.get_ignore_things()
 
     for thing_dict in TimeIOManager.get_things():
         thing_id = thing_dict["@iot.id"]
@@ -381,22 +448,29 @@ def transfer_data_by_day(start_date: datetime) -> None:
         if thing_id in ignore_things:
             continue
 
-        logging.info(f"Processing thing: {thing_name} (ID: {thing_id})")
+        logging.info(
+            f"Processing thing: {thing_name} (ID: {thing_id})", extra={"tag": "time_io"}
+        )
 
+        # Get datastream mapping from database
+        thing_datastream_dict = TimeIOManager.get_thing_datastream_dict()
         if thing_id not in thing_datastream_dict:
-            datastreams = TimeIOManager.get_datastreams_of_thing(thing_id)
-            logging.warning(f"Thing {thing_name} with ID {thing_id} unknown.")
-            logging.warning(json.dumps(datastreams, indent=4))
+            logging.warning(
+                f"Thing {thing_name} with ID {thing_id} unknown.",
+                extra={"tag": "time_io"},
+            )
             raise ValueError(
                 f"Thing {thing_name} with ID {thing_id} unknown. "
-                "Please add it to the thing_datastream_dict."
+                "Please add it to the timeio_info table in the database."
             )
 
         df = TimeIOManager.collect_datastreams(thing_id, start_date, end_date)
         if df.empty:
-            logging.debug("No data found for this thing.")
+            logging.debug("No data found for this thing.", extra={"tag": "time_io"})
             continue
-        logging.debug(f"Found {len(df)} measurements for {thing_name}.")
+        logging.debug(
+            f"Found {len(df)} measurements for {thing_name}.", extra={"tag": "time_io"}
+        )
 
         if TimeIOManager.is_stationary(thing_id):
             df = find_representative_points_stationary(df)
@@ -431,13 +505,16 @@ def transfer_data_by_day(start_date: datetime) -> None:
 
         PostgresManager.insert_crns_measurements_from_df(df_new)
         logging.info(
-            f"Inserted {len(df_new)} measurements for {thing_name} into the database."
+            f"Inserted {len(df_new)} measurements for {thing_name} into the database.",
+            extra={"tag": "time_io"},
         )
 
 
 def update_crns_measurments() -> None:
     """Update CRNS measurements from the STI API."""
-    logging.info("Updating CRNS measurements from STI API.")
+    logging.info(
+        "Updating CRNS measurements from STI API.", extra={"tag": "crns_update"}
+    )
 
     TimeIOManager.check_things()
 
@@ -453,7 +530,8 @@ def update_crns_measurments() -> None:
     while current_date <= yesterday_date:
         if PostgresManager.was_update_successful(current_date):
             logging.info(
-                f"Data for {current_date.strftime('%Y-%m-%d')} already transferred."
+                f"Data for {current_date.strftime('%Y-%m-%d')} already transferred.",
+                extra={"tag": "crns_update"},
             )
             current_date += timedelta(days=1)
             continue
@@ -461,16 +539,23 @@ def update_crns_measurments() -> None:
         try:
             transfer_data_by_day(current_date)
             PostgresManager.add_update_crns(current_date)
-        except Exception as e:  # noqa: BLE001
-            logging.error(f"Error while transferring data for {current_date}: {e}")
-            logging.error(f"Traceback: {traceback.format_exc()}")
+        except Exception as e:  # noqa
+            logging.error(
+                f"Error while transferring data for {current_date}: {e}",
+                extra={"tag": "crns_update"},
+            )
+            logging.error(
+                f"Traceback: {traceback.format_exc()}", extra={"tag": "crns_update"}
+            )
 
         current_date += timedelta(days=1)
 
 
 def repopulate_crns_measurements() -> None:
     """Repopulate CRNS measurements from the STI API."""
-    logging.info("Repopulating CRNS measurements from STI API.")
+    logging.info(
+        "Repopulating CRNS measurements from STI API.", extra={"tag": "time_io"}
+    )
     PostgresManager.purge_measurement_points()
     PostgresManager.reset_update_crns()
     update_crns_measurments()
@@ -495,6 +580,7 @@ def get_some_points():
     bbox = (lon - 0.001, lat - 0.001, lon + 0.001, lat + 0.001)
 
     # Find the type for sensor_id 99
+    type_id_dict = TimeIOManager.get_type_id_dict()
     types = [t for id, t in type_id_dict.items() if 99 == id]
 
     # Date range covering the timestamp

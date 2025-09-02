@@ -17,12 +17,7 @@ from cosmopolitan_app.layouts import (
     loading_overlay,
     register_navbar_callbacks,
 )
-from cosmopolitan_app.logger import (
-    PostgreSQLHandler,
-    format_string,
-    get_logger_config_web,
-    postgres_params,
-)
+from cosmopolitan_app.logger import get_logger_config_web
 
 # Initialize the Dash app
 app = Dash(
@@ -37,32 +32,25 @@ server = app.server
 
 # Real server logging configuration
 dictConfig(get_logger_config_web(DEBUG))
-
+server.logger.setLevel(logging.DEBUG)
+logging.debug("Web application logging configured.")
 # Start Celery Beat scheduler for periodic maintenance tasks
 
 
 def start_beat_scheduler():
     """Start Celery Beat scheduler with thread-specific logging."""
-    # Create Beat-specific logger (don't reconfigure global logging)
-    beat_logger = logging.getLogger("celery.beat")
-
-    scheduler_handler = PostgreSQLHandler(postgres_params, origin="scheduler")
-    scheduler_handler.setFormatter(logging.Formatter(format_string))
-    beat_logger.addHandler(scheduler_handler)
-    beat_logger.setLevel(logging.INFO)
-    beat_logger.propagate = False
-
     job_manager = get_background_job_manager()
-    beat = job_manager.app.Beat(loglevel="INFO")
-    beat_logger.info("Starting Celery Beat scheduler")
-
+    # The loglevel sets the level globally for the entire app.
+    beat = job_manager.app.Beat(loglevel="DEBUG")
     beat.run()
 
 
 # Start Beat scheduler as daemon thread
 beat_thread = Thread(target=start_beat_scheduler, daemon=True)
 beat_thread.start()
-logging.info("Celery Beat scheduler started in background thread")
+logging.info(
+    "Celery Beat scheduler started in background thread", extra={"tag": "scheduler"}
+)
 
 # Serve static files
 serve_files(app)
@@ -100,7 +88,6 @@ app.layout = html.Div(
         loading_overlay,
     ],
 )
-
 
 if __name__ == "__main__":
     app.run(debug=DEBUG, port=PORT, host="0.0.0.0")

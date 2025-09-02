@@ -18,8 +18,10 @@ class MaintenanceTask(Task):
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         """Handle task failure."""
-        logging.error(f"Maintenance task {task_id} failed: {exc}")
-        logging.error(f"Traceback: {einfo}")
+        logging.error(
+            f"Maintenance task {task_id} failed: {exc}", extra={"tag": "maintenance"}
+        )
+        logging.error(f"Traceback: {einfo}", extra={"tag": "maintenance"})
 
 
 def cleanup_task(self):
@@ -27,11 +29,13 @@ def cleanup_task(self):
 
     This replaces the APScheduler clean_up job.
     """
-    logging.info("Start cleaning up.")
+    logging.info("Start cleaning up.", extra={"tag": "maintenance"})
     clean_up_jobs()
 
     log_cutoff = datetime.now() - timedelta(days=LOG_RETENTION_DAYS)
-    logging.info(f"Cleaning up logs older than {log_cutoff}")
+    logging.info(
+        f"Cleaning up logs older than {log_cutoff}", extra={"tag": "maintenance"}
+    )
     PostgresManager.delete_logs_older_than(log_cutoff)
 
 
@@ -40,7 +44,7 @@ def update_db_task(self):
 
     This replaces the APScheduler update_db job.
     """
-    logging.info("Start updating database.")
+    logging.info("Start updating database.", extra={"tag": "crns_update"})
     try:
         update_crns_measurments()
     except Exception as error:  # noqa
@@ -49,5 +53,5 @@ def update_db_task(self):
         Traceback info: {traceback.format_exc()}\n\n
         """
         send_mail(MAINTAINER_EMAIL, email_subject, email_body)
-        logging.error(email_subject)
-        logging.error(email_body)
+        logging.error(email_subject, extra={"tag": "crns_update"})
+        logging.error(email_body, extra={"tag": "crns_update"})

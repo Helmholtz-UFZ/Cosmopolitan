@@ -92,10 +92,6 @@ try:
 except (OperationalError, ConnectionError) as e:
     pytest.exit(f"Celery broker connection failed: {e}")
 
-# Save the current .env file
-if os.path.exists(".env"):
-    shutil.copyfile(".env", "env_test_backup")
-
 
 @pytest.fixture
 def logger():
@@ -183,9 +179,10 @@ def celery_worker():
             "-A",
             "cosmopolitan_app.background_job_manager.celery",
             "worker",
-            "--loglevel=info",
+            "--loglevel=debug",
             "--concurrency=1",
             "--pool=solo",  # Use solo pool for better test isolation
+            "--queues=computation,maintenance,celery",  # Listen to all required queues
         ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -232,12 +229,3 @@ def celery_worker():
             os.killpg(os.getpgid(worker_process.pid), signal.SIGKILL)
         except (ProcessLookupError, OSError):
             pass
-
-
-def pytest_sessionfinish(session, exitstatus):
-    """Restore .env file."""
-    if os.path.exists("env_test_backup"):
-        shutil.copyfile("env_test_backup", ".env")
-        os.remove("env_test_backup")
-    else:
-        os.remove(".env")

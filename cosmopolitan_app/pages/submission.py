@@ -157,11 +157,13 @@ def layout(job_id):
 )
 def load_submission_content(job_id, header_class_name):
     """Load the main submission content triggered by job-id-store."""
-    logging.info(f"Loading submission content for job {job_id}")
+    logging.info(
+        f"Loading submission content for job {job_id}", extra={"tag": "job_submission"}
+    )
     try:
         job = Job(job_id)
     except (JobNotFound, InvalidJobID):
-        logging.info(f"Job {job_id} not found")
+        logging.info(f"Job {job_id} not found", extra={"tag": "job_submission"})
         error_content = html.Div(
             [
                 html.P(
@@ -179,7 +181,9 @@ def load_submission_content(job_id, header_class_name):
     # Generate preview
     preview_path = job.get_preview_path()
     if preview_path is None:
-        logging.info("No preview path found, generating new preview.")
+        logging.info(
+            "No preview path found, generating new preview.", extra={"tag": "frontend"}
+        )
         job.preview_area()
         preview_path = job.get_preview_path()
 
@@ -331,11 +335,11 @@ def submission_manager(
 ):
     """Reload the logs."""
     job_id = path_name.split("/")[-1]
-    logging.info(f"Submission manager for {job_id}")
+    logging.info(f"Submission manager for {job_id}", extra={"tag": "job_submission"})
     triggered_id = callback_context.triggered[0]["prop_id"].split(".")[0]
     num_outputs = len(dash.callback_context.outputs_list)
     input_base_path = dash.page_registry["pages.input"]["path_template"]
-    logging.debug(f"Triggered id: {triggered_id}")
+    logging.debug(f"Triggered id: {triggered_id}", extra={"tag": "frontend"})
     job = Job(job_id)
     if triggered_id == SUBMIT_JOB_ID:
         job.delete_logs()

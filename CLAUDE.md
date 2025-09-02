@@ -301,7 +301,8 @@ The application includes a global loading overlay defined in `layouts.py` that c
        return any(n_clicks for n_clicks in [n_clicks] if n_clicks)
    ```
 
-   **Note**: If the `show_loading` callback has identical inputs to your main callback, you must add a dummy input to differentiate them:
+   **Note**: If the `show_loading` callback has identical inputs to your main callback,
+   you must add a dummy input to differentiate them:
 
    ```python
    # Add a dummy store to the layout
@@ -363,3 +364,67 @@ See `pages/job_management.py` or `pages/submission.py` for complete examples.
 - Don't continue execution with undefined/invalid state after exceptions
 - Return meaningful error values, raise custom exceptions, or fail fast
 - Use type hints to clarify what functions return on success vs failure
+
+### Logging Standards
+
+The application uses a tag-based logging system to categorize log messages by functional area. This helps with filtering, monitoring, and debugging specific parts of the system.
+
+#### Logging Tag Strategy
+
+Use `extra={"tag": "tagname"}` parameter with all logging calls to categorize messages by functional area. Tags identify **what system component** is logging, while standard logging levels (DEBUG, INFO, WARNING, ERROR, CRITICAL) indicate **severity/importance**.
+
+**Approved Tag Categories:**
+
+**Core Areas:**
+- `webserver` - Web interface operations (Dash callbacks, page rendering, user interactions)
+- `worker` - Celery worker operations (background task processing)
+- `scheduler` - Celery Beat scheduled tasks (periodic maintenance)
+
+**User Areas:**
+- `job_submission` - Everything associated with job management and job forms
+- `frontend` - Everything associated with Dash callbacks and UI interactions
+
+**System Areas:**
+- `time_io` - TimeIO API integration, sensor configuration, and CRNS data operations
+- `database` - Database operations, queries, and connectivity
+- `object_storage` - MinIO/rclone file operations (upload, download, delete)
+- `email_service` - Email notifications and MailHog integration
+- `maintenance` - System maintenance, cleanup operations, log rotation
+
+#### Usage Examples
+
+```python
+# Core system operations
+logging.info("Application startup completed", extra={"tag": "webserver"})
+logging.error("Database connection failed", extra={"tag": "database"})
+
+# User operations  
+logging.info("Job submitted successfully", extra={"tag": "job_submission"})
+logging.warning("Invalid form data submitted", extra={"tag": "frontend"})
+
+# System integration
+logging.info("Fetching CRNS data from TimeIO API", extra={"tag": "time_io"})
+logging.error("Failed to upload file to object storage", extra={"tag": "object_storage"})
+
+# Maintenance operations
+logging.info("Starting log cleanup", extra={"tag": "maintenance"})
+```
+
+#### Best Practices
+
+1. **Always include a tag** - Every logging call should include `extra={"tag": "appropriate_tag"}`
+2. **Use appropriate levels** - DEBUG for development info, INFO for normal operations, WARNING for recoverable issues, ERROR for failures
+3. **Be consistent** - Use the same tag for related operations within a module
+4. **Background jobs excluded** - Background computation jobs use file-based logging, not this tag system
+
+#### Log Filtering
+
+Logs can be filtered by tag in the web interface or programmatically:
+
+```python
+# Query logs for specific functional area
+logs = PostgresManager.query_logs(date, sh, sm, eh, em, levels, pid=None, tag="time_io")
+
+# Get all database-related logs
+logs = PostgresManager.query_logs(date, sh, sm, eh, em, levels, tag="database")
+```

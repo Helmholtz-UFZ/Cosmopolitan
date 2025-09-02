@@ -2,6 +2,7 @@
 
 import logging
 import time
+from logging.config import dictConfig
 
 import pytest
 from selenium.common.exceptions import (
@@ -27,6 +28,7 @@ from cosmopolitan_app.form_factory import (
     active_form_factory,
     active_form_template_factory,
 )
+from cosmopolitan_app.logger import get_logger_config_web
 from cosmopolitan_app.pydantic_models import ModelWebsite
 
 
@@ -119,6 +121,8 @@ def save_snapshot(dash_duo):
 def test_full_procedure(dash_duo, crns_file_path, pred_file_paths, celery_worker):
     """Test the full procedure of the Dash app."""
     # Ensure Celery worker is running before starting tests
+
+    dictConfig(get_logger_config_web(True))
     if celery_worker.poll() is not None:
         logging.error("Celery worker process terminated unexpectedly")
         raise RuntimeError("Celery worker not available for testing")
@@ -239,6 +243,8 @@ def test_full_procedure(dash_duo, crns_file_path, pred_file_paths, celery_worker
         elif "PENDING" in status_element.text:
             continue
         break
+
+    time.sleep(10)
 
     if "COMPLETED" not in status_element.text:
         logging.error(f"Job finished with status: {status_element.text}")

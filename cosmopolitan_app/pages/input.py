@@ -76,11 +76,13 @@ def layout(job_id):
 )
 def load_submission_content(job_id, header_class_name):
     """Load the main submission content triggered by job-id-store."""
-    logging.info(f"Loading submission content for job {job_id}")
+    logging.info(
+        f"Loading submission content for job {job_id}", extra={"tag": "job_submission"}
+    )
     try:
         job = Job(job_id)
     except (JobNotFound, InvalidJobID):
-        logging.info(f"Job {job_id} not found")
+        logging.info(f"Job {job_id} not found", extra={"tag": "job_submission"})
         content = dbc.Row(
             dbc.Col(
                 [
@@ -121,7 +123,9 @@ def load_submission_content(job_id, header_class_name):
     header_class_name = swap_classes("bg-info", header_class_name)
     preview_path = job.get_preview_path()
     if preview_path is None:
-        logging.info("No preview path found, generating new preview.")
+        logging.info(
+            "No preview path found, generating new preview.", extra={"tag": "frontend"}
+        )
         job.preview_area()
         preview_path = job.get_preview_path()
     preview_file_name = os.path.basename(preview_path)
@@ -177,13 +181,13 @@ def show_loading(n_clicks):
 )
 def regenerate_preview(**state):
     """Regenerate the preview."""
-    logging.info("Regenerate preview")
+    logging.info("Regenerate preview", extra={"tag": "frontend"})
     job_id = state["job_id"]
 
     try:
         active_form_factory.set_model(state)
     except ValueError:
-        logging.debug("Model not valid")
+        logging.debug("Model not valid", extra={"tag": "frontend"})
         raise PreventUpdate
 
     active_form_factory.pymodel.job_id = job_id
@@ -219,29 +223,29 @@ def regenerate_preview(**state):
 )
 def form_manager(**state):
     """Wrap all input logic of the form into one callback."""
-    logging.info("Form manager")
+    logging.info("Form manager", extra={"tag": "frontend"})
 
     file_upload_error = {}
 
     triggered_id = callback_context.triggered[0]["prop_id"].split(".")[0]
-    logging.debug(f"Triggered id: {triggered_id}")
+    logging.debug(f"Triggered id: {triggered_id}", extra={"tag": "frontend"})
 
     if triggered_id == active_form_factory.get_id_delete_button("crns_upload"):
         job_id = state["job_id"]
         job = Job(job_id=job_id)
-        logging.debug("Delete CRNS button clicked")
+        logging.debug("Delete CRNS button clicked", extra={"tag": "frontend"})
         job.delete_input_files("crn")
         active_form_factory.set_file_information(state, {}, "crns_upload")
     elif triggered_id == active_form_factory.get_id_delete_button("predictor_upload"):
         job_id = state["job_id"]
         job = Job(job_id=job_id)
-        logging.debug("Delete predictor button clicked")
+        logging.debug("Delete predictor button clicked", extra={"tag": "frontend"})
         job.delete_input_files("pred")
         active_form_factory.set_file_information(state, {}, "predictor_upload")
     elif triggered_id == active_form_factory.get_id_input_file_content("crns_upload"):
         job_id = state["job_id"]
         job = Job(job_id=job_id)
-        logging.debug("CRNS file uploaded")
+        logging.debug("CRNS file uploaded", extra={"tag": "job_submission"})
         job.delete_input_files("crn")
 
         file_name, file_content = active_form_factory.get_file_content(
@@ -261,7 +265,7 @@ def form_manager(**state):
     ):
         job_id = state["job_id"]
         job = Job(job_id=job_id)
-        logging.debug("Predictor file(s) uploaded")
+        logging.debug("Predictor file(s) uploaded", extra={"tag": "job_submission"})
         job.delete_input_files("pred")
 
         uploaded_file_information = {}
@@ -289,7 +293,7 @@ def form_manager(**state):
     active_form_factory.pymodel.job_id = state["job_id"]
 
     if triggered_id == active_form_factory.get_key_submit_button() and valid:
-        logging.debug("Submit button clicked")
+        logging.debug("Submit button clicked", extra={"tag": "job_submission"})
         job = Job(model=active_form_factory.pymodel)
         try:
             job.prepare_input_files()

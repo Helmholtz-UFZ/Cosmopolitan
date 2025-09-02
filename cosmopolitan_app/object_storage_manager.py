@@ -39,7 +39,10 @@ def check_result(params: list, result: subprocess.CompletedProcess) -> None:
         call = " ".join(params)
         call = call.replace(OBJECT_STORAGE_SECRET_KEY, "****")
         call = call.replace(OBJECT_STORAGE_ACCESS_KEY, "****")
-        logging.error(f"Command failed: {call}\n{error_msg}\n{output}")
+        logging.error(
+            f"Command failed: {call}\n{error_msg}\n{output}",
+            extra={"tag": "object_storage"},
+        )
         raise ObjectStorageError
 
 
@@ -49,7 +52,7 @@ def setup_remote() -> None:
     Args:
         dirname: Name of the directory (used for error handling)
     """
-    logging.debug("Setting up rclone remote.")
+    logging.debug("Setting up rclone remote.", extra={"tag": "object_storage"})
     config_params = [
         "rclone",
         "config",
@@ -72,7 +75,10 @@ def setup_remote() -> None:
     )
     check_result(config_params, result)
 
-    logging.debug(f"Successfully created remote {OBJECT_STORAGE_REMOTE_NAME}")
+    logging.debug(
+        f"Successfully created remote {OBJECT_STORAGE_REMOTE_NAME}",
+        extra={"tag": "object_storage"},
+    )
 
 
 def sync_workdir(dirname: str) -> None:
@@ -82,7 +88,8 @@ def sync_workdir(dirname: str) -> None:
         dirname: Name of the directory to sync
     """
     logging.debug(
-        f"Syncing directory {dirname} between local work directory and object storage."
+        f"Syncing directory {dirname} between local work directory and object storage.",
+        extra={"tag": "object_storage"},
     )
     local_path = JOB_WORK_DIR_TEMPLATE.format(job_id=dirname)
     remote_path = f"{OBJECT_STORAGE_REMOTE_NAME}:{OBJECT_STORAGE_BUCKET}/{dirname}"
@@ -125,7 +132,10 @@ def delete_file_from_storage(filepath: str) -> None:
     Args:
         filepath: Path of the file to delete from object storage
     """
-    logging.debug(f"Deleting file {filepath} from object storage.")
+    logging.debug(
+        f"Deleting file {filepath} from object storage.",
+        extra={"tag": "object_storage"},
+    )
 
     remote_path = f"{OBJECT_STORAGE_REMOTE_NAME}:{OBJECT_STORAGE_BUCKET}/{filepath}"
 
@@ -140,7 +150,10 @@ def delete_file_from_storage(filepath: str) -> None:
         text=True,
     )
     check_result(delete_params, result)
-    logging.debug(f"Successfully deleted file {filepath} from object storage")
+    logging.debug(
+        f"Successfully deleted file {filepath} from object storage",
+        extra={"tag": "object_storage"},
+    )
 
 
 def delete_directory_from_storage(dirpath: str) -> None:
@@ -149,7 +162,10 @@ def delete_directory_from_storage(dirpath: str) -> None:
     Args:
         dirpath: Path of the directory to delete from object storage
     """
-    logging.debug(f"Deleting directory {dirpath} from object storage.")
+    logging.debug(
+        f"Deleting directory {dirpath} from object storage.",
+        extra={"tag": "object_storage"},
+    )
 
     remote_path = f"{OBJECT_STORAGE_REMOTE_NAME}:{OBJECT_STORAGE_BUCKET}/{dirpath}"
 
@@ -164,12 +180,17 @@ def delete_directory_from_storage(dirpath: str) -> None:
         text=True,
     )
     check_result(purge_params, result)
-    logging.debug(f"Successfully deleted directory {dirpath} from object storage")
+    logging.debug(
+        f"Successfully deleted directory {dirpath} from object storage",
+        extra={"tag": "object_storage"},
+    )
 
 
 def create_bucket() -> None:
     """Create the object storage bucket."""
-    logging.debug(f"Creating bucket {OBJECT_STORAGE_BUCKET}")
+    logging.debug(
+        f"Creating bucket {OBJECT_STORAGE_BUCKET}", extra={"tag": "object_storage"}
+    )
 
     remote_bucket = f"{OBJECT_STORAGE_REMOTE_NAME}:{OBJECT_STORAGE_BUCKET}"
     bucket_params = [
@@ -177,6 +198,7 @@ def create_bucket() -> None:
         "mkdir",
         remote_bucket,
     ]
+    print(" ".join(bucket_params))  # For debugging purposes
 
     result = subprocess.run(
         bucket_params,
@@ -184,7 +206,10 @@ def create_bucket() -> None:
         text=True,
     )
     check_result(bucket_params, result)
-    logging.debug(f"Successfully created bucket {OBJECT_STORAGE_BUCKET}")
+    logging.debug(
+        f"Successfully created bucket {OBJECT_STORAGE_BUCKET}",
+        extra={"tag": "object_storage"},
+    )
 
 
 def main():
@@ -200,10 +225,16 @@ def main():
     try:
         if command == "setup_remote":
             setup_remote()
-            logging.info("Object storage remote setup completed successfully.")
+            logging.info(
+                "Object storage remote setup completed successfully.",
+                extra={"tag": "object_storage"},
+            )
         elif command == "create_bucket":
             create_bucket()
-            logging.info("Bucket creation completed successfully.")
+            logging.info(
+                "Bucket creation completed successfully.",
+                extra={"tag": "object_storage"},
+            )
         else:
             print(f"Unknown command: {command}")
             print(
@@ -211,7 +242,9 @@ def main():
             )
             sys.exit(1)
     except ObjectStorageError as e:
-        logging.error(f"Failed to execute {command}: {e}")
+        logging.error(
+            f"Failed to execute {command}: {e}", extra={"tag": "object_storage"}
+        )
         sys.exit(1)
 
 

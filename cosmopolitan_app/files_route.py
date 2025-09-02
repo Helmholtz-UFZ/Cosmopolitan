@@ -11,7 +11,9 @@ def serve_files(app):
     @app.server.route("/pictures/<job_id>/<path:filename>")
     def serve_file(job_id, filename):
         """Serve pictures."""
-        logging.debug(f"Serve picture {filename} for {job_id}")
+        logging.debug(
+            f"Serve picture {filename} for {job_id}", extra={"tag": "frontend"}
+        )
 
         response = send_from_directory(f"work_dir/{job_id}", filename)
 

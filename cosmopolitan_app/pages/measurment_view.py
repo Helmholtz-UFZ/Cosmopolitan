@@ -509,7 +509,8 @@ def load_measurement_data(
     logging.info(
         f"Loading measurement data with filters: types={selected_types}, "
         f"date_range={start_date} to {end_date}, representative={representative_only}, "
-        f"bbox=({min_lon}, {min_lat}, {max_lon}, {max_lat}), projection={projection}"
+        f"bbox=({min_lon}, {min_lat}, {max_lon}, {max_lat}), projection={projection}",
+        extra={"tag": "database"},
     )
 
     # Convert date strings to datetime objects
@@ -526,7 +527,10 @@ def load_measurement_data(
     # Transform coordinates if projection is not WGS84 (EPSG:4326)
     if projection and projection != "4326":
         bbox = transform_bbox_coordinates(bbox, projection, "EPSG:4326")
-        logging.info(f"Transformed bbox from EPSG:{projection} to EPSG:4326: {bbox}")
+        logging.info(
+            f"Transformed bbox from EPSG:{projection} to EPSG:4326: {bbox}",
+            extra={"tag": "frontend"},
+        )
 
     # Get measurement data
     df = PostgresManager.get_measurement_points(
