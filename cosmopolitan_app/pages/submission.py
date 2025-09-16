@@ -174,6 +174,9 @@ def load_submission_content(job_id, header_class_name):
         )
         return (create_header("Error", "Job not found"), error_content)
 
+    if job.prepared_input is False:
+        return (create_header("Error", "Input not prepared"), html.Div())
+
     # Create the header with job information
     header_class_name = swap_classes(job.status_color(), header_class_name)
     header_subtitle = job.job_id

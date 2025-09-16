@@ -15,7 +15,6 @@ from cosmopolitan_app.config import MAINTAINER_EMAIL
 from cosmopolitan_app.constants import ERROR_MESSAGE_ID, ERROR_MODAL_ID, ERROR_TITLE_ID
 from cosmopolitan_app.job import NoMeasurementPointsError
 from cosmopolitan_app.object_storage_manager import ObjectStorageError
-from cosmopolitan_app.postgres_manager import JobNotFound
 from cosmopolitan_app.utils import send_mail
 
 
@@ -26,6 +25,15 @@ class InvalidJobID(Exception):
         """Add job id as attribute and format error message."""
         self.job_id = job_id
         super().__init__(f"{job_id} is not a valid job_id.")
+
+
+class JobExists(Exception):
+    """Raised by Job if a new job is created with an existing job id."""
+
+    def __init__(self, job_id):
+        """Add job id as attribute and format error message."""
+        self.job_id = job_id
+        super().__init__(f"{job_id} already exists.")
 
 
 class SubmittedException(Exception):
@@ -53,6 +61,15 @@ class NotFinishedException(Exception):
         """Add job id as attribute and format error message."""
         self.job_id = job_id
         super().__init__(f"The job {job_id} is not yet finished.")
+
+
+class JobNotFound(Exception):
+    """Custom exception for when a job is not found."""
+
+    def __init__(self, job_id):
+        """Add job id as attribute and format error message."""
+        self.job_id = job_id
+        super().__init__(f"Job with ID '{job_id}' not found")
 
 
 database_error_title = "Database Connection Error"

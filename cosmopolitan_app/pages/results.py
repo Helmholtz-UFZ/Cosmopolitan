@@ -11,9 +11,9 @@ from dash import Input, Output, State, callback, dcc, html
 from flask import url_for
 
 from cosmopolitan_app.config import JOB_WORK_DIR_TEMPLATE
+from cosmopolitan_app.error_handling import InvalidJobID, JobNotFound
 from cosmopolitan_app.job import Job
 from cosmopolitan_app.layouts import create_header
-from cosmopolitan_app.utils import InvalidJobID, JobNotFound
 
 dash.register_page(
     __name__,

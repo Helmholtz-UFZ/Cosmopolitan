@@ -18,6 +18,7 @@ CREATE TABLE jobs (
     input_data JSONB,
     submitted BOOL,
     email VARCHAR,
+    prepared_input BOOL,
     notified_end BOOL,
     logs VARCHAR,
     status VARCHAR,
