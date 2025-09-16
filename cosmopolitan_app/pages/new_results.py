@@ -19,7 +19,10 @@ dash.register_page(
     name="New Results",
 )
 
-TILESERVER_BASE_URL = "http://localhost:8000"
+osm_layer = dl.TileLayer(
+    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution="© OpenStreetMap contributors",
+)
 
 
 def get_available_dates(job_id):
@@ -192,20 +195,12 @@ def layout(job_id):
         },
     )
 
-    # Create map - center on the actual data extent
-    # WGS84 bounds from TiTiler: [10.923, 51.791, 10.945, 51.805]
-    # This is near Göttingen, Germany (very small 1.5km area)
     leaflet_map = dl.Map(
         id="soil-moisture-map",
-        children=[
-            dl.TileLayer(
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-                attribution="© OpenStreetMap contributors",
-            ),
-        ],
+        children=[osm_layer],
         style={"width": "100vw", "height": "100vh"},
-        center=[51.798, 10.934],  # Exact center of the data
-        zoom=15,  # Very high zoom to see the tiny 1.5km grid
+        center=[51.798, 10.934],
+        zoom=15,
     )
 
     return html.Div(
@@ -234,44 +229,21 @@ def layout(job_id):
     [Input("date-selector", "value"), Input("job-data", "data")],
     prevent_initial_call=False,
 )
-def update_map_tiles(selected_date, job_data):
+def update_map(selected_date, job_data):
     """Update map with soil moisture tiles for selected date."""
     if not selected_date or not job_data:
         # Return base map only
-        return [
-            dl.TileLayer(
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-                attribution="© OpenStreetMap contributors",
-            ),
-        ]
+        return dash.no_update
 
     job_id = job_data["job_id"]
 
-    # Build TiTiler URL for the selected date
-    tif_path = f"/data/{job_id}/soil_moisture_{selected_date}.tif"
-    tile_url = f"{TILESERVER_BASE_URL}/cog/tiles/{{z}}/{{x}}/{{y}}.png?url={tif_path}&rescale=0.1,0.45"  # noqa
-
     logging.info(
-        f"Loading tiles for job {job_id}, date {selected_date}",
+        f"Updating map for {job_id}, date {selected_date}",
         extra={"tag": "frontend"},
     )
-    logging.info(f"Tile URL template: {tile_url}", extra={"tag": "frontend"})
-
-    # Use TileLayer for scalable tile-based rendering
-    tile_url = f"{TILESERVER_BASE_URL}/cog/tiles/{{z}}/{{x}}/{{y}}.png?url={tif_path}&rescale=0.1,0.45"  # noqa
-
-    return [
-        dl.TileLayer(
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-            attribution="© OpenStreetMap contributors",
-        ),
-        dl.TileLayer(
-            url=tile_url,
-            opacity=1,
-            id="soil-moisture-tiles",
-            attribution="Soil Moisture Data",
-        ),
-    ]
+    smp_url = f"pictures/{job_id}/soil_moisture_{selected_date}.tif"
+    smp_layer = dl.ImageOverlay(id="soil-moisture-layer", url=smp_url, opacity=0.6)
+    return [osm_layer, smp_layer]
 
 
 @callback(
