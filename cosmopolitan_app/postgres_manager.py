@@ -34,21 +34,13 @@ from cosmopolitan_app.config import (
     POSTGRES_PORT,
     POSTGRES_USER,
 )
+from cosmopolitan_app.error_handling import JobNotFound
 
 
 class Base(DeclarativeBase):
     """Base class for declarative base."""
 
     pass
-
-
-class JobNotFound(Exception):
-    """Custom exception for when a job is not found."""
-
-    def __init__(self, job_id):
-        """Add job id as attribute and format error message."""
-        self.job_id = job_id
-        super().__init__(f"Job with ID '{job_id}' not found")
 
 
 class SessionScope:
@@ -1006,6 +998,7 @@ class JobTable(Base):
     start_date = Column("start_date", Date)
     input_data = Column("input_data", JSON)
     submitted = Column("submitted", Boolean)
+    prepared_input = Column("prepared_input", Boolean)
     notified_end = Column("notified_end", Boolean)
     logs = Column("logs", String)
     status = Column("status", String)

@@ -28,15 +28,15 @@ from werkzeug.utils import secure_filename
 
 from cosmopolitan_app.config import JOB_WORK_DIR_TEMPLATE
 from cosmopolitan_app.constants import DAYS_DELETE_NOT_SUMBITTED, DAYS_DELETE_SUMBITTED
+from cosmopolitan_app.error_handling import InvalidJobID, JobExists, JobNotFound
 from cosmopolitan_app.object_storage_manager import (
     delete_directory_from_storage,
     delete_file_from_storage,
     sync_workdir,
 )
-from cosmopolitan_app.postgres_manager import JobNotFound, JobTable, PostgresManager
+from cosmopolitan_app.postgres_manager import JobTable, PostgresManager
 from cosmopolitan_app.pydantic_models import ModelWebsite, validate_job_id
 from cosmopolitan_app.timeio_info import type_id_dict
-from cosmopolitan_app.utils import InvalidJobID, JobExists
 
 LOG_FILE_NAME = "logs"
 
@@ -152,6 +152,7 @@ class Job:
     submitted: bool
     email: str
     notified_end: bool
+    prepared_input: bool
     logs: str
     status: Literal["PENDING", "RUNNING", "COMPLETED", "FAILED"]
     version: str
@@ -216,6 +217,7 @@ class Job:
         self.start_date = date.today()
         self.submitted = False
         self.notified_end = False
+        self.prepared_input = False
         self.logs = ""
         self.status = "PENDING"
         self.version = smp_version
@@ -244,6 +246,7 @@ class Job:
         self.start_date = date.today()
         self.submitted = False
         self.notified_end = False
+        self.prepared_input = False
         self.logs = ""
         self.status = "PENDING"
         self.version = smp_version
@@ -406,6 +409,7 @@ class Job:
         else:
             self.model.crns_upload = crns_upload
 
+        self.prepared_input = True
         self.model.predictor_upload = predictors_upload
         self.dump_parameters()
         self.save()

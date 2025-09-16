@@ -16,7 +16,11 @@ from cosmopolitan_app.constants import (
     INPUT_HEADER_ID,
     LOADING_OVERLAY_ID,
 )
-from cosmopolitan_app.error_handling import error_responds_dict
+from cosmopolitan_app.error_handling import (
+    InvalidJobID,
+    JobNotFound,
+    error_responds_dict,
+)
 from cosmopolitan_app.form_factory import (
     FormFactory,
     active_form_factory,
@@ -25,7 +29,7 @@ from cosmopolitan_app.form_factory import (
 )
 from cosmopolitan_app.job import Job, NoMeasurementPointsError
 from cosmopolitan_app.layouts import create_header
-from cosmopolitan_app.utils import InvalidJobID, JobNotFound, swap_classes
+from cosmopolitan_app.utils import swap_classes
 
 dash.register_page(
     __name__,
