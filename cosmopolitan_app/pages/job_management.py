@@ -12,7 +12,7 @@ from cosmopolitan_app.constants import LOADING_OVERLAY_ID
 from cosmopolitan_app.job import Job
 from cosmopolitan_app.layouts import create_header
 from cosmopolitan_app.postgres_manager import PostgresManager
-from cosmopolitan_app.utils import clean_up_jobs
+from cosmopolitan_app.tasks.maintenance_tasks import clean_up_jobs
 
 dash.register_page(__name__)
 

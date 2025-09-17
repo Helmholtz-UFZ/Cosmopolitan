@@ -28,7 +28,12 @@ from werkzeug.utils import secure_filename
 
 from cosmopolitan_app.config import JOB_WORK_DIR_TEMPLATE
 from cosmopolitan_app.constants import DAYS_DELETE_NOT_SUMBITTED, DAYS_DELETE_SUMBITTED
-from cosmopolitan_app.error_handling import InvalidJobID, JobExists, JobNotFound
+from cosmopolitan_app.error_handling import (
+    InvalidJobID,
+    JobExists,
+    JobNotFound,
+    NoMeasurementPointsError,
+)
 from cosmopolitan_app.object_storage_manager import (
     delete_directory_from_storage,
     delete_file_from_storage,
@@ -131,12 +136,6 @@ def draw_preview(
         # Write to file
         image.write_to_png(filepath)
         return None
-
-
-class NoMeasurementPointsError(Exception):
-    """Raised when no measurement points are found for the given parameters."""
-
-    ...
 
 
 class Job:
