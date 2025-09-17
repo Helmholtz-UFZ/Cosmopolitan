@@ -13,9 +13,14 @@ from werkzeug.exceptions import NotFound
 
 from cosmopolitan_app.config import MAINTAINER_EMAIL
 from cosmopolitan_app.constants import ERROR_MESSAGE_ID, ERROR_MODAL_ID, ERROR_TITLE_ID
-from cosmopolitan_app.job import NoMeasurementPointsError
 from cosmopolitan_app.object_storage_manager import ObjectStorageError
 from cosmopolitan_app.utils import send_mail
+
+
+class NoMeasurementPointsError(Exception):
+    """Raised when no measurement points are found for the given parameters."""
+
+    ...
 
 
 class InvalidJobID(Exception):
