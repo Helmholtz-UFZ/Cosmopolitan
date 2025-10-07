@@ -8,7 +8,7 @@ import dash_bootstrap_components as dbc
 from dash import Input, Output, State, callback, dash_table, dcc, html
 
 from cosmopolitan_app.constants import LOADING_OVERLAY_ID
-from cosmopolitan_app.layouts import create_header
+from cosmopolitan_app.layouts import create_header, page_container_column_layout
 from cosmopolitan_app.postgres_manager import PostgresManager
 from cosmopolitan_app.timeio_manager import TimeIOManager
 
@@ -339,84 +339,86 @@ edit_form = dbc.Form(
     ]
 )
 
-layout = [
-    create_header(
-        "Sensor Management",
-        "Manage sensor configurations and synchronize with TimeIO API",
-    ),
-    # Store components for data
-    dcc.Store(id="database-sensors-store", data=[]),
-    dcc.Store(id="api-sensors-store", data=[]),
-    dcc.Store(id="refresh-store", data=0),
-    dcc.Store(id="dummy-store", data=0),  # For loading overlay
-    # Sync Status Alert (centered above tables)
-    dbc.Row(
-        dbc.Col(
-            dbc.Alert(
-                id="sync-status-alert",
-                className="text-center m-3",
-                is_open=False,
-            ),
-            className="col-auto",
+layout = page_container_column_layout(
+    [
+        create_header(
+            "Sensor Management",
+            "Manage sensor configurations and synchronize with TimeIO API",
         ),
-        className="d-flex justify-content-center",
-    ),
-    # Main content - two columns with border separator
-    html.Div(
-        [
-            dbc.Row(
-                [
-                    # Left column - Database view
-                    dbc.Col(
-                        [
-                            html.H4("Database Sensors", className="mb-3"),
-                            html.P(
-                                "Sensors currently stored in the database:",
-                                className="text-muted",
-                            ),
-                            create_database_table(),
-                            dbc.Button(
-                                "Refresh Database",
-                                id="refresh-database-btn",
-                                color="primary",
-                                className="mb-3",
-                            ),
-                        ],
-                        width=7,
-                    ),
-                    # Vertical separator
-                    html.Div(
-                        style={
-                            "width": "1px",
-                        }
-                    ),
-                    # Right column - API view
-                    dbc.Col(
-                        [
-                            html.H4("API Sensors", className="mb-3"),
-                            html.P(
-                                "Sensors available from TimeIO API:",
-                                className="text-muted",
-                            ),
-                            create_api_table(),
-                        ],
-                        width=4,
-                    ),
-                ],
-                className="g-3 justify-content-center",
-            )
-        ],
-        className="py-3",
-    ),
-    # Edit Form Section in Card
-    dbc.Card(
-        [
-            dbc.CardHeader([html.H4("Edit Sensor Entry", className="mb-0")]),
-            dbc.CardBody(edit_form),
-        ],
-        className="m-4",
-    ),
-]
+        # Store components for data
+        dcc.Store(id="database-sensors-store", data=[]),
+        dcc.Store(id="api-sensors-store", data=[]),
+        dcc.Store(id="refresh-store", data=0),
+        dcc.Store(id="dummy-store", data=0),  # For loading overlay
+        # Sync Status Alert (centered above tables)
+        dbc.Row(
+            dbc.Col(
+                dbc.Alert(
+                    id="sync-status-alert",
+                    className="text-center m-3",
+                    is_open=False,
+                ),
+                className="col-auto",
+            ),
+            className="d-flex justify-content-center",
+        ),
+        # Main content - two columns with border separator
+        html.Div(
+            [
+                dbc.Row(
+                    [
+                        # Left column - Database view
+                        dbc.Col(
+                            [
+                                html.H4("Database Sensors", className="mb-3"),
+                                html.P(
+                                    "Sensors currently stored in the database:",
+                                    className="text-muted",
+                                ),
+                                create_database_table(),
+                                dbc.Button(
+                                    "Refresh Database",
+                                    id="refresh-database-btn",
+                                    color="primary",
+                                    className="mb-3",
+                                ),
+                            ],
+                            width=7,
+                        ),
+                        # Vertical separator
+                        html.Div(
+                            style={
+                                "width": "1px",
+                            }
+                        ),
+                        # Right column - API view
+                        dbc.Col(
+                            [
+                                html.H4("API Sensors", className="mb-3"),
+                                html.P(
+                                    "Sensors available from TimeIO API:",
+                                    className="text-muted",
+                                ),
+                                create_api_table(),
+                            ],
+                            width=4,
+                        ),
+                    ],
+                    className="g-3 justify-content-center",
+                )
+            ],
+            className="py-3",
+        ),
+        # Edit Form Section in Card
+        dbc.Card(
+            [
+                dbc.CardHeader([html.H4("Edit Sensor Entry", className="mb-0")]),
+                dbc.CardBody(edit_form),
+            ],
+            className="m-4",
+        ),
+    ]
+)
 
 
 @callback(

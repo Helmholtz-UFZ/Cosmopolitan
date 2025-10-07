@@ -10,9 +10,9 @@ import dash_bootstrap_components as dbc
 from dash import Input, Output, State, callback, html
 from dash.exceptions import PreventUpdate
 
-from cosmopolitan_app.constants import LOADING_OVERLAY_ID, PREPARE_INPUT_ID
+from cosmopolitan_app.constants import LOADING_OVERLAY_ID, PREPARE_INPUT_ID, URL_ID
 from cosmopolitan_app.job import Job
-from cosmopolitan_app.layouts import create_header
+from cosmopolitan_app.layouts import create_header, page_container_column_layout
 from cosmopolitan_app.postgres_manager import PostgresManager
 from cosmopolitan_app.pydantic_models import ModelWebsite, validate_job_id
 
@@ -39,42 +39,44 @@ def layout():
         if not PostgresManager.check_existence(job_id):
             break
 
-    return [
-        header,
-        dbc.Row(
-            dbc.Col(
-                [
-                    dbc.Label("Job ID", style={"font-weight": "bold"}),
-                    dbc.Input(
-                        id="new_job_id",
-                        value=job_id,
-                        html_size=len(job_id) + 10,
-                        style={"width": "auto"},
-                        type="text",
-                    ),
-                    dbc.FormText(
-                        "",
-                        id="new_job_id_feedback",
-                        className="text-danger",
-                    ),
-                    html.Br(),
-                    dbc.FormText(ModelWebsite.model_fields["job_id"].description),
-                    html.Br(),
-                    html.Div(
-                        dbc.Button(
-                            "Prepare input",
-                            id=PREPARE_INPUT_ID,
-                            color="primary",
+    return page_container_column_layout(
+        [
+            header,
+            dbc.Row(
+                dbc.Col(
+                    [
+                        dbc.Label("Job ID", style={"font-weight": "bold"}),
+                        dbc.Input(
+                            id="new_job_id",
+                            value=job_id,
+                            html_size=len(job_id) + 10,
+                            style={"width": "auto"},
+                            type="text",
                         ),
-                        className="m-2 d-flex justify-content-center",
-                    ),
-                ],
-                width="auto",
-                className="my-4",
+                        dbc.FormText(
+                            "",
+                            id="new_job_id_feedback",
+                            className="text-danger",
+                        ),
+                        html.Br(),
+                        dbc.FormText(ModelWebsite.model_fields["job_id"].description),
+                        html.Br(),
+                        html.Div(
+                            dbc.Button(
+                                "Prepare input",
+                                id=PREPARE_INPUT_ID,
+                                color="primary",
+                            ),
+                            className="m-2 d-flex justify-content-center",
+                        ),
+                    ],
+                    width="auto",
+                    className="my-4",
+                ),
+                justify="center",
             ),
-            justify="center",
-        ),
-    ]
+        ]
+    )
 
 
 @callback(
@@ -90,7 +92,7 @@ def show_loading(n_clicks):
 
 
 @callback(
-    Output("url", "pathname", allow_duplicate=True),
+    Output(URL_ID, "pathname", allow_duplicate=True),
     Input(PREPARE_INPUT_ID, "n_clicks"),
     State("new_job_id", "value"),
     prevent_initial_call=True,

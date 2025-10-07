@@ -296,18 +296,18 @@ The application includes a global loading overlay defined in `layouts.py` that c
        Input("button_id", "n_clicks"),
        prevent_initial_call=True,
    )
-   def show_loading(n_clicks):
-       """Show loading overlay when button is clicked."""
-       return any(n_clicks for n_clicks in [n_clicks] if n_clicks)
+    def show_loading(*inputs):
+        """Show loading overlay when preparing input."""
+        return any(input for input in inputs if input is not None)
    ```
 
    **Note**: If the `show_loading` callback has identical inputs to your main callback,
    you must add a dummy input to differentiate them:
 
    ```python
-   # Add a dummy store to the layout
+   # Add a dummy store to the layout. Use None
    layout = [
-       dcc.Store(id="dummy_store", data=0),
+       dcc.Store(id=PAGE_DUMMY_ID, data=None),
        # ... rest of layout
    ]
 
@@ -315,11 +315,12 @@ The application includes a global loading overlay defined in `layouts.py` that c
    @callback(
        Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
        Input("button_id", "n_clicks"),
-       Input("dummy_store", "data"),  # Dummy input
+       Input(PAGE_DUMMY_ID, "data"),  # Dummy input
        prevent_initial_call=True,
    )
-   def show_loading(n_clicks, dummy_data):
-       return any(n_clicks for n_clicks in [n_clicks] if n_clicks)
+   def show_loading(*inputs):
+       """Show loading overlay when preparing input."""
+       return any(input for input in inputs if input is not None)
    ```
 
 3. **Hide the overlay** in your main callback by returning `False`:
@@ -376,15 +377,18 @@ Use `extra={"tag": "tagname"}` parameter with all logging calls to categorize me
 **Approved Tag Categories:**
 
 **Core Areas:**
+
 - `webserver` - Web interface operations (Dash callbacks, page rendering, user interactions)
 - `worker` - Celery worker operations (background task processing)
 - `scheduler` - Celery Beat scheduled tasks (periodic maintenance)
 
 **User Areas:**
+
 - `job_submission` - Everything associated with job management and job forms
 - `frontend` - Everything associated with Dash callbacks and UI interactions
 
 **System Areas:**
+
 - `time_io` - TimeIO API integration, sensor configuration, and CRNS data operations
 - `database` - Database operations, queries, and connectivity
 - `object_storage` - MinIO/rclone file operations (upload, download, delete)
@@ -398,7 +402,7 @@ Use `extra={"tag": "tagname"}` parameter with all logging calls to categorize me
 logging.info("Application startup completed", extra={"tag": "webserver"})
 logging.error("Database connection failed", extra={"tag": "database"})
 
-# User operations  
+# User operations
 logging.info("Job submitted successfully", extra={"tag": "job_submission"})
 logging.warning("Invalid form data submitted", extra={"tag": "frontend"})
 

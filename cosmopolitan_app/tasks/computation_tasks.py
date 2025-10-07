@@ -15,6 +15,17 @@ from cosmopolitan_app.logger import get_logger_config_compuation, get_logger_con
 from cosmopolitan_app.utils import send_finished_mail, send_submission_mail
 
 
+def flush_all_handlers():
+    """Flush all logging handlers."""
+    logger = logging.getLogger()
+    for handler in logger.handlers:
+        try:
+            handler.flush()
+        except Exception:  # noqa
+            # Silently ignore flush errors to avoid disrupting the main flow
+            pass
+
+
 class ComputationTask(Task):
     """Base class for computation tasks with custom error handling."""
 
@@ -63,6 +74,8 @@ def start_computation_task(self, job_id):
             # Log error to log file
             logging.error("An error occurred", extra={"tag": "job_submission"})
             logging.error(traceback.format_exc(), extra={"tag": "job_submission"})
+            # Ensure all log buffers are flushed before switching config
+            flush_all_handlers()
             # Log error to web logs
             dictConfig(get_logger_config_web(DEBUG))
             job.status = "FAILED"
@@ -72,6 +85,8 @@ def start_computation_task(self, job_id):
             )
 
         sleep(1)
+        # Ensure all log buffers are flushed before switching config
+        flush_all_handlers()
         dictConfig(get_logger_config_web(DEBUG))
         logging.info("Computation finished.", extra={"tag": "job_submission"})
 
@@ -84,6 +99,8 @@ def start_computation_task(self, job_id):
             )
 
     except Exception as e:  # noqa
+        # Ensure all log buffers are flushed before switching config
+        flush_all_handlers()
         dictConfig(get_logger_config_web(DEBUG))
         job.status = "FAILED"
         logging.error(

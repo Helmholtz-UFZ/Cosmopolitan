@@ -10,7 +10,7 @@ from dash import Input, Output, State, callback, dash_table, dcc
 
 from cosmopolitan_app.constants import LOADING_OVERLAY_ID
 from cosmopolitan_app.job import Job
-from cosmopolitan_app.layouts import create_header
+from cosmopolitan_app.layouts import create_header, page_container_column_layout
 from cosmopolitan_app.postgres_manager import PostgresManager
 from cosmopolitan_app.tasks.maintenance_tasks import clean_up_jobs
 
@@ -90,27 +90,29 @@ button_group = [
     ),
 ]
 
-layout = [
-    create_header(
-        "Job Management",
-        "Overview and management of jobs in the Cosmopolitan App",
-        bg_color="bg-info",
-    ),
-    # Needed to get a different set inputs for the loading overlay
-    dcc.Store(id="dummy_store", data=0),
-    dbc.Row(
-        dbc.Col(
-            button_group,
+layout = page_container_column_layout(
+    [
+        create_header(
+            "Job Management",
+            "Overview and management of jobs in the Cosmopolitan App",
+            bg_color="bg-info",
         ),
-        className="m-2",
-    ),
-    dbc.Row(
-        dbc.Col(
-            table,
+        # Needed to get a different set inputs for the loading overlay
+        dcc.Store(id="dummy_store", data=None),
+        dbc.Row(
+            dbc.Col(
+                button_group,
+            ),
+            className="m-2",
         ),
-        className="m-2",
-    ),
-]
+        dbc.Row(
+            dbc.Col(
+                table,
+            ),
+            className="m-2",
+        ),
+    ]
+)
 
 
 @callback(

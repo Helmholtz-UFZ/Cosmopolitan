@@ -15,8 +15,11 @@ from cosmopolitan_app.constants import (
     RESULT_BUTTON_ID,
     SPAWN_BUTTON_ID,
     SUBMISSION_HEADER_ID,
+    SUBMISSION_JOB_ID_STORE,
+    SUBMISSION_MAIN_CONTENT_ID,
     SUBMISSION_STATUS_ID,
     SUBMIT_JOB_ID,
+    URL_ID,
 )
 from cosmopolitan_app.error_handling import InvalidJobID, JobNotFound
 from cosmopolitan_app.form_factory import (
@@ -25,7 +28,7 @@ from cosmopolitan_app.form_factory import (
     construct_selected_input,
 )
 from cosmopolitan_app.job import Job
-from cosmopolitan_app.layouts import create_header
+from cosmopolitan_app.layouts import create_header, landing_page_layout_column
 from cosmopolitan_app.utils import swap_classes
 
 dash.register_page(
@@ -116,43 +119,23 @@ status_information_template = "Status:\n {status}"
 
 
 def layout(job_id):
-    """Create static layout for the submission page."""
-    header = create_header(
-        "Submission", "Loading ...", bg_color="bg-secondary", id=SUBMISSION_HEADER_ID
+    """Layout for submission page."""
+    return landing_page_layout_column(
+        "Job Submission",
+        SUBMISSION_HEADER_ID,
+        SUBMISSION_JOB_ID_STORE,
+        job_id,
+        SUBMISSION_MAIN_CONTENT_ID,
     )
-
-    return [
-        dcc.Store(id="job-id-store", data=job_id),
-        header,
-        html.Div(
-            dbc.Container(
-                dbc.Row(
-                    dbc.Col(
-                        dbc.Spinner(
-                            size="lg",
-                            color="primary",
-                            type="border",
-                            fullscreen=False,
-                        ),
-                        className="d-flex justify-content-center align-items-center",
-                    ),
-                    style={"height": "100vh"},
-                ),
-                fluid=True,
-                style={"height": "100vh"},
-            ),
-            id="main-content-container",
-        ),
-    ]
 
 
 @callback(
     [
         Output(SUBMISSION_HEADER_ID, "className", allow_duplicate=True),
         Output(f"{SUBMISSION_HEADER_ID}-subtitle", "children"),
-        Output("main-content-container", "children"),
+        Output(SUBMISSION_MAIN_CONTENT_ID, "children"),
     ],
-    [Input("job-id-store", "data")],
+    [Input(SUBMISSION_JOB_ID_STORE, "data")],
     [State(SUBMISSION_HEADER_ID, "className")],
     prevent_initial_call="initial_duplicate",
 )
@@ -298,13 +281,13 @@ def load_submission_content(job_id, header_class_name):
     Input(CHANGE_INPUT_BUTTON_ID, "n_clicks"),
     prevent_initial_call=True,
 )
-def show_loading(*n_clicks_list):
+def show_loading(*inputs):
     """Show loading overlay when preparing input."""
-    return any(n_clicks for n_clicks in n_clicks_list if n_clicks)
+    return any(input for input in inputs if input is not None)
 
 
 @callback(
-    Output("url", "pathname", allow_duplicate=True),
+    Output(URL_ID, "pathname", allow_duplicate=True),
     Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
     Output(JOB_LOGS_ID, "children"),
     Output(SUBMISSION_HEADER_ID, "className", allow_duplicate=True),
@@ -322,7 +305,7 @@ def show_loading(*n_clicks_list):
     Input(CHANGE_INPUT_BUTTON_ID, "n_clicks"),
     Input(SPAWN_BUTTON_ID, "n_clicks"),
     Input(RESULT_BUTTON_ID, "n_clicks"),
-    State("url", "pathname"),
+    State(URL_ID, "pathname"),
     State(SUBMISSION_HEADER_ID, "className"),
     State("submission_icon", "className"),
     prevent_initial_call=True,

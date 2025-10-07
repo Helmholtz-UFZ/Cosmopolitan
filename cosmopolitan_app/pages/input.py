@@ -5,7 +5,7 @@ import os
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import Input, Output, State, callback, callback_context, dcc, html
+from dash import Input, Output, State, callback, callback_context, html
 from dash.exceptions import PreventUpdate
 from flask import url_for
 
@@ -14,13 +14,12 @@ from cosmopolitan_app.constants import (
     ERROR_MODAL_ID,
     ERROR_TITLE_ID,
     INPUT_HEADER_ID,
+    INPUT_JOB_ID_STORE,
+    INPUT_MAIN_CONTENT_ID,
     LOADING_OVERLAY_ID,
+    URL_ID,
 )
-from cosmopolitan_app.error_handling import (
-    InvalidJobID,
-    JobNotFound,
-    error_responds_dict,
-)
+from cosmopolitan_app.error_handling import error_responds_dict
 from cosmopolitan_app.form_factory import (
     FormFactory,
     active_form_factory,
@@ -28,7 +27,7 @@ from cosmopolitan_app.form_factory import (
     construct_selected_input,
 )
 from cosmopolitan_app.job import Job, NoMeasurementPointsError
-from cosmopolitan_app.layouts import create_header
+from cosmopolitan_app.layouts import landing_page_layout_column
 from cosmopolitan_app.utils import swap_classes
 
 dash.register_page(
@@ -38,43 +37,19 @@ dash.register_page(
 
 
 def layout(job_id):
-    """Create static layout for the submission page."""
-    header = create_header(
-        "Input", "Loading ...", bg_color="bg-secondary", id=INPUT_HEADER_ID
+    """Layout for input page."""
+    return landing_page_layout_column(
+        "Input", INPUT_HEADER_ID, INPUT_JOB_ID_STORE, job_id, INPUT_MAIN_CONTENT_ID
     )
-
-    return [
-        dcc.Store(id="job-id-store", data=job_id),
-        header,
-        html.Div(
-            dbc.Container(
-                dbc.Row(
-                    dbc.Col(
-                        dbc.Spinner(
-                            size="lg",
-                            color="primary",
-                            type="border",
-                            fullscreen=False,
-                        ),
-                        className="d-flex justify-content-center align-items-center",
-                    ),
-                    style={"height": "100vh"},
-                ),
-                fluid=True,
-                style={"height": "100vh"},
-            ),
-            id="input_content",
-        ),
-    ]
 
 
 @callback(
     [
         Output(INPUT_HEADER_ID, "className", allow_duplicate=True),
         Output(f"{INPUT_HEADER_ID}-subtitle", "children"),
-        Output("input_content", "children"),
+        Output(INPUT_MAIN_CONTENT_ID, "children"),
     ],
-    [Input("job-id-store", "data")],
+    [Input(INPUT_JOB_ID_STORE, "data")],
     [State(INPUT_HEADER_ID, "className")],
     prevent_initial_call="initial_duplicate",
 )
@@ -83,23 +58,7 @@ def load_submission_content(job_id, header_class_name):
     logging.info(
         f"Loading submission content for job {job_id}", extra={"tag": "job_submission"}
     )
-    try:
-        job = Job(job_id)
-    except (JobNotFound, InvalidJobID):
-        logging.info(f"Job {job_id} not found", extra={"tag": "job_submission"})
-        content = dbc.Row(
-            dbc.Col(
-                [
-                    html.Div(
-                        "The job you are looking for does not exist.",
-                    ),
-                ],
-                className="col-11 col-xl-8 mx-auto",
-            )
-        )
-        header_class_name = swap_classes("bg-danger", header_class_name)
-        header_subtitle = "Job Not Found"
-        return header_class_name, header_subtitle, content
+    job = Job(job_id)
 
     if job.status not in ["PENDING", "FAILED"]:
         if job.status == "RUNNING":
@@ -211,7 +170,7 @@ def regenerate_preview(**state):
         active_form_template_factory.selected_predictors_key: Output(
             active_form_template_factory.selected_predictors_key, "children"
         ),
-        "redirect": Output("url", "pathname"),
+        "redirect": Output(URL_ID, "pathname"),
         "loading_overlay": Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
         "error_message": Output(ERROR_MESSAGE_ID, "children", allow_duplicate=True),
         "error_title": Output(ERROR_TITLE_ID, "children", allow_duplicate=True),

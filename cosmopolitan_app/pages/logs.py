@@ -6,7 +6,7 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import Input, Output, callback, dcc, html
 
-from cosmopolitan_app.layouts import create_header
+from cosmopolitan_app.layouts import create_header, page_container_column_layout
 from cosmopolitan_app.logger import log_categories
 from cosmopolitan_app.postgres_manager import PostgresManager
 
@@ -44,148 +44,146 @@ def tag_badge(tag):
     return dbc.Badge(tag.upper(), color=color_map[category], className="me-1")
 
 
-def layout():
-    """Layout for the logs page."""
-    start_hour = datetime.datetime.now().hour - 1
-    start_minute = datetime.datetime.now().minute
-    end_hour = datetime.datetime.now().hour
-    end_minute = datetime.datetime.now().minute
+# Layout
+start_hour = datetime.datetime.now().hour - 1
+start_minute = datetime.datetime.now().minute
+end_hour = datetime.datetime.now().hour
+end_minute = datetime.datetime.now().minute
 
-    header = create_header(
-        "View logs", "Show logs of the webserver", bg_color="bg-info"
-    )
-    # UI Components
-    date_selector = [
-        html.Label("Select Date Range"),
-        html.Br(),
-        dcc.DatePickerSingle(
-            id="log-date-range",
-            date=datetime.date.today(),
-        ),
-    ]
+header = create_header("View logs", "Show logs of the webserver", bg_color="bg-info")
+# UI Components
+date_selector = [
+    html.Label("Select Date Range"),
+    html.Br(),
+    dcc.DatePickerSingle(
+        id="log-date-range",
+        date=datetime.date.today(),
+    ),
+]
 
-    time_selector = [
-        html.Label("Time Range"),
-        html.Div(
-            id="time-input-wrapper",
-            children=[
-                dbc.InputGroup(
-                    [
-                        dbc.InputGroupText("From"),
-                        dbc.Input(
-                            id="start-hour",
-                            type="number",
-                            value=start_hour,
-                            min=0,
-                            max=23,
-                        ),
-                        dbc.InputGroupText(":"),
-                        dbc.Input(
-                            id="start-minute",
-                            type="number",
-                            value=start_minute,
-                            min=0,
-                            max=59,
-                        ),
-                        dbc.InputGroupText("To"),
-                        dbc.Input(
-                            id="end-hour", type="number", value=end_hour, min=0, max=23
-                        ),
-                        dbc.InputGroupText(":"),
-                        dbc.Input(
-                            id="end-minute",
-                            type="number",
-                            value=end_minute,
-                            min=0,
-                            max=59,
-                        ),
-                    ],
-                    id="time-input-group",
-                ),
-                html.Small(id="time-error", className="text-danger"),
-            ],
-        ),
-    ]
-
-    log_levels = [
-        html.Label("Log Levels"),
-        dcc.Dropdown(
-            id="log-levels",
-            options=[
-                {"label": "Debug", "value": "DEBUG"},
-                {"label": "Info", "value": "INFO"},
-                {"label": "Warning", "value": "WARNING"},
-                {"label": "Error", "value": "ERROR"},
-                {"label": "Critical", "value": "CRITICAL"},
-            ],
-            value=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-            multi=True,
-        ),
-    ]
-
-    available_tags = [tag for tags in log_categories.values() for tag in tags]
-    tag_options = [
-        {"label": tag.replace("_", " ").title(), "value": tag} for tag in available_tags
-    ]
-    tag_filter = [
-        html.Label("Tag"),
-        dcc.Dropdown(
-            id="log-tags",
-            options=tag_options,
-            value=available_tags,
-            multi=True,
-        ),
-    ]
-
-    pid_selector = [
-        html.Label("PID"),
-        dbc.InputGroup(
-            [
-                dbc.InputGroupText(
-                    dbc.Checklist(
-                        id="pid-radio",
-                        options=[{"label": "Select by PID", "value": "on"}],
-                        value=[],
-                        switch=True,
+time_selector = [
+    html.Label("Time Range"),
+    html.Div(
+        id="time-input-wrapper",
+        children=[
+            dbc.InputGroup(
+                [
+                    dbc.InputGroupText("From"),
+                    dbc.Input(
+                        id="start-hour",
+                        type="number",
+                        value=start_hour,
+                        min=0,
+                        max=23,
                     ),
-                ),
-                dbc.Input(
-                    id="log-pid",
-                    type="number",
-                    placeholder="Process ID",
-                    disabled=True,
-                ),
-            ],
-        ),
-    ]
+                    dbc.InputGroupText(":"),
+                    dbc.Input(
+                        id="start-minute",
+                        type="number",
+                        value=start_minute,
+                        min=0,
+                        max=59,
+                    ),
+                    dbc.InputGroupText("To"),
+                    dbc.Input(
+                        id="end-hour", type="number", value=end_hour, min=0, max=23
+                    ),
+                    dbc.InputGroupText(":"),
+                    dbc.Input(
+                        id="end-minute",
+                        type="number",
+                        value=end_minute,
+                        min=0,
+                        max=59,
+                    ),
+                ],
+                id="time-input-group",
+            ),
+            html.Small(id="time-error", className="text-danger"),
+        ],
+    ),
+]
 
-    # App Layout
-    return [
-        header,
-        dbc.Container(
-            [
-                dbc.Row(
-                    [dbc.Col(date_selector, width=6), dbc.Col(time_selector, width=6)],
-                    className="mb-4",
+log_levels = [
+    html.Label("Log Levels"),
+    dcc.Dropdown(
+        id="log-levels",
+        options=[
+            {"label": "Debug", "value": "DEBUG"},
+            {"label": "Info", "value": "INFO"},
+            {"label": "Warning", "value": "WARNING"},
+            {"label": "Error", "value": "ERROR"},
+            {"label": "Critical", "value": "CRITICAL"},
+        ],
+        value=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        multi=True,
+    ),
+]
+
+available_tags = [tag for tags in log_categories.values() for tag in tags]
+tag_options = [
+    {"label": tag.replace("_", " ").title(), "value": tag} for tag in available_tags
+]
+tag_filter = [
+    html.Label("Tag"),
+    dcc.Dropdown(
+        id="log-tags",
+        options=tag_options,
+        value=available_tags,
+        multi=True,
+    ),
+]
+
+pid_selector = [
+    html.Label("PID"),
+    dbc.InputGroup(
+        [
+            dbc.InputGroupText(
+                dbc.Checklist(
+                    id="pid-radio",
+                    options=[{"label": "Select by PID", "value": "on"}],
+                    value=[],
+                    switch=True,
                 ),
-                dbc.Row(
-                    [
-                        dbc.Col(log_levels, width=4),
-                        dbc.Col(tag_filter, width=4),
-                        dbc.Col(pid_selector, width=4),
-                    ],
-                    className="mb-4",
-                ),
-                html.Div(
-                    id="log-output",
-                    children="Logs will appear here...",
-                    className="border p-3 bg-light rounded",
-                    style={"maxHeight": "70vh", "overflowY": "auto"},
-                ),
-            ],
-            className="my-4",
-        ),
-    ]
+            ),
+            dbc.Input(
+                id="log-pid",
+                type="number",
+                placeholder="Process ID",
+                disabled=True,
+            ),
+        ],
+    ),
+]
+
+page_layout = [
+    header,
+    dbc.Container(
+        [
+            dbc.Row(
+                [dbc.Col(date_selector, width=6), dbc.Col(time_selector, width=6)],
+                className="mb-4",
+            ),
+            dbc.Row(
+                [
+                    dbc.Col(log_levels, width=4),
+                    dbc.Col(tag_filter, width=4),
+                    dbc.Col(pid_selector, width=4),
+                ],
+                className="mb-4",
+            ),
+            html.Div(
+                id="log-output",
+                children="Logs will appear here...",
+                className="border p-3 bg-light rounded",
+                style={"maxHeight": "70vh", "overflowY": "auto"},
+            ),
+        ],
+        className="my-4",
+    ),
+]
+
+layout = page_container_column_layout(page_layout)
 
 
 @callback(

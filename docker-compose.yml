@@ -52,6 +52,25 @@ services:
     volumes:
       - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
 
+  tileserver:
+    image: ghcr.io/developmentseed/titiler:latest
+    container_name: cosmopolitan-tileserver
+    platform: linux/amd64
+    ports:
+      - "8001:80"
+    volumes:
+      - "./cosmopolitan_app/work_dir:/data:ro"
+    environment:
+      CPL_TMPDIR: /tmp
+      GDAL_CACHEMAX: 75%
+      GDAL_INGESTED_BYTES_AT_OPEN: 32768
+      GDAL_DISABLE_READDIR_ON_OPEN: EMPTY_DIR
+      GDAL_HTTP_MERGE_CONSECUTIVE_RANGES: YES
+      GDAL_HTTP_MULTIPLEX: YES
+      GDAL_HTTP_VERSION: 2
+      VSI_CACHE: TRUE
+      VSI_CACHE_SIZE: 5000000
+
   minio:
     image: minio/minio:latest
     container_name: minio

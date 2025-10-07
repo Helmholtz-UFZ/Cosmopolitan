@@ -10,7 +10,7 @@ from dash import Input, Output, State, callback, dash_table, dcc, html
 from pyproj import Transformer
 
 from cosmopolitan_app.job import draw_preview
-from cosmopolitan_app.layouts import create_header
+from cosmopolitan_app.layouts import create_header, page_container_column_layout
 from cosmopolitan_app.postgres_manager import PostgresManager
 from cosmopolitan_app.timeio_info import type_id_dict
 
@@ -265,62 +265,64 @@ preview_card = dbc.Card(
     className="mb-3",
 )
 
-layout = [
-    create_header(
-        "Measurements",
-        "View and analyze measurement data",
-        bg_color="bg-info",
-    ),
-    dbc.Row(
-        [
-            dbc.Col(
-                [
-                    filter_controls,
-                ],
-                className="m-3",
-            ),
-        ]
-    ),
-    dbc.Row(
-        [
-            dbc.Col(
-                [
-                    preview_card,
-                ],
-                className="m-3",
-            ),
-        ]
-    ),
-    dbc.Row(
-        [
-            dbc.Col(
-                [
-                    stats_card,
-                ],
-                className="mx-3",
-            ),
-        ]
-    ),
-    dbc.Row(
-        [
-            dbc.Col(
-                [
-                    dbc.Spinner(
-                        [
-                            measurement_table,
-                        ],
-                        color="primary",
-                    ),
-                ],
-                className="m-3",
-            ),
-        ]
-    ),
-    # Hidden div to store the current data for export
-    html.Div(id="current-data-store", style={"display": "none"}),
-    # Download component for CSV export
-    dcc.Download(id="download-csv"),
-]
+layout = page_container_column_layout(
+    [
+        create_header(
+            "Measurements",
+            "View and analyze measurement data",
+            bg_color="bg-info",
+        ),
+        dbc.Row(
+            [
+                dbc.Col(
+                    [
+                        filter_controls,
+                    ],
+                    className="m-3",
+                ),
+            ]
+        ),
+        dbc.Row(
+            [
+                dbc.Col(
+                    [
+                        preview_card,
+                    ],
+                    className="m-3",
+                ),
+            ]
+        ),
+        dbc.Row(
+            [
+                dbc.Col(
+                    [
+                        stats_card,
+                    ],
+                    className="mx-3",
+                ),
+            ]
+        ),
+        dbc.Row(
+            [
+                dbc.Col(
+                    [
+                        dbc.Spinner(
+                            [
+                                measurement_table,
+                            ],
+                            color="primary",
+                        ),
+                    ],
+                    className="m-3",
+                ),
+            ]
+        ),
+        # Hidden div to store the current data for export
+        html.Div(id="current-data-store", style={"display": "none"}),
+        # Download component for CSV export
+        dcc.Download(id="download-csv"),
+    ]
+)
 
 
 def create_coordinate_transformer(source_proj, target_proj="EPSG:4326"):
