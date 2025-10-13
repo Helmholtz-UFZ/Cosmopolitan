@@ -3,6 +3,7 @@
 import logging
 import time
 from logging.config import dictConfig
+from unittest.mock import patch
 
 import pytest
 from selenium.common.exceptions import (
@@ -118,10 +119,16 @@ def save_snapshot(dash_duo):
     dash_duo.driver.save_screenshot("headless_debug.png")
 
 
-def test_full_procedure(dash_duo, crns_file_path, pred_file_paths, celery_worker):
+@patch("cosmopolitan_app.pages.results.create_tile_layer_component")
+def test_full_procedure(
+    mock_tile_layer, dash_duo, crns_file_path, pred_file_paths, celery_worker
+):
     """Test the full procedure of the Dash app."""
-    # Ensure Celery worker is running before starting tests
+    # Mock tile layer creation to avoid tile server dependency in tests Return None so
+    # only the legend is rendered, preventing JavaScript tile fetch errors
+    mock_tile_layer.return_value = None
 
+    # Ensure Celery worker is running before starting tests
     dictConfig(get_logger_config_web(True))
     if celery_worker.poll() is not None:
         logging.error("Celery worker process terminated unexpectedly")

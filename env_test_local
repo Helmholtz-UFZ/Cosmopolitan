@@ -10,6 +10,9 @@ WEB_WORK_DIR="./cosmopolitan_app/work_dir"
 FLASK_PORT=8080
 WEB_OUTSIDE_URL="https://cosmopolitan.web-intern-stage.app.ufz.de"
 
+### Tile Server ###
+TILESERVER_URL="http://127.0.0.1:8001"
+
 ### Email ###
 EMAIL_SERVER="localhost"
 EMAIL_PORT="1025"

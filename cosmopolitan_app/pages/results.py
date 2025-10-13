@@ -1,4 +1,4 @@
-"""New interactive results page with TiTiler-based soil moisture maps."""
+"""Interactive results page with TiTiler-based soil moisture maps."""
 
 import json
 import logging
@@ -10,10 +10,15 @@ import dash
 import dash_bootstrap_components as dbc
 import dash_leaflet as dl
 import matplotlib.pyplot as plt
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
 from dash import Input, Output, State, callback, dcc, html
 from dash_extensions.javascript import Namespace
+from plotly.subplots import make_subplots
 from pyproj import Transformer
 from soil_moisture_prediction.plot_functions import (
+    CONSTANT_TIME_STEP,
     SCALE_FILE_NAME,
     SOIL_MOISTURE_UNIT,
     SOIL_MOISTURE_VMAX,
@@ -25,12 +30,18 @@ from cosmopolitan_app.constants import (
     LOADING_OVERLAY_ID,
     RESULT_CONTAINER_ID,
     RESULTS_COLOR_BAR_INFO_ID,
+    RESULTS_CORRELATION_FIGURE_ID,
+    RESULTS_CORRELATION_GRAPH_ID,
     RESULTS_CURRENT_DATE_DISPLAY_ID,
     RESULTS_CURRENT_MAP_TYPE_BOX_ID,
-    RESULTS_DATE_PAGINATION_ID,
+    RESULTS_DATE_PAGINATION_MAP_ID,
+    RESULTS_DATE_PAGINATION_STATS_ID,
     RESULTS_DATE_SELECTOR_ID,
     RESULTS_DUMMY_ID,
     RESULTS_HEADER_ID,
+    RESULTS_IMPORTANCE_ALL_ID,
+    RESULTS_IMPORTANCE_GRAPH_ID,
+    RESULTS_IMPORTANCE_SELECTED_ID,
     RESULTS_JOB_ID_STORE,
     RESULTS_MAIN_CONTENT_ID,
     RESULTS_MAP_TYPE_SELECTOR_ID,
@@ -40,6 +51,9 @@ from cosmopolitan_app.constants import (
     RESULTS_PREVIOUS_MAP_TYPE_BOX_ID,
     RESULTS_PREVIOUS_MAP_TYPE_STORE_ID,
     RESULTS_SOIL_MOISTURE_MAP_ID,
+    RESULTS_STATS_CONTAINER_ID,
+    RESULTS_STATS_DATA_STORE_ID,
+    RESULTS_STATS_VIEW_SELECTOR_ID,
     RESULTS_SWITCH_MAP_BUTTON_ID,
     RESULTS_TABS_ID,
     URL_ID,
@@ -59,6 +73,48 @@ osm_layer = dl.TileLayer(
     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     attribution="© OpenStreetMap contributors",
 )
+
+
+def create_date_selector(available_dates, type):
+    """Create date selector with pagination."""
+    if not available_dates:
+        return html.Div("No available dates", className="mb-3")
+
+    pagination_id = (
+        RESULTS_DATE_PAGINATION_MAP_ID
+        if type == "map"
+        else RESULTS_DATE_PAGINATION_STATS_ID
+    )
+
+    date_selector = html.Div(
+        [
+            html.Label(
+                "Select Date:",
+                style={"fontWeight": "bold", "marginBottom": "5px"},
+            ),
+            html.Div(
+                [
+                    html.Strong("Current Date: "),
+                    html.Span(
+                        available_dates[0],
+                        id=RESULTS_CURRENT_DATE_DISPLAY_ID,
+                    ),
+                ],
+                className="mb-2",
+            ),
+            dbc.Pagination(
+                id=pagination_id,
+                max_value=len(available_dates),
+                first_last=True,
+                previous_next=True,
+                fully_expanded=False,
+                active_page=1,
+            ),
+        ],
+        className="mb-3",
+    )
+
+    return date_selector
 
 
 def get_spectral_colorscale(n_colors=10):
@@ -109,12 +165,12 @@ def get_available_map_types(job_id):
     job_work_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=job_id)
     map_types = [
         {
-            "value": "prediction-geotiff",
+            "value": "prediction",
             "label": "Soil Moisture",
             "time_dependent": True,
         },
         {
-            "value": "prediction_distance-geotiff",
+            "value": "prediction_distance",
             "label": "Prediction Distance",
             "time_dependent": True,
         },
@@ -122,22 +178,23 @@ def get_available_map_types(job_id):
 
     for file in os.listdir(job_work_dir):
         if file.startswith("predictor_") and file.endswith(".tif"):
-            predictor_name = file.replace("predictor_", "").replace(".tif", "")
+            predictor_name = file.removeprefix("predictor_").removesuffix(".tif")
             time_step = predictor_name.split("_")[-1]
             predictor_name = "_".join(predictor_name.split("_")[:-1])
             display_name = predictor_name.replace("_", " ").replace("-", " ").title()
-            if time_step == "constant":
+            if time_step == CONSTANT_TIME_STEP:
                 time_dependent = False
             else:
                 time_dependent = True
 
-            map_types.append(
-                {
-                    "value": f"{predictor_name}-geotiff",
-                    "label": display_name,
-                    "time_dependent": time_dependent,
-                }
-            )
+            map_info = {
+                "value": predictor_name,
+                "label": display_name,
+                "time_dependent": time_dependent,
+            }
+
+            if map_info not in map_types:
+                map_types.append(map_info)
 
     return map_types
 
@@ -191,13 +248,13 @@ def get_map_center_and_zoom(job):
     return [center_lat, center_lon], zoom
 
 
-def create_controls(available_dates, available_map_types):
+def create_map_controls(available_dates, available_map_types):
     """Create controls for selecting map type and date."""
     map_type_options = [
         {"label": map_type["label"], "value": map_type["value"]}
         for map_type in available_map_types
     ]
-    init_map_type = "prediction-geotiff"
+    init_map_type = "prediction"
 
     # Map type selector dropdown
     map_type_selector = html.Div(
@@ -217,33 +274,7 @@ def create_controls(available_dates, available_map_types):
     )
 
     # Date selector with pagination
-    date_selector = html.Div(
-        [
-            html.Label(
-                "Select Date:",
-                style={"fontWeight": "bold", "marginBottom": "5px"},
-            ),
-            html.Div(
-                [
-                    html.Strong("Current Date: "),
-                    html.Span(
-                        available_dates[0],
-                        id=RESULTS_CURRENT_DATE_DISPLAY_ID,
-                    ),
-                ],
-                className="mb-2",
-            ),
-            dbc.Pagination(
-                id=RESULTS_DATE_PAGINATION_ID,
-                max_value=len(available_dates),
-                first_last=True,
-                previous_next=True,
-                fully_expanded=False,
-                active_page=1,
-            ),
-        ],
-        className="mb-3",
-    )
+    date_selector = create_date_selector(available_dates, "map")
 
     # Measurements overlay switch
     measurements_switch = html.Div(
@@ -346,14 +377,50 @@ def create_controls(available_dates, available_map_types):
         labelClassName="mx-2 mt-2 bg-white border",
         activeLabelClassName="border-white",
     )
+    return map_controls
+
+
+def create_stats_controls(available_dates):
+    """Create stats controls with view selector."""
+    date_selector = create_date_selector(available_dates, "stats")
+
+    # View selector radio buttons
+    view_selector = html.Div(
+        [
+            html.Label(
+                "Select View:",
+                style={"fontWeight": "bold", "marginBottom": "5px"},
+            ),
+            dbc.RadioItems(
+                id=RESULTS_STATS_VIEW_SELECTOR_ID,
+                className="btn-group",
+                inputClassName="btn-check",
+                labelClassName="btn btn-outline-primary",
+                labelCheckedClassName="active",
+                options=[
+                    {"label": "Correlation", "value": "correlation"},
+                    {"label": "Importance", "value": "importance"},
+                ],
+                value="correlation",
+            ),
+        ],
+        className="mb-3",
+    )
 
     plot_controls = dbc.Tab(
-        ["Pass"],
+        [view_selector, date_selector],
         label="Stats",
         className="m-3",
         labelClassName="mx-2 mt-2 bg-white border",
         activeLabelClassName="border-white",
     )
+    return plot_controls
+
+
+def create_controls(available_dates, available_map_types):
+    """Create map and stats controls in tabs."""
+    map_controls = create_map_controls(available_dates, available_map_types)
+    plot_controls = create_stats_controls(available_dates)
 
     back_to_submission = dbc.Tab(
         ["Back to submission page"],
@@ -405,43 +472,171 @@ def load_color_bar_info(job_id):
         return json.load(f)
 
 
-def create_tile_layer(job_id, map_type, date, color_bar_info, opacity=0.9):
-    """Create TileLayer for GeoTIFF files using TiTiler."""
-    # Remove -geotiff suffix for file naming
-    base_map_type = map_type.replace("-geotiff", "")
+def load_stats_data(job_id):
+    """Load statistics data from CSV files."""
+    job_work_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=job_id)
 
+    # Load correlation matrix
+    corr_file = os.path.join(job_work_dir, "correlation_matrix.csv")
+    corr_df = pd.read_csv(corr_file)
+
+    # Load predictor importance
+    importance_file = os.path.join(job_work_dir, "predictor_importance.csv")
+    timeseries_df = pd.read_csv(importance_file)
+
+    return {
+        "correlation": corr_df.to_dict("records"),
+        "timeseries": timeseries_df.to_dict("records"),
+    }
+
+
+def create_correlation_heatmap(corr_data, timestep):
+    """Create correlation matrix heatmap for a specific timestep."""
+    corr_df = pd.DataFrame(corr_data)
+
+    # Filter by timestep
+    # if dataframe contains a CONSTANT_TIME_STEP column, use that for filtering
+    if any(corr_df["time_step"] == CONSTANT_TIME_STEP):
+        timestep_df = corr_df[corr_df["time_step"] == CONSTANT_TIME_STEP]
+    else:
+        timestep_df = corr_df[corr_df["time_step"] == int(timestep)]
+
+    # Set feature as index and drop time_step column
+    timestep_df = timestep_df.drop(columns=["time_step"]).set_index("feature")
+
+    fig = px.imshow(
+        timestep_df,
+        labels={"x": "", "y": "", "color": "Correlation coefficient"},
+        color_continuous_scale="RdBu_r",
+        aspect="auto",
+        text_auto=".2f",
+        range_color=[-1, 1],
+    )
+    fig.update_layout(title=f"Correlation Matrix - {timestep}")
+
+    return fig
+
+
+def create_importance_by_timestep(timeseries_data, timestep):
+    """Create bar chart for single timestep importance."""
+    timeseries_df = pd.DataFrame(timeseries_data)
+    timestep_df = timeseries_df[timeseries_df["time_step"] == int(timestep)][
+        ["predictor", "importance", "5th_percentile", "95th_percentile"]
+    ]
+
+    fig = go.Figure(
+        go.Bar(
+            x=timestep_df["predictor"],
+            y=timestep_df["importance"],
+            marker_color="steelblue",
+            error_y={
+                "type": "data",
+                "symmetric": False,
+                "array": timestep_df["95th_percentile"] - timestep_df["importance"],
+                "arrayminus": timestep_df["importance"] - timestep_df["5th_percentile"],
+            },
+        )
+    )
+    fig.update_layout(
+        title=f"Feature Importance - {timestep}",
+        xaxis_title="Predictors",
+        yaxis_title="Importance",
+        yaxis_range=[0, 1],
+        height=IMPORTANCE_SINGLE_DAY_HEIGHT,
+    )
+
+    return fig
+
+
+def create_importance_all_timesteps(timeseries_data):
+    """Create small multiples plot for all timesteps."""
+    timeseries_df = pd.DataFrame(timeseries_data)
+    predictors = timeseries_df["predictor"].unique()
+
+    fig = make_subplots(
+        rows=len(predictors),
+        cols=1,
+        subplot_titles=predictors,
+        vertical_spacing=0.05,
+    )
+
+    for i, predictor in enumerate(predictors, 1):
+        df_pred = timeseries_df[timeseries_df["predictor"] == predictor]
+
+        # Add line connecting the bars
+        fig.add_trace(
+            go.Scatter(
+                x=df_pred["time_step"].astype(str),
+                y=df_pred["importance"],
+                mode="lines",
+                line={"color": "lightgrey", "width": 2},
+                showlegend=False,
+            ),
+            row=i,
+            col=1,
+        )
+
+        # Add bars with error bars
+        fig.add_trace(
+            go.Bar(
+                x=df_pred["time_step"].astype(str),
+                y=df_pred["importance"],
+                marker_color="steelblue",
+                showlegend=False,
+                error_y={
+                    "type": "data",
+                    "symmetric": False,
+                    "array": df_pred["95th_percentile"] - df_pred["importance"],
+                    "arrayminus": df_pred["importance"] - df_pred["5th_percentile"],
+                },
+            ),
+            row=i,
+            col=1,
+        )
+        fig.update_yaxes(title_text="Importance", range=[0, 1], row=i, col=1)
+
+    fig.update_layout(
+        title="Feature Importance Over Time", height=IMPORTANCE_ALL_DAYS_HEIGHT
+    )
+    fig.update_xaxes(title_text="Time Steps", row=len(predictors), col=1)
+
+    return fig
+
+
+def _get_tile_params(job_id, map_type, date, color_bar_info):
+    """Get parameters for tile layer and legend creation.
+
+    Returns:
+        tuple: (tiff_filename, vmin, vmax, unit, colormap, colormap_params, tick_values)
+    """
     map_is_predictor = False
-    if base_map_type == "prediction":
+    if map_type == "prediction":
         tiff_filename = f"prediction_{date}.tif"
-    elif base_map_type == "measurements":
+    elif map_type == "measurements":
         tiff_filename = f"measurements_{date}.tif"
-    elif base_map_type == "prediction_distance":
+    elif map_type == "prediction_distance":
         tiff_filename = f"prediction_distance_{date}.tif"
     else:
         map_is_predictor = True
         job_work_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=job_id)
-        time_dependent_file = f"predictor_{base_map_type}_{date}.tif"
-        time_independent_file = f"predictor_{base_map_type}_constant.tif"
+        time_dependent_file = f"predictor_{map_type}_{date}.tif"
+        time_independent_file = f"predictor_{map_type}_constant.tif"
 
         if date and os.path.exists(os.path.join(job_work_dir, time_dependent_file)):
             tiff_filename = time_dependent_file
         else:
             tiff_filename = time_independent_file
 
-    # TiTiler WebMercatorQuad format with proper URL encoding, maxzoom, and colormap
-    file_path = f"file:///data/{job_id}/{tiff_filename}"
-    encoded_url = urllib.parse.quote(file_path, safe=":/")
-
     tick_values = None
     # Add colormap and rescaling for soil moisture visualization
-    if base_map_type == "prediction":
+    if map_type == "prediction":
         # Use consistent soil moisture scale from soil-moisture-prediction library
         colormap_params = (
             f"&colormap_name=spectral&rescale={SOIL_MOISTURE_VMIN},{SOIL_MOISTURE_VMAX}"
         )
         vmin, vmax, unit = SOIL_MOISTURE_VMIN, SOIL_MOISTURE_VMAX, SOIL_MOISTURE_UNIT
         colormap = spectral_colorscale
-    elif base_map_type == "prediction_distance":
+    elif map_type == "prediction_distance":
         # Use balanced red-white-blue scale for prediction distance
         original_vmin, original_vmax, unit = color_bar_info[
             f"prediction_distance_{date}"
@@ -457,18 +652,50 @@ def create_tile_layer(job_id, map_type, date, color_bar_info, opacity=0.9):
             tick_values = [vmin, -1, 0, 1, vmax]
     elif map_is_predictor:
         # Load predictor scale from metadata file
-        vmin, vmax, unit = color_bar_info[base_map_type]
+        vmin, vmax, unit = color_bar_info[map_type]
         colormap_params = f"&colormap_name=viridis&rescale={vmin},{vmax}"
         colormap = viridis_colorscale
     else:
         raise ValueError(f"Unknown map type for colormap: {map_type}")
 
+    return tiff_filename, vmin, vmax, unit, colormap, colormap_params, tick_values
+
+
+def create_tile_layer_component(job_id, tiff_filename, colormap_params, opacity=0.9):
+    """Create TileLayer component for GeoTIFF using TiTiler.
+
+    This function can be mocked in tests to avoid tile server dependency.
+    """
+    # TiTiler WebMercatorQuad format with proper URL encoding and maxzoom
+    file_path = f"file:///data/{job_id}/{tiff_filename}"
+    encoded_url = urllib.parse.quote(file_path, safe=":/")
+
     tile_url = f"{TILESERVER_URL}/cog/tiles/WebMercatorQuad/{{z}}/{{x}}/{{y}}@1x?url={encoded_url}&maxzoom=15{colormap_params}"  # noqa
     logging.info(f"Using map URL: {tile_url}", extra={"tag": "frontend"})
 
-    tile_layer = dl.TileLayer(id="map-tile-layer", url=tile_url, opacity=opacity)
-    legend_layer = create_colorbar_legend(vmin, vmax, unit, colormap, tick_values)
+    return dl.TileLayer(id="map-tile-layer", url=tile_url, opacity=opacity)
 
+
+def create_legend_layer(vmin, vmax, unit, colormap, tick_values):
+    """Create colorbar legend layer."""
+    return create_colorbar_legend(vmin, vmax, unit, colormap, tick_values)
+
+
+def create_tile_layer(job_id, map_type, date, color_bar_info, opacity=0.9):
+    """Create TileLayer and legend for GeoTIFF files using TiTiler."""
+    tiff_filename, vmin, vmax, unit, colormap, colormap_params, tick_values = (
+        _get_tile_params(job_id, map_type, date, color_bar_info)
+    )
+
+    tile_layer = create_tile_layer_component(
+        job_id, tiff_filename, colormap_params, opacity
+    )
+    legend_layer = create_legend_layer(vmin, vmax, unit, colormap, tick_values)
+
+    # Handle None tile_layer (e.g., when mocked in tests to avoid tile server
+    # dependency)
+    if tile_layer is None:
+        return [legend_layer]
     return [tile_layer, legend_layer]
 
 
@@ -530,6 +757,15 @@ spectral_colorscale = get_spectral_colorscale()
 # assets/geojson_functions.js
 geojson_ns = Namespace("dashExtensions", "default")
 
+# Container CSS classes for tab switching
+CONTAINER_BASE_CLASSES = "col-9 flex-grow-1 pe-0"
+CONTAINER_VISIBLE_CLASSES = f"{CONTAINER_BASE_CLASSES} d-flex"
+CONTAINER_HIDDEN_CLASSES = f"{CONTAINER_BASE_CLASSES} d-none"
+
+# Plot heights for predictor importance
+IMPORTANCE_SINGLE_DAY_HEIGHT = 500
+IMPORTANCE_ALL_DAYS_HEIGHT = 1700
+
 
 @callback(
     Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
@@ -568,6 +804,7 @@ def load_results_content(job_id, header_class_name):
     available_dates = get_available_dates(job_id)
     available_map_types = get_available_map_types(job_id)
     color_bar_info = load_color_bar_info(job_id)
+    stats_data = load_stats_data(job_id)
 
     controls = create_controls(available_dates, available_map_types)
     map_center, map_zoom = get_map_center_and_zoom(job)
@@ -580,20 +817,75 @@ def load_results_content(job_id, header_class_name):
         zoom=map_zoom,
     )
 
+    # Map container (initially visible)
+    map_container = dbc.Col(
+        [
+            leaflet_map,
+            html.Div(id="dynamic-legend"),
+        ],
+        className=CONTAINER_VISIBLE_CLASSES,
+        id=RESULT_CONTAINER_ID,
+    )
+
+    # Create plots
+    correlation_fig = create_correlation_heatmap(
+        stats_data["correlation"], available_dates[0]
+    )
+    importance_all_fig = create_importance_all_timesteps(stats_data["timeseries"])
+    importance_selected_fig = create_importance_by_timestep(
+        stats_data["timeseries"], available_dates[0]
+    )
+
+    # Stats container (initially hidden)
+    stats_container = dbc.Col(
+        [
+            # Correlation graph container (initially visible)
+            html.Div(
+                dcc.Graph(
+                    id=RESULTS_CORRELATION_FIGURE_ID,
+                    figure=correlation_fig,
+                ),
+                id=RESULTS_CORRELATION_GRAPH_ID,
+                className="d-block flex-grow-1",
+            ),
+            # Importance graphs container (initially hidden)
+            html.Div(
+                [
+                    dcc.Graph(
+                        id=RESULTS_IMPORTANCE_SELECTED_ID,
+                        figure=importance_selected_fig,
+                        style={"height": f"{IMPORTANCE_SINGLE_DAY_HEIGHT}px"},
+                    ),
+                    html.Div(
+                        dcc.Graph(
+                            id=RESULTS_IMPORTANCE_ALL_ID,
+                            figure=importance_all_fig,
+                            style={"height": f"{IMPORTANCE_ALL_DAYS_HEIGHT}px"},
+                        ),
+                        className="overflow-auto",
+                        style={
+                            "height": f"calc(100% - {IMPORTANCE_SINGLE_DAY_HEIGHT}px)",
+                            "maxHeight": f"{IMPORTANCE_ALL_DAYS_HEIGHT}px",
+                        },
+                    ),
+                ],
+                id=RESULTS_IMPORTANCE_GRAPH_ID,
+                className="d-none flex-grow-1",
+            ),
+        ],
+        className=CONTAINER_HIDDEN_CLASSES,
+        id=RESULTS_STATS_CONTAINER_ID,
+    )
+
     main_content = [
         dcc.Store(id=RESULTS_DUMMY_ID, data=None),
         dcc.Store(id=RESULTS_MAP_TYPES_ID, data=available_map_types),
         dcc.Store(id=RESULTS_COLOR_BAR_INFO_ID, data=color_bar_info),
+        dcc.Store(id=RESULTS_STATS_DATA_STORE_ID, data=stats_data),
         dbc.Row(
             [
-                dbc.Col(
-                    [
-                        leaflet_map,
-                        html.Div(id="dynamic-legend"),
-                    ],
-                    className="col-9 flex-grow-1 d-flex pe-0",
-                    id=RESULT_CONTAINER_ID,
-                ),
+                map_container,
+                stats_container,
                 dbc.Col(
                     controls,
                     className="col-3 p-0",
@@ -611,7 +903,7 @@ def load_results_content(job_id, header_class_name):
     Output(RESULTS_SOIL_MOISTURE_MAP_ID, "children"),
     Output(RESULTS_CURRENT_DATE_DISPLAY_ID, "children"),
     Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
-    Input(RESULTS_DATE_PAGINATION_ID, "active_page"),
+    Input(RESULTS_DATE_PAGINATION_MAP_ID, "active_page"),
     Input(RESULTS_MAP_TYPE_SELECTOR_ID, "value"),
     Input(RESULTS_MEASUREMENTS_SWITCH_ID, "value"),
     Input(RESULTS_OPACITY_SLIDER_ID, "value"),
@@ -655,12 +947,9 @@ def update_map(
     )
 
     # Create base map layers (returns [tile_layer, colorbar])
-    if map_type.endswith("-geotiff"):
-        new_map_layers = create_tile_layer(
-            job_id, map_type, selected_date, color_bar_info, opacity
-        )
-    else:
-        raise ValueError(f"Unknown map type: {map_type}")
+    new_map_layers = create_tile_layer(
+        job_id, map_type, selected_date, color_bar_info, opacity
+    )
 
     # Add measurements overlay if switch is enabled
     if show_measurements:
@@ -672,7 +961,7 @@ def update_map(
         # This ensures the map's colorbar (from new_map_layers) is kept
         new_map_layers = [new_map_layers[0], measurements_layers[0], new_map_layers[1]]
 
-    return (default_map_layers + new_map_layers, selected_date, False)
+    return default_map_layers + new_map_layers, selected_date, False
 
 
 @callback(
@@ -735,15 +1024,83 @@ def switch_maps(n_clicks, store):
 
 
 @callback(
+    Output(RESULT_CONTAINER_ID, "className"),
+    Output(RESULTS_STATS_CONTAINER_ID, "className"),
     Output(URL_ID, "pathname", allow_duplicate=True),
     Input(RESULTS_TABS_ID, "active_tab"),
     State(RESULTS_JOB_ID_STORE, "data"),
     prevent_initial_call=True,
 )
 def tab_content(active_tab, job_id):
-    """Navigate to submission page when clicking the back tab."""
-    if active_tab != "tab-2":
-        return dash.no_update
-    result_base_path = dash.page_registry["pages.submission"]["path_template"]
-    result_path = result_base_path.replace("<job_id>", job_id)
-    return result_path
+    """Switch between map and stats views, or navigate to submission page."""
+    # tab-0: Maps
+    if active_tab == "tab-0":
+        return (
+            CONTAINER_VISIBLE_CLASSES,  # Show map
+            CONTAINER_HIDDEN_CLASSES,  # Hide stats
+            dash.no_update,
+        )
+    # tab-1: Stats
+    elif active_tab == "tab-1":
+        return (
+            CONTAINER_HIDDEN_CLASSES,  # Hide map
+            CONTAINER_VISIBLE_CLASSES,  # Show stats
+            dash.no_update,
+        )
+    # tab-2: Back to submission
+    elif active_tab == "tab-2":
+        result_base_path = dash.page_registry["pages.submission"]["path_template"]
+        result_path = result_base_path.replace("<job_id>", job_id)
+        return (
+            dash.no_update,
+            dash.no_update,
+            result_path,
+        )
+
+    raise ValueError(f"Unknown active tab: {active_tab}")
+
+
+@callback(
+    Output(RESULTS_CORRELATION_GRAPH_ID, "className"),
+    Output(RESULTS_IMPORTANCE_GRAPH_ID, "className"),
+    Input(RESULTS_STATS_VIEW_SELECTOR_ID, "value"),
+    prevent_initial_call=True,
+)
+def toggle_stats_view(view_type):
+    """Toggle between correlation and importance views."""
+    if view_type == "correlation":
+        return "d-block flex-grow-1", "d-none"
+    elif view_type == "importance":
+        return "d-none", "d-block flex-grow-1"
+    return dash.no_update, dash.no_update
+
+
+@callback(
+    Output(RESULTS_CORRELATION_FIGURE_ID, "figure"),
+    Output(RESULTS_IMPORTANCE_SELECTED_ID, "figure"),
+    Output(RESULTS_CURRENT_DATE_DISPLAY_ID, "children", allow_duplicate=True),
+    Input(RESULTS_DATE_PAGINATION_STATS_ID, "active_page"),
+    State(RESULTS_STATS_DATA_STORE_ID, "data"),
+    State(RESULTS_DATE_SELECTOR_ID, "data"),
+    prevent_initial_call=True,
+)
+def update_stats_plots_by_timestep(page_index, stats_data, available_dates):
+    """Update correlation and importance plots for selected timestep."""
+    if page_index is None or not stats_data:
+        return dash.no_update, dash.no_update, dash.no_update
+
+    # Convert pagination page (1-indexed) to date array index (0-indexed)
+    date_index = page_index - 1
+
+    # Get the actual date string
+    selected_date = available_dates[date_index]
+
+    # Create updated figures
+    correlation_fig = create_correlation_heatmap(
+        stats_data["correlation"], selected_date
+    )
+    importance_fig = create_importance_by_timestep(
+        stats_data["timeseries"], selected_date
+    )
+
+    return correlation_fig, importance_fig, selected_date
