@@ -5,6 +5,9 @@ FLASK_DEBUG=0
 WEB_OUTSIDE_URL="https://cosmopolitan.web-intern-stage.app.ufz.de"
 MAINTAINER_EMAIL="john-eric.anders@ufz.de"
 
+### Tile Server ###
+TILESERVER_URL="http://127.0.0.1:8001"
+
 ### Email ###
 EMAIL_SERVER="smtp.ufz.de"
 EMAIL_PORT="587"

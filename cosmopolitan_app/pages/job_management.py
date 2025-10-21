@@ -10,9 +10,9 @@ from dash import Input, Output, State, callback, dash_table, dcc
 
 from cosmopolitan_app.constants import LOADING_OVERLAY_ID
 from cosmopolitan_app.job import Job
-from cosmopolitan_app.layouts import create_header
+from cosmopolitan_app.layouts import create_header, page_container_column_layout
 from cosmopolitan_app.postgres_manager import PostgresManager
-from cosmopolitan_app.utils import clean_up_jobs
+from cosmopolitan_app.tasks.maintenance_tasks import clean_up_jobs
 
 dash.register_page(__name__)
 
@@ -90,27 +90,29 @@ button_group = [
     ),
 ]
 
-layout = [
-    create_header(
-        "Job Management",
-        "Overview and management of jobs in the Cosmopolitan App",
-        bg_color="bg-info",
-    ),
-    # Needed to get a different set inputs for the loading overlay
-    dcc.Store(id="dummy_store", data=0),
-    dbc.Row(
-        dbc.Col(
-            button_group,
+layout = page_container_column_layout(
+    [
+        create_header(
+            "Job Management",
+            "Overview and management of jobs in the Cosmopolitan App",
+            bg_color="bg-info",
         ),
-        className="m-2",
-    ),
-    dbc.Row(
-        dbc.Col(
-            table,
+        # Needed to get a different set inputs for the loading overlay
+        dcc.Store(id="dummy_store", data=None),
+        dbc.Row(
+            dbc.Col(
+                button_group,
+            ),
+            className="m-2",
         ),
-        className="m-2",
-    ),
-]
+        dbc.Row(
+            dbc.Col(
+                table,
+            ),
+            className="m-2",
+        ),
+    ]
+)
 
 
 @callback(
@@ -145,18 +147,22 @@ def job_management_dashboard(
     delete_clicks, clean_clicks, refresh_clicks, selected_rows, table_data
 ):
     """Manage job actions in the dashboard."""
-    logging.info("Job management dashboard callback triggered.")
+    logging.info(
+        "Job management dashboard callback triggered.", extra={"tag": "frontend"}
+    )
     button_id = dash.callback_context.triggered[0]["prop_id"].split(".")[0]
 
     if button_id == "delete_btn" and selected_rows:
-        logging.info("Deleting selected jobs")
+        logging.info("Deleting selected jobs", extra={"tag": "job_submission"})
         for i in selected_rows:
             job_id = re.findall(r"\[(.*?)\]", table_data[i]["job_id"])[0]
-            logging.debug(f"Deleting job with ID: {job_id}")
+            logging.debug(
+                f"Deleting job with ID: {job_id}", extra={"tag": "job_submission"}
+            )
             job = Job(job_id)
             job.delete()
     elif button_id == "clean_btn":
-        logging.info("Cleaning unsubmitted jobs")
+        logging.info("Cleaning unsubmitted jobs", extra={"tag": "job_submission"})
         clean_up_jobs(days_delete_not_submitted=0)
 
     jobs_dict = PostgresManager.list_jobs()

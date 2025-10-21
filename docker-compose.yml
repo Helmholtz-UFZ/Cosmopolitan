@@ -1,7 +1,7 @@
 services:
-  cosmopolitan:
-    image: cosmopolitan
-    container_name: cosmopolitan
+  webserver:
+    image: cosmopolitan-webserver
+    container_name: cosmopolitan-webserver
     build:
       context: .
       dockerfile: ./docker/dev.Dockerfile
@@ -11,6 +11,25 @@ services:
     user: "${DOCKER_UID}:${DOCKER_GID}"
     ports:
       - "${FLASK_PORT}:${FLASK_PORT}"
+    depends_on:
+      - postgres
+      - minio
+
+  worker:
+    image: cosmopolitan-worker
+    container_name: cosmopolitan-worker
+    build:
+      context: .
+      dockerfile: ./docker/worker.Dockerfile
+    env_file: .env
+    volumes:
+      - "./:/python_docker/cosmopolitan"
+    user: "${DOCKER_UID}:${DOCKER_GID}"
+    depends_on:
+      - postgres
+      - minio
+    # Memory limit for workers (can be adjusted based on requirements)
+    mem_limit: 2g
 
   mailhog:
     image: mailhog/mailhog
@@ -32,6 +51,25 @@ services:
     container_name: postgres
     volumes:
       - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  tileserver:
+    image: ghcr.io/developmentseed/titiler:latest
+    container_name: cosmopolitan-tileserver
+    platform: linux/amd64
+    ports:
+      - "8001:80"
+    volumes:
+      - "./cosmopolitan_app/work_dir:/data:ro"
+    environment:
+      CPL_TMPDIR: /tmp
+      GDAL_CACHEMAX: 75%
+      GDAL_INGESTED_BYTES_AT_OPEN: 32768
+      GDAL_DISABLE_READDIR_ON_OPEN: EMPTY_DIR
+      GDAL_HTTP_MERGE_CONSECUTIVE_RANGES: YES
+      GDAL_HTTP_MULTIPLEX: YES
+      GDAL_HTTP_VERSION: 2
+      VSI_CACHE: TRUE
+      VSI_CACHE_SIZE: 5000000
 
   minio:
     image: minio/minio:latest

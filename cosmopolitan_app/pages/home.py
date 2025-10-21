@@ -4,12 +4,12 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import html
 
-from cosmopolitan_app.layouts import create_header
+from cosmopolitan_app.layouts import create_header, page_container_column_layout
 
 dash.register_page(__name__, path="/")
 
 subtitle = [
-    "To The Cosmopolitan Webservice ",
+    "To The Cosmopolitan Webservice \n some more text",
     html.Br(),
     html.Strong("COS"),
     html.Small("mic ray based soil "),
@@ -31,17 +31,19 @@ header = create_header(
     subtitle,
 )
 
-layout = [
+page_layout = [
     header,
     dbc.Row(
         dbc.Col(
             html.Img(
                 src="/static/start_banner.png",
-                style={"width": "40%"},
+                style={"height": "70vh"},
                 className="rounded mx-auto d-block m-3",
                 alt="Welcome",
             ),
             className="text-center",
-        )
+        ),
     ),
 ]
+
+layout = page_container_column_layout(page_layout)

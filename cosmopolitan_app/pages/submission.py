@@ -15,17 +15,21 @@ from cosmopolitan_app.constants import (
     RESULT_BUTTON_ID,
     SPAWN_BUTTON_ID,
     SUBMISSION_HEADER_ID,
+    SUBMISSION_JOB_ID_STORE,
+    SUBMISSION_MAIN_CONTENT_ID,
     SUBMISSION_STATUS_ID,
     SUBMIT_JOB_ID,
+    URL_ID,
 )
+from cosmopolitan_app.error_handling import InvalidJobID, JobNotFound
 from cosmopolitan_app.form_factory import (
     FormFactory,
     FormTemplateFactory,
     construct_selected_input,
 )
 from cosmopolitan_app.job import Job
-from cosmopolitan_app.layouts import create_header
-from cosmopolitan_app.utils import InvalidJobID, JobNotFound, swap_classes
+from cosmopolitan_app.layouts import create_header, landing_page_layout_column
+from cosmopolitan_app.utils import swap_classes
 
 dash.register_page(
     __name__,
@@ -115,53 +119,35 @@ status_information_template = "Status:\n {status}"
 
 
 def layout(job_id):
-    """Create static layout for the submission page."""
-    header = create_header(
-        "Submission", "Loading ...", bg_color="bg-secondary", id=SUBMISSION_HEADER_ID
+    """Layout for submission page."""
+    return landing_page_layout_column(
+        "Job Submission",
+        SUBMISSION_HEADER_ID,
+        SUBMISSION_JOB_ID_STORE,
+        job_id,
+        SUBMISSION_MAIN_CONTENT_ID,
     )
-
-    return [
-        dcc.Store(id="job-id-store", data=job_id),
-        header,
-        html.Div(
-            dbc.Container(
-                dbc.Row(
-                    dbc.Col(
-                        dbc.Spinner(
-                            size="lg",
-                            color="primary",
-                            type="border",
-                            fullscreen=False,
-                        ),
-                        className="d-flex justify-content-center align-items-center",
-                    ),
-                    style={"height": "100vh"},
-                ),
-                fluid=True,
-                style={"height": "100vh"},
-            ),
-            id="main-content-container",
-        ),
-    ]
 
 
 @callback(
     [
         Output(SUBMISSION_HEADER_ID, "className", allow_duplicate=True),
         Output(f"{SUBMISSION_HEADER_ID}-subtitle", "children"),
-        Output("main-content-container", "children"),
+        Output(SUBMISSION_MAIN_CONTENT_ID, "children"),
     ],
-    [Input("job-id-store", "data")],
+    [Input(SUBMISSION_JOB_ID_STORE, "data")],
     [State(SUBMISSION_HEADER_ID, "className")],
     prevent_initial_call="initial_duplicate",
 )
 def load_submission_content(job_id, header_class_name):
     """Load the main submission content triggered by job-id-store."""
-    logging.info(f"Loading submission content for job {job_id}")
+    logging.info(
+        f"Loading submission content for job {job_id}", extra={"tag": "job_submission"}
+    )
     try:
         job = Job(job_id)
     except (JobNotFound, InvalidJobID):
-        logging.info(f"Job {job_id} not found")
+        logging.info(f"Job {job_id} not found", extra={"tag": "job_submission"})
         error_content = html.Div(
             [
                 html.P(
@@ -172,6 +158,9 @@ def load_submission_content(job_id, header_class_name):
         )
         return (create_header("Error", "Job not found"), error_content)
 
+    if job.prepared_input is False:
+        return (create_header("Error", "Input not prepared"), html.Div())
+
     # Create the header with job information
     header_class_name = swap_classes(job.status_color(), header_class_name)
     header_subtitle = job.job_id
@@ -179,7 +168,9 @@ def load_submission_content(job_id, header_class_name):
     # Generate preview
     preview_path = job.get_preview_path()
     if preview_path is None:
-        logging.info("No preview path found, generating new preview.")
+        logging.info(
+            "No preview path found, generating new preview.", extra={"tag": "frontend"}
+        )
         job.preview_area()
         preview_path = job.get_preview_path()
 
@@ -290,13 +281,13 @@ def load_submission_content(job_id, header_class_name):
     Input(CHANGE_INPUT_BUTTON_ID, "n_clicks"),
     prevent_initial_call=True,
 )
-def show_loading(*n_clicks_list):
+def show_loading(*inputs):
     """Show loading overlay when preparing input."""
-    return any(n_clicks for n_clicks in n_clicks_list if n_clicks)
+    return any(input for input in inputs if input is not None)
 
 
 @callback(
-    Output("url", "pathname", allow_duplicate=True),
+    Output(URL_ID, "pathname", allow_duplicate=True),
     Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
     Output(JOB_LOGS_ID, "children"),
     Output(SUBMISSION_HEADER_ID, "className", allow_duplicate=True),
@@ -314,7 +305,7 @@ def show_loading(*n_clicks_list):
     Input(CHANGE_INPUT_BUTTON_ID, "n_clicks"),
     Input(SPAWN_BUTTON_ID, "n_clicks"),
     Input(RESULT_BUTTON_ID, "n_clicks"),
-    State("url", "pathname"),
+    State(URL_ID, "pathname"),
     State(SUBMISSION_HEADER_ID, "className"),
     State("submission_icon", "className"),
     prevent_initial_call=True,
@@ -331,11 +322,11 @@ def submission_manager(
 ):
     """Reload the logs."""
     job_id = path_name.split("/")[-1]
-    logging.info(f"Submission manager for {job_id}")
+    logging.info(f"Submission manager for {job_id}", extra={"tag": "job_submission"})
     triggered_id = callback_context.triggered[0]["prop_id"].split(".")[0]
     num_outputs = len(dash.callback_context.outputs_list)
     input_base_path = dash.page_registry["pages.input"]["path_template"]
-    logging.debug(f"Triggered id: {triggered_id}")
+    logging.debug(f"Triggered id: {triggered_id}", extra={"tag": "frontend"})
     job = Job(job_id)
     if triggered_id == SUBMIT_JOB_ID:
         job.delete_logs()

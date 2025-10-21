@@ -10,15 +10,18 @@ WEB_WORK_DIR="./cosmopolitan_app/work_dir"
 FLASK_PORT=8080
 WEB_OUTSIDE_URL="https://cosmopolitan.web-intern-stage.app.ufz.de"
 
+### Tile Server ###
+TILESERVER_URL="http://127.0.0.1:8001"
+
 ### Email ###
-EMAIL_SERVER="127.0.0.0"
+EMAIL_SERVER="localhost"
 EMAIL_PORT="1025"
 EMAIL_USERNAME="soncosmo"
 EMAIL_PASSWORD="test"
 EMAIL_SENDER="cosmopolitan_test@ufz.de"
 
 ### Postgres config ###
-POSTGRES_HOST_NAME="127.0.0.0"
+POSTGRES_HOST_NAME="localhost"
 POSTGRES_PORT="5432"
 POSTGRES_DB="somweb_stage"
 POSTGRES_USER="somweb_stage_rw"

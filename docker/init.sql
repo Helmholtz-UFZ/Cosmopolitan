@@ -18,10 +18,12 @@ CREATE TABLE jobs (
     input_data JSONB,
     submitted BOOL,
     email VARCHAR,
+    prepared_input BOOL,
     notified_end BOOL,
     logs VARCHAR,
     status VARCHAR,
-    version VARCHAR
+    version VARCHAR,
+    celery_task_id VARCHAR
 );
 
 -- Create logs table for application logging
@@ -32,11 +34,13 @@ CREATE TABLE IF NOT EXISTS logs (
     pid INTEGER NOT NULL,
     level VARCHAR(10) NOT NULL,
     module VARCHAR(50) NOT NULL,
-    message TEXT NOT NULL
+    message TEXT NOT NULL,
+    tag VARCHAR(20) NOT NULL DEFAULT 'unknown'
 );
 
 --Create indexes to improve query performance
 CREATE INDEX IF NOT EXISTS logs_timestamp_idx ON logs (timestamp);
+CREATE INDEX IF NOT EXISTS logs_tag_idx ON logs (tag);
 
 -- Table to store update times and success status
 DROP TABLE IF EXISTS update_times_crns;
@@ -65,6 +69,91 @@ CREATE TABLE crns_measurements (
 CREATE INDEX IF NOT EXISTS idx_crns_measurements_geom
     ON crns_measurements
     USING GIST (geom);
+
+-- Celery result backend tables
+-- Create the sequence that Celery expects
+DROP SEQUENCE IF EXISTS task_id_sequence;
+CREATE SEQUENCE task_id_sequence;
+
+DROP TABLE IF EXISTS celery_taskmeta;
+CREATE TABLE celery_taskmeta (
+    id INTEGER DEFAULT nextval('task_id_sequence') PRIMARY KEY,
+    task_id VARCHAR(255) UNIQUE NOT NULL,
+    status VARCHAR(50) DEFAULT 'PENDING',
+    result BYTEA,
+    date_done TIMESTAMP,
+    traceback TEXT,
+    name VARCHAR(255),
+    args BYTEA,
+    kwargs BYTEA,
+    worker VARCHAR(255),
+    retries INTEGER DEFAULT 0,
+    queue VARCHAR(255)
+);
+
+-- Create index for faster task lookups
+CREATE INDEX IF NOT EXISTS celery_taskmeta_task_id_idx ON celery_taskmeta (task_id);
+CREATE INDEX IF NOT EXISTS celery_taskmeta_status_idx ON celery_taskmeta (status);
+CREATE INDEX IF NOT EXISTS celery_taskmeta_date_done_idx ON celery_taskmeta (date_done);
+
+-- Celery task sets (for group tasks)
+DROP TABLE IF EXISTS celery_tasksetmeta;
+CREATE TABLE celery_tasksetmeta (
+    id SERIAL PRIMARY KEY,
+    taskset_id VARCHAR(255) UNIQUE NOT NULL,
+    result BYTEA,
+    date_done TIMESTAMP
+);
+
+-- Create index for faster taskset lookups
+CREATE INDEX IF NOT EXISTS celery_tasksetmeta_taskset_id_idx ON celery_tasksetmeta (taskset_id);
+
+-- TimeIO Info table for sensor management
+DROP TABLE IF EXISTS timeio_info;
+CREATE TABLE timeio_info (
+    sensor_id INTEGER PRIMARY KEY,
+    sensor_name VARCHAR(255) NOT NULL,
+    sensor_type VARCHAR(50) NOT NULL,
+    ignored BOOLEAN DEFAULT FALSE,
+    datastreams JSONB NOT NULL,
+    stationary BOOLEAN GENERATED ALWAYS AS (
+        NOT (
+            jsonb_path_exists(datastreams, '$.* ? (@ == "longitude")') AND 
+            jsonb_path_exists(datastreams, '$.* ? (@ == "latitude")')
+        )
+    ) STORED
+);
+
+-- Create indexes for performance
+CREATE INDEX IF NOT EXISTS timeio_info_ignored_idx ON timeio_info (ignored);
+CREATE INDEX IF NOT EXISTS timeio_info_type_idx ON timeio_info (sensor_type);
+CREATE INDEX IF NOT EXISTS timeio_info_stationary_idx ON timeio_info (stationary);
+
+-- Populate with existing sensor data
+INSERT INTO timeio_info (sensor_id, sensor_name, sensor_type, ignored, datastreams) VALUES
+    (44, 'CRNS - Hohes Holz 4m', 'station', FALSE, '{"3180": "Neutron counts"}'),
+    (85, 'CRNS - Hordorf', 'station', FALSE, '{"3762": "Neutron counts"}'),
+    (92, 'CRNS - Cunnersdorf', 'station', FALSE, '{"3716": "Neutron counts"}'),
+    (93, 'CRNS - Grosses Bruch', 'station', FALSE, '{"3808": "Neutron counts"}'),
+    (94, 'CRNS - Harzgerode', 'station', FALSE, '{"3898": "Neutron counts"}'),
+    (95, 'CRNS - Falkenberg', 'station', FALSE, '{"3921": "Neutron counts"}'),
+    (97, 'CRNS - Zugspitze', 'station', FALSE, '{"3831": "Neutron counts"}'),
+    (99, 'CRNS - Zerbst', 'station', FALSE, '{"3739": "Neutron counts"}'),
+    (107, 'CRNS - Svalbard', 'station', FALSE, '{"3785": "Neutron counts"}'),
+    (146, 'CRNS - RR1', 'train', FALSE, '{"4172": "Neutron counts", "4477": "latitude", "4478": "longitude"}'),
+    (147, 'CRNS - RR2', 'train', FALSE, '{"4481": "latitude", "4482": "longitude", "4494": "Neutron counts"}'),
+    (148, 'CRNS - RR3', 'train', FALSE, '{"4508": "latitude", "4509": "longitude", "4521": "Neutron counts"}'),
+    (149, 'CRNS - RR4', 'train', FALSE, '{"4535": "latitude", "4536": "longitude", "4549": "Neutron counts"}'),
+    (162, 'CRNS Colditz', 'station', FALSE, '{"4667": "Neutron counts"}'),
+    (167, 'CRNS Klingenthal', 'station', FALSE, '{"4736": "Neutron counts"}'),
+    (168, 'CRNS Roitzsch', 'station', FALSE, '{"4781": "Neutron counts"}'),
+    (170, 'CRNS Hoyerswerda', 'station', FALSE, '{"4804": "Neutron counts"}'),
+    (171, 'CRNS Nossen', 'station', FALSE, '{"4837": "Neutron counts"}'),
+    (205, 'CRNS Greudnitz', 'station', FALSE, '{"4862": "Neutron counts"}'),
+    (216, 'CRNS - RR5', 'train', FALSE, '{"4897": "latitude", "4898": "longitude", "4918": "Neutron counts"}'),
+    -- Ignored sensors from ignore_things list
+    (145, 'CRNS - Inactive Sensor 145', 'unknown', TRUE, '{}'),
+    (219, 'CRNS - Inactive Sensor 219', 'unknown', TRUE, '{}');
 
 -- SELECT job_id, start_date FROM jobs;
 -- SELECT job_id, status FROM jobs;

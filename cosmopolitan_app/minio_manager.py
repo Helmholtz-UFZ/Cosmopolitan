@@ -30,7 +30,9 @@ def set_alias(dirname: str, reset_alias: bool = False) -> None:
         reset_alias: Set to True to reset the alias
     """
     try:
-        logging.debug(f"Setting MinIO alias {MINIO_ALIAS}.")
+        logging.debug(
+            f"Setting MinIO alias {MINIO_ALIAS}.", extra={"tag": "object_storage"}
+        )
         output = subprocess.run(
             ["mc", "alias", "list", MINIO_ALIAS],
             capture_output=True,
@@ -44,7 +46,10 @@ def set_alias(dirname: str, reset_alias: bool = False) -> None:
             output.returncode != 0
             and f"No such alias `{MINIO_ALIAS}` found" not in output.stderr
         ):
-            logging.error(f"Failed to create MinIO bucket: {output.stderr}")
+            logging.error(
+                f"Failed to create MinIO alias: {output.stderr}",
+                extra={"tag": "object_storage"},
+            )
             raise subprocess.CalledProcessError(
                 output.returncode,
                 output.args,
@@ -53,7 +58,9 @@ def set_alias(dirname: str, reset_alias: bool = False) -> None:
             )
 
         if output.returncode != 0 or reset_alias:
-            logging.debug(f"Creating MinIO alias {MINIO_ALIAS}.")
+            logging.debug(
+                f"Creating MinIO alias {MINIO_ALIAS}.", extra={"tag": "object_storage"}
+            )
             output = subprocess.run(
                 [
                     "mc",
@@ -75,11 +82,13 @@ def set_alias(dirname: str, reset_alias: bool = False) -> None:
         error_msg = f"Failed to check/create MinIO alias: {e}\n{error_msg}"
         error_msg = error_msg.replace(MINIO_SECRET_KEY, "****")
         error_msg = error_msg.replace(MINIO_ACCESS_KEY, "****")
-        logging.error(error_msg)
+        logging.error(error_msg, extra={"tag": "object_storage"})
         # Raise from None to suppress the original exception. Possible key leak to logs.
         raise MinioError(dirname) from None
     except FileNotFoundError as e:
-        logging.error(f"Failed to find mc command: {e}")
+        logging.error(
+            f"Failed to find mc command: {e}", extra={"tag": "object_storage"}
+        )
         raise MinioError(dirname)
 
 
@@ -90,7 +99,9 @@ def create_bucket(reset_alias: bool = False) -> None:
     system administrator and the service should not have the necessary permissions to
     create buckets. Thus this function should fail in production.
     """
-    logging.debug(f"Creating MinIO bucket {MINIO_BUCKET}.")
+    logging.debug(
+        f"Creating MinIO bucket {MINIO_BUCKET}.", extra={"tag": "object_storage"}
+    )
     set_alias(MINIO_BUCKET, reset_alias)
 
     output = subprocess.run(
@@ -100,7 +111,10 @@ def create_bucket(reset_alias: bool = False) -> None:
         check=False,
     )
     if output.returncode == 0:
-        logging.debug(f"MinIO bucket {MINIO_BUCKET} already exists.")
+        logging.debug(
+            f"MinIO bucket {MINIO_BUCKET} already exists.",
+            extra={"tag": "object_storage"},
+        )
         return
 
     output = subprocess.run(
@@ -114,7 +128,10 @@ def create_bucket(reset_alias: bool = False) -> None:
         and "Your previous request to create the named bucket succeeded and you already own it."  # noqa
         not in output.stderr
     ):
-        logging.error(f"Failed to create MinIO bucket: {output.stderr}")
+        logging.error(
+            f"Failed to create MinIO bucket: {output.stderr}",
+            extra={"tag": "object_storage"},
+        )
         raise subprocess.CalledProcessError(
             output.returncode,
             output.args,
@@ -131,7 +148,10 @@ def sync_workdir(dirname: str, reset_alias: bool = False) -> None:
     Args:
         dirname: Name of the directory to sync from MinIO
     """
-    logging.debug(f"Syncing directory {dirname} from MinIO to local work directory.")
+    logging.debug(
+        f"Syncing directory {dirname} from MinIO to local work directory.",
+        extra={"tag": "object_storage"},
+    )
     set_alias(dirname, reset_alias)
 
     local_path = JOB_WORK_DIR_TEMPLATE.format(job_id=dirname)
@@ -147,7 +167,10 @@ def sync_workdir(dirname: str, reset_alias: bool = False) -> None:
         stdout = result.stdout.split("\n")
         num_files = len(stdout) - 2
         last_line = stdout[-2]
-        logging.debug(f"Synced {num_files} files to bucket. {last_line}")
+        logging.debug(
+            f"Synced {num_files} files to bucket. {last_line}",
+            extra={"tag": "object_storage"},
+        )
 
         result = subprocess.run(
             ["mc", "mirror", minio_path, local_path],
@@ -158,14 +181,18 @@ def sync_workdir(dirname: str, reset_alias: bool = False) -> None:
         stdout = result.stdout.split("\n")
         num_files = len(stdout) - 2
         last_line = stdout[-2]
-        logging.debug(f"Synced {num_files} files to local directory. {last_line}")
+        logging.debug(
+            f"Synced {num_files} files to local directory. {last_line}",
+            extra={"tag": "object_storage"},
+        )
     except subprocess.CalledProcessError as e:
         try:
             error_msg = e.stderr.decode()
         except AttributeError:
             error_msg = e.stderr
         logging.error(
-            (f"Failed to sync directory {dirname}: {e}\nError output: {error_msg}")
+            (f"Failed to sync directory {dirname}: {e}\nError output: {error_msg}"),
+            extra={"tag": "object_storage"},
         )
         raise MinioError(dirname)
 
@@ -178,7 +205,10 @@ def delete_from_bucket(dirname: str, reset_alias: bool = False) -> None:
     Args:
         dirname: Name of the directory to delete from MinIO
     """
-    logging.debug(f"Deleting directory {dirname} from MinIO bucket.")
+    logging.debug(
+        f"Deleting directory {dirname} from MinIO bucket.",
+        extra={"tag": "object_storage"},
+    )
     set_alias(dirname, reset_alias)
 
     minio_path = f"{MINIO_ALIAS}/{MINIO_BUCKET}/{dirname}"
@@ -192,14 +222,17 @@ def delete_from_bucket(dirname: str, reset_alias: bool = False) -> None:
         )
         stdout = result.stdout.split("\n")
         num_files = len(stdout) - 1
-        logging.debug(f"Deleted {num_files} files from bucket.")
+        logging.debug(
+            f"Deleted {num_files} files from bucket.", extra={"tag": "object_storage"}
+        )
     except subprocess.CalledProcessError as e:
         try:
             error_msg = e.stderr.decode()
         except AttributeError:
             error_msg = e.stderr
         logging.error(
-            (f"Failed to sync directory {dirname}: {e}\nError output: {error_msg}")
+            (f"Failed to sync directory {dirname}: {e}\nError output: {error_msg}"),
+            extra={"tag": "object_storage"},
         )
         raise MinioError(dirname)
 

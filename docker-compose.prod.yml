@@ -1,0 +1,29 @@
+services:
+  webserver:
+    image: cosmopolitan-webserver
+    container_name: cosmopolitan-webserver
+    build:
+      context: .
+      dockerfile: ./docker/prod.Dockerfile
+    env_file:
+      - .env.prod
+    ports:
+      - "${FLASK_PORT}:${FLASK_PORT}"
+    volumes:
+      - "${WEB_WORK_DIR}:/python_docker/cosmopolitan/work_dir"
+
+  worker:
+    image: cosmopolitan-worker
+    container_name: cosmopolitan-worker
+    build:
+      context: .
+      dockerfile: ./docker/worker.Dockerfile
+    env_file:
+      - env_prod
+    volumes:
+      - "${WEB_WORK_DIR}:/python_docker/cosmopolitan/work_dir"
+# Environment variables managed by system administration
+# EMAIL_PASSWORD
+# POSTGRES_PASSWORD
+# OBJECT_STORAGE_REMOTE_NAME
+# OBJECT_STORAGE_SECRET_KEY

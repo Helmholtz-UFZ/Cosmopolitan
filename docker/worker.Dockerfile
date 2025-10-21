@@ -6,8 +6,8 @@ ENV PATH=$PATH:/home/appuser/rclone-binaries/
 
 # Create non-root user early
 RUN useradd -m -u 1000 appuser
-# Install system dependencies
 
+# Install system dependencies
 RUN apt-get update && \
     apt-get -y upgrade && \
     apt-get -y install --no-install-recommends \
@@ -53,10 +53,20 @@ RUN poetry config virtualenvs.create false && \
 # Switch to non-root user
 USER appuser
 
+# Setup rclone config
 RUN python3 /python_docker/cosmopolitan/cosmopolitan_app/object_storage_manager.py setup_remote
 
-CMD if [ "$GUNICORN" = 1 ] ; then \
-        gunicorn -w 4 -b 0.0.0.0:$FLASK_PORT cosmopolitan_app.app:server; \
+# Worker-specific command with conditional debug mode
+CMD if [ "$FLASK_DEBUG" = "1" ] ; then \
+        echo "Starting Celery worker in DEBUG mode with auto-reload..."; \
+        python3 /python_docker/cosmopolitan/dev_worker.py; \
     else \
-        python3 /python_docker/cosmopolitan/cosmopolitan_app/app.py; \
+        echo "Starting Celery worker in PRODUCTION mode..."; \
+        celery -A cosmopolitan_app.background_job_manager.celery worker \
+            --loglevel=info \
+            --concurrency=4 \
+            --queues=default,computation,maintenance \
+            --hostname=worker@%h \
+            --without-gossip \
+            --without-mingle; \
     fi

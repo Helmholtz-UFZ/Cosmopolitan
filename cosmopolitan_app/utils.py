@@ -3,18 +3,13 @@
 import logging
 import os
 import re
-import shutil
 import smtplib
-import traceback
 import zipfile
-from datetime import date, datetime, timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from io import BytesIO
 
 from flask import request
-from sqlalchemy.exc import OperationalError
-from werkzeug.exceptions import NotFound
 
 from cosmopolitan_app.config import (
     EMAIL_PASSWORD,
@@ -22,20 +17,8 @@ from cosmopolitan_app.config import (
     EMAIL_SENDER,
     EMAIL_SERVER,
     EMAIL_USERNAME,
-    MAINTAINER_EMAIL,
-    WEB_WORK_DIR,
+    WEB_OUTSIDE_URL,
 )
-from cosmopolitan_app.constants import (
-    DAYS_DELETE_NOT_SUMBITTED,
-    DAYS_DELETE_SUMBITTED,
-    LOG_RETENTION_DAYS,
-)
-from cosmopolitan_app.object_storage_manager import (
-    ObjectStorageError,
-    delete_directory_from_storage,
-)
-from cosmopolitan_app.postgres_manager import JobNotFound, PostgresManager
-from cosmopolitan_app.timeio_manager import update_crns_measurments
 
 submission_url = "{external_url}/submission/{job_id}"
 
@@ -113,201 +96,12 @@ def zip_directory(directory_path):
     return zip_buffer
 
 
-def lock_task(task):
-    """Decorate a background tasks to lock the function.
-
-    Uses the function name as lock name, so only one function of the same name can run
-    at a time.
-    """
-
-    def lock_function(*args, **kwargs):
-        logging.debug(f"Lock function {task.__name__}.")
-        if PostgresManager.get_lock(task.__name__):
-            logging.debug(f"Lock acquired for {task.__name__}.")
-            try:
-                task(*args, **kwargs)
-            finally:
-                PostgresManager.release_lock(task.__name__)
-                logging.debug(f"Lock released for {task.__name__}.")
-
-    return lock_function
-
-
-@lock_task
-def clean_up():
-    """Delete jobs older than a day and older than two months and their directories."""
-    logging.info("Start cleaning up.")
-    clean_up_jobs()
-
-    log_cutoff = datetime.now() - timedelta(days=LOG_RETENTION_DAYS)
-    logging.info(f"Cleaning up logs older than {log_cutoff}")
-    PostgresManager.delete_logs_older_than(log_cutoff)
-
-
-@lock_task
-def update_db():
-    """Update the database with CRNS measurements."""
-    logging.info("Start updating database.")
-    try:
-        update_crns_measurments()
-    except Exception as error:  # noqa
-        email_subject = f"Error updating database: {error}"
-        email_body = f"""
-        Traceback info: {traceback.format_exc()}\n\n
-        """
-        send_mail(MAINTAINER_EMAIL, email_subject, email_body)
-        logging.error(email_subject)
-        logging.error(email_body)
-
-
-def clean_up_jobs(
-    days_delete_not_submitted=DAYS_DELETE_NOT_SUMBITTED,
-    days_delete_submitted=DAYS_DELETE_SUMBITTED,
-):
-    """Delete jobs depending on their status and age."""
-    logging.info("Start cleaning up jobs.")
-    kept_jobs = []
-
-    # Define the time thresholds
-    job_end_of_life_not_submitted = date.today() - timedelta(
-        days=days_delete_not_submitted
-    )
-    job_end_of_life_submitted = date.today() - timedelta(days=days_delete_submitted)
-
-    for job_id, job_info in PostgresManager.list_jobs().items():
-        submitted = job_info["submitted"]
-        start_date = job_info["start_date"]
-        logging.debug(f"Check job {job_id}.")
-        if not submitted and start_date <= job_end_of_life_not_submitted:
-            logging.debug(
-                f"Job was not submit and is older than {days_delete_not_submitted} days."  # noqa
-            )
-            PostgresManager.delete_job(job_id)
-        elif start_date <= job_end_of_life_submitted:
-            logging.debug(f"Job older than {days_delete_submitted} days.")
-            PostgresManager.delete_job(job_id)
-        else:
-            logging.debug("Job will be kept.")
-            kept_jobs.append(job_id)
-
-    # Delete directorys locally
-    logging.debug("Clean up directorys locally.")
-    for dir_name in os.listdir(WEB_WORK_DIR):
-        dir_path = os.path.join(WEB_WORK_DIR, dir_name)
-        if os.path.isdir(dir_path) and dir_name not in kept_jobs:
-            shutil.rmtree(dir_path)
-            delete_directory_from_storage(dir_name)
-
-
-def error_response_args(e):
-    """Serve required arguments for error handling for both flask and dash."""
-    if isinstance(e, NotFinishedException):
-        return (
-            {
-                "error_page": "html/errors/job_not_finished_exception.html",
-                "job_id": e.job_id,
-            },
-            400,
-            False,
-        )
-
-    if isinstance(e, NotSubmittedException):
-        return (
-            {
-                "error_page": "html/errors/job_not_submitted_exception.html",
-                "job_id": e.job_id,
-            },
-            400,
-            False,
-        )
-
-    if isinstance(e, SubmittedException):
-        return (
-            {
-                "error_page": "html/errors/job_submitted_exception.html",
-                "job_id": e.job_id,
-            },
-            400,
-            False,
-        )
-
-    if isinstance(e, JobNotFound):
-        return (
-            {
-                "error_page": "html/errors/job_not_found_error.html",
-                "job_id": e.job_id,
-            },
-            400,
-            False,
-        )
-
-    if isinstance(e, InvalidJobID):
-        return (
-            {
-                "error_page": "html/errors/job_not_found_error.html",
-                "job_id": e.job_id,
-            },
-            400,
-            False,
-        )
-
-    if isinstance(e, OperationalError):
-        return (
-            {
-                "error_page": "html/errors/db_no_connection_error.html",
-            },
-            500,
-            True,
-        )
-
-    if isinstance(e, ObjectStorageError):
-        return (
-            {
-                "error_page": "html/errors/db_no_connection_error.html",
-            },
-            500,
-            True,
-        )
-    if isinstance(e, NotFound):
-        return (
-            {
-                "error_page": "html/errors/file_not_found.html",
-            },
-            404,
-            False,
-        )
-
-    return (
-        {
-            "error_page": "html/errors/internal_error.html",
-            "job_id": "None",
-        },
-        500,
-        True,
-    )
-
-
-def log_error():
-    """
-    Log error with traceback.
-
-    In production this will trigger an email, see logging.py.
-    """
-    route = request.url_rule
-    route_function = request.endpoint
-
-    error = traceback.format_exc()
-    content = (
-        f"Unexpected error in {route} using {route_function}:\n"
-        f"{error}\n"
-        f"PID={os.getpid()}\n"
-    )
-    logging.error(content)
-
-
 def send_mail(recipient, subject, content):
     """Send an email using the provided details."""
-    logging.debug(f"Send mail to {recipient} with subject {subject}.")
+    logging.debug(
+        f"Send mail to {recipient} with subject {subject}.",
+        extra={"tag": "email_service"},
+    )
     msg = MIMEMultipart()
     msg["From"] = EMAIL_SENDER
     msg["To"] = recipient
@@ -316,7 +110,10 @@ def send_mail(recipient, subject, content):
     body = content
     msg.attach(MIMEText(body, "plain"))
 
-    logging.debug(f"Connect to email server {EMAIL_SERVER}:{EMAIL_PORT}.")
+    logging.debug(
+        f"Connect to email server {EMAIL_SERVER}:{EMAIL_PORT}.",
+        extra={"tag": "email_service"},
+    )
     server = smtplib.SMTP(EMAIL_SERVER, EMAIL_PORT)
     if EMAIL_PASSWORD != "test":
         server.starttls()
@@ -329,8 +126,17 @@ def send_finished_mail(job):
     """Send a notification email to the user that the job finished."""
     if job.model.email == "" or job.notified_end:
         return
-    logging.info("Send mail about finished job.")
-    url = submission_url.format(job_id=job.job_id, external_url=request.url_root)
+    logging.info("Send mail about finished job.", extra={"tag": "email_service"})
+
+    # Use configured external URL instead of Flask request context
+    try:
+        # Try to get URL from Flask request context (when called from webserver)
+        external_url = request.url_root
+    except RuntimeError:
+        # Fallback to configured URL (when called from Celery worker)
+        external_url = WEB_OUTSIDE_URL
+
+    url = submission_url.format(job_id=job.job_id, external_url=external_url)
     content = job_finished_template.format(
         job_id=job.job_id,
         status=job.status,
@@ -346,56 +152,22 @@ def send_submission_mail(job):
     """Send a notification email to the user that the job was submitted."""
     if job.model.email == "":
         return
-    logging.info(f"Send mail about submitted job {job.job_id}.")
-    url = submission_url.format(job_id=job.job_id, external_url=request.url_root)
+    logging.info(
+        f"Send mail about submitted job {job.job_id}.", extra={"tag": "email_service"}
+    )
+
+    # Use configured external URL instead of Flask request context
+    try:
+        # Try to get URL from Flask request context (when called from webserver)
+        external_url = request.url_root
+    except RuntimeError:
+        # Fallback to configured URL (when called from Celery worker)
+        external_url = WEB_OUTSIDE_URL
+
+    url = submission_url.format(job_id=job.job_id, external_url=external_url)
     content = job_submitted_template.format(
         job_id=job.job_id,
         status=job.status,
         url=url,
     )
     send_mail(job.model.email, f'Job "{job.job_id}" submitted', content)
-
-
-class InvalidJobID(Exception):
-    """Raised by CosmopolitanJob if init with invalid job id."""
-
-    def __init__(self, job_id):
-        """Add job id as attribute and format error message."""
-        self.job_id = job_id
-        super().__init__(f"{job_id} is not a valid job_id.")
-
-
-class JobExists(Exception):
-    """Raised by Job if a new job is created with an existing job id."""
-
-    def __init__(self, job_id):
-        """Add job id as attribute and format error message."""
-        self.job_id = job_id
-        super().__init__(f"{job_id} already exists.")
-
-
-class SubmittedException(Exception):
-    """Raised when calling a method that requires a job not to be submitted."""
-
-    def __init__(self, job_id):
-        """Add job id as attribute and format error message."""
-        self.job_id = job_id
-        super().__init__(f"The job {job_id} was not yet submitted.")
-
-
-class NotSubmittedException(Exception):
-    """Raised when calling a method that requires a job to be submitted."""
-
-    def __init__(self, job_id):
-        """Add job id as attribute and format error message."""
-        self.job_id = job_id
-        super().__init__(f"The job {job_id} was not yet submitted.")
-
-
-class NotFinishedException(Exception):
-    """Raised when calling a method that requires a job to be finished."""
-
-    def __init__(self, job_id):
-        """Add job id as attribute and format error message."""
-        self.job_id = job_id
-        super().__init__(f"The job {job_id} is not yet finished.")

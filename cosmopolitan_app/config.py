@@ -27,6 +27,7 @@ env_vars = [
     "WEB_WORK_DIR",
     "WEB_OUTSIDE_URL",
     "FLASK_PORT",
+    "TILESERVER_URL",
     "EMAIL_SERVER",
     "EMAIL_PORT",
     "EMAIL_USERNAME",
@@ -50,6 +51,7 @@ env_vars = [
 WEB_WORK_DIR = getenv("WEB_WORK_DIR")
 WEB_OUTSIDE_URL = getenv("WEB_OUTSIDE_URL")
 PORT = getenv("FLASK_PORT")
+TILESERVER_URL = getenv("TILESERVER_URL")
 EMAIL_SERVER = getenv("EMAIL_SERVER")
 EMAIL_PORT = getenv("EMAIL_PORT")
 EMAIL_USERNAME = getenv("EMAIL_USERNAME")

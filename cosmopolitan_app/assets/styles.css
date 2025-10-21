@@ -32,3 +32,15 @@
   line-height: inherit !important;
   text-align: inherit !important;
 }
+
+#_pages_content {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+div:has(> #_pages_content) {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}

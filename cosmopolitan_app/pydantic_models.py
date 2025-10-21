@@ -36,7 +36,7 @@ def validate_job_id(job_id: str) -> str:
     changed the function and moves all previously uploaded files into the
     new input dir.
     """
-    logging.debug(f"Check job id {job_id}")
+    logging.debug(f"Check job id {job_id}", extra={"tag": "frontend"})
 
     job_id_regex = r"^\w+$"
     if not re.match(job_id_regex, job_id):

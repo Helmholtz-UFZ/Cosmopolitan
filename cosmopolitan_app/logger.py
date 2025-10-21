@@ -2,6 +2,7 @@
 
 import datetime
 import logging
+import sys
 
 from psycopg2 import pool
 
@@ -13,19 +14,62 @@ from cosmopolitan_app.config import (
     POSTGRES_USER,
 )
 
+format_string = (
+    "[%(asctime)s] [PID:%(process)d] %(levelname)s in %(module)s: %(message)s"
+)
+postgres_params = {
+    "dbname": POSTGRES_DB,
+    "user": POSTGRES_USER,
+    "password": POSTGRES_PASSWORD,
+    "host": POSTGRES_HOST_NAME,
+    "port": POSTGRES_PORT,
+}
+
+log_categories = {
+    "Core Areas": ["webserver", "worker", "scheduler"],
+    "User Areas": ["job_submission", "frontend"],
+    "System Areas": [
+        "time_io",
+        "database",
+        "object_storage",
+        "email_service",
+        "maintenance",
+    ],
+    "unknown": ["unknown"],
+}
+
 
 class PostgreSQLHandler(logging.Handler):
-    """A log handler that writes log records to a PostgreSQL database."""
+    """A log handler that writes log records to a PostgreSQL database.
 
-    def __init__(self, connection_params):
+    This handler supports a tag-based logging system where log records can include
+    a 'tag' attribute via the extra parameter to categorize messages by functional area.
+
+    The tag system uses the following approved categories:
+    - Core Areas: webserver, worker, scheduler
+    - User Areas: job_submission, frontend
+    - System Areas: time_io, database, object_storage, email_service, maintenance
+
+    Usage:
+        logging.info("Database query completed", extra={"tag": "database"})
+        logging.error("TimeIO API failed", extra={"tag": "time_io"})
+    """
+
+    def __init__(self, connection_params, tag="unknown"):
         """Initialize the handler with PostgreSQL connection parameters.
 
         Args:
             connection_params (dict): Connection parameters for PostgreSQL
                                      (dbname, user, password, host, port)
+            tag (str): Default tag identifier for logs that don't specify their own tag
+            via the extra parameter. Common values: 'webserver', 'worker', 'scheduler'
         """
+        available_tags = [tag for tags in log_categories.values() for tag in tags]
+        if tag not in available_tags:
+            raise ValueError(f"Invalid tag '{tag}'. Must be one of {available_tags}")
         super().__init__()
         self.connection_params = connection_params
+        self.tag = tag
         # Create a connection pool for better performance
         self.connection_pool = pool.SimpleConnectionPool(
             1,
@@ -37,18 +81,30 @@ class PostgreSQLHandler(logging.Handler):
         """
         Write the log record to the database.
 
+        The tag for the log record is determined in this order:
+        1. If the record has a 'tag' attribute (from extra={"tag": "value"}), use that
+        2. Otherwise, use the handler's default tag set during initialization
+
+        This allows for dynamic tagging on a per-log basis while maintaining
+        a reasonable default for the handler instance.
+
         Args:
-            record: The log record to write
+            record: The log record to write. May contain 'tag' attribute from extra
+            parameter.
         """
         # Get a connection from the pool
         connection = self.connection_pool.getconn()
         try:
             with connection.cursor() as cursor:
+                # Check if record has extra 'tag' attribute, otherwise use handler
+                # default
+                tag = getattr(record, "tag", self.tag)
+
                 cursor.execute(
                     """
                     INSERT INTO logs
-                    (timestamp, pid, level, module, message)
-                    VALUES (%s, %s, %s, %s, %s)
+                    (timestamp, pid, level, module, message, tag)
+                    VALUES (%s, %s, %s, %s, %s, %s)
                     """,
                     (
                         datetime.datetime.fromtimestamp(record.created),
@@ -56,6 +112,7 @@ class PostgreSQLHandler(logging.Handler):
                         record.levelname,
                         record.module,
                         self.format(record),
+                        tag,
                     ),
                 )
                 connection.commit()
@@ -79,8 +136,21 @@ class ExcludeSubmodulesFilter(logging.Filter):
 
     def filter(self, record):
         """Filter."""
-        excluded_modules = ["matplotlib", "PIL", "rasterio"]
-        return not any(record.name.startswith(module) for module in excluded_modules)
+        # print("NAME:", record.name, "MODULE:", record.module)
+        excluded_packages = [
+            "matplotlib",
+            "PIL",
+            "rasterio",
+            "watchdog",
+            "selenium",
+        ]
+        excluded_modules = [
+            "_internal",
+        ]
+        return (
+            not any(record.name.startswith(package) for package in excluded_packages)
+            and record.module not in excluded_modules
+        )
 
 
 def get_logger_config_compuation(log_file_path):
@@ -112,70 +182,61 @@ def get_logger_config_compuation(log_file_path):
     }
 
 
-def get_logger_config_web(debug):
-    """Get the config dic for the webservice logger."""
-    postgres_params = {
-        "dbname": POSTGRES_DB,
-        "user": POSTGRES_USER,
-        "password": POSTGRES_PASSWORD,
-        "host": POSTGRES_HOST_NAME,
-        "port": POSTGRES_PORT,
+def get_logger_config_web(debug, tag="webserver"):
+    """Get the logging configuration dictionary for the webservice logger.
+
+    This configuration sets up both console and database logging with the tag-based
+    system. The PostgreSQLHandler will use the provided tag as the default for logs that
+    don't specify their own tag via extra={"tag": "value"}.
+
+    Args:
+        debug (bool): Whether to enable debug mode logging
+        tag (str): Default tag for the PostgreSQLHandler. Common values:
+                  - "webserver" for web interface processes
+                  - "worker" for Celery worker processes
+                  - "scheduler" for Celery Beat processes
+
+    Returns:
+        dict: Logging configuration dictionary for use with dictConfig()
+    """
+    # Detect if we're in test environment
+    in_tests = "pytest" in sys.modules
+
+    # Base handlers
+    handler_configs = {
+        "wsgi": {
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stdout",
+            "formatter": "default",
+            "filters": ["exclude_submodules"],
+            "level": "DEBUG",
+        },
+        "postgres": {
+            "class": __name__ + ".PostgreSQLHandler",
+            "level": "DEBUG",
+            "formatter": "message_only",
+            "filters": ["exclude_submodules"],
+            "connection_params": postgres_params,
+            "tag": tag,
+        },
     }
 
     logging_config = {
         "version": 1,
-        "disable_existing_loggers": True,
+        "disable_existing_loggers": not in_tests,  # Preserve test loggers
         "formatters": {
-            "default": {
-                "format": "[%(asctime)s] [PID:%(process)d] %(levelname)s in %(module)s: %(message)s",  # noqa
-            },
+            "default": {"format": format_string},
             "message_only": {
                 "format": "%(message)s",
             },
         },
         "filters": {"exclude_submodules": {"()": ExcludeSubmodulesFilter}},
-        "handlers": {
-            "wsgi": {
-                "class": "logging.StreamHandler",
-                "stream": "ext://flask.logging.wsgi_errors_stream",
-                "formatter": "default",
-                "filters": ["exclude_submodules"],
-            },
-            "postgres": {
-                "class": __name__ + ".PostgreSQLHandler",
-                "level": "DEBUG",
-                "formatter": "message_only",
-                "filters": ["exclude_submodules"],
-                "connection_params": postgres_params,
-            },
-        },
+        "handlers": handler_configs,
         "root": {
-            "handlers": ["wsgi"],
+            "handlers": handler_configs.keys(),
             "level": "DEBUG",
             "filters": ["exclude_submodules"],
         },
-        "loggers": {
-            "cosmopolitan_app": {
-                "level": "DEBUG",
-                "handlers": ["wsgi"],
-                "propagate": False,
-            },
-            "matplotlib": {
-                "level": "WARNING",
-                "handlers": [],
-                "propagate": False,
-            },
-            "rasterio": {
-                "level": "WARNING",
-                "handlers": [],
-                "propagate": False,
-            },
-        },
     }
 
-    # if not debug:
-    #     logging_config["root"]["handlers"].append("postgres")
-    #     logging_config["loggers"]["cosmopolitan_app"]["handlers"].append("postgres")
-    logging_config["root"]["handlers"].append("postgres")
-    logging_config["loggers"]["cosmopolitan_app"]["handlers"].append("postgres")
     return logging_config

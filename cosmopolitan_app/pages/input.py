@@ -5,7 +5,7 @@ import os
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import Input, Output, State, callback, callback_context, dcc, html
+from dash import Input, Output, State, callback, callback_context, html
 from dash.exceptions import PreventUpdate
 from flask import url_for
 
@@ -14,7 +14,10 @@ from cosmopolitan_app.constants import (
     ERROR_MODAL_ID,
     ERROR_TITLE_ID,
     INPUT_HEADER_ID,
+    INPUT_JOB_ID_STORE,
+    INPUT_MAIN_CONTENT_ID,
     LOADING_OVERLAY_ID,
+    URL_ID,
 )
 from cosmopolitan_app.error_handling import error_responds_dict
 from cosmopolitan_app.form_factory import (
@@ -24,8 +27,8 @@ from cosmopolitan_app.form_factory import (
     construct_selected_input,
 )
 from cosmopolitan_app.job import Job, NoMeasurementPointsError
-from cosmopolitan_app.layouts import create_header
-from cosmopolitan_app.utils import InvalidJobID, JobNotFound, swap_classes
+from cosmopolitan_app.layouts import landing_page_layout_column
+from cosmopolitan_app.utils import swap_classes
 
 dash.register_page(
     __name__,
@@ -34,66 +37,28 @@ dash.register_page(
 
 
 def layout(job_id):
-    """Create static layout for the submission page."""
-    header = create_header(
-        "Input", "Loading ...", bg_color="bg-secondary", id=INPUT_HEADER_ID
+    """Layout for input page."""
+    return landing_page_layout_column(
+        "Input", INPUT_HEADER_ID, INPUT_JOB_ID_STORE, job_id, INPUT_MAIN_CONTENT_ID
     )
-
-    return [
-        dcc.Store(id="job-id-store", data=job_id),
-        header,
-        html.Div(
-            dbc.Container(
-                dbc.Row(
-                    dbc.Col(
-                        dbc.Spinner(
-                            size="lg",
-                            color="primary",
-                            type="border",
-                            fullscreen=False,
-                        ),
-                        className="d-flex justify-content-center align-items-center",
-                    ),
-                    style={"height": "100vh"},
-                ),
-                fluid=True,
-                style={"height": "100vh"},
-            ),
-            id="input_content",
-        ),
-    ]
 
 
 @callback(
     [
         Output(INPUT_HEADER_ID, "className", allow_duplicate=True),
         Output(f"{INPUT_HEADER_ID}-subtitle", "children"),
-        Output("input_content", "children"),
+        Output(INPUT_MAIN_CONTENT_ID, "children"),
     ],
-    [Input("job-id-store", "data")],
+    [Input(INPUT_JOB_ID_STORE, "data")],
     [State(INPUT_HEADER_ID, "className")],
     prevent_initial_call="initial_duplicate",
 )
 def load_submission_content(job_id, header_class_name):
     """Load the main submission content triggered by job-id-store."""
-    logging.info(f"Loading submission content for job {job_id}")
-    try:
-        job = Job(job_id)
-    except (JobNotFound, InvalidJobID):
-        logging.info(f"Job {job_id} not found")
-        content = dbc.Row(
-            dbc.Col(
-                [
-                    html.Div(
-                        "The job you are looking for does not exist.",
-                    ),
-                ],
-                className="col-11 col-xl-8 mx-auto",
-            )
-        )
-        header_class_name = swap_classes("bg-danger", header_class_name)
-        header_subtitle = "Job Not Found"
-        return header_class_name, header_subtitle, content
+    logging.info(
+        f"Loading submission content for job {job_id}", extra={"tag": "job_submission"}
+    )
+    job = Job(job_id)
 
     if job.status not in ["PENDING", "FAILED"]:
         if job.status == "RUNNING":
@@ -121,7 +86,9 @@ def load_submission_content(job_id, header_class_name):
     header_class_name = swap_classes("bg-info", header_class_name)
     preview_path = job.get_preview_path()
     if preview_path is None:
-        logging.info("No preview path found, generating new preview.")
+        logging.info(
+            "No preview path found, generating new preview.", extra={"tag": "frontend"}
+        )
         job.preview_area()
         preview_path = job.get_preview_path()
     preview_file_name = os.path.basename(preview_path)
@@ -177,13 +144,13 @@ def show_loading(n_clicks):
 )
 def regenerate_preview(**state):
     """Regenerate the preview."""
-    logging.info("Regenerate preview")
+    logging.info("Regenerate preview", extra={"tag": "frontend"})
     job_id = state["job_id"]
 
     try:
         active_form_factory.set_model(state)
     except ValueError:
-        logging.debug("Model not valid")
+        logging.debug("Model not valid", extra={"tag": "frontend"})
         raise PreventUpdate
 
     active_form_factory.pymodel.job_id = job_id
@@ -203,7 +170,7 @@ def regenerate_preview(**state):
         active_form_template_factory.selected_predictors_key: Output(
             active_form_template_factory.selected_predictors_key, "children"
         ),
-        "redirect": Output("url", "pathname"),
+        "redirect": Output(URL_ID, "pathname"),
         "loading_overlay": Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
         "error_message": Output(ERROR_MESSAGE_ID, "children", allow_duplicate=True),
         "error_title": Output(ERROR_TITLE_ID, "children", allow_duplicate=True),
@@ -219,29 +186,29 @@ def regenerate_preview(**state):
 )
 def form_manager(**state):
     """Wrap all input logic of the form into one callback."""
-    logging.info("Form manager")
+    logging.info("Form manager", extra={"tag": "frontend"})
 
     file_upload_error = {}
 
     triggered_id = callback_context.triggered[0]["prop_id"].split(".")[0]
-    logging.debug(f"Triggered id: {triggered_id}")
+    logging.debug(f"Triggered id: {triggered_id}", extra={"tag": "frontend"})
 
     if triggered_id == active_form_factory.get_id_delete_button("crns_upload"):
         job_id = state["job_id"]
         job = Job(job_id=job_id)
-        logging.debug("Delete CRNS button clicked")
+        logging.debug("Delete CRNS button clicked", extra={"tag": "frontend"})
         job.delete_input_files("crn")
         active_form_factory.set_file_information(state, {}, "crns_upload")
     elif triggered_id == active_form_factory.get_id_delete_button("predictor_upload"):
         job_id = state["job_id"]
         job = Job(job_id=job_id)
-        logging.debug("Delete predictor button clicked")
+        logging.debug("Delete predictor button clicked", extra={"tag": "frontend"})
         job.delete_input_files("pred")
         active_form_factory.set_file_information(state, {}, "predictor_upload")
     elif triggered_id == active_form_factory.get_id_input_file_content("crns_upload"):
         job_id = state["job_id"]
         job = Job(job_id=job_id)
-        logging.debug("CRNS file uploaded")
+        logging.debug("CRNS file uploaded", extra={"tag": "job_submission"})
         job.delete_input_files("crn")
 
         file_name, file_content = active_form_factory.get_file_content(
@@ -261,7 +228,7 @@ def form_manager(**state):
     ):
         job_id = state["job_id"]
         job = Job(job_id=job_id)
-        logging.debug("Predictor file(s) uploaded")
+        logging.debug("Predictor file(s) uploaded", extra={"tag": "job_submission"})
         job.delete_input_files("pred")
 
         uploaded_file_information = {}
@@ -289,7 +256,7 @@ def form_manager(**state):
     active_form_factory.pymodel.job_id = state["job_id"]
 
     if triggered_id == active_form_factory.get_key_submit_button() and valid:
-        logging.debug("Submit button clicked")
+        logging.debug("Submit button clicked", extra={"tag": "job_submission"})
         job = Job(model=active_form_factory.pymodel)
         try:
             job.prepare_input_files()

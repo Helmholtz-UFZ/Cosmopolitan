@@ -2,6 +2,8 @@
 
 import logging
 import time
+from logging.config import dictConfig
+from unittest.mock import patch
 
 import pytest
 from selenium.common.exceptions import (
@@ -27,6 +29,7 @@ from cosmopolitan_app.form_factory import (
     active_form_factory,
     active_form_template_factory,
 )
+from cosmopolitan_app.logger import get_logger_config_web
 from cosmopolitan_app.pydantic_models import ModelWebsite
 
 
@@ -116,8 +119,22 @@ def save_snapshot(dash_duo):
     dash_duo.driver.save_screenshot("headless_debug.png")
 
 
-def test_full_procedure(dash_duo, crns_file_path, pred_file_paths):
+@patch("cosmopolitan_app.map_utils.create_tile_layer_component")
+def test_full_procedure(
+    mock_tile_layer, dash_duo, crns_file_path, pred_file_paths, celery_worker
+):
     """Test the full procedure of the Dash app."""
+    # Mock tile layer creation to avoid tile server dependency in tests Mock returns
+    # None so only the legend is rendered, preventing JavaScript tile fetch errors
+    mock_tile_layer.return_value = None
+
+    # Ensure Celery worker is running before starting tests
+    dictConfig(get_logger_config_web(True))
+    if celery_worker.poll() is not None:
+        logging.error("Celery worker process terminated unexpectedly")
+        raise RuntimeError("Celery worker not available for testing")
+
+    logging.info("Starting full procedure test with Celery worker")
     dash_duo.start_server(app)
     dash_duo.driver.set_window_size(1920, 1080)
     dash_duo.driver.execute_cdp_cmd("Runtime.enable", {})
@@ -234,6 +251,8 @@ def test_full_procedure(dash_duo, crns_file_path, pred_file_paths):
             continue
         break
 
+    time.sleep(10)
+
     if "COMPLETED" not in status_element.text:
         logging.error(f"Job finished with status: {status_element.text}")
         save_snapshot(dash_duo)
@@ -241,4 +260,5 @@ def test_full_procedure(dash_duo, crns_file_path, pred_file_paths):
         raise AssertionError("Job did not complete successfully. Logs:\n" + job_logs)
 
     scroll_to_element_and_click(dash_duo, RESULT_BUTTON_ID)
+    time.sleep(10)
     check_all_errors(dash_duo)

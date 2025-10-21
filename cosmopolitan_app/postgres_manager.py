@@ -3,7 +3,7 @@
 import logging
 import time
 from datetime import date, datetime, timedelta
-from typing import Any, Dict, Union
+from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 from geoalchemy2 import Geometry
@@ -34,22 +34,13 @@ from cosmopolitan_app.config import (
     POSTGRES_PORT,
     POSTGRES_USER,
 )
-from cosmopolitan_app.timeio_info import type_id_dict
+from cosmopolitan_app.error_handling import JobNotFound
 
 
 class Base(DeclarativeBase):
     """Base class for declarative base."""
 
     pass
-
-
-class JobNotFound(Exception):
-    """Custom exception for when a job is not found."""
-
-    def __init__(self, job_id):
-        """Add job id as attribute and format error message."""
-        self.job_id = job_id
-        super().__init__(f"Job with ID '{job_id}' not found")
 
 
 class SessionScope:
@@ -70,19 +61,22 @@ class SessionScope:
                 return self.session  # success
             except OperationalError as e:
                 if attempt < self.max_retries:
-                    logging.warning(f"Database OperationalError: {e}")
                     logging.warning(
-                        f"Retrying operation (attempt {attempt + 1}/{self.max_retries + 1})"  # noqa
+                        f"Database OperationalError: {e}", extra={"tag": "database"}
+                    )
+                    logging.warning(
+                        f"Retrying operation (attempt {attempt + 1}/{self.max_retries + 1})",  # noqa
+                        extra={"tag": "database"},
                     )
                     time.sleep(self.retry_delay)
                 else:
-                    logging.error(f"Max retries ({self.max_retries}) exceeded")
+                    logging.error(
+                        f"Max retries ({self.max_retries}) exceeded",
+                        extra={"tag": "database"},
+                    )
                     raise
-            except (SQLAlchemyError, Exception) as e:  # noqa
-                if isinstance(e, SQLAlchemyError):
-                    logging.error(f"Database error: {e}")
-                else:
-                    logging.error(f"Unexpected error during database operation: {e}")
+            except SQLAlchemyError as e:
+                logging.error(f"Database error: {e}", extra={"tag": "database"})
                 raise
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -125,8 +119,21 @@ class PostgresManager:
         return SessionScope(session_factory=cls.Session)
 
     @classmethod
-    def query_logs(cls, date, sh, sm, eh, em, levels, pid=None):
+    def query_logs(
+        cls,
+        date: str,
+        sh: int,
+        sm: int,
+        eh: int,
+        em: int,
+        levels: List[str],
+        pid: Optional[int] = None,
+        tag: Optional[List[str]] = None,
+    ) -> List[Dict[str, Any]]:
         """Query logs from the database with specified filters.
+
+        This method supports filtering by the tag-based logging system that categorizes
+        logs by functional area (e.g., 'database', 'time_io', 'job_submission').
 
         Parameters:
         -----------
@@ -144,13 +151,19 @@ class PostgresManager:
             List of log levels to include (e.g., ['INFO', 'ERROR'])
         pid : int, optional
             Process ID to filter logs by
+        tag : list, optional
+            List of tags to filter logs by using the tag-based logging system.
+            Use None to get logs from all tags.
 
         Returns:
         --------
         list
             List of dictionaries containing log records
         """
-        # logging.debug(f"Querying logs from {date} {sh}:{sm} to {date} {eh}:{em}")
+        logging.debug(
+            f"Querying logs from {date} {sh}:{sm} to {date} {eh}:{em}",
+            extra={"tag": "database"},
+        )
 
         start_datetime = datetime.strptime(
             f"{date} {sh:02d}:{sm:02d}:00", "%Y-%m-%d %H:%M:%S"
@@ -169,6 +182,9 @@ class PostgresManager:
             if pid is not None:
                 query = query.filter(LogTable.pid == pid)
 
+            if tag is not None:
+                query = query.filter(LogTable.tag.in_(tag))
+
             # Order results by timestamp
             query = query.order_by(LogTable.timestamp)
 
@@ -180,7 +196,9 @@ class PostgresManager:
     @classmethod
     def delete_logs_older_than(cls, cutoff_datetime):
         """Delete all log records older than the given datetime."""
-        logging.info(f"Deleting logs older than {cutoff_datetime}")
+        logging.info(
+            f"Deleting logs older than {cutoff_datetime}", extra={"tag": "database"}
+        )
         with cls.session_scope() as session:
             session.query(LogTable).filter(LogTable.timestamp < cutoff_datetime).delete(
                 synchronize_session=False
@@ -199,7 +217,7 @@ class PostgresManager:
         Returns:
         bool: True if a job with the given job ID exists, False otherwise.
         """
-        logging.debug(f"Check existence of job: {job_id}")
+        logging.debug(f"Check existence of job: {job_id}", extra={"tag": "database"})
         with cls.session_scope() as session:
             job_row = session.query(JobTable.job_id).filter_by(job_id=job_id).first()
         return job_row is not None
@@ -214,7 +232,10 @@ class PostgresManager:
         data_to_insert (dict): A dictionary containing job information with keys
         equivalent to the columns in JobTable.
         """
-        logging.debug(f"Add entry to database: {data_to_insert['job_id']}")
+        logging.debug(
+            f"Add entry to database: {data_to_insert['job_id']}",
+            extra={"tag": "database"},
+        )
         with cls.session_scope() as session:
             # Check existence within this session
             job_row = (
@@ -225,7 +246,7 @@ class PostgresManager:
 
             if job_row is not None:
                 # Update existing entry
-                logging.debug("Update entry.")
+                logging.debug("Update entry.", extra={"tag": "database"})
                 job = (
                     session.query(JobTable)
                     .filter_by(job_id=data_to_insert["job_id"])
@@ -235,7 +256,7 @@ class PostgresManager:
                     setattr(job, column_name, column_value)
             else:
                 # Create new entry
-                logging.debug("New entry.")
+                logging.debug("New entry.", extra={"tag": "database"})
                 job_row = JobTable(**data_to_insert)
                 session.add(job_row)
 
@@ -250,7 +271,7 @@ class PostgresManager:
         Raises:
         JobNotFound: If the job with the provided job ID does not exist.
         """
-        logging.debug(f"Update columns for job: {job_id}")
+        logging.debug(f"Update columns for job: {job_id}", extra={"tag": "database"})
 
         with cls.session_scope() as session:
             job = session.query(JobTable).filter_by(job_id=job_id).first()
@@ -276,7 +297,7 @@ class PostgresManager:
         Raises:
         JobNotFound: If the job with the provided job ID does not exist.
         """
-        logging.debug(f"Set submitted for job: {job_id}")
+        logging.debug(f"Set submitted for job: {job_id}", extra={"tag": "database"})
 
         with cls.session_scope() as session:
             job = (
@@ -311,7 +332,7 @@ class PostgresManager:
         Raises:
         JobNotFound: If the job with the provided job ID does not exist.
         """
-        logging.debug(f"Get columns for job: {job_id}")
+        logging.debug(f"Get columns for job: {job_id}", extra={"tag": "database"})
 
         with cls.session_scope() as session:
             job_row = session.query(JobTable).filter_by(job_id=job_id).first()
@@ -340,7 +361,7 @@ class PostgresManager:
         Raises:
         JobNotFound: If the job with the provided job ID does not exist.
         """
-        logging.debug(f"Delete job: {job_id}")
+        logging.debug(f"Delete job: {job_id}", extra={"tag": "database"})
         with cls.session_scope() as session:
             job = session.query(JobTable).filter_by(job_id=job_id).first()
 
@@ -369,7 +390,7 @@ class PostgresManager:
         }
 
         """
-        logging.debug("List all jobs.")
+        logging.debug("List all jobs.", extra={"tag": "database"})
 
         with cls.session_scope() as session:
             job_rows = session.query(JobTable).all()
@@ -388,62 +409,6 @@ class PostgresManager:
         return job_info
 
     @classmethod
-    def get_lock(cls, task_type):
-        """Get a lock for a specific background task type.
-
-        This method queries the TaskLockTable in the database to retrieve
-        the lock for a specific background task type. If the lock does not exist,
-        it will be created. The lock is used to prevent multiple instances of the
-        same background task type from running concurrently. The lock is released
-        with the method 'release_lock'.
-
-        Parameters:
-        task_type (str): The type of background task.
-
-        Returns:
-        bool: True if the lock was acquired, False if it was already locked.
-        """
-        logging.debug(f"Get lock for task type: {task_type}")
-
-        with cls.session_scope() as session:
-            task_lock = (
-                session.query(TaskLockTable)
-                .filter_by(task_type=task_type)
-                .with_for_update()
-                .first()
-            )
-            if task_lock is None:
-                task_lock = TaskLockTable(task_type=task_type, is_locked=True)
-                session.add(task_lock)
-                return True
-            elif task_lock.is_locked:
-                return False
-            else:
-                task_lock.is_locked = True
-                return True
-
-    @classmethod
-    def release_lock(cls, task_type):
-        """Release the lock for a specific background task type.
-
-        This method releases the lock for a specific background task type in the
-        TaskLockTable in the database. The lock is used to prevent multiple instances
-        of the same background task type from running concurrently.
-
-        Parameters:
-        task_type (str): The type of background task.
-        """
-        logging.debug(f"Release lock for task type: {task_type}")
-
-        with cls.session_scope() as session:
-            task_lock = (
-                session.query(TaskLockTable).filter_by(task_type=task_type).first()
-            )
-
-            if task_lock:
-                task_lock.is_locked = False
-
-    @classmethod
     def _extract_date(cls, date_input: Union[date, datetime]) -> date:
         """Extract date from datetime or date object."""
         if isinstance(date_input, datetime):
@@ -460,7 +425,9 @@ class PostgresManager:
         Returns:
         date: The last update date for CRNS measurements.
         """
-        logging.debug("Get last update date for CRNS measurements")
+        logging.debug(
+            "Get last update date for CRNS measurements", extra={"tag": "database"}
+        )
 
         with cls.session_scope() as session:
             update = session.query(UpdateTimesCRNS).order_by(
@@ -494,7 +461,10 @@ class PostgresManager:
         Returns:
             date or None: The appropriate date based on the analysis logic
         """
-        logging.debug("Get earliest missing or failed date for CRNS measurements")
+        logging.debug(
+            "Get earliest missing or failed date for CRNS measurements",
+            extra={"tag": "database"},
+        )
 
         # Convert to date if datetime
         start_date = cls._extract_date(start_date)
@@ -570,7 +540,10 @@ class PostgresManager:
         # Convert to date if datetime
         update_date = cls._extract_date(day)
 
-        logging.debug(f"Add new update date for CRNS measurements: {update_date}")
+        logging.debug(
+            f"Add new update date for CRNS measurements: {update_date}",
+            extra={"tag": "database"},
+        )
 
         with cls.session_scope() as session:
             existing = (
@@ -599,7 +572,9 @@ class PostgresManager:
         # Convert to date if datetime
         check_date = cls._extract_date(day)
 
-        logging.debug(f"Check if update on {check_date} was successful")
+        logging.debug(
+            f"Check if update on {check_date} was successful", extra={"tag": "database"}
+        )
 
         with cls.session_scope() as session:
             update = session.query(UpdateTimesCRNS).filter_by(update=check_date).first()
@@ -608,11 +583,15 @@ class PostgresManager:
     @classmethod
     def reset_update_crns(cls):
         """Reset all update dates for CRNS measurements."""
-        logging.info("Reset all update dates for CRNS measurements")
+        logging.info(
+            "Reset all update dates for CRNS measurements", extra={"tag": "database"}
+        )
 
         with cls.session_scope() as session:
             session.query(UpdateTimesCRNS).delete(synchronize_session=False)
-            logging.info("All CRNS update dates have been reset")
+            logging.info(
+                "All CRNS update dates have been reset", extra={"tag": "database"}
+            )
 
     @classmethod
     def insert_crns_measurements_from_df(cls, df):
@@ -625,7 +604,10 @@ class PostgresManager:
         Raises:
             ValueError: If required columns are missing or lat/lon contain null values.
         """
-        logging.debug("Insert or update CRNS measurements from DataFrame")
+        logging.debug(
+            "Insert or update CRNS measurements from DataFrame",
+            extra={"tag": "database"},
+        )
 
         # Get all table columns except geom
         table = CRNSMeasurement.__table__
@@ -643,7 +625,8 @@ class PostgresManager:
         extra_columns = df_columns - required_columns
         if extra_columns:
             logging.warning(
-                f"DataFrame contains extra columns that will be ignored: {extra_columns}"  # noqa: E501
+                f"DataFrame contains extra columns that will be ignored: {extra_columns}",  # noqa: E501
+                extra={"tag": "database"},
             )
             # Keep only required columns
             df = df[list(required_columns)]
@@ -651,7 +634,10 @@ class PostgresManager:
         df = df.dropna()
 
         if df.empty:
-            logging.warning("DataFrame is empty after dropping null values.")
+            logging.warning(
+                "DataFrame is empty after dropping null values.",
+                extra={"tag": "database"},
+            )
             return
 
         # Create geometry column from lat/lon
@@ -675,15 +661,19 @@ class PostgresManager:
         with cls.session_scope() as session:
             session.execute(stmt)
             logging.debug(
-                f"Successfully inserted/updated {len(records)} CRNS measurements"
+                f"Successfully inserted/updated {len(records)} CRNS measurements",
+                extra={"tag": "database"},
             )
 
     @classmethod
     def get_measurement_points(cls, bbox, types, start_date, end_date, representative):
         """Retrieve measurement points."""
         logging.debug(
-            f"Get measurement points for types: {types} in bbox: {bbox} and date range: {start_date} to {end_date}"  # noqa: E501
+            f"Get measurement points for types: {types} in bbox: {bbox} and date range: {start_date} to {end_date}",  # noqa: E501
+            extra={"tag": "database"},
         )
+        # Get type mapping from database
+        type_id_dict = cls.get_timeio_type_mapping()
         sensor_ids = [id for id, t in type_id_dict.items() if t in types]
         min_lon, min_lat, max_lon, max_lat = bbox
         with cls.session_scope() as session:
@@ -709,14 +699,19 @@ class PostgresManager:
             )
 
             if representative:
-                query = query.filter(CRNSMeasurement.representative == True)  # noqa
+                query = query.filter(CRNSMeasurement.representative)
 
             col_names = [col.key for col in columns]
             data = [dict(zip(col_names, row)) for row in query.all()]
 
-        logging.debug(f"Retrieved {len(data)} measurement points")
+        logging.debug(
+            f"Retrieved {len(data)} measurement points", extra={"tag": "database"}
+        )
         df = pd.DataFrame(data).dropna()
-        logging.debug(f"Returning {len(df)} measurement points after dropping NaNs")
+        logging.debug(
+            f"Returning {len(df)} measurement points after dropping NaNs",
+            extra={"tag": "database"},
+        )
         return df
 
     @classmethod
@@ -729,7 +724,10 @@ class PostgresManager:
         Raises:
             Exception: If there's an error during index operations.
         """
-        logging.info("Rebuilding spatial index on crns_measurements.geom")
+        logging.info(
+            "Rebuilding spatial index on crns_measurements.geom",
+            extra={"tag": "database"},
+        )
 
         with cls.session_scope() as session:
             # Drop the existing spatial index if it exists
@@ -746,15 +744,18 @@ class PostgresManager:
 
             # Execute the SQL commands
             session.execute(text(drop_index_sql))
-            logging.debug("Dropped existing spatial index")
+            logging.debug("Dropped existing spatial index", extra={"tag": "database"})
 
             session.execute(text(create_index_sql))
-            logging.debug("Created new spatial index")
+            logging.debug("Created new spatial index", extra={"tag": "database"})
 
             # Commit the transaction
             session.commit()
 
-            logging.info("Successfully rebuilt spatial index on crns_measurements.geom")
+            logging.info(
+                "Successfully rebuilt spatial index on crns_measurements.geom",
+                extra={"tag": "database"},
+            )
 
     @classmethod
     def purge_measurement_points(cls, sensor_ids=None):
@@ -766,7 +767,10 @@ class PostgresManager:
         Parameters:
         sensor_ids (list): List of sensor IDs to purge. If None, all sensors are purged.
         """
-        logging.info(f"Purging measurement points for sensors: {sensor_ids}")
+        logging.info(
+            f"Purging measurement points for sensors: {sensor_ids}",
+            extra={"tag": "database"},
+        )
 
         with cls.session_scope() as session:
             if sensor_ids is not None:
@@ -776,7 +780,204 @@ class PostgresManager:
             else:
                 session.query(CRNSMeasurement).delete(synchronize_session=False)
 
-            logging.info("Measurement points purged successfully")
+            logging.info(
+                "Measurement points purged successfully", extra={"tag": "database"}
+            )
+
+    @classmethod
+    def get_timeio_type_mapping(cls) -> Dict[int, str]:
+        """Get sensor_id to sensor_type mapping for active sensors.
+
+        Returns:
+            dict: {sensor_id: sensor_type} for active sensors
+        """
+        logging.debug(
+            "Getting TimeIO type mapping from database", extra={"tag": "database"}
+        )
+
+        with cls.session_scope() as session:
+            sensors = (
+                session.query(TimeIOInfo.sensor_id, TimeIOInfo.sensor_type)
+                .filter(~TimeIOInfo.ignored)
+                .all()
+            )
+
+            return {sensor.sensor_id: sensor.sensor_type for sensor in sensors}
+
+    @classmethod
+    def get_timeio_datastream_mapping(cls) -> Dict[int, Dict[str, str]]:
+        """Get sensor_id to datastream mapping for active sensors.
+
+        Returns:
+            dict: {sensor_id: {datastream_id: datastream_name}} for active sensors
+        """
+        logging.debug(
+            "Getting TimeIO datastream mapping from database", extra={"tag": "database"}
+        )
+
+        with cls.session_scope() as session:
+            sensors = (
+                session.query(TimeIOInfo.sensor_id, TimeIOInfo.datastreams)
+                .filter(~TimeIOInfo.ignored)
+                .all()
+            )
+
+            result = {}
+            for sensor in sensors:
+                # Convert string keys to integers for datastream_ids
+                datastreams = {}
+                for ds_id, ds_name in sensor.datastreams.items():
+                    datastreams[int(ds_id)] = ds_name
+                result[sensor.sensor_id] = datastreams
+
+            return result
+
+    @classmethod
+    def get_timeio_name_mapping(cls) -> Dict[int, str]:
+        """Get sensor_id to sensor_name mapping for active sensors.
+
+        Returns:
+            dict: {sensor_id: sensor_name} for active sensors
+        """
+        logging.debug(
+            "Getting TimeIO name mapping from database", extra={"tag": "database"}
+        )
+
+        with cls.session_scope() as session:
+            sensors = (
+                session.query(TimeIOInfo.sensor_id, TimeIOInfo.sensor_name)
+                .filter(~TimeIOInfo.ignored)
+                .all()
+            )
+
+            return {sensor.sensor_id: sensor.sensor_name for sensor in sensors}
+
+    @classmethod
+    def get_ignored_sensor_ids(cls) -> list[int]:
+        """Get list of ignored sensor IDs (replaces ignore_things).
+
+        Returns:
+            list: List of sensor_ids where ignored=True
+        """
+        logging.debug(
+            "Getting ignored sensor IDs from database", extra={"tag": "database"}
+        )
+
+        with cls.session_scope() as session:
+            sensors = (
+                session.query(TimeIOInfo.sensor_id).filter(TimeIOInfo.ignored).all()
+            )
+
+            return [sensor.sensor_id for sensor in sensors]
+
+    @classmethod
+    def get_timeio_sensor_info(cls, sensor_id: int) -> Dict[str, Any]:
+        """Get complete information for a specific sensor.
+
+        Args:
+            sensor_id: The sensor ID to retrieve
+
+        Returns:
+            dict: Complete sensor information or None if not found
+        """
+        logging.debug(
+            f"Getting TimeIO sensor info for sensor_id: {sensor_id}",
+            extra={"tag": "database"},
+        )
+
+        with cls.session_scope() as session:
+            sensor = (
+                session.query(TimeIOInfo)
+                .filter(TimeIOInfo.sensor_id == sensor_id)
+                .first()
+            )
+
+            if not sensor:
+                return None
+
+            return {
+                "sensor_id": sensor.sensor_id,
+                "sensor_name": sensor.sensor_name,
+                "sensor_type": sensor.sensor_type,
+                "ignored": sensor.ignored,
+                "datastreams": sensor.datastreams,
+                "stationary": sensor.stationary,
+            }
+
+    @classmethod
+    def get_all_timeio_sensors(
+        cls, not_ignored_only: bool = True
+    ) -> list[Dict[str, Any]]:
+        """Get all sensor information.
+
+        Args:
+            not_ignored_only: If True, only return non-ignored sensors
+
+        Returns:
+            list: List of sensor information dictionaries
+        """
+        logging.debug(
+            f"Getting all TimeIO sensors (not_ignored_only={not_ignored_only})",
+            extra={"tag": "database"},
+        )
+
+        with cls.session_scope() as session:
+            query = session.query(TimeIOInfo)
+            if not_ignored_only:
+                query = query.filter(~TimeIOInfo.ignored)
+
+            sensors = query.order_by(TimeIOInfo.sensor_id).all()
+
+            return [
+                {
+                    "sensor_id": sensor.sensor_id,
+                    "sensor_name": sensor.sensor_name,
+                    "sensor_type": sensor.sensor_type,
+                    "ignored": sensor.ignored,
+                    "datastreams": sensor.datastreams,
+                    "stationary": sensor.stationary,
+                }
+                for sensor in sensors
+            ]
+
+    @classmethod
+    def add_timeio_sensor(cls, sensor_data: Dict[str, Any]) -> None:
+        """Add or update a TimeIO sensor in the database.
+
+        Args:
+            sensor_data: Dictionary containing sensor information
+
+        Returns:
+            bool: True if sensor was added/updated successfully, False otherwise
+        """
+        sensor_id = sensor_data["sensor_id"]
+        logging.debug(
+            f"Adding/updating TimeIO sensor: {sensor_id}", extra={"tag": "database"}
+        )
+
+        with cls.session_scope() as session:
+            # Check if sensor already exists
+            existing_sensor = (
+                session.query(TimeIOInfo)
+                .filter(TimeIOInfo.sensor_id == sensor_id)
+                .first()
+            )
+
+            if existing_sensor:
+                # Update existing sensor
+                logging.debug(
+                    f"Updating existing sensor {sensor_id}", extra={"tag": "database"}
+                )
+                for key, value in sensor_data.items():
+                    if key != "stationary":  # Skip computed column
+                        setattr(existing_sensor, key, value)
+            else:
+                # Add new sensor
+                logging.debug(
+                    f"Adding new sensor {sensor_id}", extra={"tag": "database"}
+                )
+                new_sensor = TimeIOInfo(**sensor_data)
+                session.add(new_sensor)
 
 
 class TaskLockTable(Base):
@@ -797,6 +998,7 @@ class JobTable(Base):
     start_date = Column("start_date", Date)
     input_data = Column("input_data", JSON)
     submitted = Column("submitted", Boolean)
+    prepared_input = Column("prepared_input", Boolean)
     notified_end = Column("notified_end", Boolean)
     logs = Column("logs", String)
     status = Column("status", String)
@@ -814,6 +1016,7 @@ class LogTable(Base):
     level = Column(String(10), nullable=False)
     module = Column(String(50), nullable=False)
     message = Column(Text, nullable=False)
+    tag = Column(String(20), nullable=False, default="unknown")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert log record to dictionary format."""
@@ -823,6 +1026,7 @@ class LogTable(Base):
             "level": self.level,
             "message": self.message,
             "module": self.module,
+            "tag": self.tag,
         }
 
 
@@ -833,6 +1037,21 @@ class UpdateTimesCRNS(Base):
 
     update = Column(Date, primary_key=True, nullable=False)
     successful = Column(Boolean, nullable=False)
+
+
+class TimeIOInfo(Base):
+    """Represents the 'timeio_info' table in the database."""
+
+    __tablename__ = "timeio_info"
+
+    sensor_id = Column(Integer, primary_key=True)
+    sensor_name = Column(String(255), nullable=False)
+    sensor_type = Column(String(50), nullable=False)
+    ignored = Column(Boolean, default=False)
+    datastreams = Column(JSON, nullable=False)
+    stationary = Column(
+        Boolean, server_default=text("NULL"), insert_default=None
+    )  # Database computed column
 
 
 class CRNSMeasurement(Base):
