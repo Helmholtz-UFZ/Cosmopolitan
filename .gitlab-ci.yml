@@ -33,7 +33,7 @@ variables:
 
 linting:
   stage: "lint"
-  image: "python:3.11"
+  image: "python:3.13"
   before_script:
     - "pip install poetry"
     - "poetry install"
@@ -44,7 +44,7 @@ linting:
 
 test:
   stage: "test"
-  image: "python:3.11"
+  image: "python:3.13"
   services:
     - name: postgis/postgis:latest
       alias: postgres

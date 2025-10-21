@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM python:3.11-slim-bookworm
+FROM python:3.13-slim-bookworm
 
 ENV MPLCONFIGDIR=/python_docker/cosmopolitan/.config/matplotlib
 ENV PATH=$PATH:/home/appuser/rclone-binaries/
@@ -54,7 +54,7 @@ RUN poetry config virtualenvs.create false && \
 USER appuser
 
 # Setup rclone config
-RUN python3 /python_docker/cosmopolitan/cosmopolitan_app/object_storage_manager.py
+RUN python3 /python_docker/cosmopolitan/cosmopolitan_app/object_storage_manager.py setup_remote
 
 # Worker-specific command with conditional debug mode
 CMD if [ "$FLASK_DEBUG" = "1" ] ; then \

@@ -940,8 +940,6 @@ def update_map(
         # This ensures the map's colorbar (from new_map_layers) is kept
         new_map_layers = [new_map_layers[0], measurements_layers[0], new_map_layers[1]]
 
-    logging.info(f"Map layers: {new_map_layers}", extra={"tag": "frontend"})
-
     return default_map_layers + new_map_layers, selected_date, False
 
 

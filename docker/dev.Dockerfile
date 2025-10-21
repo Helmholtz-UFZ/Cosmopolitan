@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM python:3.11-slim-bookworm
+FROM python:3.13-slim-bookworm
 
 ENV MPLCONFIGDIR=/python_docker/cosmopolitan/.config/matplotlib
 ENV PATH=$PATH:/home/appuser/rclone-binaries/
@@ -52,6 +52,8 @@ RUN poetry config virtualenvs.create false && \
 
 # Switch to non-root user
 USER appuser
+
+RUN python3 /python_docker/cosmopolitan/cosmopolitan_app/object_storage_manager.py setup_remote
 
 CMD if [ "$GUNICORN" = 1 ] ; then \
         gunicorn -w 4 -b 0.0.0.0:$FLASK_PORT cosmopolitan_app.app:server; \

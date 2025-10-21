@@ -9,7 +9,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.13"
 selenium = ">=4.0.0"
 dash = {extras = ["testing"], version = "^3.0.4"}
 soil-moisture-prediction = "^0.0.43"
