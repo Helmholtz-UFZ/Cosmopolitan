@@ -119,13 +119,13 @@ def save_snapshot(dash_duo):
     dash_duo.driver.save_screenshot("headless_debug.png")
 
 
-@patch("cosmopolitan_app.pages.results.create_tile_layer_component")
+@patch("cosmopolitan_app.map_utils.create_tile_layer_component")
 def test_full_procedure(
     mock_tile_layer, dash_duo, crns_file_path, pred_file_paths, celery_worker
 ):
     """Test the full procedure of the Dash app."""
-    # Mock tile layer creation to avoid tile server dependency in tests Return None so
-    # only the legend is rendered, preventing JavaScript tile fetch errors
+    # Mock tile layer creation to avoid tile server dependency in tests Mock returns
+    # None so only the legend is rendered, preventing JavaScript tile fetch errors
     mock_tile_layer.return_value = None
 
     # Ensure Celery worker is running before starting tests
@@ -260,4 +260,5 @@ def test_full_procedure(
         raise AssertionError("Job did not complete successfully. Logs:\n" + job_logs)
 
     scroll_to_element_and_click(dash_duo, RESULT_BUTTON_ID)
+    time.sleep(10)
     check_all_errors(dash_duo)

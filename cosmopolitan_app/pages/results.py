@@ -4,7 +4,6 @@ import json
 import logging
 import math
 import os
-import urllib.parse
 
 import dash
 import dash_bootstrap_components as dbc
@@ -25,7 +24,8 @@ from soil_moisture_prediction.plot_functions import (
     SOIL_MOISTURE_VMIN,
 )
 
-from cosmopolitan_app.config import JOB_WORK_DIR_TEMPLATE, TILESERVER_URL
+from cosmopolitan_app import map_utils
+from cosmopolitan_app.config import JOB_WORK_DIR_TEMPLATE
 from cosmopolitan_app.constants import (
     LOADING_OVERLAY_ID,
     RESULT_CONTAINER_ID,
@@ -66,7 +66,6 @@ from cosmopolitan_app.utils import swap_classes
 dash.register_page(
     __name__,
     path_template="/results/<job_id>",
-    name="Results",
 )
 
 osm_layer = dl.TileLayer(
@@ -661,36 +660,16 @@ def _get_tile_params(job_id, map_type, date, color_bar_info):
     return tiff_filename, vmin, vmax, unit, colormap, colormap_params, tick_values
 
 
-def create_tile_layer_component(job_id, tiff_filename, colormap_params, opacity=0.9):
-    """Create TileLayer component for GeoTIFF using TiTiler.
-
-    This function can be mocked in tests to avoid tile server dependency.
-    """
-    # TiTiler WebMercatorQuad format with proper URL encoding and maxzoom
-    file_path = f"file:///data/{job_id}/{tiff_filename}"
-    encoded_url = urllib.parse.quote(file_path, safe=":/")
-
-    tile_url = f"{TILESERVER_URL}/cog/tiles/WebMercatorQuad/{{z}}/{{x}}/{{y}}@1x?url={encoded_url}&maxzoom=15{colormap_params}"  # noqa
-    logging.info(f"Using map URL: {tile_url}", extra={"tag": "frontend"})
-
-    return dl.TileLayer(id="map-tile-layer", url=tile_url, opacity=opacity)
-
-
-def create_legend_layer(vmin, vmax, unit, colormap, tick_values):
-    """Create colorbar legend layer."""
-    return create_colorbar_legend(vmin, vmax, unit, colormap, tick_values)
-
-
 def create_tile_layer(job_id, map_type, date, color_bar_info, opacity=0.9):
     """Create TileLayer and legend for GeoTIFF files using TiTiler."""
     tiff_filename, vmin, vmax, unit, colormap, colormap_params, tick_values = (
         _get_tile_params(job_id, map_type, date, color_bar_info)
     )
 
-    tile_layer = create_tile_layer_component(
+    tile_layer = map_utils.create_tile_layer_component(
         job_id, tiff_filename, colormap_params, opacity
     )
-    legend_layer = create_legend_layer(vmin, vmax, unit, colormap, tick_values)
+    legend_layer = create_colorbar_legend(vmin, vmax, unit, colormap, tick_values)
 
     # Handle None tile_layer (e.g., when mocked in tests to avoid tile server
     # dependency)
@@ -960,6 +939,8 @@ def update_map(
         # Add only the GeoJSON layer (first element), not the colorbar
         # This ensures the map's colorbar (from new_map_layers) is kept
         new_map_layers = [new_map_layers[0], measurements_layers[0], new_map_layers[1]]
+
+    logging.info(f"Map layers: {new_map_layers}", extra={"tag": "frontend"})
 
     return default_map_layers + new_map_layers, selected_date, False
 
