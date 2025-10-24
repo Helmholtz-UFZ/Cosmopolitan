@@ -52,9 +52,6 @@ RUN poetry config virtualenvs.create false && \
 # Switch to non-root user
 USER appuser
 
-# Setup rclone config 
-RUN python3 /python_docker/cosmopolitan/cosmopolitan_app/object_storage_manager.py setup_remote
-
 # Setup rclone config and start gunicorn
 CMD python3 /python_docker/cosmopolitan/cosmopolitan_app/object_storage_manager.py setup_remote && \
     gunicorn -w 4 -b 0.0.0.0:$FLASK_PORT cosmopolitan_app.app:server
