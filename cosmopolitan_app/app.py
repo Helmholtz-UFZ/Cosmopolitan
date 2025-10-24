@@ -13,6 +13,7 @@ from cosmopolitan_app.error_handling import handle_error
 from cosmopolitan_app.files_route import serve_files
 from cosmopolitan_app.layouts import app_layout, register_navbar_callbacks
 from cosmopolitan_app.logger import get_logger_config_web
+from cosmopolitan_app.object_storage_manager import setup_remote
 
 font_awesome = (
     "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
@@ -35,6 +36,7 @@ dictConfig(get_logger_config_web(DEBUG))
 server.logger.setLevel(logging.DEBUG)
 logging.debug("Web application logging configured.")
 # Start Celery Beat scheduler for periodic maintenance tasks
+setup_remote()
 
 
 def start_beat_scheduler():

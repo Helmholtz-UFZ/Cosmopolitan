@@ -53,10 +53,9 @@ RUN poetry config virtualenvs.create false && \
 # Switch to non-root user
 USER appuser
 
-RUN python3 /python_docker/cosmopolitan/cosmopolitan_app/object_storage_manager.py setup_remote
-
 CMD if [ "$GUNICORN" = 1 ] ; then \
-        gunicorn -w 4 -b 0.0.0.0:$FLASK_PORT cosmopolitan_app.app:server; \
+        exec gunicorn -w 4 -b 0.0.0.0:$FLASK_PORT cosmopolitan_app.app:server; \
     else \
-        python3 /python_docker/cosmopolitan/cosmopolitan_app/app.py; \
+        python3 /python_docker/cosmopolitan/cosmopolitan_app/object_storage_manager.py setup_remote; \
+        exec python3 /python_docker/cosmopolitan/cosmopolitan_app/app.py; \
     fi
