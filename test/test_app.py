@@ -154,6 +154,7 @@ def test_full_procedure(
     dash_duo.wait_for_element(f"#{PREPARE_INPUT_ID}", timeout=10).click()
     check_all_errors(dash_duo)
 
+    time.sleep(1)
     # Uncheck predictors
     predictor_dropdown_id = active_form_factory.id_format.format(
         field_name="pred_streams"
@@ -260,5 +261,5 @@ def test_full_procedure(
         raise AssertionError("Job did not complete successfully. Logs:\n" + job_logs)
 
     scroll_to_element_and_click(dash_duo, RESULT_BUTTON_ID)
-    time.sleep(10)
+    time.sleep(1)
     check_all_errors(dash_duo)

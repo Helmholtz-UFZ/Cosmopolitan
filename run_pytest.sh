@@ -22,7 +22,7 @@ until $(curl --silent --output /dev/null http://localhost:${MAIL_HOG_PORT}); do
     sleep 1
 done
 
-pytest
+pytest --webdriver=Chrome --headless --capture=no
 
 if [ -f .env.bak ]; then
     mv .env.bak .env
