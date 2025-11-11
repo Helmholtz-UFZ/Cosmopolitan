@@ -7,7 +7,7 @@ fi
 cp env_test_local .env
 
 docker rm postgres
-docker compose up postgres mailhog minio -d
+docker compose up postgres mailhog minio worker -d
 
 sleep 2
 

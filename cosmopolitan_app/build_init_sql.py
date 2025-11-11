@@ -96,6 +96,52 @@ def extract_kombu_ddl() -> str:
     # Generate all DDL (sequences, tables, indexes, constraints)
     metadata.create_all(engine, checkfirst=False)
 
+    # Post-process DDL statements to fix PostgreSQL-specific issues
+    processed_statements = []
+
+    # Track sequences that have been created
+    sequences = {}
+
+    for statement in ddl_statements:
+        statement = statement.strip()
+        if not statement:
+            continue
+
+        # Track sequence names
+        if statement.startswith("CREATE SEQUENCE"):
+            seq_name = statement.split()[2]
+            sequences[seq_name] = True
+            # Add DROP before CREATE
+            processed_statements.append(f"DROP SEQUENCE IF EXISTS {seq_name} CASCADE;")
+            processed_statements.append(statement + ";")
+
+        # Fix CREATE TABLE statements
+        elif statement.startswith("CREATE TABLE"):
+            # Extract table name
+            table_name = statement.split()[2]
+            # Add DROP before CREATE
+            processed_statements.append(f"DROP TABLE IF EXISTS {table_name} CASCADE;")
+
+            # Add DEFAULT nextval() for id columns that use sequences
+            # kombu_queue.id uses queue_id_sequence
+            # kombu_message.id uses message_id_sequence
+            if table_name == "kombu_queue":
+                statement = statement.replace(
+                    "id INTEGER NOT NULL,",
+                    "id INTEGER NOT NULL DEFAULT nextval('queue_id_sequence'),",
+                )
+            elif table_name == "kombu_message":
+                statement = statement.replace(
+                    "id INTEGER NOT NULL,",
+                    "id INTEGER NOT NULL DEFAULT nextval('message_id_sequence'),",
+                )
+
+            processed_statements.append(statement + ";")
+
+        # All other statements (indexes, constraints)
+        else:
+            processed_statements.append(statement + ";")
+
     # Format DDL statements
     ddl_lines = [
         "-- Celery broker tables (Kombu SQLAlchemy transport)",
@@ -104,12 +150,9 @@ def extract_kombu_ddl() -> str:
         "",
     ]
 
-    for statement in ddl_statements:
-        # Clean up statement formatting
-        statement = statement.strip()
-        if statement:
-            ddl_lines.append(statement)
-            ddl_lines.append("")
+    for statement in processed_statements:
+        ddl_lines.append(statement)
+        ddl_lines.append("")
 
     return "\n".join(ddl_lines)
 

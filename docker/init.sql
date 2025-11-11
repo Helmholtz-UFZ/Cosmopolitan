@@ -211,19 +211,27 @@ INSERT INTO timeio_info (sensor_id, sensor_name, sensor_type, ignored, datastrea
 -- AUTO-GENERATED from kombu.transport.sqlalchemy.models
 -- DO NOT EDIT - Regenerate with: python cosmopolitan_app/build_init_sql.py
 
-CREATE SEQUENCE queue_id_sequence
+DROP SEQUENCE IF EXISTS queue_id_sequence CASCADE;
+
+CREATE SEQUENCE queue_id_sequence;
+
+DROP TABLE IF EXISTS kombu_queue CASCADE;
 
 CREATE TABLE kombu_queue (
-	id INTEGER NOT NULL, 
+	id INTEGER NOT NULL DEFAULT nextval('queue_id_sequence'), 
 	name VARCHAR(200), 
 	PRIMARY KEY (id), 
 	UNIQUE (name)
-)
+);
 
-CREATE SEQUENCE message_id_sequence
+DROP SEQUENCE IF EXISTS message_id_sequence CASCADE;
+
+CREATE SEQUENCE message_id_sequence;
+
+DROP TABLE IF EXISTS kombu_message CASCADE;
 
 CREATE TABLE kombu_message (
-	id INTEGER NOT NULL, 
+	id INTEGER NOT NULL DEFAULT nextval('message_id_sequence'), 
 	visible BOOLEAN, 
 	timestamp TIMESTAMP WITHOUT TIME ZONE, 
 	payload TEXT NOT NULL, 
@@ -231,10 +239,10 @@ CREATE TABLE kombu_message (
 	queue_id INTEGER, 
 	PRIMARY KEY (id), 
 	CONSTRAINT "FK_kombu_message_queue" FOREIGN KEY(queue_id) REFERENCES kombu_queue (id)
-)
+);
 
-CREATE INDEX ix_kombu_message_timestamp_id ON kombu_message (timestamp, id)
+CREATE INDEX ix_kombu_message_timestamp_id ON kombu_message (timestamp, id);
 
-CREATE INDEX ix_kombu_message_timestamp ON kombu_message (timestamp)
+CREATE INDEX ix_kombu_message_visible ON kombu_message (visible);
 
-CREATE INDEX ix_kombu_message_visible ON kombu_message (visible)
+CREATE INDEX ix_kombu_message_timestamp ON kombu_message (timestamp);
