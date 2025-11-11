@@ -215,6 +215,10 @@ DROP SEQUENCE IF EXISTS queue_id_sequence CASCADE;
 
 CREATE SEQUENCE queue_id_sequence;
 
+DROP SEQUENCE IF EXISTS message_id_sequence CASCADE;
+
+CREATE SEQUENCE message_id_sequence;
+
 DROP TABLE IF EXISTS kombu_queue CASCADE;
 
 CREATE TABLE kombu_queue (
@@ -223,10 +227,6 @@ CREATE TABLE kombu_queue (
 	PRIMARY KEY (id), 
 	UNIQUE (name)
 );
-
-DROP SEQUENCE IF EXISTS message_id_sequence CASCADE;
-
-CREATE SEQUENCE message_id_sequence;
 
 DROP TABLE IF EXISTS kombu_message CASCADE;
 
@@ -241,8 +241,8 @@ CREATE TABLE kombu_message (
 	CONSTRAINT "FK_kombu_message_queue" FOREIGN KEY(queue_id) REFERENCES kombu_queue (id)
 );
 
+CREATE INDEX ix_kombu_message_timestamp ON kombu_message (timestamp);
+
 CREATE INDEX ix_kombu_message_timestamp_id ON kombu_message (timestamp, id);
 
 CREATE INDEX ix_kombu_message_visible ON kombu_message (visible);
-
-CREATE INDEX ix_kombu_message_timestamp ON kombu_message (timestamp);

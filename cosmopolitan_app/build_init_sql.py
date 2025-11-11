@@ -98,30 +98,24 @@ def extract_kombu_ddl() -> str:
     metadata.create_all(engine, checkfirst=False)
 
     # Post-process DDL statements to fix PostgreSQL-specific issues
-    processed_statements = []
-
-    # Track sequences that have been created
-    sequences = {}
+    # Group statements by type for deterministic ordering
+    sequences = []
+    tables = []
+    indexes = []
+    other = []
 
     for statement in ddl_statements:
         statement = statement.strip()
         if not statement:
             continue
 
-        # Track sequence names
+        # Group by statement type
         if statement.startswith("CREATE SEQUENCE"):
             seq_name = statement.split()[2]
-            sequences[seq_name] = True
-            # Add DROP before CREATE
-            processed_statements.append(f"DROP SEQUENCE IF EXISTS {seq_name} CASCADE;")
-            processed_statements.append(statement + ";")
+            sequences.append((seq_name, statement))
 
-        # Fix CREATE TABLE statements
         elif statement.startswith("CREATE TABLE"):
-            # Extract table name
             table_name = statement.split()[2]
-            # Add DROP before CREATE
-            processed_statements.append(f"DROP TABLE IF EXISTS {table_name} CASCADE;")
 
             # Add DEFAULT nextval() for id columns that use sequences
             # kombu_queue.id uses queue_id_sequence
@@ -137,11 +131,53 @@ def extract_kombu_ddl() -> str:
                     "id INTEGER NOT NULL DEFAULT nextval('message_id_sequence'),",
                 )
 
-            processed_statements.append(statement + ";")
+            tables.append((table_name, statement))
 
-        # All other statements (indexes, constraints)
+        elif statement.startswith("CREATE INDEX"):
+            # Extract index name for sorting
+            index_name = statement.split()[2]
+            indexes.append((index_name, statement))
+
         else:
-            processed_statements.append(statement + ";")
+            other.append(statement)
+
+    # Sort each group for deterministic output
+    # Respect dependency order for tables: kombu_queue before kombu_message
+    sequences.sort(key=lambda x: x[0])
+    indexes.sort(key=lambda x: x[0])
+
+    # Manual ordering for tables to respect foreign key dependencies
+    table_order = ["kombu_queue", "kombu_message"]
+    tables_dict = dict(tables)
+    tables_ordered = [
+        (name, tables_dict[name]) for name in table_order if name in tables_dict
+    ]
+
+    # Sequences should match table order for clarity
+    sequence_order = ["queue_id_sequence", "message_id_sequence"]
+    sequences_dict = dict(sequences)
+    sequences_ordered = [
+        (name, sequences_dict[name])
+        for name in sequence_order
+        if name in sequences_dict
+    ]
+
+    # Build processed statements in order: sequences, tables, indexes, other
+    processed_statements = []
+
+    for seq_name, statement in sequences_ordered:
+        processed_statements.append(f"DROP SEQUENCE IF EXISTS {seq_name} CASCADE;")
+        processed_statements.append(statement + ";")
+
+    for table_name, statement in tables_ordered:
+        processed_statements.append(f"DROP TABLE IF EXISTS {table_name} CASCADE;")
+        processed_statements.append(statement + ";")
+
+    for index_name, statement in indexes:
+        processed_statements.append(statement + ";")
+
+    for statement in other:
+        processed_statements.append(statement + ";")
 
     # Format DDL statements
     ddl_lines = [
