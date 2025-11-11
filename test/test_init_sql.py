@@ -11,6 +11,7 @@ If this test fails, run: python cosmopolitan_app/build_init_sql.py
 """
 
 import subprocess
+import tempfile
 from pathlib import Path
 
 
@@ -29,27 +30,36 @@ def test_init_sql_is_up_to_date():
     current_init_sql = init_sql_path.read_text()
 
     # Create temporary directory for regenerated init.sql
-
-    # Run build script to regenerate init.sql
-    result = subprocess.run(
-        ["python3", str(build_script)],
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-    )
-
-    # Check that build script succeeded
-    if result.returncode != 0:
-        error_msg = (
-            f"Failed to regenerate init.sql:\n"
-            f"STDOUT:\n{result.stdout}\n"
-            f"STDERR:\n{result.stderr}"
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_init_sql = Path(temp_dir) / "init.sql"
+        # Run build script to regenerate init.sql
+        result = subprocess.run(
+            ["python3", str(build_script), str(temp_init_sql)],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
         )
-        raise AssertionError(error_msg)
 
-    # Read regenerated init.sql
-    regenerated_init_sql = init_sql_path.read_text()
+        # Check that build script succeeded
+        if result.returncode != 0:
+            error_msg = (
+                f"Failed to regenerate init.sql:\n"
+                f"STDOUT:\n{result.stdout}\n"
+                f"STDERR:\n{result.stderr}"
+            )
+            raise AssertionError(error_msg)
 
-    # Compare current and regenerated
-    if current_init_sql != regenerated_init_sql:
-        raise AssertionError("docker/init.sql is not up-to-date.")
+        # Read regenerated init.sql
+        regenerated_init_sql = temp_init_sql.read_text()
+
+        # Compare current and regenerated
+        if current_init_sql != regenerated_init_sql:
+            # Get diff for better error message
+            diff_result = subprocess.run(
+                ["diff", "-u", str(temp_init_sql), str(init_sql_path)],
+                capture_output=True,
+                text=True,
+            )
+            raise AssertionError(
+                f"docker/init.sql is not up-to-date. Diff:\n{diff_result.stdout}"
+            )

@@ -9,6 +9,7 @@ Usage:
     python cosmopolitan_app/build_init_sql.py
 """
 
+import sys
 from pathlib import Path
 
 from sqlalchemy import (
@@ -157,7 +158,7 @@ def extract_kombu_ddl() -> str:
     return "\n".join(ddl_lines)
 
 
-def build_init_sql():
+def build_init_sql(file_path: str = None):
     """Build init.sql from managed_init.sql and Kombu DDL."""
     # Determine file paths
     script_dir = Path(__file__).parent
@@ -165,7 +166,10 @@ def build_init_sql():
     docker_dir = repo_root / "docker"
 
     managed_init_path = docker_dir / "managed_init.sql"
-    init_sql_path = docker_dir / "init.sql"
+    if file_path:
+        init_sql_path = Path(file_path)
+    else:
+        init_sql_path = docker_dir / "init.sql"
 
     # Read managed SQL
     if not managed_init_path.exists():
@@ -200,4 +204,4 @@ def build_init_sql():
 
 
 if __name__ == "__main__":
-    build_init_sql()
+    build_init_sql(sys.argv[1] if len(sys.argv) > 1 else None)

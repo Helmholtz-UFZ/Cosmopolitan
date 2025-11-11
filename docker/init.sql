@@ -14,7 +14,7 @@
 -- The Kombu broker tables are auto-generated from Kombu's SQLAlchemy models.
 --
 -- To regenerate init.sql:
---   python cosmopolitan_app/build_init_sql.py
+--   python cosmopolitan_app/build_init_sql.py --noconftest
 --
 -- DO NOT manually edit docker/init.sql - edit this file instead!
 
