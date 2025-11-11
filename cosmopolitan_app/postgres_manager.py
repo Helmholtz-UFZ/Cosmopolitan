@@ -110,11 +110,8 @@ class PostgresManager:
     )
     Session = sessionmaker(bind=engine)
 
-    DEFAULT_MAX_RETRIES = 3
-    DEFAULT_RETRY_DELAY = 1
-
     @classmethod
-    def session_scope(cls, max_retries=None, retry_delay=None):
+    def session_scope(cls):
         """Provide a transactional scope around a series of operations."""
         return SessionScope(session_factory=cls.Session)
 

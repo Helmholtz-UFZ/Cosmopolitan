@@ -3,58 +3,67 @@
 import logging
 import os
 import shutil
+from typing import List
 
 from dotenv import load_dotenv
 
 from cosmopolitan_app.config import env_vars, getenv
 
 
-def test_env_dev_mock(logger):
-    """Test .env_dev_mock file."""
-    shutil.copy("env_dev_mock", ".env")
-    # Remove the env_vars from the environment
-    for env_var in env_vars:
-        os.environ.pop(env_var, None)
-    # Reload the .env file
-    load_dotenv(override=True)
+def _test_single_env_file(env_filename: str, logger, additional_lines: List[str]):
+    """Test a single .env file.
 
-    for env_var in env_vars:
-        logger.info(f"Testing {env_var}")
-        logging.info(getenv(env_var))
+    Args:
+        env_filename: Name of the env file (e.g., "env_dev_mock")
+        logger: Logger instance for test output
+        additional_lines: Optional list of lines to append to the env file
+    """
+    # Copy env file to .env
+    shutil.copy(env_filename, ".env")
 
-
-def test_env_dev_prod(logger):
-    """Test .env_dev_prod file."""
-    shutil.copy("env_dev_prod", ".env")
-    # Remove the env_vars from the environment
-    for env_var in env_vars:
-        os.environ.pop(env_var, None)
-    # Reload the .env file
-    load_dotenv(override=True)
-
-    for env_var in env_vars:
-        logger.info(f"Testing {env_var}")
-        logging.info(getenv(env_var))
-
-
-def test_env_prod(logger):
-    """Test .env_prod file."""
-    shutil.copy("env_prod", ".env")
-    # Add the following line to .env file
-    # EMAIL_PASSWORD="password"
-    with open(".env", "a") as f:
-        f.write("EMAIL_PASSWORD='password'\n")
-        f.write("CLUSTER_TOKEN='password'\n")
-        f.write("POSTGRES_PASSWORD='password'\n")
-        f.write("OBJECT_STORAGE_ACCESS_KEY='password'\n")
-        f.write("OBJECT_STORAGE_SECRET_KEY='password'\n")
+    # Add additional lines if provided
+    if additional_lines:
+        with open(".env", "a") as f:
+            for line in additional_lines:
+                f.write(f"{line}\n")
 
     # Remove the env_vars from the environment
     for env_var in env_vars:
         os.environ.pop(env_var, None)
+
     # Reload the .env file
     load_dotenv(override=True)
 
+    # Test each environment variable
     for env_var in env_vars:
-        logger.info(f"Testing {env_var}")
+        logger.info(f"Testing {env_var} from {env_filename}")
         logging.info(getenv(env_var))
+
+
+def test_all_env_files(logger):
+    """Test all environment files at once.
+
+    Example usage:
+        test_all_env_files(logger)
+    """
+    env_files = [
+        "env_dev_mock",
+        "env_dev_prod",
+        "env_prod",
+        "env_test",
+        "env_test_local",
+    ]
+    additional_lines_map = {
+        "env_prod": [
+            "EMAIL_PASSWORD='password'",
+            "CLUSTER_TOKEN='password'",
+            "POSTGRES_PASSWORD='password'",
+            "OBJECT_STORAGE_ACCESS_KEY='password'",
+            "OBJECT_STORAGE_SECRET_KEY='password'",
+        ]
+    }
+
+    for env_filename in env_files:
+        logger.info(f"Testing environment file: {env_filename}")
+        additional_lines = additional_lines_map.get(env_filename, [])
+        _test_single_env_file(env_filename, logger, additional_lines)

@@ -1,6 +1,7 @@
 """This module provides a class to manage object storage using rclone."""
 
 import logging
+import os
 import subprocess
 import sys
 
@@ -17,9 +18,9 @@ from cosmopolitan_app.config import (
 class ObjectStorageError(Exception):
     """Exception raised for errors in the ObjectStorageManager class."""
 
-    def __init__(self):
+    def __init__(self, message="An error occurred while managing object storage."):
         """Initialize the ObjectStorageError class."""
-        super().__init__("An error occurred while managing object storage.")
+        super().__init__(message)
 
 
 def check_result(params: list, result: subprocess.CompletedProcess) -> None:
@@ -31,14 +32,18 @@ def check_result(params: list, result: subprocess.CompletedProcess) -> None:
     Raises:
         ObjectStorageError: If the command failed
     """
+    error_msg = result.stderr.replace(OBJECT_STORAGE_SECRET_KEY, "****")
+    error_msg = error_msg.replace(OBJECT_STORAGE_ACCESS_KEY, "****")
+    output = result.stdout.replace(OBJECT_STORAGE_SECRET_KEY, "****")
+    output = output.replace(OBJECT_STORAGE_ACCESS_KEY, "****")
+    call = " ".join(params)
+    call = call.replace(OBJECT_STORAGE_SECRET_KEY, "****")
+    call = call.replace(OBJECT_STORAGE_ACCESS_KEY, "****")
+    logging.debug(
+        f"Command executed: {call}\nOutput: {output}\nError: {error_msg}",
+        extra={"tag": "object_storage"},
+    )
     if result.returncode != 0:
-        error_msg = result.stderr.replace(OBJECT_STORAGE_SECRET_KEY, "****")
-        error_msg = error_msg.replace(OBJECT_STORAGE_ACCESS_KEY, "****")
-        output = result.stdout.replace(OBJECT_STORAGE_SECRET_KEY, "****")
-        output = output.replace(OBJECT_STORAGE_ACCESS_KEY, "****")
-        call = " ".join(params)
-        call = call.replace(OBJECT_STORAGE_SECRET_KEY, "****")
-        call = call.replace(OBJECT_STORAGE_ACCESS_KEY, "****")
         logging.error(
             f"Command failed: {call}\n{error_msg}\n{output}",
             extra={"tag": "object_storage"},
@@ -81,11 +86,69 @@ def setup_remote() -> None:
     )
 
 
+def get_local_files(local_path: str) -> set:
+    """Get set of all files in a local directory (relative paths).
+
+    Args:
+        local_path: Path to local directory
+
+    Returns:
+        Set of relative file paths
+    """
+    files = set()
+    if not os.path.exists(local_path):
+        return files
+
+    for root, _, filenames in os.walk(local_path):
+        for filename in filenames:
+            # Get full path and make it relative to local_path
+            full_path = os.path.join(root, filename)
+            rel_path = os.path.relpath(full_path, local_path)
+            files.add(rel_path)
+    return files
+
+
+def get_remote_files(remote_path: str) -> set:
+    """Get set of all files in a remote directory using rclone ls.
+
+    Args:
+        remote_path: Remote path in format "remote:bucket/dirname"
+
+    Returns:
+        Set of relative file paths
+    """
+    ls_params = ["rclone", "ls", remote_path]
+
+    result = subprocess.run(
+        ls_params,
+        capture_output=True,
+        text=True,
+    )
+
+    # rclone ls returns lines like: "  123456 path/to/file.txt"
+    # Extract just the filenames
+    files = set()
+    for line in result.stdout.strip().split("\n"):
+        if line:
+            # Split on whitespace and take everything after the size
+            parts = line.strip().split(None, 1)
+            if len(parts) == 2:
+                files.add(parts[1])
+
+    return files
+
+
 def sync_workdir(dirname: str) -> None:
     """Sync a directory between local work directory and object storage using rclone.
 
+    This function performs bidirectional sync and verifies that all local files
+    are successfully synced to remote storage.
+
     Args:
         dirname: Name of the directory to sync
+
+    Raises:
+        ObjectStorageError: If sync verification fails (local and remote don't match)
     """
     logging.debug(
         f"Syncing directory {dirname} between local work directory and object storage.",
@@ -94,6 +157,15 @@ def sync_workdir(dirname: str) -> None:
     local_path = JOB_WORK_DIR_TEMPLATE.format(job_id=dirname)
     remote_path = f"{OBJECT_STORAGE_REMOTE_NAME}:{OBJECT_STORAGE_BUCKET}/{dirname}"
 
+    # List local files before sync
+    local_files_before = get_local_files(local_path)
+    logging.debug(
+        f"Local files before sync ({len(local_files_before)} files): "
+        f"{sorted(local_files_before)}",
+        extra={"tag": "object_storage"},
+    )
+
+    # Upload local changes to remote
     sync_remote_params = [
         "rclone",
         "sync",
@@ -102,11 +174,13 @@ def sync_workdir(dirname: str) -> None:
         "--progress",
         "--checksum",
     ]
+
     result = subprocess.run(
         sync_remote_params,
         capture_output=True,
         text=True,
     )
+
     check_result(sync_remote_params, result)
 
     # Download remote changes to local
@@ -124,6 +198,40 @@ def sync_workdir(dirname: str) -> None:
         text=True,
     )
     check_result(sync_local_params, result)
+
+    # Verify sync: compare local and remote files
+    local_files_after = get_local_files(local_path)
+    remote_files = get_remote_files(remote_path)
+
+    logging.debug(
+        f"Local files after sync ({len(local_files_after)} files): "
+        f"{sorted(local_files_after)}",
+        extra={"tag": "object_storage"},
+    )
+    logging.debug(
+        f"Remote files after sync ({len(remote_files)} files): {sorted(remote_files)}",
+        extra={"tag": "object_storage"},
+    )
+
+    # Check if sets match
+    if local_files_after != remote_files:
+        missing_remote = local_files_after - remote_files
+        missing_local = remote_files - local_files_after
+
+        error_msg = f"Sync verification failed for {dirname}!\n"
+        if missing_remote:
+            error_msg += f"Files missing from remote: {sorted(missing_remote)}\n"
+        if missing_local:
+            error_msg += f"Files missing from local: {sorted(missing_local)}\n"
+
+        logging.error(error_msg, extra={"tag": "object_storage"})
+        raise ObjectStorageError(error_msg)
+
+    logging.debug(
+        f"Sync verification successful: {len(local_files_after)} files match "
+        f"between local and remote",
+        extra={"tag": "object_storage"},
+    )
 
 
 def delete_file_from_storage(filepath: str) -> None:

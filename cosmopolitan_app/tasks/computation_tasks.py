@@ -31,8 +31,8 @@ class ComputationTask(Task):
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         """Handle task failure."""
-        logging.error(f"Task {task_id} failed: {exc}", extra={"tag": "job_submission"})
-        logging.error(f"Traceback: {einfo}", extra={"tag": "job_submission"})
+        logging.error(f"Task {task_id} failed: {exc}", extra={"tag": "worker"})
+        logging.error(f"Traceback: {einfo}", extra={"tag": "worker"})
 
 
 def start_computation_task(self, job_id):
@@ -53,9 +53,7 @@ def start_computation_task(self, job_id):
         try:
             send_submission_mail(job)
         except SMTPAuthenticationError:
-            logging.error(
-                "Failed to send submission mail.", extra={"tag": "email_service"}
-            )
+            logging.error("Failed to send submission mail.", extra={"tag": "worker"})
 
         dictConfig(
             get_logger_config_compuation(os.path.join(job.working_dir, LOG_FILE_NAME))
@@ -72,8 +70,8 @@ def start_computation_task(self, job_id):
                 job.status = "COMPLETED"
         except Exception as e:  # noqa
             # Log error to log file
-            logging.error("An error occurred", extra={"tag": "job_submission"})
-            logging.error(traceback.format_exc(), extra={"tag": "job_submission"})
+            logging.error("An error occurred", extra={"tag": "worker"})
+            logging.error(traceback.format_exc(), extra={"tag": "worker"})
             # Ensure all log buffers are flushed before switching config
             flush_all_handlers()
             # Log error to web logs
@@ -88,15 +86,13 @@ def start_computation_task(self, job_id):
         # Ensure all log buffers are flushed before switching config
         flush_all_handlers()
         dictConfig(get_logger_config_web(DEBUG))
-        logging.info("Computation finished.", extra={"tag": "job_submission"})
+        logging.info("Computation finished.", extra={"tag": "worker"})
 
         job.save()
         try:
             send_finished_mail(job)
         except SMTPAuthenticationError:
-            logging.error(
-                "Failed to send finished mail.", extra={"tag": "email_service"}
-            )
+            logging.error("Failed to send finished mail.", extra={"tag": "worker"})
 
     except Exception as e:  # noqa
         # Ensure all log buffers are flushed before switching config
@@ -104,12 +100,11 @@ def start_computation_task(self, job_id):
         dictConfig(get_logger_config_web(DEBUG))
         job.status = "FAILED"
         logging.error(
-            f"Job {job.job_id} failed:\n{repr(e)}\n\n{traceback.format_exc()}"
+            f"Job {job.job_id} failed:\n{repr(e)}\n\n{traceback.format_exc()}",
+            extra={"tag": "worker"},
         )
         job.save()
         try:
             send_finished_mail(job)
         except SMTPAuthenticationError:
-            logging.error(
-                "Failed to send finished mail.", extra={"tag": "email_service"}
-            )
+            logging.error("Failed to send finished mail.", extra={"tag": "worker"})

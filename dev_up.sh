@@ -23,7 +23,7 @@ fi
 cp "$env_file" .env
 
 if [ "$1" == "prod" ]; then
-    docker compose up --no-log-prefix cosmopolitan
+    docker compose up --no-log-prefix --no-deps webserver
 else
-    docker compose up --no-log-prefix --attach cosmopolitan
+    docker compose up --no-log-prefix --attach worker
 fi

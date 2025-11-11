@@ -157,10 +157,12 @@ poetry update
 
 The application uses different environment files:
 
-- `env_dev_mock` - Mock services for development
-- `env_dev_prod_priv` - Production services with credentials (not in repo)
-- `env_test` - Testing configuration
-- `env_prod` - Production deployment
+- `env_dev_mock` - Enviroment for docker setup where all services are run locally.
+- `env_dev_prod_priv` - Enviroment for docker setup where the production services are
+  used. An can be found `env_dev_prod`.
+- `env_test` - Testing enviroment for ci pipeline
+- `env_test_local` - Testing enviroment for lokal testing
+- `env_prod` - Enviroment for production deployment
 
 Key environment variables:
 

@@ -1,7 +1,9 @@
+# This environment file is used for the testing inside the CI/CD pipeline.
+
 ### Devolpment variables ###
 DOCKER_UID=1000
 DOCKER_GID=1000
-FLASK_DEBUG=1
+FLASK_DEBUG=0
 GUNICORN=0
 MAINTAINER_EMAIL="test@test.de"
 

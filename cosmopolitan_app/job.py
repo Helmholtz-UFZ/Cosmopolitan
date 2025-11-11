@@ -26,7 +26,7 @@ from soil_moisture_prediction.input_file_parser import (
 )
 from werkzeug.utils import secure_filename
 
-from cosmopolitan_app.config import JOB_WORK_DIR_TEMPLATE
+from cosmopolitan_app.config import JOB_WORK_DIR_TEMPLATE, MAINTAINER_EMAIL
 from cosmopolitan_app.constants import DAYS_DELETE_NOT_SUMBITTED, DAYS_DELETE_SUMBITTED
 from cosmopolitan_app.error_handling import (
     InvalidJobID,
@@ -42,6 +42,7 @@ from cosmopolitan_app.object_storage_manager import (
 from cosmopolitan_app.postgres_manager import JobTable, PostgresManager
 from cosmopolitan_app.pydantic_models import ModelWebsite, validate_job_id
 from cosmopolitan_app.timeio_info import type_id_dict
+from cosmopolitan_app.utils import send_mail
 
 LOG_FILE_NAME = "logs"
 
@@ -652,16 +653,23 @@ class Job:
                     f"Job {self.job_id} failed to start.\n{message}",
                     extra={"tag": "job_submission"},
                 )
-                self.status = "FAILED"
-
-            self.save()
+                email_subject = f"Failed to start job {self.job_id}"
+                email_body = f"""
+                Error: {str(e)}\n\n
+                Traceback info: {traceback.format_exc()}\n\n
+                """
+                send_mail(MAINTAINER_EMAIL, email_subject, email_body)
+                failed = True
+                celery_task_id = None
         else:
             logging.debug(
                 f"Job {self.job_id} was already submitted.",
                 extra={"tag": "job_submission"},
             )
+            return
 
-        self.celery_task_id = celery_task_id
+        if failed:
+            self.celery_task_id = celery_task_id
         if failed:
             self.status = "FAILED"
         else:

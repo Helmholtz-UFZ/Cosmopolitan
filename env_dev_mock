@@ -1,3 +1,8 @@
+# This environment file is used for development in a docker setup. Start everything via
+# docker compose up cosmopolitan or use dev_up.sh script.
+
+# Careful! You will connect to the real services used in production!
+
 ### Devolpment variables ###
 DOCKER_UID=1000
 DOCKER_GID=1000

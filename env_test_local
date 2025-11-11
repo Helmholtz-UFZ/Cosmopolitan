@@ -1,3 +1,6 @@
+# This environment file is used for the testing in a local development setup. Start the
+# required services and than run the tests.
+
 ### Devolpment variables ###
 DOCKER_UID=1000
 DOCKER_GID=1000

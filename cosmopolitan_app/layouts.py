@@ -101,7 +101,7 @@ def create_navbar():
                                 ),
                                 dbc.NavItem(
                                     dbc.NavLink(
-                                        "Measurments",
+                                        "Measurements",
                                         href=dash.page_registry[
                                             "pages.measurment_view"
                                         ]["relative_path"],

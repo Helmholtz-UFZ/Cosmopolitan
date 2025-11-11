@@ -71,10 +71,18 @@ class PostgreSQLHandler(logging.Handler):
         self.connection_params = connection_params
         self.tag = tag
         # Create a connection pool for better performance
+        # Add keepalive settings to prevent connections from going stale
+        pool_params = {
+            **connection_params,
+            "keepalives": 1,
+            "keepalives_idle": 30,  # Start keepalive after 30s idle
+            "keepalives_interval": 10,  # Send keepalive every 10s
+            "keepalives_count": 5,  # 5 failed keepalives = dead connection
+        }
         self.connection_pool = pool.SimpleConnectionPool(
             1,
             10,  # min and max connections
-            **connection_params,
+            **pool_params,
         )
 
     def emit(self, record):
@@ -92,8 +100,12 @@ class PostgreSQLHandler(logging.Handler):
             record: The log record to write. May contain 'tag' attribute from extra
             parameter.
         """
+        import psycopg2
+
         # Get a connection from the pool
         connection = self.connection_pool.getconn()
+        connection_is_bad = False
+
         try:
             with connection.cursor() as cursor:
                 # Check if record has extra 'tag' attribute, otherwise use handler
@@ -116,13 +128,59 @@ class PostgreSQLHandler(logging.Handler):
                     ),
                 )
                 connection.commit()
+        except psycopg2.OperationalError as e:
+            # Connection is bad (timeout, network issue, etc.)
+            # Mark it as bad so it's not returned to the pool
+            connection_is_bad = True
+            print(f"Database connection error (will retry with new connection): {e}")
+
+            # Try once more with a fresh connection
+            try:
+                new_connection = self.connection_pool.getconn()
+                try:
+                    with new_connection.cursor() as cursor:
+                        tag = getattr(record, "tag", self.tag)
+                        cursor.execute(
+                            """
+                            INSERT INTO logs
+                            (timestamp, pid, level, module, message, tag)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                            """,
+                            (
+                                datetime.datetime.fromtimestamp(record.created),
+                                record.process,
+                                record.levelname,
+                                record.module,
+                                self.format(record),
+                                tag,
+                            ),
+                        )
+                        new_connection.commit()
+                finally:
+                    self.connection_pool.putconn(new_connection)
+            except Exception as retry_error:  # noqa
+                print(
+                    f"FATAL: Database logging failed after retry. "
+                    f"Worker cannot continue without logging capability: {retry_error}"
+                )
+                # Re-raise to fail the worker - logging is critical
+                raise
         except Exception as e:  # noqa
-            # Handle any errors that may occur
-            self.handleError(record)
-            print(f"Error writing to PostgreSQL: {e}")
+            # Any other database error is also fatal
+            print(f"FATAL: Error writing to PostgreSQL: {e}")
+            # Re-raise to fail the worker
+            raise
         finally:
-            # Return the connection to the pool
-            self.connection_pool.putconn(connection)
+            # Return the connection to the pool, or close it if it's bad
+            if connection_is_bad:
+                try:
+                    connection.close()
+                except Exception:  # noqa
+                    pass
+                # putconn with close=True tells the pool this connection is bad
+                self.connection_pool.putconn(connection, close=True)
+            else:
+                self.connection_pool.putconn(connection)
 
     def close(self):
         """Close all database connections when the handler is closed."""

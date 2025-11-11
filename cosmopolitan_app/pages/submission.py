@@ -21,14 +21,13 @@ from cosmopolitan_app.constants import (
     SUBMIT_JOB_ID,
     URL_ID,
 )
-from cosmopolitan_app.error_handling import InvalidJobID, JobNotFound
 from cosmopolitan_app.form_factory import (
     FormFactory,
     FormTemplateFactory,
     construct_selected_input,
 )
 from cosmopolitan_app.job import Job
-from cosmopolitan_app.layouts import create_header, landing_page_layout_column
+from cosmopolitan_app.layouts import landing_page_layout_column
 from cosmopolitan_app.utils import swap_classes
 
 dash.register_page(
@@ -144,22 +143,7 @@ def load_submission_content(job_id, header_class_name):
     logging.info(
         f"Loading submission content for job {job_id}", extra={"tag": "job_submission"}
     )
-    try:
-        job = Job(job_id)
-    except (JobNotFound, InvalidJobID):
-        logging.info(f"Job {job_id} not found", extra={"tag": "job_submission"})
-        error_content = html.Div(
-            [
-                html.P(
-                    "The job you are looking for does not exist.",
-                    className="text-center mt-4",
-                )
-            ]
-        )
-        return (create_header("Error", "Job not found"), error_content)
-
-    if job.prepared_input is False:
-        return (create_header("Error", "Input not prepared"), html.Div())
+    job = Job(job_id)
 
     # Create the header with job information
     header_class_name = swap_classes(job.status_color(), header_class_name)

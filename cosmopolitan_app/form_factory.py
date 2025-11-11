@@ -511,7 +511,7 @@ def construct_selected_input(
             chosen_input[file_name] = (general_info, coverage)
         else:
             general_info = f"Time steps: {', '.join(file_info['time_steps'])}\n"
-            coverage = f"Number of measurments: {file_info['num_data_points']}\n"
+            coverage = f"Number of measurements: {file_info['num_data_points']}\n"
             chosen_input[file_name] = (general_info, coverage)
 
     if input_type == "predictor_upload":
@@ -610,7 +610,7 @@ class FormTemplateFactory:
         ]
 
         selected_crns = [
-            html.H5("Selected CRNS measurments", className="text-center"),
+            html.H5("Selected CRNS measurements", className="text-center"),
             html.Div(
                 self.selected_crns, id=self.selected_crns_key, className="text-center"
             ),
@@ -667,19 +667,19 @@ class FormTemplateFactory:
             [area_preview],
         ]
 
-        form_template["CRNS Measurments"] = []
+        form_template["CRNS Measurements"] = []
         if self.active:
-            form_template["CRNS Measurments"] += [[crns_data_base]]
-        form_template["CRNS Measurments"] += [["date_range"]]
+            form_template["CRNS Measurements"] += [[crns_data_base]]
+        form_template["CRNS Measurements"] += [["date_range"]]
         if self.active:
-            form_template["CRNS Measurments"] += [
+            form_template["CRNS Measurements"] += [
                 ["train_data"],
                 ["station_data"],
                 ["rover_data"],
             ]
         if self.active:
-            form_template["CRNS Measurments"] += [[html.Hr()], ["crns_upload"]]
-        form_template["CRNS Measurments"] += [[html.Hr()], [selected_crns]]
+            form_template["CRNS Measurements"] += [[html.Hr()], ["crns_upload"]]
+        form_template["CRNS Measurements"] += [[html.Hr()], [selected_crns]]
 
         form_template["Predictors"] = []
         if self.active:

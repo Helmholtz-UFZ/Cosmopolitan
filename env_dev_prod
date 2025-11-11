@@ -1,3 +1,8 @@
+# This environment file is used for development in a docker setup but will have reall
+# acces to the actuall services used in production. Copy this file to env_dev_prod_priv
+# (not tracked by git) and fill in the missing credentials. Than start everything via
+# docker-compose or use dev_up.sh script.
+
 ### Devolpment variables ###
 DOCKER_UID=1000
 DOCKER_GID=1000

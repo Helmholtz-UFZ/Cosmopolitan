@@ -94,7 +94,7 @@ def update_db_task(self):
 
     This replaces the APScheduler update_db job.
     """
-    logging.info("Start updating database.", extra={"tag": "crns_update"})
+    logging.info("Start updating database.", extra={"tag": "time_io"})
     try:
         update_crns_measurments()
     except Exception as error:  # noqa
@@ -103,5 +103,5 @@ def update_db_task(self):
         Traceback info: {traceback.format_exc()}\n\n
         """
         send_mail(MAINTAINER_EMAIL, email_subject, email_body)
-        logging.error(email_subject, extra={"tag": "crns_update"})
-        logging.error(email_body, extra={"tag": "crns_update"})
+        logging.error(email_subject, extra={"tag": "time_io"})
+        logging.error(email_body, extra={"tag": "time_io"})
