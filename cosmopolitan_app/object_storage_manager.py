@@ -138,100 +138,129 @@ def get_remote_files(remote_path: str) -> set:
     return files
 
 
-def sync_workdir(dirname: str) -> None:
-    """Sync a directory between local work directory and object storage using rclone.
+def get_files(dirname: str) -> None:
+    """Download files from object storage to local work directory.
 
-    This function performs bidirectional sync and verifies that all local files
-    are successfully synced to remote storage.
+    This overwrites local files with remote files using rclone sync.
 
     Args:
-        dirname: Name of the directory to sync
+        dirname: Name of the directory to download
 
     Raises:
-        ObjectStorageError: If sync verification fails (local and remote don't match)
+        ObjectStorageError: If download fails or verification fails
     """
     logging.debug(
-        f"Syncing directory {dirname} between local work directory and object storage.",
+        f"Downloading files from object storage for {dirname}",
         extra={"tag": "object_storage"},
     )
     local_path = JOB_WORK_DIR_TEMPLATE.format(job_id=dirname)
     remote_path = f"{OBJECT_STORAGE_REMOTE_NAME}:{OBJECT_STORAGE_BUCKET}/{dirname}"
 
-    # List local files before sync
-    local_files_before = get_local_files(local_path)
+    out = subprocess.run(
+        ["rclone", "--version"],
+        capture_output=True,
+        text=True,
+    )
     logging.debug(
-        f"Local files before sync ({len(local_files_before)} files): "
-        f"{sorted(local_files_before)}",
-        extra={"tag": "object_storage"},
+        f"Rclone version: {out.stdout.strip()}", extra={"tag": "object_storage"}
     )
-
-    # Upload local changes to remote
-    sync_remote_params = [
-        "rclone",
-        "sync",
-        local_path,
-        remote_path,
-        "--progress",
-        "--checksum",
-    ]
-
-    result = subprocess.run(
-        sync_remote_params,
-        capture_output=True,
-        text=True,
-    )
-
-    check_result(sync_remote_params, result)
-
-    # Download remote changes to local
-    sync_local_params = [
+    # Download: make local identical to remote
+    sync_params = [
         "rclone",
         "sync",
         remote_path,
         local_path,
-        "--progress",
         "--checksum",
     ]
+    logging.debug(" ".join(sync_params), extra={"tag": "object_storage"})
+
     result = subprocess.run(
-        sync_local_params,
+        sync_params,
         capture_output=True,
         text=True,
     )
-    check_result(sync_local_params, result)
+    logging.debug(
+        f"Rclone sync result: {result.stdout}", extra={"tag": "object_storage"}
+    )
+    check_result(sync_params, result)
 
-    # Verify sync: compare local and remote files
-    local_files_after = get_local_files(local_path)
+    # Verify download
+    local_files = get_local_files(local_path)
     remote_files = get_remote_files(remote_path)
 
     logging.debug(
-        f"Local files after sync ({len(local_files_after)} files): "
-        f"{sorted(local_files_after)}",
-        extra={"tag": "object_storage"},
-    )
-    logging.debug(
-        f"Remote files after sync ({len(remote_files)} files): {sorted(remote_files)}",
+        f"Downloaded {len(local_files)} files from remote",
         extra={"tag": "object_storage"},
     )
 
-    # Check if sets match
-    if local_files_after != remote_files:
-        missing_remote = local_files_after - remote_files
-        missing_local = remote_files - local_files_after
-
-        error_msg = f"Sync verification failed for {dirname}!\n"
-        if missing_remote:
-            error_msg += f"Files missing from remote: {sorted(missing_remote)}\n"
-        if missing_local:
-            error_msg += f"Files missing from local: {sorted(missing_local)}\n"
-
+    if local_files != remote_files:
+        missing_local = remote_files - local_files
+        error_msg = (
+            f"Download verification failed for {dirname}!\n"
+            f"Files missing from local: {sorted(missing_local)}"
+        )
         logging.error(error_msg, extra={"tag": "object_storage"})
         raise ObjectStorageError(error_msg)
 
+
+def save_files(dirname: str) -> None:
+    """Upload files from local work directory to object storage.
+
+    This overwrites remote files with local files using rclone sync.
+
+    Args:
+        dirname: Name of the directory to upload
+
+    Raises:
+        ObjectStorageError: If upload fails or verification fails
+    """
     logging.debug(
-        f"Sync verification successful: {len(local_files_after)} files match "
-        f"between local and remote",
+        f"Uploading files to object storage for {dirname}",
         extra={"tag": "object_storage"},
     )
+    local_path = JOB_WORK_DIR_TEMPLATE.format(job_id=dirname)
+    remote_path = f"{OBJECT_STORAGE_REMOTE_NAME}:{OBJECT_STORAGE_BUCKET}/{dirname}"
+
+    # List local files before upload
+    local_files_before = get_local_files(local_path)
+    logging.debug(
+        f"Uploading {len(local_files_before)} files: {sorted(local_files_before)}",
+        extra={"tag": "object_storage"},
+    )
+
+    # Upload: make remote identical to local
+    sync_params = [
+        "rclone",
+        "sync",
+        local_path,
+        remote_path,
+        "--checksum",
+    ]
+
+    result = subprocess.run(
+        sync_params,
+        capture_output=True,
+        text=True,
+    )
+    check_result(sync_params, result)
+
+    # Verify upload
+    local_files = get_local_files(local_path)
+    remote_files = get_remote_files(remote_path)
+
+    logging.debug(
+        f"Uploaded {len(remote_files)} files to remote",
+        extra={"tag": "object_storage"},
+    )
+
+    if local_files != remote_files:
+        missing_remote = local_files - remote_files
+        error_msg = (
+            f"Upload verification failed for {dirname}!\n"
+            f"Files missing from remote: {sorted(missing_remote)}"
+        )
+        logging.error(error_msg, extra={"tag": "object_storage"})
+        raise ObjectStorageError(error_msg)
 
 
 def delete_file_from_storage(filepath: str) -> None:

@@ -22,8 +22,11 @@ fi
 
 cp "$env_file" .env
 
+docker compose down
+docker rm postgres
+
 if [ "$1" == "prod" ]; then
     docker compose up --no-log-prefix --no-deps webserver
 else
-    docker compose up --no-log-prefix --attach worker
+    docker compose up --no-log-prefix --attach webserver
 fi

@@ -37,7 +37,8 @@ from cosmopolitan_app.error_handling import (
 from cosmopolitan_app.object_storage_manager import (
     delete_directory_from_storage,
     delete_file_from_storage,
-    sync_workdir,
+    get_files,
+    save_files,
 )
 from cosmopolitan_app.postgres_manager import JobTable, PostgresManager
 from cosmopolitan_app.pydantic_models import ModelWebsite, validate_job_id
@@ -204,9 +205,9 @@ class Job:
 
         self.working_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=self.job_id)
         os.makedirs(self.working_dir, exist_ok=True)
-        sync_workdir(self.job_id)
+        get_files(self.job_id)
         logging.debug(
-            f"Job {self.job_id} synced to local work directory",
+            f"Job {self.job_id} files downloaded from object storage",
             extra={"tag": "job_submission"},
         )
 
@@ -613,7 +614,7 @@ class Job:
             if key == "input_data":
                 ModelWebsite(**json.loads(value))
         PostgresManager.add_entry(data_to_insert)
-        sync_workdir(self.job_id)
+        save_files(self.job_id)
 
     def delete(self, delete_work_dir=True, delete_db=True):
         """

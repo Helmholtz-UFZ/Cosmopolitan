@@ -22,8 +22,8 @@ services:
       context: .
       dockerfile: ./docker/worker.Dockerfile
     env_file: .env
-    volumes:
-      - "./:/python_docker/cosmopolitan"
+    # volumes:
+    #   - "./:/python_docker/cosmopolitan"
     user: "${DOCKER_UID}:${DOCKER_GID}"
     depends_on:
       - postgres
