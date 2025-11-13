@@ -154,7 +154,7 @@ def test_full_procedure(
     dash_duo.wait_for_element(f"#{PREPARE_INPUT_ID}", timeout=10).click()
     check_all_errors(dash_duo)
 
-    time.sleep(1)
+    time.sleep(3)
     # Uncheck predictors
     predictor_dropdown_id = active_form_factory.id_format.format(
         field_name="pred_streams"
@@ -227,7 +227,6 @@ def test_full_procedure(
 
     check_all_errors(dash_duo)
 
-    time.sleep(10)
     # Check input
     scroll_to_element_and_click(dash_duo, CHECK_INPUT_ID)
     check_all_errors(dash_duo)
@@ -252,8 +251,6 @@ def test_full_procedure(
         elif "PENDING" in status_element.text:
             continue
         break
-
-    time.sleep(10)
 
     if "COMPLETED" not in status_element.text:
         logging.error(f"Job finished with status: {status_element.text}")
