@@ -156,14 +156,7 @@ def get_files(dirname: str) -> None:
     local_path = JOB_WORK_DIR_TEMPLATE.format(job_id=dirname)
     remote_path = f"{OBJECT_STORAGE_REMOTE_NAME}:{OBJECT_STORAGE_BUCKET}/{dirname}"
 
-    out = subprocess.run(
-        ["rclone", "--version"],
-        capture_output=True,
-        text=True,
-    )
-    logging.debug(
-        f"Rclone version: {out.stdout.strip()}", extra={"tag": "object_storage"}
-    )
+    local_files_before = get_local_files(local_path)
     # Download: make local identical to remote
     sync_params = [
         "rclone",
@@ -172,7 +165,6 @@ def get_files(dirname: str) -> None:
         local_path,
         "--checksum",
     ]
-    logging.debug(" ".join(sync_params), extra={"tag": "object_storage"})
 
     result = subprocess.run(
         sync_params,
@@ -185,19 +177,19 @@ def get_files(dirname: str) -> None:
     check_result(sync_params, result)
 
     # Verify download
-    local_files = get_local_files(local_path)
+    local_files_after = get_local_files(local_path)
     remote_files = get_remote_files(remote_path)
 
     logging.debug(
-        f"Downloaded {len(local_files)} files from remote",
+        f"Downloaded {len(local_files_after - local_files_before)} new files to local",
         extra={"tag": "object_storage"},
     )
 
-    if local_files != remote_files:
-        missing_local = remote_files - local_files
+    if local_files_after != remote_files:
         error_msg = (
             f"Download verification failed for {dirname}!\n"
-            f"Files missing from local: {sorted(missing_local)}"
+            f"Files from local: {sorted(local_files_after)}\n"
+            f"Files from remote: {sorted(remote_files)}"
         )
         logging.error(error_msg, extra={"tag": "object_storage"})
         raise ObjectStorageError(error_msg)
@@ -220,6 +212,7 @@ def save_files(dirname: str) -> None:
     )
     local_path = JOB_WORK_DIR_TEMPLATE.format(job_id=dirname)
     remote_path = f"{OBJECT_STORAGE_REMOTE_NAME}:{OBJECT_STORAGE_BUCKET}/{dirname}"
+    remote_files_before = get_remote_files(remote_path)
 
     # List local files before upload
     local_files_before = get_local_files(local_path)
@@ -246,18 +239,18 @@ def save_files(dirname: str) -> None:
 
     # Verify upload
     local_files = get_local_files(local_path)
-    remote_files = get_remote_files(remote_path)
+    remote_files_after = get_remote_files(remote_path)
 
     logging.debug(
-        f"Uploaded {len(remote_files)} files to remote",
+        f"Uploaded {len(remote_files_after - remote_files_before)} new files to remote",
         extra={"tag": "object_storage"},
     )
 
-    if local_files != remote_files:
-        missing_remote = local_files - remote_files
+    if local_files != remote_files_after:
         error_msg = (
             f"Upload verification failed for {dirname}!\n"
-            f"Files missing from remote: {sorted(missing_remote)}"
+            f"Files from local: {sorted(local_files)}\n"
+            f"Files from remote: {sorted(remote_files_after)}"
         )
         logging.error(error_msg, extra={"tag": "object_storage"})
         raise ObjectStorageError(error_msg)

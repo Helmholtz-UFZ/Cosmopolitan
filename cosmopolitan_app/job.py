@@ -608,6 +608,8 @@ class Job:
         data as a new entry in the database.
         """
         logging.debug(f"Save job {self.job_id}", extra={"tag": "job_submission"})
+        # Save files first. Can lead to race conditions between worker and web app.
+        save_files(self.job_id)
         column_names = JobTable.__table__.columns.keys()
         data_to_insert = {name: self._get_column_data(name) for name in column_names}
         for key, value in data_to_insert.items():
@@ -615,7 +617,6 @@ class Job:
             if key == "input_data":
                 ModelWebsite(**json.loads(value))
         PostgresManager.add_entry(data_to_insert)
-        save_files(self.job_id)
 
     def delete(self, delete_work_dir=True, delete_db=True):
         """

@@ -344,6 +344,9 @@ def submission_manager(
     )
     active_item = "input_accordion" if job.status == "PENDING" else "logs_accordion"
 
+    if job.status == "COMPLETED" and triggered_id == "interval":
+        logging.debug(job.logs, extra={"tag": "frontend"})
+
     return (
         url,
         show_loading,
