@@ -408,6 +408,7 @@ class Job:
             }
             self.model.soil_moisture_data = "crns_data.csv"
         else:
+            logging.debug(crns_upload)
             self.model.crns_upload = crns_upload
 
         self.prepared_input = True
@@ -553,7 +554,7 @@ class Job:
         file_information = parser.get_file_information()
         if input_type == "pred":
             file_information["file_path"] = base_file_name
-
+        self.save()
         return base_file_name, file_information
 
     def _get_column_data(self, name):

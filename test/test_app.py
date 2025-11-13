@@ -227,6 +227,7 @@ def test_full_procedure(
 
     check_all_errors(dash_duo)
 
+    time.sleep(10)
     # Check input
     scroll_to_element_and_click(dash_duo, CHECK_INPUT_ID)
     check_all_errors(dash_duo)
