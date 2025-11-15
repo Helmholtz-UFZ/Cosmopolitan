@@ -1,0 +1,135 @@
+enabled: true
+
+replicaCount: 1
+
+strategy:
+  type: Recreate
+
+terminationGracePeriodSeconds: 60
+
+image:
+  repository: registry.hzdr.de/ufz/tb5-smm/met/wg7/cosmopolitan/worker
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+#  - name: wombat-docker-registry-codebase
+
+environmentVariables:
+  - name: "EMAIL_PORT"
+    value: "587"
+  - name: "EMAIL_SENDER"
+    value: "cosmopolitan@ufz.de"
+  - name: "EMAIL_SERVER"
+    value: "smtp.ufz.de"
+  - name: "EMAIL_USERNAME"
+    value: "soncosmo"
+  - name: "EMAIL_PASSWORD"
+    valueFrom:
+      secretKeyRef:
+        name: "custom-met-cosmopolitan.secrets"
+        key: "EMAIL_PASSWORD"
+  - name: "FLASK_DEBUG"
+    value: "0"
+  - name: "FLASK_PORT"
+    value: "8080"
+  - name: "MAINTAINER_EMAIL"
+    value: "john-eric.anders@ufz.de"
+  - name: "OBJECT_STORAGE_BUCKET"
+    value: "cosmopolitan-prod"
+  - name: "OBJECT_STORAGE_HOST"
+    value: "https://vip.s3.ufz.de"
+  - name: "OBJECT_STORAGE_REMOTE_NAME"
+    value: "cosmopolitan-remote"
+  - name: "OBJECT_STORAGE_ACCESS_KEY"
+    value: "AKIAAFYN1KMQ2RI1TH7CG"
+  - name: "OBJECT_STORAGE_SECRET_KEY"
+    valueFrom:
+      secretKeyRef:
+        name: "custom-met-cosmopolitan.secrets"
+        key: "OBJECT_STORAGE_SECRET_KEY"
+  - name: "POSTGRES_DB"
+    value: "somweb_prod"
+  - name: "POSTGRES_HOST_NAME"
+    value: "postgres.intranet.ufz.de"
+  - name: "POSTGRES_PORT"
+    value: "5432"
+  - name: "POSTGRES_USER"
+    value: "somweb_prod_rw"
+  - name: "POSTGRES_PASSWORD"
+    valueFrom:
+      secretKeyRef:
+        name: "custom-met-cosmopolitan.secrets"
+        key: "DB_PW"
+  - name: "CLUSTER_TOKEN"
+    valueFrom:
+      secretKeyRef:
+        name: "custom-met-cosmopolitan.secrets"
+        key: "CLUSTER_TOKEN"
+  - name: "WEB_OUTSIDE_URL"
+    value: "https://cosmopolitan.web.app.ufz.de"
+  - name: "WEB_WORK_DIR"
+    value: "./cosmopolitan_app/work_dir"
+
+nameOverride: ""
+fullnameOverride: "cosmopolitan-worker"
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+service:
+  type: ClusterIP
+  port: 80
+
+resources: {}
+#  limits:
+#   cpu: 1500m
+#   memory: 8Gi
+#  requests:
+#   cpu: 500m
+#   memory: 4Gi
+
+#livenessProbe:
+#  httpGet:
+#    path: /
+#    port: http
+#readinessProbe:
+#  httpGet:
+#    path: /
+#    port: http
+
+# This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+volumes: []
+#  - name: cosmopolitan-work-dir
+#    persistentVolumeClaim:
+#      claimName: cosmopolitan-work-dir-pvc
+
+volumeMounts: []
+#  - mountPath: "/python_docker/cosmopolitan/work_dir"
+#    name: cosmopolitan-work-dir
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
