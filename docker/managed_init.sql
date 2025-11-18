@@ -139,32 +139,6 @@ CREATE INDEX IF NOT EXISTS timeio_info_ignored_idx ON timeio_info (ignored);
 CREATE INDEX IF NOT EXISTS timeio_info_type_idx ON timeio_info (sensor_type);
 CREATE INDEX IF NOT EXISTS timeio_info_stationary_idx ON timeio_info (stationary);
 
--- Populate with existing sensor data
-INSERT INTO timeio_info (sensor_id, sensor_name, sensor_type, ignored, datastreams) VALUES
-    (44, 'CRNS - Hohes Holz 4m', 'station', FALSE, '{"3180": "Neutron counts"}'),
-    (85, 'CRNS - Hordorf', 'station', FALSE, '{"3762": "Neutron counts"}'),
-    (92, 'CRNS - Cunnersdorf', 'station', FALSE, '{"3716": "Neutron counts"}'),
-    (93, 'CRNS - Grosses Bruch', 'station', FALSE, '{"3808": "Neutron counts"}'),
-    (94, 'CRNS - Harzgerode', 'station', FALSE, '{"3898": "Neutron counts"}'),
-    (95, 'CRNS - Falkenberg', 'station', FALSE, '{"3921": "Neutron counts"}'),
-    (97, 'CRNS - Zugspitze', 'station', FALSE, '{"3831": "Neutron counts"}'),
-    (99, 'CRNS - Zerbst', 'station', FALSE, '{"3739": "Neutron counts"}'),
-    (107, 'CRNS - Svalbard', 'station', FALSE, '{"3785": "Neutron counts"}'),
-    (146, 'CRNS - RR1', 'train', FALSE, '{"4172": "Neutron counts", "4477": "latitude", "4478": "longitude"}'),
-    (147, 'CRNS - RR2', 'train', FALSE, '{"4481": "latitude", "4482": "longitude", "4494": "Neutron counts"}'),
-    (148, 'CRNS - RR3', 'train', FALSE, '{"4508": "latitude", "4509": "longitude", "4521": "Neutron counts"}'),
-    (149, 'CRNS - RR4', 'train', FALSE, '{"4535": "latitude", "4536": "longitude", "4549": "Neutron counts"}'),
-    (162, 'CRNS Colditz', 'station', FALSE, '{"4667": "Neutron counts"}'),
-    (167, 'CRNS Klingenthal', 'station', FALSE, '{"4736": "Neutron counts"}'),
-    (168, 'CRNS Roitzsch', 'station', FALSE, '{"4781": "Neutron counts"}'),
-    (170, 'CRNS Hoyerswerda', 'station', FALSE, '{"4804": "Neutron counts"}'),
-    (171, 'CRNS Nossen', 'station', FALSE, '{"4837": "Neutron counts"}'),
-    (205, 'CRNS Greudnitz', 'station', FALSE, '{"4862": "Neutron counts"}'),
-    (216, 'CRNS - RR5', 'train', FALSE, '{"4897": "latitude", "4898": "longitude", "4918": "Neutron counts"}'),
-    -- Ignored sensors from ignore_things list
-    (145, 'CRNS - Inactive Sensor 145', 'unknown', TRUE, '{}'),
-    (219, 'CRNS - Inactive Sensor 219', 'unknown', TRUE, '{}');
-
 -- SELECT job_id, start_date FROM jobs;
 -- SELECT job_id, status FROM jobs;
 -- SELECT job_id, cluster_job_id FROM jobs;

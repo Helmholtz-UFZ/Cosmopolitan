@@ -2,6 +2,7 @@
 
 import logging
 import os
+from time import sleep
 
 import dash
 import dash_bootstrap_components as dbc
@@ -58,6 +59,7 @@ def load_submission_content(job_id, header_class_name):
     logging.info(
         f"Loading submission content for job {job_id}", extra={"tag": "job_submission"}
     )
+    sleep(60)
     job = Job(job_id)
 
     if job.status not in ["PENDING", "FAILED"]:

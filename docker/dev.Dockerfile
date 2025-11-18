@@ -54,8 +54,7 @@ RUN poetry config virtualenvs.create false && \
 USER appuser
 
 CMD if [ "$GUNICORN" = 1 ] ; then \
-        exec gunicorn -w 4 -b 0.0.0.0:$FLASK_PORT cosmopolitan_app.app:server; \
+        exec gunicorn --preload -w 4 -b 0.0.0.0:$FLASK_PORT cosmopolitan_app.app:server; \
     else \
-        python3 /python_docker/cosmopolitan/cosmopolitan_app/object_storage_manager.py setup_remote; \
         exec python3 /python_docker/cosmopolitan/cosmopolitan_app/app.py; \
     fi

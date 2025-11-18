@@ -55,7 +55,10 @@ The application uses **Celery** for distributed background task processing:
   - `maintenance` - Periodic cleanup and data update tasks
   - `default` - General purpose tasks
 - **Workers**: Dedicated Docker containers process tasks independently
-- **Scheduling**: Celery Beat handles periodic tasks (replaces APScheduler)
+- **Scheduling**: Celery Beat scheduler runs in the webserver's Gunicorn master process
+  - Gunicorn uses `--preload` flag to ensure single Beat instance
+  - Maintenance tasks scheduled at 3 AM (cleanup) and 4 AM (database updates)
+  - Beat scheduler lifecycle tied to webserver container
 
 #### Task Management
 

@@ -4,6 +4,7 @@ import logging
 import os
 import subprocess
 import sys
+import time
 
 from cosmopolitan_app.config import (
     JOB_WORK_DIR_TEMPLATE,
@@ -39,16 +40,51 @@ def check_result(params: list, result: subprocess.CompletedProcess) -> None:
     call = " ".join(params)
     call = call.replace(OBJECT_STORAGE_SECRET_KEY, "****")
     call = call.replace(OBJECT_STORAGE_ACCESS_KEY, "****")
-    logging.debug(
-        f"Command executed: {call}\nOutput: {output}\nError: {error_msg}",
-        extra={"tag": "object_storage"},
-    )
     if result.returncode != 0:
-        logging.error(
-            f"Command failed: {call}\n{error_msg}\n{output}",
-            extra={"tag": "object_storage"},
-        )
+        if "QuotaExceeded" in error_msg:
+            logging.error(
+                f"Object storage quota exceeded for command: {call}\n{error_msg}\n{output}",  # noqa
+                extra={"tag": "object_storage"},
+            )
+        else:
+            logging.error(
+                f"Command failed: {call}\n{error_msg}\n{output}",
+                extra={"tag": "object_storage"},
+            )
         raise ObjectStorageError
+
+
+def run_rclone_with_retry(params: list) -> subprocess.CompletedProcess:
+    """Run rclone command with retry logic for NFS lock file conflicts.
+
+    Args:
+        params: The rclone command parameters
+
+    Raises:
+        ObjectStorageError: If all retry attempts fail
+    """
+    max_retries = 3
+    retry_delay = 2
+
+    for attempt in range(max_retries):
+        try:
+            result = subprocess.run(
+                params,
+                capture_output=True,
+                text=True,
+            )
+            check_result(params, result)
+        except ObjectStorageError:
+            if attempt < max_retries - 1:
+                logging.warning(
+                    f"{' '.join(params)} failed. Retry attempt {attempt + 1}",
+                    extra={"tag": "object_storage"},
+                )
+                time.sleep(retry_delay)
+            else:
+                raise
+
+    return result
 
 
 def setup_remote() -> None:
@@ -105,6 +141,7 @@ def get_local_files(local_path: str) -> set:
             full_path = os.path.join(root, filename)
             rel_path = os.path.relpath(full_path, local_path)
             files.add(rel_path)
+
     return files
 
 
@@ -119,11 +156,7 @@ def get_remote_files(remote_path: str) -> set:
     """
     ls_params = ["rclone", "ls", remote_path]
 
-    result = subprocess.run(
-        ls_params,
-        capture_output=True,
-        text=True,
-    )
+    result = run_rclone_with_retry(ls_params)
 
     # rclone ls returns lines like: "  123456 path/to/file.txt"
     # Extract just the filenames
@@ -166,15 +199,10 @@ def get_files(dirname: str) -> None:
         "--checksum",
     ]
 
-    result = subprocess.run(
-        sync_params,
-        capture_output=True,
-        text=True,
-    )
+    result = run_rclone_with_retry(sync_params)
     logging.debug(
         f"Rclone sync result: {result.stdout}", extra={"tag": "object_storage"}
     )
-    check_result(sync_params, result)
 
     # Verify download
     local_files_after = get_local_files(local_path)
@@ -230,12 +258,7 @@ def save_files(dirname: str) -> None:
         "--checksum",
     ]
 
-    result = subprocess.run(
-        sync_params,
-        capture_output=True,
-        text=True,
-    )
-    check_result(sync_params, result)
+    run_rclone_with_retry(sync_params)
 
     # Verify upload
     local_files = get_local_files(local_path)
@@ -274,12 +297,9 @@ def delete_file_from_storage(filepath: str) -> None:
         "delete",
         remote_path,
     ]
-    result = subprocess.run(
-        delete_params,
-        capture_output=True,
-        text=True,
-    )
-    check_result(delete_params, result)
+
+    run_rclone_with_retry(delete_params)
+
     logging.debug(
         f"Successfully deleted file {filepath} from object storage",
         extra={"tag": "object_storage"},
@@ -304,12 +324,9 @@ def delete_directory_from_storage(dirpath: str) -> None:
         "purge",
         remote_path,
     ]
-    result = subprocess.run(
-        purge_params,
-        capture_output=True,
-        text=True,
-    )
-    check_result(purge_params, result)
+
+    run_rclone_with_retry(purge_params)
+
     logging.debug(
         f"Successfully deleted directory {dirpath} from object storage",
         extra={"tag": "object_storage"},
@@ -317,29 +334,40 @@ def delete_directory_from_storage(dirpath: str) -> None:
 
 
 def create_bucket() -> None:
-    """Create the object storage bucket."""
+    """Create the object storage bucket if it doesn't already exist."""
     logging.debug(
         f"Creating bucket {OBJECT_STORAGE_BUCKET}", extra={"tag": "object_storage"}
     )
 
+    # Check if bucket already exists
+    lsd_params = [
+        "rclone",
+        "lsd",
+        f"{OBJECT_STORAGE_REMOTE_NAME}:",
+    ]
+
+    result = run_rclone_with_retry(lsd_params)
+
+    # Parse output to check if bucket exists
+    # rclone lsd output format: "-1 2023-01-01 12:00:00        -1 bucket-name"
+    bucket_exists = False
+    for line in result.stdout.strip().split("\n"):
+        if line and OBJECT_STORAGE_BUCKET in line:
+            bucket_exists = True
+            break
+
+    if bucket_exists:
+        return
+
+    # Create bucket if it doesn't exist
     remote_bucket = f"{OBJECT_STORAGE_REMOTE_NAME}:{OBJECT_STORAGE_BUCKET}"
     bucket_params = [
         "rclone",
         "mkdir",
         remote_bucket,
     ]
-    print(" ".join(bucket_params))  # For debugging purposes
 
-    result = subprocess.run(
-        bucket_params,
-        capture_output=True,
-        text=True,
-    )
-    check_result(bucket_params, result)
-    logging.debug(
-        f"Successfully created bucket {OBJECT_STORAGE_BUCKET}",
-        extra={"tag": "object_storage"},
-    )
+    run_rclone_with_retry(bucket_params)
 
 
 def main():

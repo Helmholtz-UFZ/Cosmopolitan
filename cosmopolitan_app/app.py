@@ -4,7 +4,6 @@ import logging
 from logging.config import dictConfig
 from threading import Thread
 
-import dash_bootstrap_components as dbc
 from dash import Dash
 
 from cosmopolitan_app.background_job_manager import get_background_job_manager
@@ -13,18 +12,12 @@ from cosmopolitan_app.error_handling import handle_error
 from cosmopolitan_app.files_route import serve_files
 from cosmopolitan_app.layouts import app_layout, register_navbar_callbacks
 from cosmopolitan_app.logger import get_logger_config_web
-from cosmopolitan_app.object_storage_manager import setup_remote
+from cosmopolitan_app.object_storage_manager import create_bucket, setup_remote
 
-font_awesome = (
-    "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
-)
-chroma = "https://cdnjs.cloudflare.com/ajax/libs/chroma-js/2.1.0/chroma.min.js"
 # Initialize the Dash app
 app = Dash(
     __name__,
     use_pages=True,
-    external_stylesheets=[dbc.themes.FLATLY, dbc.icons.BOOTSTRAP, font_awesome],
-    external_scripts=[chroma],
     prevent_initial_callbacks="initial_duplicate",
     suppress_callback_exceptions=True,
     on_error=handle_error,
@@ -37,6 +30,7 @@ server.logger.setLevel(logging.DEBUG)
 logging.debug("Web application logging configured.")
 # Start Celery Beat scheduler for periodic maintenance tasks
 setup_remote()
+create_bucket()
 
 
 def start_beat_scheduler():
