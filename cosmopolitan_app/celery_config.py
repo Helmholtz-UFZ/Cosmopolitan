@@ -3,12 +3,23 @@
 from cosmopolitan_app.config import REDIS_DB, REDIS_HOST, REDIS_PASSWORD, REDIS_PORT
 
 
+def _get_redis_port():
+    """Get Redis port, handling GitLab CI service link format."""
+    port = REDIS_PORT
+    # GitLab CI may set REDIS_PORT as 'tcp://redis:6379' format
+    if port and port.startswith("tcp://"):
+        # Extract port from URL format
+        port = port.split(":")[-1]
+    return port
+
+
 class CeleryConfig:
     """Celery configuration class."""
 
     # Build Redis URL with optional password
     _redis_auth = f":{REDIS_PASSWORD}@" if REDIS_PASSWORD else ""
-    _redis_url = f"redis://{_redis_auth}{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
+    _redis_port = _get_redis_port()
+    _redis_url = f"redis://{_redis_auth}{REDIS_HOST}:{_redis_port}/{REDIS_DB}"
 
     # Broker settings - Redis
     broker_url = _redis_url

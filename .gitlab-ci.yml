@@ -20,6 +20,10 @@ variables:
   MAIL_HOG_PORT: 8025
   MINIO_ACCESS_KEY: "accesskey"
   MINIO_SECRET_KEY: "secretkey"
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+  REDIS_PASSWORD: ""
 
 .docker_login: &docker_login
   - 'echo "${CI_REGISTRY_PASSWORD}" | docker login --username "$CI_REGISTRY_USER" --password-stdin "${CI_REGISTRY}"'
