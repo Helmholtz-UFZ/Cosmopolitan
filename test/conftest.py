@@ -81,6 +81,8 @@ except OperationalError:
 
 # Check if Celery can connect to Redis broker
 try:
+    from kombu.exceptions import OperationalError as KombuOperationalError
+
     from cosmopolitan_app.background_job_manager import get_background_job_manager
 
     # Test Celery broker connection by inspecting active workers
@@ -90,7 +92,7 @@ try:
     job_manager.app.control.inspect().active()
 
     log.info("Celery broker connection verified")
-except (ConnectionError, OSError, RuntimeError) as e:
+except (ConnectionError, OSError, RuntimeError, KombuOperationalError) as e:
     pytest.exit(f"Celery broker connection failed: {e}")
 
 
