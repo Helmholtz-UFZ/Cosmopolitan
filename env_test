@@ -35,3 +35,9 @@ OBJECT_STORAGE_BUCKET="cosmopolitan-dev"
 OBJECT_STORAGE_HOST="http://minio:9000"
 OBJECT_STORAGE_REMOTE_NAME="cosmopolitan-remote"
 OBJECT_STORAGE_SECRET_KEY="secretkey"
+
+### Redis ###
+REDIS_HOST="redis"
+REDIS_PORT="6379"
+REDIS_DB="0"
+REDIS_PASSWORD=""

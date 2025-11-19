@@ -93,11 +93,25 @@ def update_db_task(self):
     """Celery task version of update_db function.
 
     This replaces the APScheduler update_db job.
+    Tracks run progress in update_db_runs table for log filtering.
     """
     logging.info("Start updating database.", extra={"tag": "time_io"})
+
+    # Create run record with current PID for log filtering
+    pid = os.getpid()
+    run_id = PostgresManager.create_update_run(pid)
+    logging.info(
+        f"Created update run {run_id} with PID {pid}", extra={"tag": "time_io"}
+    )
+
     try:
         update_crns_measurments()
+        PostgresManager.complete_update_run(run_id, "completed")
+        logging.info(
+            f"Update run {run_id} completed successfully", extra={"tag": "time_io"}
+        )
     except Exception as error:  # noqa
+        PostgresManager.complete_update_run(run_id, "failed")
         email_subject = f"Error updating database: {error}"
         email_body = f"""
         Traceback info: {traceback.format_exc()}\n\n

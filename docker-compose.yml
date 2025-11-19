@@ -14,6 +14,7 @@ services:
     depends_on:
       - postgres
       - minio
+      - redis
 
   worker:
     image: cosmopolitan-worker
@@ -28,8 +29,16 @@ services:
     depends_on:
       - postgres
       - minio
-    # Memory limit for workers (can be adjusted based on requirements)
-    mem_limit: 2g
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
 
   mailhog:
     image: mailhog/mailhog
@@ -38,7 +47,7 @@ services:
       driver: "none" # disable saving logs
     ports:
       - "${EMAIL_PORT}:${EMAIL_PORT}" # stmp server
-      - "${MAIL_HOG_PORT:-8025}:${MAIL_HOG_PORT:-8025}" # web ui
+      - "8025:8025" # web ui
 
   postgres:
     image: postgis/postgis:latest
@@ -81,3 +90,6 @@ services:
       MINIO_ROOT_USER: accesskey
       MINIO_ROOT_PASSWORD: secretkey
     command: server /data --console-address ":9001"
+
+volumes:
+  redis_data:

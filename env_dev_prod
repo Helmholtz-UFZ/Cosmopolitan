@@ -38,3 +38,9 @@ OBJECT_STORAGE_BUCKET="cosmopolitan-prod"
 OBJECT_STORAGE_HOST="https://vip.s3.ufz.de"
 OBJECT_STORAGE_REMOTE_NAME="cosmopolitan-remote"
 OBJECT_STORAGE_SECRET_KEY=""
+
+### Redis ###
+REDIS_HOST="redis"
+REDIS_PORT="6379"
+REDIS_DB="0"
+REDIS_PASSWORD=""

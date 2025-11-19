@@ -45,6 +45,9 @@ env_vars = [
     "OBJECT_STORAGE_BUCKET",
     "OBJECT_STORAGE_REMOTE_NAME",
     "MAINTAINER_EMAIL",
+    "REDIS_HOST",
+    "REDIS_PORT",
+    "REDIS_DB",
 ]
 
 # s/=.*//g |'<,'> s/^.*$/& = getenv("&")/g | noh
@@ -69,5 +72,9 @@ OBJECT_STORAGE_SECRET_KEY = getenv("OBJECT_STORAGE_SECRET_KEY")
 OBJECT_STORAGE_BUCKET = getenv("OBJECT_STORAGE_BUCKET")
 OBJECT_STORAGE_REMOTE_NAME = getenv("OBJECT_STORAGE_REMOTE_NAME")
 MAINTAINER_EMAIL = getenv("MAINTAINER_EMAIL")
+REDIS_HOST = getenv("REDIS_HOST")
+REDIS_PORT = getenv("REDIS_PORT")
+REDIS_DB = getenv("REDIS_DB")
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")  # Optional, default empty
 
 JOB_WORK_DIR_TEMPLATE = os.path.join(WEB_WORK_DIR, "{job_id}")

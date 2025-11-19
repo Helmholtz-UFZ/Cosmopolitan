@@ -18,8 +18,7 @@ celery_command = [
     "--queues=default,computation,maintenance",
     "--hostname=worker@dev",
     "--pool=solo",
-    "--without-gossip",
-    "--without-mingle",
+    "-E",  # Enable task events for inspect API
 ]
 
 

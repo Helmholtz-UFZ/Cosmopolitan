@@ -199,7 +199,7 @@ click-plugins = ">=1.1.1"
 click-repl = ">=0.2.0"
 kombu = [
     {version = ">=5.5.2,<5.6"},
-    {version = "*", extras = ["sqlalchemy"], optional = true, markers = "extra == \"sqlalchemy\""},
+    {version = "*", extras = ["redis"], optional = true, markers = "extra == \"redis\""},
 ]
 python-dateutil = ">=2.8.2"
 vine = ">=5.1.0,<6.0"
@@ -1757,7 +1757,7 @@ files = [
 [package.dependencies]
 amqp = ">=5.1.1,<6.0.0"
 packaging = "*"
-sqlalchemy = {version = ">=1.4.48,<2.1", optional = true, markers = "extra == \"sqlalchemy\""}
+redis = {version = ">=4.5.2,<4.5.5 || >4.5.5,<5.0.2 || >5.0.2,<=5.2.1", optional = true, markers = "extra == \"redis\""}
 tzdata = {version = ">=2025.2", markers = "python_version >= \"3.9\""}
 vine = "5.1.0"
 
@@ -3318,6 +3318,22 @@ s3 = ["boto3 (>=1.2.4)"]
 test = ["boto3 (>=1.2.4)", "fsspec", "hypothesis", "packaging", "pytest (>=2.8.2)", "pytest-cov (>=2.2.0)", "shapely"]
 
 [[package]]
+name = "redis"
+version = "5.2.1"
+description = "Python client for Redis database and key-value store"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "redis-5.2.1-py3-none-any.whl", hash = "sha256:ee7e1056b9aea0f04c6c2ed59452947f34c4940ee025f5dd83e6a6418b6989e4"},
+    {file = "redis-5.2.1.tar.gz", hash = "sha256:16f2e22dff21d5125e8481515e386711a34cbec50f0e44413dd7d9c060a54e0f"},
+]
+
+[package.extras]
+hiredis = ["hiredis (>=3.0.0)"]
+ocsp = ["cryptography (>=36.0.1)", "pyopenssl (==23.2.1)", "requests (>=2.31.0)"]
+
+[[package]]
 name = "requests"
 version = "2.32.5"
 description = "Python HTTP for Humans."
@@ -4290,4 +4306,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.13"
-content-hash = "3d492746745f9af0ad1c1558ef877554a2cb109e7e25cd7d713d878bec33cde9"
+content-hash = "3736ca668b110eb05ed6f88069a929a1f1a1c91bc657790686e804698ff8a468"

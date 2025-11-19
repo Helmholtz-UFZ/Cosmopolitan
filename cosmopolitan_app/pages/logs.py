@@ -8,40 +8,13 @@ from dash import Input, Output, callback, dcc, html
 
 from cosmopolitan_app.layouts import create_header, page_container_column_layout
 from cosmopolitan_app.logger import log_categories
+from cosmopolitan_app.logs_table import format_logs_list
 from cosmopolitan_app.postgres_manager import PostgresManager
 
 dash.register_page(
     __name__,
     path_template="/logs",
 )
-
-
-def level_badge(level):
-    """Format logs with color-coded levels."""
-    color_map = {
-        "DEBUG": "secondary",
-        "INFO": "info",
-        "WARNING": "warning",
-        "ERROR": "danger",
-        "CRITICAL": "dark",
-    }
-    return dbc.Badge(level, color=color_map.get(level, "primary"), className="me-1")
-
-
-def tag_badge(tag):
-    """Format logs with color-coded tags."""
-    # Determine category for the tag
-    for category, tags in log_categories.items():
-        if tag in tags:
-            break
-
-    color_map = {
-        "Core Areas": "primary",
-        "User Areas": "success",
-        "System Areas": "warning",
-        "unknown": "secondary",
-    }
-    return dbc.Badge(tag.upper(), color=color_map[category], className="me-1")
 
 
 def layout():
@@ -229,19 +202,6 @@ def log_manager(date, sh, sm, eh, em, levels, tag, pid_radio, pid):
     if not logs:
         return "No logs found for the selected criteria.", disabled_pid, "", ""
 
-    log_formatted = html.Ul(
-        [
-            html.Li(
-                [
-                    level_badge(log["level"]),
-                    tag_badge(log["tag"]),
-                    f" at {log['timestamp']} ",
-                    f"in {log['module']} [PID {log['pid']}]:\n{log['message']}",
-                ],
-                style={"white-space": "pre-wrap"},
-            )
-            for log in logs
-        ]
-    )
+    log_formatted = format_logs_list(logs, show_tag=True, show_pid=True)
 
     return log_formatted, disabled_pid, "", ""

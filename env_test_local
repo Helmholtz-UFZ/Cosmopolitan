@@ -36,3 +36,9 @@ OBJECT_STORAGE_BUCKET="cosmopolitan-dev"
 OBJECT_STORAGE_HOST="http://localhost:9000"
 OBJECT_STORAGE_REMOTE_NAME="cosmopolitan-remote"
 OBJECT_STORAGE_SECRET_KEY="secretkey"
+
+### Redis ###
+REDIS_HOST="localhost"
+REDIS_PORT="6379"
+REDIS_DB="0"
+REDIS_PASSWORD=""

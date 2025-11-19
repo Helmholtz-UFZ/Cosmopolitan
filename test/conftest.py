@@ -76,9 +76,10 @@ except (ConnectionRefusedError, socket.gaierror, OSError):
 try:
     PostgresManager.check_existence("test")
 except OperationalError:
+    print(PostgresManager.database_url)
     pytest.exit("postgres not available")
 
-# Check if Celery can connect to PostgreSQL broker
+# Check if Celery can connect to Redis broker
 try:
     from cosmopolitan_app.background_job_manager import get_background_job_manager
 
@@ -89,7 +90,7 @@ try:
     job_manager.app.control.inspect().active()
 
     log.info("Celery broker connection verified")
-except (OperationalError, ConnectionError) as e:
+except (ConnectionError, OSError, RuntimeError) as e:
     pytest.exit(f"Celery broker connection failed: {e}")
 
 
@@ -181,8 +182,10 @@ def celery_worker():
             "worker",
             "--loglevel=debug",
             "--concurrency=1",
-            "--pool=solo",  # Use solo pool for better test isolation
+            "--pool=prefork",  # Use prefork pool for proper task termination
             "--queues=computation,maintenance,celery",  # Listen to all required queues
+            "--hostname=worker@test",  # Give worker a name for identification
+            "-E",  # Enable task events for inspect() API to work
         ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

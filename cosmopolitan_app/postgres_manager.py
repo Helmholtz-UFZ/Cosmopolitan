@@ -976,6 +976,189 @@ class PostgresManager:
                 new_sensor = TimeIOInfo(**sensor_data)
                 session.add(new_sensor)
 
+    # App Config methods
+    @classmethod
+    def get_config(cls, key: str) -> Optional[str]:
+        """Get a configuration value from the app_config table.
+
+        Args:
+            key: Configuration key to retrieve
+
+        Returns:
+            Configuration value as string, or None if not found
+        """
+        logging.debug(f"Getting config value for key: {key}", extra={"tag": "database"})
+
+        with cls.session_scope() as session:
+            config = session.query(AppConfig).filter(AppConfig.key == key).first()
+            return config.value if config else None
+
+    @classmethod
+    def set_config(cls, key: str, value: Optional[str]) -> None:
+        """Set a configuration value in the app_config table.
+
+        Args:
+            key: Configuration key to set
+            value: Configuration value (can be None)
+        """
+        logging.debug(
+            f"Setting config value for key: {key} to: {value}",
+            extra={"tag": "database"},
+        )
+
+        with cls.session_scope() as session:
+            config = session.query(AppConfig).filter(AppConfig.key == key).first()
+            if config:
+                config.value = value
+                config.updated_at = func.now()
+            else:
+                new_config = AppConfig(key=key, value=value)
+                session.add(new_config)
+
+    @classmethod
+    def get_crns_date_range(cls) -> tuple[Optional[date], Optional[date]]:
+        """Get the CRNS update date range from config.
+
+        Returns:
+            Tuple of (start_date, end_date), either can be None
+        """
+        start_str = cls.get_config("crns_start_date")
+        end_str = cls.get_config("crns_end_date")
+
+        start_date = (
+            datetime.strptime(start_str, "%Y-%m-%d").date() if start_str else None
+        )
+        end_date = datetime.strptime(end_str, "%Y-%m-%d").date() if end_str else None
+
+        return start_date, end_date
+
+    @classmethod
+    def set_crns_date_range(
+        cls, start_date: Optional[date], end_date: Optional[date]
+    ) -> None:
+        """Set the CRNS update date range in config.
+
+        Args:
+            start_date: Start date for updates (None to disable)
+            end_date: End date for updates (None for yesterday)
+        """
+        start_str = start_date.strftime("%Y-%m-%d") if start_date else None
+        end_str = end_date.strftime("%Y-%m-%d") if end_date else None
+
+        cls.set_config("crns_start_date", start_str)
+        cls.set_config("crns_end_date", end_str)
+
+        logging.info(
+            f"Set CRNS date range: {start_date} to {end_date}",
+            extra={"tag": "database"},
+        )
+
+    @classmethod
+    def purge_crns_data(cls) -> None:
+        """Purge all CRNS measurements and reset update tracking."""
+        logging.warning(
+            "Purging all CRNS measurements and update tracking",
+            extra={"tag": "database"},
+        )
+
+        with cls.session_scope() as session:
+            # Delete all measurements
+            session.query(CRNSMeasurement).delete(synchronize_session=False)
+            # Delete all update tracking
+            session.query(UpdateTimesCRNS).delete(synchronize_session=False)
+
+        logging.info(
+            "CRNS data purge complete",
+            extra={"tag": "database"},
+        )
+
+    @classmethod
+    def get_failed_update_count(cls) -> int:
+        """Get count of failed update days.
+
+        Returns:
+            Number of days where update was unsuccessful
+        """
+        with cls.session_scope() as session:
+            count = (
+                session.query(UpdateTimesCRNS)
+                .filter(UpdateTimesCRNS.successful == False)  # noqa: E712
+                .count()
+            )
+            return count
+
+    # Update DB Run tracking methods
+    @classmethod
+    def create_update_run(cls, pid: int) -> int:
+        """Create a new update run record.
+
+        Args:
+            pid: Process ID of the update task
+
+        Returns:
+            ID of the created run record
+        """
+        logging.debug(
+            f"Creating update run record for PID: {pid}",
+            extra={"tag": "database"},
+        )
+
+        with cls.session_scope() as session:
+            run = UpdateDbRuns(
+                start_time=datetime.now(),
+                pid=pid,
+                status="running",
+            )
+            session.add(run)
+            session.flush()  # Get the ID
+            run_id = run.id
+
+        return run_id
+
+    @classmethod
+    def complete_update_run(cls, run_id: int, status: str) -> None:
+        """Complete an update run record.
+
+        Args:
+            run_id: ID of the run to complete
+            status: Final status ('completed' or 'failed')
+        """
+        logging.debug(
+            f"Completing update run {run_id} with status: {status}",
+            extra={"tag": "database"},
+        )
+
+        with cls.session_scope() as session:
+            run = session.query(UpdateDbRuns).filter(UpdateDbRuns.id == run_id).first()
+            if run:
+                run.end_time = datetime.now()
+                run.status = status
+
+    @classmethod
+    def get_latest_update_run(cls) -> Optional[Dict[str, Any]]:
+        """Get the most recent update run.
+
+        Returns:
+            Dictionary with run info or None if no runs exist
+        """
+        with cls.session_scope() as session:
+            run = (
+                session.query(UpdateDbRuns)
+                .order_by(UpdateDbRuns.start_time.desc())
+                .first()
+            )
+
+            if not run:
+                return None
+
+            return {
+                "id": run.id,
+                "start_time": run.start_time,
+                "end_time": run.end_time,
+                "pid": run.pid,
+                "status": run.status,
+            }
+
 
 class TaskLockTable(Base):
     """Represents the 'task_lock' table in the database."""
@@ -1070,6 +1253,28 @@ class CRNSMeasurement(Base):
     def create_point(cls, longitude, latitude):
         """Create a WKT string for PostGIS geometry column."""
         return from_shape(Point(longitude, latitude))
+
+
+class AppConfig(Base):
+    """Represents the 'app_config' table in the database."""
+
+    __tablename__ = "app_config"
+
+    key = Column(String(50), primary_key=True)
+    value = Column(Text)
+    updated_at = Column(DateTime, default=func.now())
+
+
+class UpdateDbRuns(Base):
+    """Represents the 'update_db_runs' table in the database."""
+
+    __tablename__ = "update_db_runs"
+
+    id = Column(Integer, primary_key=True)
+    start_time = Column(DateTime, nullable=False)
+    end_time = Column(DateTime)
+    pid = Column(Integer)
+    status = Column(String(20), default="running")
 
 
 if __name__ == "__main__":

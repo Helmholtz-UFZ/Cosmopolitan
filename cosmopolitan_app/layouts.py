@@ -93,6 +93,14 @@ def create_navbar():
                                 ),
                                 dbc.NavItem(
                                     dbc.NavLink(
+                                        "Worker Management",
+                                        href=dash.page_registry[
+                                            "pages.worker_management"
+                                        ]["relative_path"],
+                                    )
+                                ),
+                                dbc.NavItem(
+                                    dbc.NavLink(
                                         "Logs",
                                         href=dash.page_registry["pages.logs"][
                                             "relative_path"
@@ -113,6 +121,14 @@ def create_navbar():
                                         href=dash.page_registry[
                                             "pages.sensor_management"
                                         ]["relative_path"],
+                                    )
+                                ),
+                                dbc.NavItem(
+                                    dbc.NavLink(
+                                        "CRNS Admin",
+                                        href=dash.page_registry["pages.crns_db_admin"][
+                                            "relative_path"
+                                        ],
                                     )
                                 ),
                             ],

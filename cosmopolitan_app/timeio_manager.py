@@ -511,23 +511,52 @@ def transfer_data_by_day(start_date: datetime) -> None:
 
 
 def update_crns_measurments() -> None:
-    """Update CRNS measurements from the STI API."""
+    """Update CRNS measurements from the STI API.
+
+    Reads start_date and end_date from app_config table.
+    If start_date is None, skips the update.
+    If end_date is None or > yesterday, uses yesterday.
+    """
     logging.info(
         "Updating CRNS measurements from STI API.", extra={"tag": "crns_update"}
     )
 
+    # Get configured date range from database
+    config_start_date, config_end_date = PostgresManager.get_crns_date_range()
+
+    # Skip if start_date is not configured
+    if config_start_date is None:
+        logging.info(
+            "CRNS start_date not configured in app_config. Skipping update.",
+            extra={"tag": "crns_update"},
+        )
+        return
+
     TimeIOManager.check_things()
 
-    start_date = PostgresManager.get_earliest_missing_or_failed_date(
-        EARLIEST_START_DATE
-    )
+    # Convert config start_date to datetime for get_earliest_missing_or_failed_date
+    earliest_start = datetime.combine(config_start_date, time(0, 0, 0, 0))
+    start_date = PostgresManager.get_earliest_missing_or_failed_date(earliest_start)
 
     current_date = datetime.combine(start_date, time(0, 0, 0, 0))
+
+    # Determine end_date: use yesterday if not configured or if config > yesterday
     yesterday_date = (datetime.now() - timedelta(days=1)).replace(
         hour=0, minute=0, second=0, microsecond=0
     )
 
-    while current_date <= yesterday_date:
+    if config_end_date is None or config_end_date >= yesterday_date.date():
+        end_date = yesterday_date
+    else:
+        end_date = datetime.combine(config_end_date, time(23, 59, 59, 999999))
+
+    logging.info(
+        f"Updating CRNS data from {current_date.strftime('%Y-%m-%d')} to "
+        f"{end_date.strftime('%Y-%m-%d')}",
+        extra={"tag": "crns_update"},
+    )
+
+    while current_date <= end_date:
         if PostgresManager.was_update_successful(current_date):
             logging.info(
                 f"Data for {current_date.strftime('%Y-%m-%d')} already transferred.",

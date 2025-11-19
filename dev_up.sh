@@ -56,6 +56,8 @@ cp "$env_file" .env
 
 if [ "$DEBUG_MODE" = true ]; then
     sed -i 's/^DEBUG=.*/DEBUG=1/' .env
+else
+    sed -i 's/^DEBUG=.*/DEBUG=0/' .env
 fi
 
 docker compose down

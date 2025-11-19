@@ -1,22 +1,20 @@
 """Celery configuration for COSMOPOLITAN background tasks."""
 
-from cosmopolitan_app.config import (
-    POSTGRES_DB,
-    POSTGRES_HOST_NAME,
-    POSTGRES_PASSWORD,
-    POSTGRES_PORT,
-    POSTGRES_USER,
-)
+from cosmopolitan_app.config import REDIS_DB, REDIS_HOST, REDIS_PASSWORD, REDIS_PORT
 
 
 class CeleryConfig:
     """Celery configuration class."""
 
-    # Broker settings - PostgreSQL via SQLAlchemy (reuse existing postgres config)
-    broker_url = f"sqlalchemy+postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST_NAME}:{POSTGRES_PORT}/{POSTGRES_DB}"  # noqa
+    # Build Redis URL with optional password
+    _redis_auth = f":{REDIS_PASSWORD}@" if REDIS_PASSWORD else ""
+    _redis_url = f"redis://{_redis_auth}{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
 
-    # Result backend - PostgreSQL database backend
-    result_backend = f"db+postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST_NAME}:{POSTGRES_PORT}/{POSTGRES_DB}"  # noqa
+    # Broker settings - Redis
+    broker_url = _redis_url
+
+    # Result backend - Redis
+    result_backend = _redis_url
 
     # Task settings
     task_serializer = "json"

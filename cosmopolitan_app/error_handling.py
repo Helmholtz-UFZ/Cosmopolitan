@@ -77,6 +77,24 @@ class JobNotFound(Exception):
         super().__init__(f"Job with ID '{job_id}' not found")
 
 
+class WorkerManagementError(Exception):
+    """Base exception for worker management operations."""
+
+    ...
+
+
+class TaskNotFoundError(WorkerManagementError):
+    """Raised when task cannot be found."""
+
+    ...
+
+
+class WorkerNotAvailableError(WorkerManagementError):
+    """Raised when no workers are available."""
+
+    ...
+
+
 database_error_title = "Database Connection Error"
 database_error_message = "Unfortunately, it is not possible to connect to the job database. Please try again later."  # noqa
 error_responds_dict = {
@@ -121,6 +139,14 @@ error_responds_dict = {
     NoMeasurementPointsError: (
         "No Measurement Points",
         "In the provided area and time range, no measurement points were found. Please adjust your input parameters. Or provide a input file with measurement points.",  # noqa
+    ),
+    WorkerNotAvailableError: (
+        "No Workers Available",
+        "No Celery workers are currently running. Please check the worker service status.",  # noqa
+    ),
+    TaskNotFoundError: (
+        "Task Not Found",
+        "The selected task could not be found. It may have already completed or been cancelled.",  # noqa
     ),
 }
 error_modal = dbc.Modal(
