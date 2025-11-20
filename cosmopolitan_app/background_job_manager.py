@@ -110,7 +110,6 @@ class BackgroundJobManager:
             },
         )
 
-        logging.info(result)
         logging.info(
             f"Job {job.job_id} submitted with Celery task ID: {result.id}",
             extra={"tag": "job_submission"},

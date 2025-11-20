@@ -57,24 +57,9 @@ USER appuser
 CMD echo "Starting Celery worker in PRODUCTION mode..."; \
     python3 /python_docker/cosmopolitan/cosmopolitan_app/object_storage_manager.py setup_remote; \
     exec celery -A cosmopolitan_app.background_job_manager.celery worker \
-        --loglevel=info \
+        --loglevel=debug \
         --concurrency=4 \
         --queues=default,computation,maintenance \
         --hostname=worker@%h \
         --without-gossip \
         --without-mingle;
-# CMD if [ "$FLASK_DEBUG" = "1" ] ; then \
-#         echo "Starting Celery worker in DEBUG mode with auto-reload..."; \
-#         python3 /python_docker/cosmopolitan/cosmopolitan_app/object_storage_manager.py setup_remote; \
-#         exec python3 /python_docker/cosmopolitan/dev_worker.py; \
-#     else \
-#         echo "Starting Celery worker in PRODUCTION mode..."; \
-#         python3 /python_docker/cosmopolitan/cosmopolitan_app/object_storage_manager.py setup_remote; \
-#         exec celery -A cosmopolitan_app.background_job_manager.celery worker \
-#             --loglevel=info \
-#             --concurrency=4 \
-#             --queues=default,computation,maintenance \
-#             --hostname=worker@%h \
-#             --without-gossip \
-#             --without-mingle; \
-#     fi

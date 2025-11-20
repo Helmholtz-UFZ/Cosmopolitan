@@ -6,8 +6,6 @@ services:
       context: .
       dockerfile: ./docker/dev.Dockerfile
     env_file: .env
-    volumes:
-      - "./:/python_docker/cosmopolitan"
     user: "${DOCKER_UID}:${DOCKER_GID}"
     ports:
       - "${FLASK_PORT}:${FLASK_PORT}"
@@ -23,8 +21,6 @@ services:
       context: .
       dockerfile: ./docker/worker.Dockerfile
     env_file: .env
-    # volumes:
-    #   - "./:/python_docker/cosmopolitan"
     user: "${DOCKER_UID}:${DOCKER_GID}"
     depends_on:
       - postgres

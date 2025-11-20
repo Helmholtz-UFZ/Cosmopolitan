@@ -1,9 +1,11 @@
 """CRNS Database Administration page for managing measurement updates."""
 
+import logging
 from datetime import datetime
 
 import dash_bootstrap_components as dbc
 from dash import Input, Output, State, callback, dcc, html, register_page
+from kombu.exceptions import OperationalError as KombuOperationalError
 
 from cosmopolitan_app.background_job_manager import get_background_job_manager
 from cosmopolitan_app.constants import (
@@ -23,6 +25,7 @@ from cosmopolitan_app.constants import (
     CRNS_ADMIN_STATUS_ALERT_ID,
     LOADING_OVERLAY_ID,
 )
+from cosmopolitan_app.error_handling import RedisConnectionError
 from cosmopolitan_app.layouts import create_header, page_container_column_layout
 from cosmopolitan_app.logs_table import format_logs_list
 from cosmopolitan_app.postgres_manager import PostgresManager
@@ -321,14 +324,20 @@ def start_update(n_clicks):
         )
 
     # Submit task to Celery
-    job_manager = get_background_job_manager()
-    result = job_manager.update_db_task.apply_async(queue="maintenance")
+    try:
+        job_manager = get_background_job_manager()
+        result = job_manager.update_db_task.apply_async(queue="maintenance")
 
-    return (
-        f"Update task submitted. Task ID: {result.id}",
-        "success",
-        True,
-    )
+        return (
+            f"Update task submitted. Task ID: {result.id}",
+            "success",
+            True,
+        )
+    except (ConnectionError, OSError, RuntimeError, KombuOperationalError) as e:
+        logging.error(
+            f"Failed to submit CRNS update task: {e}", extra={"tag": "time_io"}
+        )
+        raise RedisConnectionError() from e
 
 
 @callback(

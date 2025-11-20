@@ -174,7 +174,8 @@ def get_remote_files(remote_path: str) -> set:
 def get_files(dirname: str) -> None:
     """Download files from object storage to local work directory.
 
-    This overwrites local files with remote files using rclone sync.
+    This copies files from remote to local without deleting local files using rclone
+    copy.
 
     Args:
         dirname: Name of the directory to download
@@ -190,10 +191,10 @@ def get_files(dirname: str) -> None:
     remote_path = f"{OBJECT_STORAGE_REMOTE_NAME}:{OBJECT_STORAGE_BUCKET}/{dirname}"
 
     local_files_before = get_local_files(local_path)
-    # Download: make local identical to remote
+    # Download: copy files from remote to local without deleting local files
     sync_params = [
         "rclone",
-        "sync",
+        "copy",
         remote_path,
         local_path,
         "--checksum",
@@ -204,7 +205,8 @@ def get_files(dirname: str) -> None:
         f"Rclone sync result: {result.stdout}", extra={"tag": "object_storage"}
     )
 
-    # Verify download
+    # Verify download - check that all remote files are now in local
+    # (local may have additional files, which is acceptable with copy)
     local_files_after = get_local_files(local_path)
     remote_files = get_remote_files(remote_path)
 
@@ -213,9 +215,12 @@ def get_files(dirname: str) -> None:
         extra={"tag": "object_storage"},
     )
 
-    if local_files_after != remote_files:
+    # Check that all remote files are present locally
+    if not remote_files.issubset(local_files_after):
+        missing_files = remote_files - local_files_after
         error_msg = (
             f"Download verification failed for {dirname}!\n"
+            f"Missing files from remote: {sorted(missing_files)}\n"
             f"Files from local: {sorted(local_files_after)}\n"
             f"Files from remote: {sorted(remote_files)}"
         )

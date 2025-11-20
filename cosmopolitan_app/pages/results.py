@@ -498,7 +498,8 @@ def create_correlation_heatmap(corr_data, timestep):
     if any(corr_df["time_step"] == CONSTANT_TIME_STEP):
         timestep_df = corr_df[corr_df["time_step"] == CONSTANT_TIME_STEP]
     else:
-        timestep_df = corr_df[corr_df["time_step"] == int(timestep)]
+        # timestep is a string (date like "2025-11-19")
+        timestep_df = corr_df[corr_df["time_step"] == timestep]
 
     # Set feature as index and drop time_step column
     timestep_df = timestep_df.drop(columns=["time_step"]).set_index("feature")
@@ -519,7 +520,8 @@ def create_correlation_heatmap(corr_data, timestep):
 def create_importance_by_timestep(timeseries_data, timestep):
     """Create bar chart for single timestep importance."""
     timeseries_df = pd.DataFrame(timeseries_data)
-    timestep_df = timeseries_df[timeseries_df["time_step"] == int(timestep)][
+    # timestep is a string (date like "2025-11-19")
+    timestep_df = timeseries_df[timeseries_df["time_step"] == timestep][
         ["predictor", "importance", "5th_percentile", "95th_percentile"]
     ]
 

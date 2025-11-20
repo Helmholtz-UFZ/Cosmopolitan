@@ -95,6 +95,12 @@ class WorkerNotAvailableError(WorkerManagementError):
     ...
 
 
+class RedisConnectionError(WorkerManagementError):
+    """Raised when Redis/Celery broker is unavailable."""
+
+    ...
+
+
 database_error_title = "Database Connection Error"
 database_error_message = "Unfortunately, it is not possible to connect to the job database. Please try again later."  # noqa
 error_responds_dict = {
@@ -147,6 +153,10 @@ error_responds_dict = {
     TaskNotFoundError: (
         "Task Not Found",
         "The selected task could not be found. It may have already completed or been cancelled.",  # noqa
+    ),
+    RedisConnectionError: (
+        "Background Service Unavailable",
+        "The background job service is temporarily unavailable. Please try again later.",  # noqa
     ),
 }
 error_modal = dbc.Modal(

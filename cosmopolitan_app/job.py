@@ -632,6 +632,18 @@ class Job:
             PostgresManager.delete_job(self.job_id)
             delete_directory_from_storage(self.job_id)
 
+    def _log_to_file(self, message):
+        """Write message directly to job log file.
+
+        Used for logging errors that occur before background worker starts.
+        """
+        from datetime import datetime
+
+        log_file = os.path.join(self.working_dir, LOG_FILE_NAME)
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(log_file, "a") as f:
+            f.write(f"[{timestamp}] {message}\n")
+
     def submit(self):
         """Submit job to Celery queue for background processing."""
         logging.info(f"Submit job {self.job_id}.", extra={"tag": "job_submission"})
@@ -651,16 +663,34 @@ class Job:
                 celery_task_id, failed = job_manager.submit_computation_job(self)
 
             except Exception as e:  # noqa
-                message = f"{repr(e)}\n\n{traceback.format_exc()}"
+                if "Error -3 connecting to redis" in str(e):
+                    message = "Redis server is not running"
+                    email_body = f"""
+                    Redis server is not running.\n\n
+                    Error: {str(e)}\n\n
+                    Traceback info: {traceback.format_exc()}\n\n
+                    """
+                else:
+                    message = f"{repr(e)}\n\n{traceback.format_exc()}"
+                    email_body = f"""
+                    Error: {str(e)}\n\n
+                    Traceback info: {traceback.format_exc()}\n\n
+                    """
+
                 logging.error(
                     f"Job {self.job_id} failed to start.\n{message}",
                     extra={"tag": "job_submission"},
                 )
+
+                # Write generic error message to job log file
+                self._log_to_file("ERROR: Cannot start job")
+
                 email_subject = f"Failed to start job {self.job_id}"
                 email_body = f"""
                 Error: {str(e)}\n\n
                 Traceback info: {traceback.format_exc()}\n\n
                 """
+
                 send_mail(MAINTAINER_EMAIL, email_subject, email_body)
                 failed = True
                 celery_task_id = None
