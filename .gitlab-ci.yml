@@ -148,10 +148,11 @@ build-release:
   script:
     - "docker build -t ${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG} -f docker/prod.Dockerfile ."
     - "docker push --all-tags ${CI_REGISTRY_IMAGE}"
-    - 'echo -e "image:\n  tag: ${CI_COMMIT_TAG}" > values.yaml'
+    - 'mkdir -p deployments/ufz/stage'
+    - 'echo -e "image:\n  tag: ${CI_COMMIT_TAG}" > deployments/ufz/stage/values.yaml'
   artifacts:
     paths:
-      - "values.yaml"
+      - "deployments/ufz/stage/values.yaml"
   rules:
     - if: '$CI_COMMIT_TAG =~ /^\d+.\d+.\d+/'
       when: "always"
@@ -166,10 +167,11 @@ build-release-worker:
   script:
     - "docker build -t ${CI_REGISTRY_IMAGE}/worker:${CI_COMMIT_TAG} -f docker/worker.Dockerfile ."
     - "docker push ${CI_REGISTRY_IMAGE}/worker:${CI_COMMIT_TAG}"
-    - 'echo -e "worker:\n  image:\n    tag: ${CI_COMMIT_TAG}" > values-worker.yaml'
+    - 'mkdir -p deployments/ufz/stage'
+    - 'echo -e "worker:\n  image:\n    tag: ${CI_COMMIT_TAG}" > deployments/ufz/stage/values-worker.yaml'
   artifacts:
     paths:
-      - "values-worker.yaml"
+      - "deployments/ufz/stage/values-worker.yaml"
   rules:
     - if: '$CI_COMMIT_TAG =~ /^\d+.\d+.\d+/'
       when: "always"
@@ -191,10 +193,11 @@ build-latest-tag:
     - "calver=$(date +'%Y.%m.%d')"
     - 'docker build -t "${CI_REGISTRY_IMAGE}:${GIT_LATEST_TAG}-${calver}" -f docker/prod.Dockerfile .'
     - 'docker push --all-tags "${CI_REGISTRY_IMAGE}"'
-    - 'echo -e "image:\n  tag: ${GIT_LATEST_TAG}-${calver}" > values.yaml'
+    - 'mkdir -p deployments/ufz/stage'
+    - 'echo -e "image:\n  tag: ${GIT_LATEST_TAG}-${calver}" > deployments/ufz/stage/values.yaml'
   artifacts:
     paths:
-      - "values.yaml"
+      - "deployments/ufz/stage/values.yaml"
   rules:
     - if: "$CI_PIPELINE_SOURCE == 'schedule'"
     - if: "$CI_PIPELINE_SOURCE == 'web'"
@@ -216,10 +219,11 @@ build-latest-tag-worker:
     - "calver=$(date +'%Y.%m.%d')"
     - 'docker build -t "${CI_REGISTRY_IMAGE}/worker:${GIT_LATEST_TAG}-${calver}" -f docker/worker.Dockerfile .'
     - 'docker push "${CI_REGISTRY_IMAGE}/worker:${GIT_LATEST_TAG}-${calver}"'
-    - 'echo -e "worker:\n  image:\n    tag: ${GIT_LATEST_TAG}-${calver}" > values-worker.yaml'
+    - 'mkdir -p deployments/ufz/stage'
+    - 'echo -e "worker:\n  image:\n    tag: ${GIT_LATEST_TAG}-${calver}" > deployments/ufz/stage/values-worker.yaml'
   artifacts:
     paths:
-      - "values-worker.yaml"
+      - "deployments/ufz/stage/values-worker.yaml"
   rules:
     - if: "$CI_PIPELINE_SOURCE == 'schedule'"
     - if: "$CI_PIPELINE_SOURCE == 'web'"
@@ -244,6 +248,7 @@ bump_version_for_cluster:
   script:
     - *prepare
     - "git add deployments/ufz/stage/values.yaml"
+    - "if [ -f deployments/ufz/stage/values-worker.yaml ]; then git add deployments/ufz/stage/values-worker.yaml; fi"
     - "git commit -m 'automatically increased tag-version for cluster-deployment'"
     - "git pull origin ${BRANCH} --strategy-option=ours"
     - "git push origin HEAD:$BRANCH -o ci.skip"
