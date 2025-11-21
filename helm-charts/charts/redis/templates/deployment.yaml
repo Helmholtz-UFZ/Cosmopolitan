@@ -58,14 +58,14 @@ spec:
           {{- end }}
           {{- if .Values.persistence.enabled }}
           volumeMounts:
-            - name: redis-data
+            - name: {{ .Values.persistence.name }}
               mountPath: /data
           {{- end }}
       {{- if .Values.persistence.enabled }}
       volumes:
-        - name: redis-data
+        - name: {{ .Values.persistence.name }}
           persistentVolumeClaim:
-            claimName: {{ include "redis.fullname" . }}-pvc
+            claimName: {{ .Values.persistence.name }}
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:

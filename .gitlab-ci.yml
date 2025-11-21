@@ -8,6 +8,7 @@ stages:
   - "test"
   - "build"
   - "deploy"
+  - "helm-package"
 
 variables:
   POSTGRES_DB: somweb_stage
@@ -254,7 +255,7 @@ bump_version_for_cluster:
     - when: "never"
 
 helm-package:
-  stage: "build"
+  stage: "helm-package"
   image:
     name: "alpine/helm:3.19"
     entrypoint: [""]
@@ -268,4 +269,5 @@ helm-package:
     - "echo $CI_JOB_TOKEN | helm registry login -u $CI_REGISTRY_USER --password-stdin ${CI_REGISTRY}"
     - "helm push ${CHART_NAME}-${CHART_VERSION}.tgz oci://${OCI_REGISTRY_URL}"
   rules:
-    - if: '$CI_COMMIT_TAG =~ /^(\d+\.\d+\.\d+(-[a-zA-Z0-9]*)?)$/'
+#    - if: '$CI_COMMIT_TAG =~ /^(\d+\.\d+\.\d+(-[a-zA-Z0-9]*)?)$/'
+    - when: 'manual'
