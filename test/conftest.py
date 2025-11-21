@@ -234,3 +234,57 @@ def celery_worker():
             os.killpg(os.getpgid(worker_process.pid), signal.SIGKILL)
         except (ProcessLookupError, OSError):
             pass
+
+
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """Capture screenshot on test failure for test using dash.duo."""
+    from datetime import datetime
+
+    outcome = yield
+    report = outcome.get_result()
+
+    # Only capture screenshots for test_app.py tests that fail during the call phase
+    if (
+        report.when == "call"
+        and report.failed
+        and "test_app.py" in item.nodeid
+        and "dash_duo" in item.funcargs
+    ):
+        dash_duo = item.funcargs["dash_duo"]
+
+        try:
+            # Check if driver exists and is ready
+            if not hasattr(dash_duo, "driver") or dash_duo.driver is None:
+                log.warning(
+                    f"Cannot capture screenshot for {item.nodeid}: "
+                    "dash_duo.driver not initialized (test failed before start_server)"
+                )
+                return
+
+            # Create screenshots directory
+            screenshot_dir = "test_failures"
+            os.makedirs(screenshot_dir, exist_ok=True)
+
+            # Generate unique filename
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            test_name = item.nodeid.replace("::", "_").replace("/", "_")
+
+            # Save screenshot
+            screenshot_path = f"{screenshot_dir}/{test_name}_{timestamp}.png"
+            dash_duo.driver.save_screenshot(screenshot_path)
+
+            # Save HTML snapshot
+            html_path = f"{screenshot_dir}/{test_name}_{timestamp}.html"
+            rendered_html = dash_duo.driver.execute_script(
+                "return document.documentElement.outerHTML"
+            )
+            with open(html_path, "w", encoding="utf-8") as f:
+                f.write(rendered_html)
+
+            log.info(f"Screenshot saved to {screenshot_path}")
+            log.info(f"HTML snapshot saved to {html_path}")
+
+        except Exception as e:  # noqa
+            # Don't let screenshot failures break the test reporting
+            log.warning(f"Failed to capture screenshot for {item.nodeid}: {e}")

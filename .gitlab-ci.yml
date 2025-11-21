@@ -107,7 +107,7 @@ test:
     - "export PGPASSWORD=${POSTGRES_PASSWORD}"
     - "psql -h ${POSTGRES_HOST_NAME} -U ${POSTGRES_USER} -d ${POSTGRES_DB} < docker/init.sql"
     - "cp env_test .env"
-    - "curl mailhog:8025"
+    - "curl mailhog:8025 > /dev/null"
     - "pip install poetry"
     - "poetry install"
   script:
@@ -243,8 +243,7 @@ bump_version_for_cluster:
     BRANCH: "main"
   script:
     - *prepare
-    - "git add values.yaml"
-    - "if [ -f values-worker.yaml ]; then git add values-worker.yaml; fi"
+    - "git add deployments/ufz/stage/values.yaml"
     - "git commit -m 'automatically increased tag-version for cluster-deployment'"
     - "git pull origin ${BRANCH} --strategy-option=ours"
     - "git push origin HEAD:$BRANCH -o ci.skip"
@@ -269,5 +268,5 @@ helm-package:
     - "echo $CI_JOB_TOKEN | helm registry login -u $CI_REGISTRY_USER --password-stdin ${CI_REGISTRY}"
     - "helm push ${CHART_NAME}-${CHART_VERSION}.tgz oci://${OCI_REGISTRY_URL}"
   rules:
-#    - if: '$CI_COMMIT_TAG =~ /^(\d+\.\d+\.\d+(-[a-zA-Z0-9]*)?)$/'
-    - when: 'manual'
+    #    - if: '$CI_COMMIT_TAG =~ /^(\d+\.\d+\.\d+(-[a-zA-Z0-9]*)?)$/'
+    - when: "manual"
