@@ -41,6 +41,7 @@ resources: {}
 
 persistence:
   enabled: false
+  name: "cosmopolitan-redis"
   storageClassName: ""
   size: "1Gi"
 
