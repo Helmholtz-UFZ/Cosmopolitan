@@ -18,3 +18,4 @@ env_dev_stage_priv
 timeIO*.logs
 celerybeat-schedule
 .env.bak
+test_failures

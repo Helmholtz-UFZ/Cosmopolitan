@@ -340,6 +340,7 @@ class Job:
             start_date,
             end_date,
         )
+        self.save()
         return filename
 
     def get_preview_path(self):

@@ -17,9 +17,13 @@ def serve_files(app):
             f"Serve picture {filename} for {job_id}", extra={"tag": "frontend"}
         )
         # Assure that the job exists and all files are ready
-        job = Job(job_id)
+        Job(job_id)
 
-        response = send_from_directory(job.working_dir, filename)
+        # Dont use job.working_dir as from send_from_directory: The directory that
+        # ``path`` must be located under, relative to the current application's root
+        # path
+        response = send_from_directory(f"work_dir/{job_id}", filename)
+
         # Add cache control headers to prevent browser caching
         response.headers["Cache-Control"] = (
             "no-store, no-cache, must-revalidate, max-age=0"
