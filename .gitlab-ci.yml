@@ -141,8 +141,8 @@ build-release:
     - "docker push --all-tags ${CI_REGISTRY_IMAGE}/frontend"
     - "docker build -t ${CI_REGISTRY_IMAGE}/worker:${CI_COMMIT_TAG} -f docker/worker.Dockerfile ."
     - "docker push --all-tags ${CI_REGISTRY_IMAGE}/worker"
-    - "yq -i '.frontend.image.tag = env.CI_COMMIT_TAG' deployments/ufz/stage/values.yaml"
-    - "yq -i '.worker.image.tag = env.CI_COMMIT_TAG' deployments/ufz/stage/values.yaml"
+    - yq -i ".frontend.image.tag = \"${CI_COMMIT_TAG}\"" deployments/ufz/stage/values.yaml
+    - yq -i ".worker.image.tag = \"${CI_COMMIT_TAG}\"" deployments/ufz/stage/values.yaml
   artifacts:
     paths:
       - "deployments/ufz/stage/values.yaml"
@@ -170,8 +170,8 @@ build-latest-tag:
     - 'docker push --all-tags "${CI_REGISTRY_IMAGE}/frontend"'
     - 'docker build -t "${CI_REGISTRY_IMAGE}/worker:${GIT_LATEST_TAG}-${calver}" -f docker/worker.Dockerfile .'
     - 'docker push --all-tags "${CI_REGISTRY_IMAGE}/worker"'
-    - "yq -i '.frontend.image.tag = env.CI_COMMIT_TAG' deployments/ufz/stage/values.yaml"
-    - "yq -i '.worker.image.tag = env.CI_COMMIT_TAG' deployments/ufz/stage/values.yaml"
+    - yq -i ".frontend.image.tag = \"${GIT_LATEST_TAG}-${calver}\"" deployments/ufz/stage/values.yaml
+    - yq -i ".worker.image.tag = \"${GIT_LATEST_TAG}-${calver}\"" deployments/ufz/stage/values.yaml
   artifacts:
     paths:
       - "deployments/ufz/stage/values.yaml"
