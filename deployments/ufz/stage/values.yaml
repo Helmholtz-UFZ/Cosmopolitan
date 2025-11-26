@@ -3,20 +3,16 @@ persistence:
   storageClassName: "tanzu-storage-policy-raid5-ftt1"
   name: "cosmopolitan-work-dir-pvc"
   size: "10G"
-
 frontend:
   enabled: true
   image:
     repository: registry.hzdr.de/ufz/tb5-smm/met/wg7/cosmopolitan
-    tag: "0.0.49"
-
+    tag: "0.0.56"
   imagePullSecrets:
     - name: wombat-docker-registry-codebase
-
   podAnnotations:
     rdm.ufz.de/inception-date: "20240110"
     rdm.ufz.de/duration-in-years: "2"
-
   environmentVariables:
     - name: "EMAIL_PORT"
       value: "587"
@@ -82,8 +78,6 @@ frontend:
       value: "0"
     - name: "REDIS_PASSWORD"
       value: ""
-
-
   ingress:
     enabled: true
     className: "nginx"
@@ -105,37 +99,30 @@ frontend:
       - secretName: cosmopolitan-web-intern-stage-app-ufz-de
         hosts:
           - "cosmopolitan.web-intern-stage.app.ufz.de"
-
   resources:
     limits:
-     cpu: 500m
-     memory: 1Gi
+      cpu: 500m
+      memory: 1Gi
     requests:
-     cpu: 200m
-     memory: 512Mi
-
+      cpu: 200m
+      memory: 512Mi
   volumes:
     - name: cosmopolitan-work-dir
       persistentVolumeClaim:
         claimName: cosmopolitan-work-dir-pvc
-
   volumeMounts:
     - mountPath: "/python_docker/cosmopolitan/cosmopolitan_app/work_dir"
       name: cosmopolitan-work-dir
-
 worker:
   enabled: true
   image:
     repository: registry.hzdr.de/ufz/tb5-smm/met/wg7/cosmopolitan/worker
     pullPolicy: Always
-    tag: "0.0.49"
-
+    tag: "0.0.56"
   imagePullSecrets:
     - name: wombat-docker-registry-codebase
-
   nameOverride: ""
   fullnameOverride: "cosmopolitan-worker"
-
   environmentVariables:
     - name: "EMAIL_PORT"
       value: "587"
@@ -201,7 +188,6 @@ worker:
       value: "0"
     - name: "REDIS_PASSWORD"
       value: ""
-
   resources:
     limits:
       cpu: 1500m
@@ -209,27 +195,22 @@ worker:
     requests:
       cpu: 500m
       memory: 2000Mi
-
   volumes:
     - name: cosmopolitan-work-dir
       persistentVolumeClaim:
         claimName: cosmopolitan-work-dir-pvc
-
   volumeMounts:
     - mountPath: "/python_docker/cosmopolitan/cosmopolitan_app/work_dir"
       name: cosmopolitan-work-dir
-
 tileserver:
   enabled: true
-
   securityContext:
     allowPrivilegeEscalation: false
-#    capabilities:
-#      drop: [ "ALL" ]
-#    runAsNonRoot: true  # Container läuft leider nicht als Non-Root
+    #    capabilities:
+    #      drop: [ "ALL" ]
+    #    runAsNonRoot: true  # Container läuft leider nicht als Non-Root
     seccompProfile:
       type: RuntimeDefault
-
   resources:
     limits:
       cpu: 500m
@@ -237,7 +218,6 @@ tileserver:
     requests:
       cpu: 500m
       memory: 500Mi
-
   ingress:
     enabled: true
     className: "nginx"
@@ -259,25 +239,20 @@ tileserver:
       - secretName: cosmopolitan--ts-web-intern-stage-app-ufz-de
         hosts:
           - "cosmopolitan-ts.web-intern-stage.app.ufz.de"
-
   tolerations:
     - key: "role"
       operator: "Equal"
       value: "ai"
       effect: "NoSchedule"
-
   volumes:
     - name: cosmopolitan-work-dir
       persistentVolumeClaim:
         claimName: cosmopolitan-work-dir-pvc
-
   volumeMounts:
     - mountPath: "/data"
       name: cosmopolitan-work-dir
-
 redis:
   enabled: true
-
   resources:
     limits:
       cpu: 500m
@@ -285,7 +260,6 @@ redis:
     requests:
       cpu: 100m
       memory: 128Mi
-
   persistence:
     enabled: true
     name: "cosmopolitan-redis"
