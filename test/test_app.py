@@ -139,135 +139,125 @@ def test_full_procedure(
     dash_duo.driver.set_window_size(1920, 1080)
     dash_duo.driver.execute_cdp_cmd("Runtime.enable", {})
     dash_duo.driver.execute_cdp_cmd("Log.enable", {})
+    check_all_errors(dash_duo)
+
+    # Expand navbar if collapsed
     try:
-        check_all_errors(dash_duo)
+        toggler = dash_duo.wait_for_element(f"#{NAVBAR_TOGGLER_ID}", timeout=10)
+        if toggler.is_displayed():
+            toggler.click()
+    except (NoSuchElementException, ElementNotInteractableException):
+        pass
 
-        # Expand navbar if collapsed
-        try:
-            toggler = dash_duo.wait_for_element(f"#{NAVBAR_TOGGLER_ID}", timeout=10)
-            if toggler.is_displayed():
-                toggler.click()
-        except (NoSuchElementException, ElementNotInteractableException):
-            pass
+    dash_duo.wait_for_element(f"#{NEW_JOB_LINK_ID}", timeout=10).click()
+    check_all_errors(dash_duo)
+    dash_duo.wait_for_element(f"#{PREPARE_INPUT_ID}", timeout=10).click()
+    check_all_errors(dash_duo)
 
-        dash_duo.wait_for_element(f"#{NEW_JOB_LINK_ID}", timeout=10).click()
-        check_all_errors(dash_duo)
-        dash_duo.wait_for_element(f"#{PREPARE_INPUT_ID}", timeout=10).click()
-        check_all_errors(dash_duo)
+    time.sleep(10)
+    # Uncheck predictors
+    predictor_dropdown_id = active_form_factory.id_format.format(
+        field_name="pred_streams"
+    )
+    # First the button to open the dropdown menu
+    dropdown_menu = dash_duo.find_element("#pred_streams").find_element(
+        "xpath", "./ancestor::div[contains(@class, 'dropdown-menu')]"
+    )
+    aria_labelledby = dropdown_menu.get_attribute("aria-labelledby")
+    aria_labelledby = aria_labelledby.replace(":", "\\:")
+    scroll_to_element_and_click(dash_duo, aria_labelledby)
+    # Now the dropdown menu should be open
+    # Find all checked checkboxes in the dropdown menu and uncheck them
+    checked_checkboxes = dash_duo.find_elements(
+        f"#{predictor_dropdown_id} input[type='checkbox']:checked", "CSS_SELECTOR"
+    )
+    for checkbox in checked_checkboxes:
+        scroll_to_element_and_click(dash_duo, checkbox.get_attribute("id"))
 
-        time.sleep(3)
-        # Uncheck predictors
-        predictor_dropdown_id = active_form_factory.id_format.format(
-            field_name="pred_streams"
-        )
-        # First the button to open the dropdown menu
-        dropdown_menu = dash_duo.find_element("#pred_streams").find_element(
-            "xpath", "./ancestor::div[contains(@class, 'dropdown-menu')]"
-        )
-        aria_labelledby = dropdown_menu.get_attribute("aria-labelledby")
-        aria_labelledby = aria_labelledby.replace(":", "\\:")
-        scroll_to_element_and_click(dash_duo, aria_labelledby)
-        # Now the dropdown menu should be open
-        # Find all checked checkboxes in the dropdown menu and uncheck them
-        checked_checkboxes = dash_duo.find_elements(
-            f"#{predictor_dropdown_id} input[type='checkbox']:checked", "CSS_SELECTOR"
-        )
-        for checkbox in checked_checkboxes:
-            scroll_to_element_and_click(dash_duo, checkbox.get_attribute("id"))
+    # Upload predictor files
+    pred_field_name = "predictor_upload"
+    assert (
+        pred_field_name in ModelWebsite.model_fields
+    ), "Predictor field not found in pymodel"
+    pred_upload_id = active_form_factory.id_format.format(field_name=pred_field_name)
+    upload_element = dash_duo.find_element(f"#{pred_upload_id} input[type='file']")
+    selected_pred_id = active_form_template_factory.selected_predictors_key
+    for pred_file_path in pred_file_paths:
+        pred_file_name = str(pred_file_path.name)
 
-        # Upload predictor files
-        pred_field_name = "predictor_upload"
-        assert (
-            pred_field_name in ModelWebsite.model_fields
-        ), "Predictor field not found in pymodel"
-        pred_upload_id = active_form_factory.id_format.format(
-            field_name=pred_field_name
-        )
-        upload_element = dash_duo.find_element(f"#{pred_upload_id} input[type='file']")
-        selected_pred_id = active_form_template_factory.selected_predictors_key
-        for pred_file_path in pred_file_paths:
-            pred_file_name = str(pred_file_path.name)
-
-            upload_element.send_keys(str(pred_file_path))
-            for attempts in range(10):
-                time.sleep(1)
-                items = dash_duo.find_elements(f"#{selected_pred_id}")
-                if any(pred_file_name in item.text for item in items):
-                    break
-            else:
-                raise AssertionError(
-                    f"Predictor file {pred_file_name} not found in the list after upload"  # noqa
-                )
-
-        # Upload CRNS file
-
-        # Uncheck all CRNS measurement fields
-        for crns_measurment_field_name in ["train_data", "station_data", "rover_data"]:
-            crns_measurment_id = active_form_factory.id_format.format(
-                field_name=crns_measurment_field_name
-            )
-            scroll_to_element_and_click(dash_duo, crns_measurment_id)
-
-        crns_file_name = str(crns_file_path.name)
-        crns_field_name = "crns_upload"
-        assert (
-            crns_field_name in ModelWebsite.model_fields
-        ), "CRNS field not found in pymodel"
-        crns_upload_id = active_form_factory.id_format.format(
-            field_name=crns_field_name
-        )
-
-        upload_element = dash_duo.find_element(f"#{crns_upload_id} input[type='file']")
-        upload_element.send_keys(str(crns_file_path))
-        selected_crns_id = active_form_template_factory.selected_crns_key
+        upload_element.send_keys(str(pred_file_path))
         for attempts in range(10):
-            time.sleep(1)
-            items = dash_duo.find_elements(f"#{selected_crns_id}")
-            if any(crns_file_name in item.text for item in items):
+            time.sleep(2)
+            items = dash_duo.find_elements(f"#{selected_pred_id}")
+            if any(pred_file_name in item.text for item in items):
                 break
         else:
             raise AssertionError(
-                f"CRNS file {crns_file_name} not found in the list after upload"
+                f"Predictor file {pred_file_name} not found in the list after upload"  # noqa
             )
 
-        check_all_errors(dash_duo)
+    # Upload CRNS file
 
-        # Check input
-        scroll_to_element_and_click(dash_duo, CHECK_INPUT_ID)
-        check_all_errors(dash_duo)
-        # Change input
-        scroll_to_element_and_click(dash_duo, CHANGE_INPUT_BUTTON_ID)
-        check_all_errors(dash_duo)
-        scroll_to_element_and_click(dash_duo, CHECK_INPUT_ID)
-        check_all_errors(dash_duo)
+    # Uncheck all CRNS measurement fields
+    for crns_measurment_field_name in ["train_data", "station_data", "rover_data"]:
+        crns_measurment_id = active_form_factory.id_format.format(
+            field_name=crns_measurment_field_name
+        )
+        scroll_to_element_and_click(dash_duo, crns_measurment_id)
 
-        # Submit job
-        scroll_to_element_and_click(dash_duo, SUBMIT_JOB_ID)
-        check_all_errors(dash_duo)
+    crns_file_name = str(crns_file_path.name)
+    crns_field_name = "crns_upload"
+    assert (
+        crns_field_name in ModelWebsite.model_fields
+    ), "CRNS field not found in pymodel"
+    crns_upload_id = active_form_factory.id_format.format(field_name=crns_field_name)
 
-        # Wait for the submission status to change
-        for attempts in range(60):
-            time.sleep(1)
-            status_element = dash_duo.wait_for_element(
-                f"#{SUBMISSION_STATUS_ID}", timeout=1
-            )
-            if "RUNNING" in status_element.text:
-                continue
-            elif "PENDING" in status_element.text:
-                continue
+    upload_element = dash_duo.find_element(f"#{crns_upload_id} input[type='file']")
+    upload_element.send_keys(str(crns_file_path))
+    selected_crns_id = active_form_template_factory.selected_crns_key
+    for attempts in range(10):
+        time.sleep(2)
+        items = dash_duo.find_elements(f"#{selected_crns_id}")
+        if any(crns_file_name in item.text for item in items):
             break
+    else:
+        raise AssertionError(
+            f"CRNS file {crns_file_name} not found in the list after upload"
+        )
 
-        if "COMPLETED" not in status_element.text:
-            logging.error(f"Job finished with status: {status_element.text}")
-            save_snapshot(dash_duo)
-            job_logs = dash_duo.find_element(f"#{JOB_LOGS_ID}").text
-            raise AssertionError(
-                "Job did not complete successfully. Logs:\n" + job_logs
-            )
+    check_all_errors(dash_duo)
 
-        scroll_to_element_and_click(dash_duo, RESULT_BUTTON_ID)
-        time.sleep(1)
-        check_all_errors(dash_duo)
-    except Exception as e:  # noqa
+    # Check input
+    scroll_to_element_and_click(dash_duo, CHECK_INPUT_ID)
+    check_all_errors(dash_duo)
+    # Change input
+    scroll_to_element_and_click(dash_duo, CHANGE_INPUT_BUTTON_ID)
+    check_all_errors(dash_duo)
+    scroll_to_element_and_click(dash_duo, CHECK_INPUT_ID)
+    check_all_errors(dash_duo)
+
+    # Submit job
+    scroll_to_element_and_click(dash_duo, SUBMIT_JOB_ID)
+    check_all_errors(dash_duo)
+
+    # Wait for the submission status to change
+    for attempts in range(60):
+        time.sleep(3)
+        status_element = dash_duo.wait_for_element(
+            f"#{SUBMISSION_STATUS_ID}", timeout=1
+        )
+        if "RUNNING" in status_element.text:
+            continue
+        elif "PENDING" in status_element.text:
+            continue
+        break
+
+    if "COMPLETED" not in status_element.text:
+        logging.error(f"Job finished with status: {status_element.text}")
         save_snapshot(dash_duo)
-        raise
+        job_logs = dash_duo.find_element(f"#{JOB_LOGS_ID}").text
+        raise AssertionError("Job did not complete successfully. Logs:\n" + job_logs)
+
+    scroll_to_element_and_click(dash_duo, RESULT_BUTTON_ID)
+    time.sleep(2)
+    check_all_errors(dash_duo)
