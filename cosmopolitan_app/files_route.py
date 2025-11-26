@@ -1,8 +1,10 @@
-"""Serve static files from a directory."""
+"""Serve files from a directory."""
 
 import logging
 
 from flask import send_from_directory
+
+from cosmopolitan_app.job import Job
 
 
 def serve_files(app):
@@ -14,9 +16,10 @@ def serve_files(app):
         logging.debug(
             f"Serve picture {filename} for {job_id}", extra={"tag": "frontend"}
         )
+        # Assure that the job exists and all files are ready
+        job = Job(job_id)
 
-        response = send_from_directory(f"work_dir/{job_id}", filename)
-
+        response = send_from_directory(job.working_dir, filename)
         # Add cache control headers to prevent browser caching
         response.headers["Cache-Control"] = (
             "no-store, no-cache, must-revalidate, max-age=0"

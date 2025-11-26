@@ -48,7 +48,7 @@ logging.info(
     "Celery Beat scheduler started in background thread", extra={"tag": "scheduler"}
 )
 
-# Serve static files
+# Serve files
 serve_files(app)
 
 # Layout components

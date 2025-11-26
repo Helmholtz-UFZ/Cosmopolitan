@@ -112,6 +112,11 @@ test:
     - "poetry install"
   script:
     - poetry run pytest --webdriver=Chrome --headless --capture=no
+  artifacts:
+    when: on_failure
+    expire_in: 1 week
+    paths:
+      - test_failures/
 
 # "latest" image will be built on every push to the main-branch
 build-latest:
