@@ -6,7 +6,7 @@ persistence:
 frontend:
   enabled: true
   image:
-    repository: registry.hzdr.de/ufz/tb5-smm/met/wg7/cosmopolitan
+    repository: registry.hzdr.de/ufz/tb5-smm/met/wg7/cosmopolitan/frontend
     tag: "0.0.56"
   imagePullSecrets:
     - name: wombat-docker-registry-codebase
