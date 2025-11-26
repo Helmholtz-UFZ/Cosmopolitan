@@ -1,5 +1,5 @@
-# SPDX-FileCopyrightText: 2024 Hannes Bohring <hannes.bohring@ufz.de>
-# SPDX-FileCopyrightText: 2024 Helmholtz Centre for Environmental Research GmbH - UFZ
+# SPDX-FileCopyrightText: 2025 Hannes Bohring <hannes.bohring@ufz.de>
+# SPDX-FileCopyrightText: 2025 Helmholtz Centre for Environmental Research GmbH - UFZ
 #
 # SPDX-License-Identifier: AGPL-3.0-only
 ---
@@ -120,24 +120,14 @@ build-latest:
   before_script:
     - *docker_login
   script:
-    - "docker build -t ${CI_REGISTRY_IMAGE}:latest -f docker/prod.Dockerfile ."
-    - "docker push --all-tags ${CI_REGISTRY_IMAGE}"
+    - "docker build -t ${CI_REGISTRY_IMAGE}/frontend:latest -f docker/prod.Dockerfile ."
+    - "docker push --all-tags ${CI_REGISTRY_IMAGE}/frontend"
+    - "docker build -t ${CI_REGISTRY_IMAGE}/worker:latest -f docker/worker.Dockerfile ."
+    - "docker push --all-tags ${CI_REGISTRY_IMAGE}/worker"
   rules:
     - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
     - when: "never"
 
-# "latest" worker image will be built on every push to the main-branch
-build-latest-worker:
-  stage: "build"
-  extends: ".base_before_build_script"
-  before_script:
-    - *docker_login
-  script:
-    - "docker build -t ${CI_REGISTRY_IMAGE}/worker:latest -f docker/worker.Dockerfile ."
-    - "docker push ${CI_REGISTRY_IMAGE}/worker:latest"
-  rules:
-    - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
-    - when: "never"
 
 # a release-tag will be built when creating a tag with the name matching the regex (^\d+.\d+.\d+)
 build-release:
@@ -145,33 +135,17 @@ build-release:
   extends: ".base_before_build_script"
   before_script:
     - *docker_login
+    - "apk update && apk add --no-cache jq yq"
   script:
-    - "docker build -t ${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG} -f docker/prod.Dockerfile ."
+    - "docker build -t ${CI_REGISTRY_IMAGE}/frontend:${CI_COMMIT_TAG} -f docker/prod.Dockerfile ."
     - "docker push --all-tags ${CI_REGISTRY_IMAGE}"
-    - 'mkdir -p deployments/ufz/stage'
-    - 'echo -e "image:\n  tag: ${CI_COMMIT_TAG}" > deployments/ufz/stage/values.yaml'
+    - "docker build -t ${CI_REGISTRY_IMAGE}/worker:${CI_COMMIT_TAG} -f docker/worker.Dockerfile ."
+    - "docker push --all-tags ${CI_REGISTRY_IMAGE}/worker"
+    - "yq -i '.frontend.image.tag = env.CI_COMMIT_TAG' deployments/ufz/stage/values.yaml"
+    - "yq -i '.worker.image.tag = env.CI_COMMIT_TAG' deployments/ufz/stage/values.yaml"
   artifacts:
     paths:
       - "deployments/ufz/stage/values.yaml"
-  rules:
-    - if: '$CI_COMMIT_TAG =~ /^\d+.\d+.\d+/'
-      when: "always"
-    - when: "never"
-
-# a worker release-tag will be built when creating a tag with the name matching the regex (^\d+.\d+.\d+)
-build-release-worker:
-  stage: "build"
-  extends: ".base_before_build_script"
-  before_script:
-    - *docker_login
-  script:
-    - "docker build -t ${CI_REGISTRY_IMAGE}/worker:${CI_COMMIT_TAG} -f docker/worker.Dockerfile ."
-    - "docker push ${CI_REGISTRY_IMAGE}/worker:${CI_COMMIT_TAG}"
-    - 'mkdir -p deployments/ufz/stage'
-    - 'echo -e "worker:\n  image:\n    tag: ${CI_COMMIT_TAG}" > deployments/ufz/stage/values-worker.yaml'
-  artifacts:
-    paths:
-      - "deployments/ufz/stage/values-worker.yaml"
   rules:
     - if: '$CI_COMMIT_TAG =~ /^\d+.\d+.\d+/'
       when: "always"
@@ -184,17 +158,20 @@ build-latest-tag:
   extends: ".base_before_build_script"
   before_script:
     - *docker_login
-    - "apk update && apk add git"
+    - "apk update && apk add --no-cache jq yq git"
+    - "git fetch"
     - "GIT_LATEST_TAG=$(git describe --tags --abbrev=0)"
     - "git fetch origin ${GIT_LATEST_TAG}"
     - "git checkout ${GIT_LATEST_TAG}"
   script:
     - "GIT_LATEST_TAG=$(git describe --tags --abbrev=0)"
     - "calver=$(date +'%Y.%m.%d')"
-    - 'docker build -t "${CI_REGISTRY_IMAGE}:${GIT_LATEST_TAG}-${calver}" -f docker/prod.Dockerfile .'
-    - 'docker push --all-tags "${CI_REGISTRY_IMAGE}"'
-    - 'mkdir -p deployments/ufz/stage'
-    - 'echo -e "image:\n  tag: ${GIT_LATEST_TAG}-${calver}" > deployments/ufz/stage/values.yaml'
+    - 'docker build -t "${CI_REGISTRY_IMAGE}/frontend:${GIT_LATEST_TAG}-${calver}" -f docker/prod.Dockerfile .'
+    - 'docker push --all-tags "${CI_REGISTRY_IMAGE}/frontend"'
+    - 'docker build -t "${CI_REGISTRY_IMAGE}/worker:${GIT_LATEST_TAG}-${calver}" -f docker/worker.Dockerfile .'
+    - 'docker push --all-tags "${CI_REGISTRY_IMAGE}/worker"'
+    - "yq -i '.frontend.image.tag = env.CI_COMMIT_TAG' deployments/ufz/stage/values.yaml"
+    - "yq -i '.worker.image.tag = env.CI_COMMIT_TAG' deployments/ufz/stage/values.yaml"
   artifacts:
     paths:
       - "deployments/ufz/stage/values.yaml"
@@ -203,31 +180,6 @@ build-latest-tag:
     - if: "$CI_PIPELINE_SOURCE == 'web'"
     - when: "never"
 
-# builds a fresh worker Docker-Image from the most recent Git-Tag und postfixes the current date
-# e.g. <IMAGE>/worker:<TAG> becomes <IMAGE>/worker:<TAG>-YYYY.MM.DD
-build-latest-tag-worker:
-  stage: "build"
-  extends: ".base_before_build_script"
-  before_script:
-    - *docker_login
-    - "apk update && apk add git"
-    - "GIT_LATEST_TAG=$(git describe --tags --abbrev=0)"
-    - "git fetch origin ${GIT_LATEST_TAG}"
-    - "git checkout ${GIT_LATEST_TAG}"
-  script:
-    - "GIT_LATEST_TAG=$(git describe --tags --abbrev=0)"
-    - "calver=$(date +'%Y.%m.%d')"
-    - 'docker build -t "${CI_REGISTRY_IMAGE}/worker:${GIT_LATEST_TAG}-${calver}" -f docker/worker.Dockerfile .'
-    - 'docker push "${CI_REGISTRY_IMAGE}/worker:${GIT_LATEST_TAG}-${calver}"'
-    - 'mkdir -p deployments/ufz/stage'
-    - 'echo -e "worker:\n  image:\n    tag: ${GIT_LATEST_TAG}-${calver}" > deployments/ufz/stage/values-worker.yaml'
-  artifacts:
-    paths:
-      - "deployments/ufz/stage/values-worker.yaml"
-  rules:
-    - if: "$CI_PIPELINE_SOURCE == 'schedule'"
-    - if: "$CI_PIPELINE_SOURCE == 'web'"
-    - when: "never"
 
 # preparation for git - so that the job "bump_version_for_cluster"
 .prepare: &prepare
@@ -248,7 +200,6 @@ bump_version_for_cluster:
   script:
     - *prepare
     - "git add deployments/ufz/stage/values.yaml"
-    - "if [ -f deployments/ufz/stage/values-worker.yaml ]; then git add deployments/ufz/stage/values-worker.yaml; fi"
     - "git commit -m 'automatically increased tag-version for cluster-deployment'"
     - "git pull origin ${BRANCH} --strategy-option=ours"
     - "git push origin HEAD:$BRANCH -o ci.skip"
