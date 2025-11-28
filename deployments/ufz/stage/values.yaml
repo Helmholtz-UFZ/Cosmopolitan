@@ -261,15 +261,15 @@ redis:
       cpu: 100m
       memory: 128Mi
 
-  securityContext:
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop: [ "ALL" ]
+  securityContext: {}
+#    allowPrivilegeEscalation: false
+#    capabilities:
+#      drop: [ "ALL" ]
     #  runAsNonRoot: true
     #  runAsUser: 999
     #  runAsGroup: 999
-    seccompProfile:
-      type: RuntimeDefault
+#    seccompProfile:
+#      type: RuntimeDefault
 
   persistence:
     enabled: true
