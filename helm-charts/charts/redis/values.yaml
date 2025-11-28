@@ -17,15 +17,15 @@ podLabels: {}
 
 podSecurityContext: {}
 
-securityContext:
-  allowPrivilegeEscalation: false
-  capabilities:
-    drop: ["ALL"]
-  runAsNonRoot: true
-  runAsUser: 999
-  runAsGroup: 999
-  seccompProfile:
-    type: RuntimeDefault
+securityContext: {}
+#  allowPrivilegeEscalation: false
+#  capabilities:
+#    drop: ["ALL"]
+#  runAsNonRoot: true
+#  runAsUser: 999
+#  runAsGroup: 999
+#  seccompProfile:
+#    type: RuntimeDefault
 
 service:
   type: ClusterIP
