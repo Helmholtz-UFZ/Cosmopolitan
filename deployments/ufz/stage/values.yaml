@@ -273,6 +273,6 @@ redis:
 
   persistence:
     enabled: true
-    name: "cosmopolitan-redis"
+    name: "cosmopolitan-redis-1"
     storageClassName: "tanzu-storage-policy-raid5-ftt1"
     size: "1Gi"
