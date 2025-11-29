@@ -7,7 +7,7 @@ frontend:
   enabled: true
   image:
     repository: registry.hzdr.de/ufz/tb5-smm/met/wg7/cosmopolitan/frontend
-    tag: "0.0.59-2025.11.28"
+    tag: "0.0.59-2025.11.29"
   imagePullSecrets:
     - name: wombat-docker-registry-codebase
   podAnnotations:
@@ -118,7 +118,7 @@ worker:
   image:
     repository: registry.hzdr.de/ufz/tb5-smm/met/wg7/cosmopolitan/worker
     pullPolicy: Always
-    tag: "0.0.59-2025.11.28"
+    tag: "0.0.59-2025.11.29"
   imagePullSecrets:
     - name: wombat-docker-registry-codebase
   nameOverride: ""
@@ -260,19 +260,8 @@ redis:
     requests:
       cpu: 100m
       memory: 128Mi
-
-  securityContext: {}
-#    allowPrivilegeEscalation: false
-#    capabilities:
-#      drop: [ "ALL" ]
-    #  runAsNonRoot: true
-    #  runAsUser: 999
-    #  runAsGroup: 999
-#    seccompProfile:
-#      type: RuntimeDefault
-
   persistence:
     enabled: true
-    name: "cosmopolitan-redis-1"
+    name: "cosmopolitan-redis"
     storageClassName: "tanzu-storage-policy-raid5-ftt1"
     size: "1Gi"
