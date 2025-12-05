@@ -101,10 +101,10 @@ frontend:
           - "cosmopolitan.web-intern-stage.app.ufz.de"
   resources:
     limits:
-      cpu: 500m
-      memory: 1Gi
+      cpu: 1000m
+      memory: 1500Mi
     requests:
-      cpu: 200m
+      cpu: 500m
       memory: 512Mi
   volumes:
     - name: cosmopolitan-work-dir
