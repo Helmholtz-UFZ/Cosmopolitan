@@ -31,21 +31,7 @@ from cosmopolitan_app.form_factory import (
 )
 from cosmopolitan_app.logger import get_logger_config_web
 from cosmopolitan_app.pydantic_models import ModelWebsite
-
-
-def wait_for_all_images_loaded(driver, timeout=5):
-    """Wait for all images on the page to be loaded."""
-    end_time = time.time() + timeout
-    while time.time() < end_time:
-        all_loaded = driver.execute_script(
-            """
-            return Array.from(document.images).every(img => img.complete);
-        """
-        )
-        if all_loaded:
-            return True
-        time.sleep(0.1)
-    return False
+from cosmopolitan_app.utils import wait_for_all_images_loaded
 
 
 def check_all_errors(dash_duo):
@@ -154,7 +140,7 @@ def test_full_procedure(
     dash_duo.wait_for_element(f"#{PREPARE_INPUT_ID}", timeout=10).click()
     check_all_errors(dash_duo)
 
-    time.sleep(10)
+    time.sleep(5)
     # Uncheck predictors
     predictor_dropdown_id = active_form_factory.id_format.format(
         field_name="pred_streams"
@@ -187,7 +173,7 @@ def test_full_procedure(
 
         upload_element.send_keys(str(pred_file_path))
         for attempts in range(10):
-            time.sleep(2)
+            time.sleep(1)
             items = dash_duo.find_elements(f"#{selected_pred_id}")
             if any(pred_file_name in item.text for item in items):
                 break
@@ -216,7 +202,7 @@ def test_full_procedure(
     upload_element.send_keys(str(crns_file_path))
     selected_crns_id = active_form_template_factory.selected_crns_key
     for attempts in range(10):
-        time.sleep(2)
+        time.sleep(1)
         items = dash_duo.find_elements(f"#{selected_crns_id}")
         if any(crns_file_name in item.text for item in items):
             break
@@ -242,7 +228,7 @@ def test_full_procedure(
 
     # Wait for the submission status to change
     for attempts in range(60):
-        time.sleep(3)
+        time.sleep(1)
         status_element = dash_duo.wait_for_element(
             f"#{SUBMISSION_STATUS_ID}", timeout=1
         )

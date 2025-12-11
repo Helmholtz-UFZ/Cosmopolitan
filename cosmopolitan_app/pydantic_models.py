@@ -70,7 +70,7 @@ class ModelWebsite(InputParameters):
     email: Annotated[
         str,
         Field(
-            "test@test.com",
+            "",
             description="Email address to be notified when job submission is complete.",
             title="Email",
             type="email",

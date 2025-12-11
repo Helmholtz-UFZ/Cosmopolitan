@@ -1,4 +1,21 @@
-"""Sensor Management Page for Cosmopolitan App."""
+"""Configure and manage cosmic ray neutron sensor settings.
+
+This administrative page lets you manage the cosmic ray neutron sensors (CRNS) that
+provide measurement data for predictions. Features include:
+
+- View all configured sensors in a comparison table
+- Compare database configuration with TimeIO API data
+- Add new sensors or update existing sensor configurations
+- Configure sensor datastreams (measurement channels)
+- Validate sensor settings and datastream formats
+- Mark sensors as ignored if they shouldn't be used for predictions
+
+Sensors can be stationary stations, trains, or rovers, each with different datastream
+requirements. The page validates that sensor configurations follow the correct format
+and helps ensure data quality for prediction models.
+
+NOTE: This docstring is displayed on the documentation webpage.
+"""
 
 import json
 import logging

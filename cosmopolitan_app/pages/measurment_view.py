@@ -1,4 +1,22 @@
-"""Measurement Database Dashboard for Cosmopolitan App."""
+"""Query and explore the CRNS measurement database.
+
+This page provides a powerful interface for exploring the cosmic ray neutron sensor
+measurement data stored in the database. You can:
+
+- Filter measurements by date range, sensor type, and geographic area
+- Define search areas using coordinates or by drawing on a map
+- View measurement data in a detailed, sortable table
+- Generate statistical summaries of queried data
+- Export filtered results to CSV format for external analysis
+- Preview the geographic area covered by your query
+
+The database contains soil moisture measurements, error estimates, coordinates, and
+timestamps from various sensor types (stationary, mobile rovers, and trains). This
+tool is useful for data exploration, quality checking, and understanding sensor
+coverage patterns.
+
+NOTE: This docstring is displayed on the documentation webpage.
+"""
 
 import logging
 from datetime import date, datetime, timedelta

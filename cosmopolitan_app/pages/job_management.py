@@ -1,4 +1,19 @@
-"""Job Management Dashboard for Cosmopolitan App."""
+"""Manage all prediction jobs from a central dashboard.
+
+This administrative page provides a comprehensive overview of all jobs in the system.
+You can:
+- View all jobs in a sortable, filterable table
+- See job status, creation dates, and submission status at a glance
+- Select and delete individual jobs or multiple jobs at once
+- Trigger cleanup operations to remove old jobs automatically
+- Access individual job pages directly from the table
+
+The table uses color coding to quickly identify job statuses: blue for completed jobs,
+green for running jobs, red for failed jobs, and grey for pending jobs. You can select
+rows to perform bulk operations like deletion.
+
+NOTE: This docstring is displayed on the documentation webpage.
+"""
 
 import logging
 import re

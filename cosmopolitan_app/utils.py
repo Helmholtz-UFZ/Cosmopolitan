@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import smtplib
+import time
 import zipfile
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -171,3 +172,26 @@ def send_submission_mail(job):
         url=url,
     )
     send_mail(job.model.email, f'Job "{job.job_id}" submitted', content)
+
+
+def wait_for_all_images_loaded(driver, timeout=5):
+    """Wait for all images on the page to be loaded.
+
+    Args:
+        driver: Selenium WebDriver instance
+        timeout: Maximum time to wait in seconds (default: 5)
+
+    Returns:
+        bool: True if all images loaded within timeout, False otherwise
+    """
+    end_time = time.time() + timeout
+    while time.time() < end_time:
+        all_loaded = driver.execute_script(
+            """
+            return Array.from(document.images).every(img => img.complete);
+        """
+        )
+        if all_loaded:
+            return True
+        time.sleep(0.1)
+    return False

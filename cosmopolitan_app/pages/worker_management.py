@@ -1,4 +1,34 @@
-"""Worker Management page for monitoring and managing Celery workers and tasks."""
+"""Monitor and manage background workers and tasks.
+
+This administrative page provides real-time visibility into the Celery background task
+system that processes prediction jobs and maintenance operations. Features include:
+
+**Worker Status:**
+- View active worker processes and their configuration
+- See worker pool types, concurrency settings, and queue assignments
+- Check worker availability and health
+
+**Task Monitoring:**
+- View currently executing tasks (active tasks)
+- See tasks waiting in worker queues (reserved tasks)
+- Monitor scheduled tasks waiting for their run time
+- Track revoked (cancelled) tasks
+- Display task details including name, arguments, and execution time
+
+**Task Control:**
+- Kill actively running tasks (forcefully terminate)
+- Cancel scheduled tasks before they execute
+- Confirmation dialogs prevent accidental terminations
+
+**Status Updates:**
+- Manual refresh to get latest worker and task information
+- Timestamp showing when data was last refreshed
+
+This page is essential for monitoring system load, debugging stuck tasks, and managing
+resource usage during peak periods.
+
+NOTE: This docstring is displayed on the documentation webpage.
+"""
 
 import logging
 from datetime import datetime

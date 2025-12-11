@@ -51,13 +51,13 @@ if [ ! -e "$env_file" ]; then
     exit 1
 fi
 
-# Copy env file and optionally override DEBUG variable
+# Copy env file and optionally override FLASK_DEBUG variable
 cp "$env_file" .env
 
 if [ "$DEBUG_MODE" = true ]; then
-    sed -i 's/^DEBUG=.*/DEBUG=1/' .env
+    sed -i 's/^FLASK_DEBUG=.*/FLASK_DEBUG=1/' .env
 else
-    sed -i 's/^DEBUG=.*/DEBUG=0/' .env
+    sed -i 's/^FLASK_DEBUG=.*/FLASK_DEBUG=0/' .env
 fi
 
 docker compose down

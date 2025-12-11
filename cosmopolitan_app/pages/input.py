@@ -1,4 +1,18 @@
-"""Dash form for the cosmopolitan job."""
+"""Configure your prediction job parameters and upload input data.
+
+This page provides a comprehensive form where you can:
+- Upload cosmic ray neutron sensor (CRNS) measurement data
+- Upload predictor variable files (environmental data)
+- Define your prediction area by drawing on a map or uploading boundaries
+- Set time ranges and other prediction parameters
+- Preview your prediction area before submission
+
+The form validates your inputs and shows a live preview of the geographic area where
+soil moisture will be predicted. Once all required data is provided and validated,
+you can proceed to the submission page.
+
+NOTE: This docstring is displayed on the documentation webpage.
+"""
 
 import logging
 import os
@@ -59,6 +73,7 @@ def load_submission_content(job_id, header_class_name):
         f"Loading submission content for job {job_id}", extra={"tag": "job_submission"}
     )
     job = Job(job_id)
+    logging.debug(job.start_date)
 
     if job.status not in ["PENDING", "FAILED"]:
         if job.status == "RUNNING":

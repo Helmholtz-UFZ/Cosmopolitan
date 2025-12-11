@@ -1,4 +1,27 @@
-"""Interactive results page with TiTiler-based soil moisture maps."""
+"""View and analyze your soil moisture prediction results.
+
+This page provides comprehensive visualization and analysis tools for your completed
+prediction job:
+
+**Interactive Maps:**
+- View soil moisture predictions overlaid on geographic maps
+- Switch between different map types (OpenStreetMap, satellite imagery)
+- Navigate through prediction time steps
+- Toggle measurement point displays
+- Adjust map opacity and explore spatial patterns
+
+**Statistical Analysis:**
+- Correlation heatmaps showing relationships between variables
+- Feature importance plots revealing which predictors matter most
+- Statistical summaries for each time step
+- Detailed performance metrics
+
+You can explore results across multiple time periods, examine which environmental
+factors most influence soil moisture predictions, and understand model performance
+through various visualization tools.
+
+NOTE: This docstring is displayed on the documentation webpage.
+"""
 
 import json
 import logging

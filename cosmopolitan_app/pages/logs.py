@@ -1,4 +1,22 @@
-"""Logs Page for Cosmopolitan App."""
+"""View and filter application logs for debugging and monitoring.
+
+This page provides access to the application's logging system, allowing you to track
+system activity, debug issues, and monitor operations. You can:
+
+- Filter logs by date and time range
+- Select specific log levels (Debug, Info, Warning, Error, Critical)
+- Filter by functional area using tags (job_submission, database, frontend, etc.)
+- Filter by process ID to track specific worker or server processes
+- View logs in a formatted, readable table
+- Refresh logs on demand to see latest entries
+
+Logs are stored in the database and include timestamps, log levels, logger names,
+messages, and optional tags categorizing the log by system component. This is the
+primary tool for understanding system behavior, diagnosing problems, and monitoring
+background job execution.
+
+NOTE: This docstring is displayed on the documentation webpage.
+"""
 
 import datetime
 

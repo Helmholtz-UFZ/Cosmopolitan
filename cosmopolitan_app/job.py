@@ -8,14 +8,17 @@ import io
 import json
 import logging
 import os
+import random
 import shutil
+import time
 import traceback
 from copy import deepcopy
 from datetime import date
 from typing import Literal, Self
 
+import coolname
+import requests
 import staticmaps
-from coolname import generate
 from pyproj import Transformer
 from soil_moisture_prediction.__version__ import __version__ as smp_version
 from soil_moisture_prediction.area_geometry import RectGeom
@@ -30,8 +33,8 @@ from cosmopolitan_app.config import JOB_WORK_DIR_TEMPLATE, MAINTAINER_EMAIL
 from cosmopolitan_app.constants import DAYS_DELETE_NOT_SUMBITTED, DAYS_DELETE_SUMBITTED
 from cosmopolitan_app.error_handling import (
     InvalidJobID,
-    JobExists,
     JobNotFound,
+    MapTileDownloadError,
     NoMeasurementPointsError,
 )
 from cosmopolitan_app.object_storage_manager import (
@@ -57,6 +60,8 @@ def draw_preview(
     types,
     start_date,
     end_date,
+    max_retries=3,
+    retry_delay=2.0,
 ):
     """Draw a preview of the area and add measurement points.
 
@@ -65,10 +70,15 @@ def draw_preview(
         min_lon, min_lat, max_lon, max_lat: Bounding box coordinates
         types: List of measurement types
         start_date, end_date: Date range for measurements
+        max_retries: Maximum number of retry attempts for network failures
+        retry_delay: Initial delay between retries in seconds (doubles each retry)
 
     Returns:
         If filepath is None: base64 encoded image string
         If filepath is provided: None (writes to file)
+
+    Raises:
+        requests.exceptions.ConnectionError: If tile download fails after all retries
     """
     logging.info(
         f"Draw preview for area: {min_lat}, {min_lon}, {max_lat}, {max_lon}",
@@ -125,19 +135,38 @@ def draw_preview(
             )
         )
 
-    # Render the image
-    image = context.render_cairo(width, height)
+    # Render the image with retry logic for network failures
+    for attempt in range(max_retries):
+        try:
+            image = context.render_cairo(width, height)
 
-    if filepath is None:
-        # Return base64 encoded image
-        buf = io.BytesIO()
-        image.write_to_png(buf)
-        buf.seek(0)
-        return base64.b64encode(buf.read()).decode()
-    else:
-        # Write to file
-        image.write_to_png(filepath)
-        return None
+            if filepath is None:
+                # Return base64 encoded image
+                buf = io.BytesIO()
+                image.write_to_png(buf)
+                buf.seek(0)
+                return base64.b64encode(buf.read()).decode()
+            else:
+                # Write to file
+                image.write_to_png(filepath)
+                return None
+        except (requests.exceptions.ConnectionError, ConnectionResetError) as e:
+            if attempt < max_retries - 1:
+                delay = retry_delay * (2**attempt)
+                logging.warning(
+                    f"Map tile download failed (attempt {attempt + 1}/{max_retries}), "
+                    f"retrying in {delay:.1f}s: {type(e).__name__}: {e}",
+                    extra={"tag": "job_submission"},
+                )
+                time.sleep(delay)
+            else:
+                logging.error(
+                    f"Map tile download failed after {max_retries} attempts: {type(e).__name__}: {e}",  # noqa
+                    extra={"tag": "job_submission"},
+                )
+                raise MapTileDownloadError(
+                    f"Failed to download map tiles after {max_retries} attempts"
+                ) from e
 
 
 class Job:
@@ -165,7 +194,7 @@ class Job:
     def __init__(
         self,
         job_id=None,
-        new_job_id=None,
+        new_job=False,
         model=None,
     ):
         """Init class either by id, by html form or make a new one."""
@@ -174,8 +203,10 @@ class Job:
             self.load()
         elif model is not None:
             self._init_from_model(model)
+        elif new_job:
+            self._blank_job()
         else:
-            self._blank_job(new_job_id)
+            raise ValueError("Either job_id or model or new_job_id must be provided.")
 
     def __str__(self):
         """Represent class as string."""
@@ -194,11 +225,20 @@ class Job:
             f"Job id: {self.job_id} is valid", extra={"tag": "job_submission"}
         )
 
+        self.start_date = None
         for name, value in PostgresManager.get_job_columns(self.job_id).items():
+            logging.debug((f"Load column {name}"), extra={"tag": "job_submission"})
             if name == "input_data":
                 self.model = ModelWebsite(**json.loads(value))
             setattr(self, name, value)
+            logging.debug(f"Set attribute {name}", extra={"tag": "job_submission"})
+            logging.debug(repr(name))
+            logging.debug(getattr(self, name), extra={"tag": "job_submission"})
+            logging.debug(vars(self), extra={"tag": "job_submission"})
 
+        logging.debug(vars(self), extra={"tag": "job_submission"})
+        logging.debug(getattr(self, "start_date"), extra={"tag": "job_submission"})
+        logging.debug(self.start_date)
         logging.debug(
             f"Job {self.job_id} loaded from database", extra={"tag": "job_submission"}
         )
@@ -228,18 +268,17 @@ class Job:
         self.dump_parameters()
         self.save()
 
-    def _blank_job(self, new_job_id):
+    def _blank_job(self):
         """Create a new job with a new job id."""
         logging.info("Create new job", extra={"tag": "job_submission"})
 
-        job_id = new_job_id if new_job_id else "_".join(generate(3))
+        seed = os.urandom(128)
+        coolname.replace_random(random.Random(seed))
 
         while True:
+            job_id = "_".join(coolname.generate(3))
             if not PostgresManager.check_existence(job_id):
                 break
-            if new_job_id is not None:
-                raise JobExists(job_id)
-            job_id = "_".join(generate(3))
 
         self.job_id = job_id
         self.model = ModelWebsite()
@@ -310,15 +349,12 @@ class Job:
         transformer = Transformer.from_crs(
             self.model.projection, "EPSG:4326", always_xy=True
         )
+
         lon1, lat1 = transformer.transform(self.model.area_x1, self.model.area_y1)
         lon2, lat2 = transformer.transform(self.model.area_x2, self.model.area_y2)
         min_lon, max_lon = min(lon1, lon2), max(lon1, lon2)
         min_lat, max_lat = min(lat1, lat2), max(lat1, lat2)
-        filename = self.preview_area_filename_template.format(
-            position=f"{min_lat}_{min_lon}_{max_lat}_{max_lon}"
-        )
-        file_path = os.path.join(self.working_dir, filename)
-        # Prepare types list
+
         types = []
         if self.model.train_data:
             types.append("train")
@@ -326,6 +362,12 @@ class Job:
             types.append("rover")
         if self.model.station_data:
             types.append("station")
+
+        filename = self.preview_area_filename_template.format(
+            position=f"{min_lat}_{min_lon}_{max_lat}_{max_lon}_{'_'.join(types)}"
+        )
+        file_path = os.path.join(self.working_dir, filename)
+        # Prepare types list
 
         # Get date range
         start_date, end_date = self.model.date_range

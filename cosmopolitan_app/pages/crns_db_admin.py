@@ -1,4 +1,30 @@
-"""CRNS Database Administration page for managing measurement updates."""
+"""Administer CRNS database updates and maintenance operations.
+
+This administrative page controls how the system fetches and stores cosmic ray neutron
+sensor data from the TimeIO API. Key functions include:
+
+**Date Configuration:**
+- Set the start date for data updates (when to begin fetching data)
+- Optionally set an end date, or leave empty to always update to yesterday
+- Configuration persists between update runs
+
+**Update Operations:**
+- Trigger manual updates to fetch latest sensor data from TimeIO API
+- View update status and progress
+- Monitor failed updates and error information
+- See when the last successful update occurred
+
+**Database Management:**
+- Purge all measurement data from the database (requires confirmation)
+- View update logs showing detailed operation history
+- Refresh status information on demand
+
+Background workers handle the actual data fetching, so updates run asynchronously.
+The system typically runs automatic daily updates, but this page allows manual control
+when needed.
+
+NOTE: This docstring is displayed on the documentation webpage.
+"""
 
 import logging
 from datetime import datetime

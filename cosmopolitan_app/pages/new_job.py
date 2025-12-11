@@ -1,16 +1,24 @@
-"""Page for creating a new job."""
+"""Create a new soil moisture prediction job.
+
+This page allows you to start a new prediction job by creating a unique job identifier.
+The system generates a random, memorable job ID for you, but you can customize it to
+something more meaningful. Each job ID must be unique and follow specific formatting
+rules.
+
+Once you've chosen your job ID, click "Prepare input" to move on to configuring your
+prediction parameters and uploading data.
+
+NOTE: This docstring is displayed on the documentation webpage.
+"""
 
 import logging
-import os
-import random
 
-import coolname
 import dash
 import dash_bootstrap_components as dbc
 from dash import Input, Output, State, callback, html
 from dash.exceptions import PreventUpdate
 
-from cosmopolitan_app.constants import LOADING_OVERLAY_ID, PREPARE_INPUT_ID, URL_ID
+from cosmopolitan_app.constants import PREPARE_INPUT_ID, URL_ID
 from cosmopolitan_app.job import Job
 from cosmopolitan_app.layouts import create_header, page_container_column_layout
 from cosmopolitan_app.postgres_manager import PostgresManager
@@ -30,14 +38,7 @@ header = create_header(
 def layout():
     """Layout for the new job page."""
     logging.info("Create new job page", extra={"tag": "job_submission"})
-    logging.debug("Generate random job ID")
-    seed = os.urandom(128)
-    coolname.replace_random(random.Random(seed))
-
-    while True:
-        job_id = "_".join(coolname.generate(3))
-        if not PostgresManager.check_existence(job_id):
-            break
+    job = Job(new_job=True)
 
     return page_container_column_layout(
         [
@@ -48,8 +49,8 @@ def layout():
                         dbc.Label("Job ID", style={"font-weight": "bold"}),
                         dbc.Input(
                             id="new_job_id",
-                            value=job_id,
-                            html_size=len(job_id) + 10,
+                            value=job.job_id,
+                            html_size=len(job.job_id) + 10,
                             style={"width": "auto"},
                             type="text",
                         ),
@@ -80,18 +81,6 @@ def layout():
 
 
 @callback(
-    Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
-    Input(PREPARE_INPUT_ID, "n_clicks"),
-    prevent_initial_call=True,
-)
-def show_loading(n_clicks):
-    """Show loading overlay when preparing input."""
-    if n_clicks:
-        return True
-    return False
-
-
-@callback(
     Output(URL_ID, "pathname", allow_duplicate=True),
     Input(PREPARE_INPUT_ID, "n_clicks"),
     State("new_job_id", "value"),
@@ -102,7 +91,6 @@ def prepare_input(n_clicks, job_id):
     logging.info("Prepare input", extra={"tag": "frontend"})
     if n_clicks is None:
         raise PreventUpdate
-    Job(new_job_id=job_id)
     base_path_submission = dash.page_registry["pages.input"]["path_template"]
     return base_path_submission.replace("<job_id>", str(job_id))
 

@@ -1,4 +1,20 @@
-"""Submission page for the Cosmopolitan app."""
+"""Submit your job and monitor its progress.
+
+This page serves as your job control center where you can:
+- Review your job configuration and input parameters
+- Submit your job for processing in the background
+- Monitor job status (Pending, Running, Failed, or Completed)
+- View job execution logs in real-time
+- Change input parameters if needed
+- Navigate to results once processing is complete
+- Spawn a new job based on the current one
+
+Jobs are processed asynchronously by background workers, so you can safely navigate
+away from this page while your job runs. You'll receive status updates and can return
+at any time to check progress.
+
+NOTE: This docstring is displayed on the documentation webpage.
+"""
 
 import logging
 import os

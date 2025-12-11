@@ -101,6 +101,12 @@ class RedisConnectionError(WorkerManagementError):
     ...
 
 
+class MapTileDownloadError(Exception):
+    """Raised when map tiles cannot be downloaded from external tile provider."""
+
+    ...
+
+
 database_error_title = "Database Connection Error"
 database_error_message = "Unfortunately, it is not possible to connect to the job database. Please try again later."  # noqa
 error_responds_dict = {
@@ -158,6 +164,10 @@ error_responds_dict = {
         "Background Service Unavailable",
         "The background job service is temporarily unavailable. Please try again later.",  # noqa
     ),
+    MapTileDownloadError: (
+        "Map Preview Unavailable",
+        "Unable to download map tiles from the tile provider. The external map service may be temporarily unavailable. Please try again later.",  # noqa
+    ),
 }
 error_modal = dbc.Modal(
     [
@@ -181,7 +191,14 @@ def handle_error(error):
 
     if not isinstance(
         error,
-        (NotFound, NotFinishedException, JobNotFound, InvalidJobID, SubmittedException),
+        (
+            NotFound,
+            NotFinishedException,
+            JobNotFound,
+            InvalidJobID,
+            SubmittedException,
+            MapTileDownloadError,
+        ),
     ):
         callback_context = dash.ctx
         email_subject = f"Error {str(error)}"
