@@ -225,6 +225,7 @@ class Job:
             f"Job id: {self.job_id} is valid", extra={"tag": "job_submission"}
         )
 
+        self.start_date = None
         for name, value in PostgresManager.get_job_columns(self.job_id).items():
             logging.debug((f"Load column {name}"), extra={"tag": "job_submission"})
             if name == "input_data":
