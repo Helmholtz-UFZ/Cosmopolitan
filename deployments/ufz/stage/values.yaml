@@ -7,7 +7,7 @@ frontend:
   enabled: true
   image:
     repository: registry.hzdr.de/ufz/tb5-smm/met/wg7/cosmopolitan/frontend
-    tag: "0.0.56"
+    tag: "0.0.59-2025.12.03"
   imagePullSecrets:
     - name: wombat-docker-registry-codebase
   podAnnotations:
@@ -101,10 +101,10 @@ frontend:
           - "cosmopolitan.web-intern-stage.app.ufz.de"
   resources:
     limits:
-      cpu: 500m
-      memory: 1Gi
+      cpu: 1000m
+      memory: 1500Mi
     requests:
-      cpu: 200m
+      cpu: 500m
       memory: 512Mi
   volumes:
     - name: cosmopolitan-work-dir
@@ -118,7 +118,7 @@ worker:
   image:
     repository: registry.hzdr.de/ufz/tb5-smm/met/wg7/cosmopolitan/worker
     pullPolicy: Always
-    tag: "0.0.56"
+    tag: "0.0.59-2025.12.03"
   imagePullSecrets:
     - name: wombat-docker-registry-codebase
   nameOverride: ""
