@@ -236,12 +236,11 @@ class Job:
             f"Job id: {self.job_id} is valid", extra={"tag": "job_submission"}
         )
 
-        self.start_date = None
         for name, value in PostgresManager.get_job_columns(self.job_id).items():
             logging.debug((f"Load column {name}"), extra={"tag": "job_submission"})
             if name == "input_data":
                 self.model = ModelWebsite(**json.loads(value))
-            setattr(self, name, value)
+            setattr(self, str(name), value)
 
         logging.debug(
             f"Job {self.job_id} loaded from database", extra={"tag": "job_submission"}
