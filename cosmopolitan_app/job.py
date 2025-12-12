@@ -356,14 +356,14 @@ class Job:
         if self.model.station_data:
             types.append("station")
 
+        # Get date range
+        start_date, end_date = self.model.date_range
+
         filename = self.preview_area_filename_template.format(
-            position=f"{min_lat}_{min_lon}_{max_lat}_{max_lon}_{'_'.join(types)}"
+            position=f"{min_lat}_{min_lon}_{max_lat}_{max_lon}_{'_'.join(types)}_{start_date}_{end_date}"  # noqa
         )
         file_path = os.path.join(self.working_dir, filename)
         # Prepare types list
-
-        # Get date range
-        start_date, end_date = self.model.date_range
 
         draw_preview(
             file_path,
