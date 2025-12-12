@@ -95,10 +95,10 @@ if [ "$START_SERVICES" -eq 1 ]; then
     cp env_test_local .env # Restore test env
 
     # Wait for services to be ready
-    check_service "docker exec postgres pg_isready -q" "PostgreSQL"
+    check_service "docker exec postgres_cosmopolitan pg_isready -q" "PostgreSQL"
     check_service "curl --silent --output /dev/null http://localhost:8025" "MailHog"
     check_service "curl --silent --output /dev/null ${OBJECT_STORAGE_HOST}/minio/health/live" "MinIO"
-    check_service "docker exec redis redis-cli ping | grep -q PONG" "Redis"
+    check_service "docker exec redis_cosmopolitan redis-cli ping | grep -q PONG" "Redis"
 else
     echo "Skipping service management (assuming services already running)"
 fi

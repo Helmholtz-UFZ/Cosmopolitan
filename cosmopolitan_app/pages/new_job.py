@@ -19,7 +19,7 @@ from dash import Input, Output, State, callback, html
 from dash.exceptions import PreventUpdate
 
 from cosmopolitan_app.constants import PREPARE_INPUT_ID, URL_ID
-from cosmopolitan_app.job import Job
+from cosmopolitan_app.job import Job, find_unique_job_id
 from cosmopolitan_app.layouts import create_header, page_container_column_layout
 from cosmopolitan_app.postgres_manager import PostgresManager
 from cosmopolitan_app.pydantic_models import ModelWebsite, validate_job_id
@@ -38,7 +38,7 @@ header = create_header(
 def layout():
     """Layout for the new job page."""
     logging.info("Create new job page", extra={"tag": "job_submission"})
-    job = Job(new_job=True)
+    job_id = find_unique_job_id()
 
     return page_container_column_layout(
         [
@@ -49,8 +49,8 @@ def layout():
                         dbc.Label("Job ID", style={"font-weight": "bold"}),
                         dbc.Input(
                             id="new_job_id",
-                            value=job.job_id,
-                            html_size=len(job.job_id) + 10,
+                            value=job_id,
+                            html_size=len(job_id) + 10,
                             style={"width": "auto"},
                             type="text",
                         ),
@@ -91,6 +91,8 @@ def prepare_input(n_clicks, job_id):
     logging.info("Prepare input", extra={"tag": "frontend"})
     if n_clicks is None:
         raise PreventUpdate
+    # This will create the job in database etc
+    Job(new_job_id=job_id)
     base_path_submission = dash.page_registry["pages.input"]["path_template"]
     return base_path_submission.replace("<job_id>", str(job_id))
 

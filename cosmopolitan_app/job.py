@@ -33,6 +33,7 @@ from cosmopolitan_app.config import JOB_WORK_DIR_TEMPLATE, MAINTAINER_EMAIL
 from cosmopolitan_app.constants import DAYS_DELETE_NOT_SUMBITTED, DAYS_DELETE_SUMBITTED
 from cosmopolitan_app.error_handling import (
     InvalidJobID,
+    JobExists,
     JobNotFound,
     MapTileDownloadError,
     NoMeasurementPointsError,
@@ -49,6 +50,18 @@ from cosmopolitan_app.timeio_info import type_id_dict
 from cosmopolitan_app.utils import send_mail
 
 LOG_FILE_NAME = "logs"
+
+
+def find_unique_job_id() -> str:
+    """Find a unique job id."""
+    seed = os.urandom(128)
+    coolname.replace_random(random.Random(seed))
+
+    while True:
+        job_id = "_".join(coolname.generate(3))
+        if not PostgresManager.check_existence(job_id):
+            break
+    return job_id
 
 
 def draw_preview(
@@ -194,7 +207,7 @@ class Job:
     def __init__(
         self,
         job_id=None,
-        new_job=False,
+        new_job_id=None,
         model=None,
     ):
         """Init class either by id, by html form or make a new one."""
@@ -203,10 +216,8 @@ class Job:
             self.load()
         elif model is not None:
             self._init_from_model(model)
-        elif new_job:
-            self._blank_job()
         else:
-            raise ValueError("Either job_id or model or new_job_id must be provided.")
+            self._blank_job(new_job_id)
 
     def __str__(self):
         """Represent class as string."""
@@ -261,17 +272,16 @@ class Job:
         self.dump_parameters()
         self.save()
 
-    def _blank_job(self):
+    def _blank_job(self, new_job_id):
         """Create a new job with a new job id."""
         logging.info("Create new job", extra={"tag": "job_submission"})
 
-        seed = os.urandom(128)
-        coolname.replace_random(random.Random(seed))
-
-        while True:
-            job_id = "_".join(coolname.generate(3))
-            if not PostgresManager.check_existence(job_id):
-                break
+        if new_job_id is None:
+            job_id = find_unique_job_id()
+        else:
+            if PostgresManager.check_existence(new_job_id):
+                raise JobExists
+            job_id = new_job_id
 
         self.job_id = job_id
         self.model = ModelWebsite()
