@@ -27,7 +27,7 @@ def test_documentation_version_matches_app_version():
     if not version_file.exists():
         pytest.fail(
             "Documentation has not been generated yet.\n"
-            "See: cosmopolitan_app/generate_docs.py\n"
+            "See: cosmopolitan_app/doc_generator.py\n"
         )
 
     doc_version = version_file.read_text(encoding="utf-8").strip()
