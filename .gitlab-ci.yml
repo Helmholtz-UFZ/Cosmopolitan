@@ -163,12 +163,11 @@ build-latest-tag:
   before_script:
     - *docker_login
     - "apk update && apk add --no-cache jq yq git"
-    - "git fetch"
-    - "GIT_LATEST_TAG=$(git describe --tags --abbrev=0)"
+    - "git fetch --tags --force"
+    - "GIT_LATEST_TAG=$(git tag --sort=-v:refname | head -n 1)"
     - "git fetch origin ${GIT_LATEST_TAG}"
     - "git checkout ${GIT_LATEST_TAG}"
   script:
-    - "GIT_LATEST_TAG=$(git describe --tags --abbrev=0)"
     - "calver=$(date +'%Y.%m.%d')"
     - 'docker build -t "${CI_REGISTRY_IMAGE}/frontend:${GIT_LATEST_TAG}-${calver}" -f docker/prod.Dockerfile .'
     - 'docker push --all-tags "${CI_REGISTRY_IMAGE}/frontend"'
