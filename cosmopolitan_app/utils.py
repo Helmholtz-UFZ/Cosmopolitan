@@ -29,9 +29,8 @@ The exit status was {status}.
 To see further results visit:
 {url}"""
 
-job_submitted_template = """The job {job_id} finished.
-The exit status was {status}.
-To see further results visit:
+job_submitted_template = """The job {job_id} was submitted.
+To see the progress go to:
 {url}"""
 
 
