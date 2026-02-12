@@ -8,6 +8,7 @@ import dash
 import dash_bootstrap_components as dbc
 import psycopg2
 from dash import set_props
+from soil_moisture_prediction.input_file_parser import FileValidationError
 from sqlalchemy.exc import DatabaseError, OperationalError
 from werkzeug.exceptions import NotFound
 
@@ -15,6 +16,8 @@ from cosmopolitan_app.config import MAINTAINER_EMAIL
 from cosmopolitan_app.constants import ERROR_MESSAGE_ID, ERROR_MODAL_ID, ERROR_TITLE_ID
 from cosmopolitan_app.object_storage_manager import ObjectStorageError
 from cosmopolitan_app.utils import send_mail
+
+USE_ERROR_MESSAGE = "use_error_message"
 
 
 class NoMeasurementPointsError(Exception):
@@ -168,6 +171,10 @@ error_responds_dict = {
         "Map Preview Unavailable",
         "Unable to download map tiles from the tile provider. The external map service may be temporarily unavailable. Please try again later.",  # noqa
     ),
+    FileValidationError: (
+        "Invalid input files",
+        USE_ERROR_MESSAGE,
+    ),
 }
 error_modal = dbc.Modal(
     [
@@ -216,6 +223,9 @@ def handle_error(error):
     error_message = error_responds_dict.get(
         type(error), error_responds_dict[Exception]
     )[1]
+
+    if error_message == USE_ERROR_MESSAGE:
+        error_message = str(error)
 
     try:
         error_message = error_message.format(job_id=error.job_id)

@@ -33,14 +33,13 @@ from cosmopolitan_app.constants import (
     LOADING_OVERLAY_ID,
     URL_ID,
 )
-from cosmopolitan_app.error_handling import error_responds_dict
 from cosmopolitan_app.form_factory import (
     FormFactory,
     active_form_factory,
     active_form_template_factory,
     construct_selected_input,
 )
-from cosmopolitan_app.job import Job, NoMeasurementPointsError
+from cosmopolitan_app.job import Job
 from cosmopolitan_app.layouts import landing_page_layout_column
 from cosmopolitan_app.utils import swap_classes
 
@@ -273,19 +272,11 @@ def form_manager(**state):
     if triggered_id == active_form_factory.get_key_submit_button() and valid:
         logging.debug("Submit button clicked", extra={"tag": "job_submission"})
         job = Job(model=active_form_factory.pymodel)
-        try:
-            job.prepare_input_files()
-            submission_base_path = dash.page_registry["pages.submission"][
-                "path_template"
-            ]
-            output_dict["redirect"] = submission_base_path.replace(
-                "<job_id>", str(job.job_id)
-            )
-        except NoMeasurementPointsError as error:
-            output_dict["error_modal"] = True
-            output_dict["error_title"] = error_responds_dict[type(error)][0]
-            output_dict["error_message"] = error_responds_dict[type(error)][1]
-            output_dict["redirect"] = dash.no_update
+        job.prepare_input_files()
+        submission_base_path = dash.page_registry["pages.submission"]["path_template"]
+        output_dict["redirect"] = submission_base_path.replace(
+            "<job_id>", str(job.job_id)
+        )
     else:
         output_dict["redirect"] = dash.no_update
 

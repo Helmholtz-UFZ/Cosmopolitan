@@ -13,7 +13,7 @@ import shutil
 import time
 import traceback
 from copy import deepcopy
-from datetime import date
+from datetime import date, datetime
 from typing import Literal, Self
 
 import coolname
@@ -578,7 +578,7 @@ class Job:
                 decoded_text = decoded_bytes.decode("utf-8")
                 file_content = io.StringIO(decoded_text)
             except (ValueError, binascii.Error, UnicodeDecodeError) as e:
-                raise ValueError(f"Invalid file content: {e}")
+                raise FileValidationError(f"Invalid file content: {e}")
 
         input_file_path = os.path.join(self.working_dir, new_filename)
 
@@ -592,9 +592,9 @@ class Job:
                         file.write(
                             ",".join([str(e) for e in row if e is not None]) + "\n"
                         )
-        except FileValidationError as e:
+        except FileValidationError:
             self.delete_item(new_filename)
-            raise ValueError(f"Invalid file content: {e}")
+            raise
 
         file_information = parser.get_file_information()
         if input_type == "pred":
@@ -607,7 +607,9 @@ class Job:
             log_file = os.path.join(self.working_dir, LOG_FILE_NAME)
             try:
                 with open(log_file, "r") as f_handle:
-                    return f_handle.read()
+                    content = f_handle.read()
+                    # PostgreSQL text fields cannot contain NUL (0x00) bytes
+                    return content.replace("\x00", "")
             # Catch error log file can be deleted by other process (change input from
             # submission page)
             except FileNotFoundError:
@@ -682,8 +684,6 @@ class Job:
 
         Used for logging errors that occur before background worker starts.
         """
-        from datetime import datetime
-
         log_file = os.path.join(self.working_dir, LOG_FILE_NAME)
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with open(log_file, "a") as f:

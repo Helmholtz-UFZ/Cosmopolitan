@@ -46,6 +46,8 @@ ENV PYTHONPATH=/python_docker/cosmopolitan/
 # Copy dependency files
 COPY --chown=appuser:appuser . .
 
+COPY --chown=1000:1000 env_prod .env
+
 # Install dependencies
 RUN poetry config virtualenvs.create false && \
     poetry install --no-interaction --no-ansi
