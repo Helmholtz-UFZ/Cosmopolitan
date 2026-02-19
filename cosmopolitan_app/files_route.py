@@ -1,8 +1,11 @@
 """Serve files from a directory."""
 
+import io
 import logging
+import os
+import zipfile
 
-from flask import send_from_directory
+from flask import send_file, send_from_directory
 
 from cosmopolitan_app.job import Job
 
@@ -33,14 +36,29 @@ def serve_files(app):
 
         return response
 
-    # @app.route("/results/<job_id>/<file_name>")
-    # def result_file(job_id, file_name):
-    #     """Serve result files."""
-    #     logging.info(
-    #         f"Visiting /results/{job_id}/{file_name} to result_file()",
-    #         extra={"tag": "frontend"},
-    #     )
-    #     download_path = os.path.join(*WEB_WORK_DIR.split(os.sep)[2:], job_id)
-    #     safe_file_name = os.path.basename(file_name)
-    #
-    #     return send_from_directory(download_path, safe_file_name)
+    @app.server.route("/download/<job_id>")
+    def download_work_dir(job_id):
+        """Download the entire work directory as a zip file.
+
+        Security: job_id is validated via Job() which calls validate_job_id()
+        (format check) and queries the database (existence check). The working
+        directory path is taken from the validated job object, never from user input.
+        """
+        logging.info(f"Download work dir for {job_id}", extra={"tag": "frontend"})
+        job = Job(job_id)
+
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            for root, _dirs, files in os.walk(job.working_dir):
+                for file_name in files:
+                    file_path = os.path.join(root, file_name)
+                    arcname = os.path.relpath(file_path, job.working_dir)
+                    zip_file.write(file_path, arcname)
+
+        zip_buffer.seek(0)
+        return send_file(
+            zip_buffer,
+            mimetype="application/zip",
+            as_attachment=True,
+            download_name=f"{job_id}.zip",
+        )

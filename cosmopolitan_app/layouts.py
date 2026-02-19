@@ -214,7 +214,7 @@ def page_container_column_layout(content, main_content_id="main-content-containe
             children=content,
             id=main_content_id,
         ),
-        className="flex-grow-1 d-flex justify-content-center",
+        className="flex-grow-1 d-flex justify-content-center g-0",
     )
     return page
 

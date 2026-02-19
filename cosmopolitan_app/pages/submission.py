@@ -90,7 +90,7 @@ def wrap_button(button):
     )
 
 
-def create_button_set(status):
+def create_button_set(status, job_id):
     """Create a set of buttons based on the job status."""
     disabled_submit = status_button_config[status]["disabled_submit"]
     disabled_change_input = status_button_config[status]["disabled_change_input"]
@@ -126,7 +126,20 @@ def create_button_set(status):
             disabled=disabled_result,
         )
     )
-    return [submit_button, change_input_button, spawn_button, result_button]
+    download_button = wrap_button(
+        dbc.Button(
+            "Download work_dir",
+            color="primary",
+            href=f"/download/{job_id}",
+        )
+    )
+    return [
+        submit_button,
+        change_input_button,
+        spawn_button,
+        result_button,
+        download_button,
+    ]
 
 
 deletion_information_template = "The job will be deleted after {time_to_life} days."
@@ -243,7 +256,7 @@ def load_submission_content(job_id, header_class_name):
 
     # Create submission layout
     submission_layout = [accordion]
-    submission_layout += create_button_set(job.status)
+    submission_layout += create_button_set(job.status, job.job_id)
 
     # Create main content with interval (returned by callback)
     main_content = html.Div(
@@ -359,9 +372,6 @@ def submission_manager(
         time_to_life=job.time_to_life()
     )
     active_item = "input_accordion" if job.status == "PENDING" else "logs_accordion"
-
-    if job.status == "COMPLETED" and triggered_id == "interval":
-        logging.debug(job.logs, extra={"tag": "frontend"})
 
     return (
         url,

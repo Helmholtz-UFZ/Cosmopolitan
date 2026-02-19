@@ -198,6 +198,18 @@ def get_available_map_types(job_id):
         },
     ]
 
+    if any(
+        f.startswith("dispersion_coefficient_") and f.endswith(".tif")
+        for f in os.listdir(job_work_dir)
+    ):
+        map_types.append(
+            {
+                "value": "dispersion_coefficient",
+                "label": "Dispersion Coefficient",
+                "time_dependent": True,
+            }
+        )
+
     for file in os.listdir(job_work_dir):
         if file.startswith("predictor_") and file.endswith(".tif"):
             predictor_name = file.removeprefix("predictor_").removesuffix(".tif")
@@ -270,7 +282,7 @@ def get_map_center_and_zoom(job):
     return [center_lat, center_lon], zoom
 
 
-def create_map_controls(available_dates, available_map_types):
+def create_map_controls(available_dates, available_map_types, job_id):
     """Create controls for selecting map type and date."""
     map_type_options = [
         {"label": map_type["label"], "value": map_type["value"]}
@@ -384,6 +396,13 @@ def create_map_controls(available_dates, available_map_types):
     # Store for available dates
     dates_store = dcc.Store(id=RESULTS_DATE_SELECTOR_ID, data=available_dates)
 
+    download_button = dbc.Button(
+        "Download work_dir",
+        color="primary",
+        href=f"/download/{job_id}",
+        className="w-100 mt-2",
+    )
+
     map_controls = dbc.Tab(
         [
             previous_map_store,
@@ -393,6 +412,7 @@ def create_map_controls(available_dates, available_map_types):
             measurements_switch,
             opacity_slider,
             switch_card,
+            download_button,
         ],
         label="Maps",
         className="m-3",
@@ -402,7 +422,7 @@ def create_map_controls(available_dates, available_map_types):
     return map_controls
 
 
-def create_stats_controls(available_dates):
+def create_stats_controls(available_dates, job_id):
     """Create stats controls with view selector."""
     date_selector = create_date_selector(available_dates, "stats")
 
@@ -429,8 +449,15 @@ def create_stats_controls(available_dates):
         className="mb-3",
     )
 
+    download_button = dbc.Button(
+        "Download work_dir",
+        color="primary",
+        href=f"/download/{job_id}",
+        className="w-100 mt-2",
+    )
+
     plot_controls = dbc.Tab(
-        [view_selector, date_selector],
+        [view_selector, date_selector, download_button],
         label="Stats",
         className="m-3",
         labelClassName="mx-2 mt-2 bg-white border",
@@ -439,10 +466,10 @@ def create_stats_controls(available_dates):
     return plot_controls
 
 
-def create_controls(available_dates, available_map_types):
+def create_controls(available_dates, available_map_types, job_id):
     """Create map and stats controls in tabs."""
-    map_controls = create_map_controls(available_dates, available_map_types)
-    plot_controls = create_stats_controls(available_dates)
+    map_controls = create_map_controls(available_dates, available_map_types, job_id)
+    plot_controls = create_stats_controls(available_dates, job_id)
 
     back_to_submission = dbc.Tab(
         ["Back to submission page"],
@@ -640,6 +667,8 @@ def _get_tile_params(job_id, map_type, date, color_bar_info):
         tiff_filename = f"measurements_{date}.tif"
     elif map_type == "prediction_distance":
         tiff_filename = f"prediction_distance_{date}.tif"
+    elif map_type == "dispersion_coefficient":
+        tiff_filename = f"dispersion_coefficient_{date}.tif"
     else:
         map_is_predictor = True
         job_work_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=job_id)
@@ -674,6 +703,10 @@ def _get_tile_params(job_id, map_type, date, color_bar_info):
             tick_values = [vmin, 0, vmax]
         else:
             tick_values = [vmin, -1, 0, 1, vmax]
+    elif map_type == "dispersion_coefficient":
+        vmin, vmax, unit = color_bar_info[f"dispersion_coefficient_{date}"]
+        colormap_params = f"&colormap_name=viridis&rescale={vmin},{vmax}"
+        colormap = viridis_colorscale
     elif map_is_predictor:
         # Load predictor scale from metadata file
         vmin, vmax, unit = color_bar_info[map_type]
@@ -810,7 +843,7 @@ def load_results_content(job_id, header_class_name):
     color_bar_info = load_color_bar_info(job_id)
     stats_data = load_stats_data(job_id)
 
-    controls = create_controls(available_dates, available_map_types)
+    controls = create_controls(available_dates, available_map_types, job_id)
     map_center, map_zoom = get_map_center_and_zoom(job)
 
     leaflet_map = dl.Map(
@@ -1060,7 +1093,6 @@ def tab_content(active_tab, job_id):
             dash.no_update,
             result_path,
         )
-
     raise ValueError(f"Unknown active tab: {active_tab}")
 
 

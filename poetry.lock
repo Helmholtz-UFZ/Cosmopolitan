@@ -3665,14 +3665,14 @@ files = [
 
 [[package]]
 name = "soil-moisture-prediction"
-version = "0.0.43"
+version = "0.0.45"
 description = "Predicts soil moisture from cosmic ray neutron sensor data using a random forest model"
 optional = false
 python-versions = "<4.0,>=3.10"
 groups = ["main"]
 files = [
-    {file = "soil_moisture_prediction-0.0.43-py3-none-any.whl", hash = "sha256:7730d6a6ca69fbf950f14a5758fe16b68833df43e2fab1f9d53cfe80545e8d9c"},
-    {file = "soil_moisture_prediction-0.0.43.tar.gz", hash = "sha256:cec1cd1227769c64937c4cf05738fd0c926b2cadfdb76a4d8d666ec1a58b72b9"},
+    {file = "soil_moisture_prediction-0.0.45-py3-none-any.whl", hash = "sha256:3c733cc283954e0cf2e23fd1216e761177298d708e21f505d5656532ccb87530"},
+    {file = "soil_moisture_prediction-0.0.45.tar.gz", hash = "sha256:1dab693862514628791661960adb0c28eea3ed0a6fefa04460cb0141bfcd4adf"},
 ]
 
 [package.dependencies]
@@ -4306,4 +4306,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.13"
-content-hash = "3736ca668b110eb05ed6f88069a929a1f1a1c91bc657790686e804698ff8a468"
+content-hash = "f1471f1bc889a4de01bce078438690c4edb70b5edd3d8dd93ebccc6202fccdab"
