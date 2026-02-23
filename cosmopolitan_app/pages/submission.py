@@ -37,6 +37,7 @@ from cosmopolitan_app.constants import (
     SUBMIT_JOB_ID,
     URL_ID,
 )
+from cosmopolitan_app.files_route import create_download_button
 from cosmopolitan_app.form_factory import (
     FormFactory,
     FormTemplateFactory,
@@ -126,13 +127,7 @@ def create_button_set(status, job_id):
             disabled=disabled_result,
         )
     )
-    download_button = wrap_button(
-        dbc.Button(
-            "Download work_dir",
-            color="primary",
-            href=f"/download/{job_id}",
-        )
-    )
+    download_button = wrap_button(create_download_button(job_id, class_name=""))
     return [
         submit_button,
         change_input_button,

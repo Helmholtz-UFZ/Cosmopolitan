@@ -82,6 +82,7 @@ from cosmopolitan_app.constants import (
     URL_ID,
 )
 from cosmopolitan_app.error_handling import NotFinishedException
+from cosmopolitan_app.files_route import create_download_button
 from cosmopolitan_app.job import Job
 from cosmopolitan_app.layouts import landing_page_layout_fullscreen
 from cosmopolitan_app.utils import swap_classes
@@ -396,12 +397,7 @@ def create_map_controls(available_dates, available_map_types, job_id):
     # Store for available dates
     dates_store = dcc.Store(id=RESULTS_DATE_SELECTOR_ID, data=available_dates)
 
-    download_button = dbc.Button(
-        "Download work_dir",
-        color="primary",
-        href=f"/download/{job_id}",
-        className="w-100 mt-2",
-    )
+    download_button = create_download_button(job_id)
 
     map_controls = dbc.Tab(
         [
@@ -449,12 +445,7 @@ def create_stats_controls(available_dates, job_id):
         className="mb-3",
     )
 
-    download_button = dbc.Button(
-        "Download work_dir",
-        color="primary",
-        href=f"/download/{job_id}",
-        className="w-100 mt-2",
-    )
+    download_button = create_download_button(job_id)
 
     plot_controls = dbc.Tab(
         [view_selector, date_selector, download_button],

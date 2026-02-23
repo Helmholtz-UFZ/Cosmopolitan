@@ -1,7 +1,10 @@
 """Test the Dash app."""
 
+import io
 import logging
+import os
 import time
+import zipfile
 from logging.config import dictConfig
 from unittest.mock import patch
 
@@ -247,3 +250,97 @@ def test_full_procedure(
     scroll_to_element_and_click(dash_duo, RESULT_BUTTON_ID)
     time.sleep(2)
     check_all_errors(dash_duo)
+
+    # Test work_dir download
+    # Verify button has external_link (rendered as plain <a>, not Dash-intercepted)
+    download_link = dash_duo.wait_for_element(
+        "a[href*='/download/'][href$='.zip']", timeout=10
+    )
+    download_href = download_link.get_attribute("href")
+    logging.info(f"Download button href: {download_href}")
+
+    # Use Flask test client to fetch the zip from the route
+    with app.server.test_client() as client:
+        response = client.get(download_href)
+        assert response.status_code == 200, f"Download failed: {response.status_code}"
+        assert response.content_type == "application/zip"
+
+        zip_data = io.BytesIO(response.data)
+        with zipfile.ZipFile(zip_data) as zf:
+            zip_file_names = sorted(zf.namelist())
+            logging.info(f"Zip file names: {zip_file_names}")
+
+            # Verify files match the work_dir on disk
+            # Extract job_id from href: /download/<job_id>.zip
+            job_id = download_href.split("/download/")[-1].removesuffix(".zip")
+            work_dir = f"cosmopolitan_app/work_dir/{job_id}"
+
+            disk_file_names = sorted(
+                os.path.relpath(os.path.join(root, f), work_dir)
+                for root, _, files in os.walk(work_dir)
+                for f in files
+            )
+            logging.info(f"Disk file names: {disk_file_names}")
+            assert zip_file_names == disk_file_names, (
+                f"Zip contents don't match work_dir.\n"
+                f"Zip: {zip_file_names}\nDisk: {disk_file_names}"
+            )
+
+            # Verify file contents are identical
+            for name in zip_file_names:
+                with open(os.path.join(work_dir, name), "rb") as f:
+                    disk_content = f.read()
+                zip_content = zf.read(name)
+                assert zip_content == disk_content, f"Content mismatch for {name}"
+
+            expected_files = [
+                "correlation_matrix.csv",
+                "correlation_matrix_20220326.png",
+                "correlation_matrix_20220327.png",
+                "crn_test_crns_data.csv",
+                "data_dump/elevation.npz",
+                "data_dump/pred_3.npz",
+                "data_dump/pred_4.npz",
+                "data_dump/variable_predictor.npz",
+                "geotiff_scale.json",
+                "logs",
+                "measurements_20220326.geojson",
+                "measurements_20220326.png",
+                "measurements_20220327.geojson",
+                "measurements_20220327.png",
+                "orginal_crn_test_crns_data.csv",
+                "orginal_pred_predictor_1.csv",
+                "orginal_pred_predictor_2.csv",
+                "orginal_pred_predictor_3.csv",
+                "orginal_pred_predictor_4.csv",
+                "parameters.json",
+                "pred_predictor_1.csv",
+                "pred_predictor_2.csv",
+                "pred_predictor_3.csv",
+                "pred_predictor_4.csv",
+                "prediction_20220326.png",
+                "prediction_20220326.tif",
+                "prediction_20220327.png",
+                "prediction_20220327.tif",
+                "prediction_distance_20220326.png",
+                "prediction_distance_20220326.tif",
+                "prediction_distance_20220327.png",
+                "prediction_distance_20220327.tif",
+                "predictor_elevation_constant.tif",
+                "predictor_importance.csv",
+                "predictor_importance_20220326.png",
+                "predictor_importance_20220327.png",
+                "predictor_importance_vs_days.png",
+                "predictor_pred_3_constant.tif",
+                "predictor_pred_4_constant.tif",
+                "predictor_variable_predictor_20220326.tif",
+                "predictor_variable_predictor_20220327.tif",
+                "predictors_20220326.png",
+                "predictors_20220327.png",
+                "preview_area_51.79158560622422_10.922864308328695_51.80470713351286_10.945180882465985__2025-06-01_2025-06-28.png",  # noqa
+                "smp_version.txt",
+            ]
+            assert zip_file_names == expected_files, (
+                f"Unexpected files in work_dir zip.\n"
+                f"Zip: {zip_file_names}\nExpected: {expected_files}"
+            )

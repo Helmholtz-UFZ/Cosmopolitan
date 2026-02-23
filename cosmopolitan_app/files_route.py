@@ -5,9 +5,28 @@ import logging
 import os
 import zipfile
 
+import dash_bootstrap_components as dbc
 from flask import send_file, send_from_directory
 
 from cosmopolitan_app.job import Job
+
+DOWNLOAD_ROUTE_TEMPLATE = "/download/<job_id>.zip"
+
+
+def _download_href(job_id):
+    """Build the download URL for a given job ID."""
+    return DOWNLOAD_ROUTE_TEMPLATE.replace("<job_id>", str(job_id))
+
+
+def create_download_button(job_id, class_name="w-100 mt-2"):
+    """Create a download button for a job's work directory."""
+    return dbc.Button(
+        "Download work_dir",
+        color="primary",
+        href=_download_href(job_id),
+        external_link=True,
+        className=class_name,
+    )
 
 
 def serve_files(app):
@@ -36,7 +55,7 @@ def serve_files(app):
 
         return response
 
-    @app.server.route("/download/<job_id>")
+    @app.server.route(DOWNLOAD_ROUTE_TEMPLATE)
     def download_work_dir(job_id):
         """Download the entire work directory as a zip file.
 
