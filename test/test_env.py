@@ -60,6 +60,7 @@ def test_all_env_files(logger):
             "POSTGRES_PASSWORD='password'",
             "OBJECT_STORAGE_ACCESS_KEY='password'",
             "OBJECT_STORAGE_SECRET_KEY='password'",
+            "REDIS_PASSWORD='password'",
         ]
     }
 

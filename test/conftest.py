@@ -11,9 +11,11 @@ import time
 from pathlib import Path
 
 import pytest
+from kombu.exceptions import OperationalError as KombuOperationalError
 from soil_moisture_prediction.create_usage_information import file_exeptions
 from sqlalchemy.exc import OperationalError
 
+from cosmopolitan_app.background_job_manager import get_background_job_manager
 from cosmopolitan_app.config import (
     EMAIL_PASSWORD,
     OBJECT_STORAGE_REMOTE_NAME,
@@ -80,11 +82,8 @@ except OperationalError:
     pytest.exit("postgres not available")
 
 # Check if Celery can connect to Redis broker
+
 try:
-    from kombu.exceptions import OperationalError as KombuOperationalError
-
-    from cosmopolitan_app.background_job_manager import get_background_job_manager
-
     # Test Celery broker connection by inspecting active workers
     job_manager = get_background_job_manager()
 
