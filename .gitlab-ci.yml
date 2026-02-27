@@ -81,13 +81,10 @@ test:
     - echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
     - apt-get update && apt-get install -y google-chrome-stable
 
-    # Install ChromeDriver
-    - CHROME_VERSION=$(google-chrome-stable --version | grep -oP '\d+\.\d+\.\d+' | head -1)
-    - CHROMEDRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json" | python3 -c "import sys, json; print(json.load(sys.stdin)['channels']['Stable']['version'])")
-
-    # Download ChromeDriver zip from the new location
-    - CHROMEDRIVER_BASE_URL="https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing"
-    - CHROMEDRIVER_ZIP_URL="${CHROMEDRIVER_BASE_URL}/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip"
+    # Install matching ChromeDriver
+    - CHROME_MAJOR=$(google-chrome-stable --version | grep -oP '\d+' | head -1)
+    - CHROMEDRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_${CHROME_MAJOR}")
+    - CHROMEDRIVER_ZIP_URL="https://storage.googleapis.com/chrome-for-testing-public/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip"
     - wget -O /tmp/chromedriver.zip "$CHROMEDRIVER_ZIP_URL"
     - unzip /tmp/chromedriver.zip -d /tmp/
     - mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver
