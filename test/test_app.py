@@ -295,7 +295,7 @@ def test_full_procedure(
                 zip_content = zf.read(name)
                 assert zip_content == disk_content, f"Content mismatch for {name}"
 
-            expected_files = [
+            expected_files = {
                 "correlation_matrix.csv",
                 "correlation_matrix_20220326.png",
                 "correlation_matrix_20220327.png",
@@ -303,6 +303,7 @@ def test_full_procedure(
                 "data_dump/elevation.npz",
                 "data_dump/pred_3.npz",
                 "data_dump/pred_4.npz",
+                "data_dump/rfm_dump.npz",
                 "data_dump/variable_predictor.npz",
                 "geotiff_scale.json",
                 "logs",
@@ -341,8 +342,8 @@ def test_full_procedure(
                 "predictors_20220327.png",
                 "preview_area_51.79158560622422_10.922864308328695_51.80470713351286_10.945180882465985__2025-06-01_2025-06-28.png",  # noqa
                 "smp_version.txt",
-            ]
-            assert zip_file_names == expected_files, (
+            }
+            assert set(zip_file_names) == expected_files, (
                 f"Unexpected files in work_dir zip.\n"
-                f"Zip: {zip_file_names}\nExpected: {expected_files}"
+                f"Zip: {sorted(zip_file_names)}\nExpected: {sorted(expected_files)}"
             )
