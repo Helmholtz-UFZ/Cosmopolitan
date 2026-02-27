@@ -14,6 +14,8 @@ from pathlib import Path
 
 from cosmopolitan_app.screenshot_generator import ScreenshotGenerator
 
+log = logging.getLogger(__name__)
+
 INTRO_TEMPLATE = """# COSMOPOLITAN Webservice Documentation
 
 ### COSmic ray based soil MOisture PredictiOn LIve Tree ANalysis
@@ -115,7 +117,7 @@ class DocumentationGenerator:
         self.user_workflow_pages = USER_WORKFLOW_PAGES
         self.admin_pages = ADMIN_PAGES
         self.excluded_pages = EXCLUDED_PAGES
-        logging.info("Documentation generator initialized", extra={"tag": "frontend"})
+        log.info("Documentation generator initialized", extra={"tag": "maintenance"})
 
     def extract_docstring(self, module_name: str) -> tuple[str, str]:
         """Extract docstring from a page module by parsing the file.
@@ -219,7 +221,7 @@ class DocumentationGenerator:
         Returns:
             str: Complete markdown documentation
         """
-        logging.info("Generating documentation", extra={"tag": "frontend"})
+        log.info("Generating documentation", extra={"tag": "maintenance"})
 
         # Generate all sections
         intro = self.generate_introduction_section()
@@ -229,7 +231,7 @@ class DocumentationGenerator:
         # Combine all sections with footer
         full_doc = intro + workflow + admin + FOOTER_TEMPLATE + "\n"
 
-        logging.info("Documentation generated successfully", extra={"tag": "frontend"})
+        log.info("Documentation generated successfully", extra={"tag": "maintenance"})
         return full_doc
 
     def write_static_documentation(self, output_file: Path, version_file: Path) -> None:
@@ -273,7 +275,10 @@ def generate_documentation(
     """
     setup_logging()
 
-    logging.info(f"Generating documentation for version {get_app_version()}")
+    log.info(
+        f"Generating documentation for version {get_app_version()}",
+        extra={"tag": "maintenance"},
+    )
 
     # Define output paths
     docs_dir = Path(__file__).parent / "assets" / "docs"
@@ -284,27 +289,37 @@ def generate_documentation(
     screenshots_dir.mkdir(exist_ok=True)
 
     # Generate screenshots
-    logging.info("Starting screenshot generation...")
+    log.info("Starting screenshot generation...", extra={"tag": "maintenance"})
     screenshot_gen = ScreenshotGenerator(job_id_finished, job_id_new, headless=headless)
 
     try:
         # Generate all screenshots (fails on first error)
         # Assumes dev_up.sh mock is already running
         screenshot_gen.generate_all_screenshots(screenshots_dir)
-        logging.info("All screenshots captured successfully")
+        log.info("All screenshots captured successfully", extra={"tag": "maintenance"})
 
         # Generate static documentation
-        logging.info("Generating static documentation files...")
+        log.info(
+            "Generating static documentation files...", extra={"tag": "maintenance"}
+        )
         doc_gen = DocumentationGenerator()
         doc_gen.write_static_documentation(
             output_file=docs_dir / "documentation.md",
             version_file=docs_dir / "doc_version.txt",
         )
 
-        logging.info("Documentation generated successfully!")
-        logging.info(f"  - Markdown: {docs_dir / 'documentation.md'}")
-        logging.info(f"  - Version: {docs_dir / 'doc_version.txt'}")
-        logging.info(f"  - Screenshots: {screenshots_dir}/ (11 files)")
+        log.info("Documentation generated successfully!", extra={"tag": "maintenance"})
+        log.info(
+            f"  - Markdown: {docs_dir / 'documentation.md'}",
+            extra={"tag": "maintenance"},
+        )
+        log.info(
+            f"  - Version: {docs_dir / 'doc_version.txt'}", extra={"tag": "maintenance"}
+        )
+        log.info(
+            f"  - Screenshots: {screenshots_dir}/ (11 files)",
+            extra={"tag": "maintenance"},
+        )
 
         return 0
 

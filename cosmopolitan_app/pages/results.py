@@ -50,42 +50,43 @@ from soil_moisture_prediction.plot_functions import (
 from cosmopolitan_app import map_utils
 from cosmopolitan_app.config import JOB_WORK_DIR_TEMPLATE
 from cosmopolitan_app.constants import (
-    LOADING_OVERLAY_ID,
-    RESULT_CONTAINER_ID,
-    RESULTS_COLOR_BAR_INFO_ID,
-    RESULTS_CORRELATION_FIGURE_ID,
-    RESULTS_CORRELATION_GRAPH_ID,
-    RESULTS_CURRENT_DATE_DISPLAY_ID,
-    RESULTS_CURRENT_MAP_TYPE_BOX_ID,
-    RESULTS_DATE_PAGINATION_MAP_ID,
-    RESULTS_DATE_PAGINATION_STATS_ID,
-    RESULTS_DATE_SELECTOR_ID,
-    RESULTS_DUMMY_ID,
-    RESULTS_HEADER_ID,
-    RESULTS_IMPORTANCE_ALL_ID,
-    RESULTS_IMPORTANCE_GRAPH_ID,
-    RESULTS_IMPORTANCE_SELECTED_ID,
-    RESULTS_JOB_ID_STORE,
-    RESULTS_MAIN_CONTENT_ID,
-    RESULTS_MAP_TYPE_SELECTOR_ID,
-    RESULTS_MAP_TYPES_ID,
-    RESULTS_MEASUREMENTS_SWITCH_ID,
-    RESULTS_OPACITY_SLIDER_ID,
-    RESULTS_PREVIOUS_MAP_TYPE_BOX_ID,
-    RESULTS_PREVIOUS_MAP_TYPE_STORE_ID,
-    RESULTS_SOIL_MOISTURE_MAP_ID,
-    RESULTS_STATS_CONTAINER_ID,
-    RESULTS_STATS_DATA_STORE_ID,
-    RESULTS_STATS_VIEW_SELECTOR_ID,
-    RESULTS_SWITCH_MAP_BUTTON_ID,
-    RESULTS_TABS_ID,
-    URL_ID,
+    COLOR_BAR_INFO_STORE_RESULTS_ID,
+    CORRELATION_FIGURE_GRAPH_RESULTS_ID,
+    CORRELATION_GRAPH_RESULTS_ID,
+    CURRENT_DATE_DISPLAY_DIV_RESULTS_ID,
+    CURRENT_MAP_TYPE_BOX_DIV_RESULTS_ID,
+    DATE_PAGINATION_MAP_BUTTON_RESULTS_ID,
+    DATE_PAGINATION_STATS_BUTTON_RESULTS_ID,
+    DATE_SELECTOR_DROPDOWN_RESULTS_ID,
+    DUMMY_DIV_RESULTS_ID,
+    HEADER_DIV_RESULTS_ID,
+    IMPORTANCE_GRAPH_RESULTS_ID,
+    IMPORTANCE_SELECTED_DIV_RESULTS_ID,
+    JOB_STORE_RESULTS_ID,
+    LOADING_OVERLAY_MODAL_SHARED_ID,
+    MAIN_CONTENT_DIV_RESULTS_ID,
+    MAP_TYPE_SELECTOR_DROPDOWN_RESULTS_ID,
+    MAP_TYPES_STORE_RESULTS_ID,
+    MEASUREMENTS_SWITCH_RESULTS_ID,
+    OPACITY_SLIDER_RESULTS_ID,
+    PREVIOUS_MAP_TYPE_BOX_DIV_RESULTS_ID,
+    PREVIOUS_MAP_TYPE_STORE_RESULTS_ID,
+    RESULT_CONTAINER_DIV_RESULTS_ID,
+    SOIL_MOISTURE_MAP_GRAPH_RESULTS_ID,
+    STATS_CONTAINER_DIV_RESULTS_ID,
+    STATS_DATA_STORE_RESULTS_ID,
+    STATS_VIEW_SELECTOR_DROPDOWN_RESULTS_ID,
+    SWITCH_MAP_BUTTON_RESULTS_ID,
+    TABS_RESULTS_ID,
+    URL_LOCATION_SHARED_ID,
 )
 from cosmopolitan_app.error_handling import NotFinishedException
 from cosmopolitan_app.files_route import create_download_button
 from cosmopolitan_app.job import Job
 from cosmopolitan_app.layouts import landing_page_layout_fullscreen
 from cosmopolitan_app.utils import swap_classes
+
+log = logging.getLogger(__name__)
 
 dash.register_page(
     __name__,
@@ -104,29 +105,29 @@ def create_date_selector(available_dates, type):
         return html.Div("No available dates", className="mb-3")
 
     pagination_id = (
-        RESULTS_DATE_PAGINATION_MAP_ID
+        DATE_PAGINATION_MAP_BUTTON_RESULTS_ID
         if type == "map"
-        else RESULTS_DATE_PAGINATION_STATS_ID
+        else DATE_PAGINATION_STATS_BUTTON_RESULTS_ID
     )
 
     date_selector = html.Div(
         [
             html.Label(
                 "Select Date:",
-                style={"fontWeight": "bold", "marginBottom": "5px"},
+                className="fw-bold mb-1",
             ),
             html.Div(
                 [
                     html.Strong("Current Date: "),
                     html.Span(
                         available_dates[0],
-                        id=RESULTS_CURRENT_DATE_DISPLAY_ID,
+                        id=CURRENT_DATE_DISPLAY_DIV_RESULTS_ID,
                     ),
                 ],
                 className="mb-2",
             ),
             dbc.Pagination(
-                id=pagination_id,
+                id=pagination_id,  # nocheck
                 max_value=len(available_dates),
                 first_last=True,
                 previous_next=True,
@@ -296,13 +297,13 @@ def create_map_controls(available_dates, available_map_types, job_id):
         [
             html.Label(
                 "Select Map Type:",
-                style={"fontWeight": "bold", "marginBottom": "5px"},
+                className="fw-bold mb-1",
             ),
             dcc.Dropdown(
-                id=RESULTS_MAP_TYPE_SELECTOR_ID,
+                id=MAP_TYPE_SELECTOR_DROPDOWN_RESULTS_ID,
                 options=map_type_options,
                 value=init_map_type,
-                style={"marginBottom": "15px"},
+                className="mb-3",
             ),
         ],
         className="mb-3",
@@ -315,10 +316,10 @@ def create_map_controls(available_dates, available_map_types, job_id):
     measurements_switch = html.Div(
         [
             dbc.Label(
-                "Show Measurements Overlay", html_for=RESULTS_MEASUREMENTS_SWITCH_ID
+                "Show Measurements Overlay", html_for=MEASUREMENTS_SWITCH_RESULTS_ID
             ),
             dbc.Switch(
-                id=RESULTS_MEASUREMENTS_SWITCH_ID,
+                id=MEASUREMENTS_SWITCH_RESULTS_ID,
                 value=False,
                 className="ms-2",
             ),
@@ -331,10 +332,10 @@ def create_map_controls(available_dates, available_map_types, job_id):
         [
             html.Label(
                 "Map Opacity:",
-                style={"fontWeight": "bold", "marginBottom": "5px"},
+                className="fw-bold mb-1",
             ),
             dcc.Slider(
-                id=RESULTS_OPACITY_SLIDER_ID,
+                id=OPACITY_SLIDER_RESULTS_ID,
                 min=0,
                 max=1,
                 step=0.1,
@@ -357,7 +358,7 @@ def create_map_controls(available_dates, available_map_types, job_id):
                             html.Strong("Current:"),
                             html.Div(
                                 "Soil Moisture",
-                                id=RESULTS_CURRENT_MAP_TYPE_BOX_ID,
+                                id=CURRENT_MAP_TYPE_BOX_DIV_RESULTS_ID,
                                 className="border rounded p-2 mb-2 bg-light",
                             ),
                         ],
@@ -368,7 +369,7 @@ def create_map_controls(available_dates, available_map_types, job_id):
                             html.Strong("Previous:"),
                             html.Div(
                                 "None",
-                                id=RESULTS_PREVIOUS_MAP_TYPE_BOX_ID,
+                                id=PREVIOUS_MAP_TYPE_BOX_DIV_RESULTS_ID,
                                 className="border rounded p-2 mb-2 bg-light",
                             ),
                         ],
@@ -376,7 +377,7 @@ def create_map_controls(available_dates, available_map_types, job_id):
                     ),
                     dbc.Button(
                         "Switch",
-                        id=RESULTS_SWITCH_MAP_BUTTON_ID,
+                        id=SWITCH_MAP_BUTTON_RESULTS_ID,
                         color="primary",
                         className="w-100",
                         disabled=True,
@@ -391,11 +392,11 @@ def create_map_controls(available_dates, available_map_types, job_id):
 
     previous_map_store_data = {"current": init_map_type, "previous": None}
     previous_map_store = dcc.Store(
-        id=RESULTS_PREVIOUS_MAP_TYPE_STORE_ID, data=previous_map_store_data
+        id=PREVIOUS_MAP_TYPE_STORE_RESULTS_ID, data=previous_map_store_data
     )
 
     # Store for available dates
-    dates_store = dcc.Store(id=RESULTS_DATE_SELECTOR_ID, data=available_dates)
+    dates_store = dcc.Store(id=DATE_SELECTOR_DROPDOWN_RESULTS_ID, data=available_dates)
 
     download_button = create_download_button(job_id)
 
@@ -427,10 +428,10 @@ def create_stats_controls(available_dates, job_id):
         [
             html.Label(
                 "Select View:",
-                style={"fontWeight": "bold", "marginBottom": "5px"},
+                className="fw-bold mb-1",
             ),
             dbc.RadioItems(
-                id=RESULTS_STATS_VIEW_SELECTOR_ID,
+                id=STATS_VIEW_SELECTOR_DROPDOWN_RESULTS_ID,
                 className="btn-group",
                 inputClassName="btn-check",
                 labelClassName="btn btn-outline-primary",
@@ -473,7 +474,7 @@ def create_controls(available_dates, available_map_types, job_id):
     controls = dbc.Tabs(
         [map_controls, plot_controls, back_to_submission],
         className="bg-light",
-        id=RESULTS_TABS_ID,
+        id=TABS_RESULTS_ID,
     )
 
     return controls
@@ -769,10 +770,10 @@ def layout(job_id):
     """Layout for results page."""
     return landing_page_layout_fullscreen(
         "Results",
-        RESULTS_HEADER_ID,
-        RESULTS_JOB_ID_STORE,
+        HEADER_DIV_RESULTS_ID,
+        JOB_STORE_RESULTS_ID,
         job_id,
-        RESULTS_MAIN_CONTENT_ID,
+        MAIN_CONTENT_DIV_RESULTS_ID,
     )
 
 
@@ -796,9 +797,9 @@ IMPORTANCE_ALL_DAYS_HEIGHT = 1700
 
 
 @callback(
-    Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
-    Input(RESULTS_DATE_SELECTOR_ID, "value"),
-    Input(RESULTS_DUMMY_ID, "data"),
+    Output(LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True),
+    Input(DATE_SELECTOR_DROPDOWN_RESULTS_ID, "value"),
+    Input(DUMMY_DIV_RESULTS_ID, "data"),
     prevent_initial_call=True,
 )
 def show_loading(*inputs):
@@ -808,17 +809,17 @@ def show_loading(*inputs):
 
 @callback(
     [
-        Output(RESULTS_HEADER_ID, "className", allow_duplicate=True),
-        Output(f"{RESULTS_HEADER_ID}-subtitle", "children"),
-        Output(RESULTS_MAIN_CONTENT_ID, "children"),
+        Output(HEADER_DIV_RESULTS_ID, "className", allow_duplicate=True),
+        Output(f"{HEADER_DIV_RESULTS_ID}-subtitle", "children"),
+        Output(MAIN_CONTENT_DIV_RESULTS_ID, "children"),
     ],
-    [Input(RESULTS_JOB_ID_STORE, "data")],
-    [State(RESULTS_HEADER_ID, "className")],
+    [Input(JOB_STORE_RESULTS_ID, "data")],
+    [State(HEADER_DIV_RESULTS_ID, "className")],
     prevent_initial_call="initial_duplicate",
 )
 def load_results_content(job_id, header_class_name):
     """Load results content for the given job ID."""
-    logging.info(f"Loading results for job {job_id}", extra={"tag": "frontend"})
+    log.info(f"Loading results for job {job_id}", extra={"tag": "frontend"})
     job = Job(job_id)
 
     if job.status != "COMPLETED":
@@ -838,7 +839,7 @@ def load_results_content(job_id, header_class_name):
     map_center, map_zoom = get_map_center_and_zoom(job)
 
     leaflet_map = dl.Map(
-        id=RESULTS_SOIL_MOISTURE_MAP_ID,
+        id=SOIL_MOISTURE_MAP_GRAPH_RESULTS_ID,
         children=default_map_layers,
         className="flex-grow-1",
         center=map_center,
@@ -849,10 +850,10 @@ def load_results_content(job_id, header_class_name):
     map_container = dbc.Col(
         [
             leaflet_map,
-            html.Div(id="dynamic-legend"),
+            html.Div(),
         ],
         className=CONTAINER_VISIBLE_CLASSES,
-        id=RESULT_CONTAINER_ID,
+        id=RESULT_CONTAINER_DIV_RESULTS_ID,
     )
 
     # Create plots
@@ -870,46 +871,48 @@ def load_results_content(job_id, header_class_name):
             # Correlation graph container (initially visible)
             html.Div(
                 dcc.Graph(
-                    id=RESULTS_CORRELATION_FIGURE_ID,
+                    id=CORRELATION_FIGURE_GRAPH_RESULTS_ID,
                     figure=correlation_fig,
                 ),
-                id=RESULTS_CORRELATION_GRAPH_ID,
+                id=CORRELATION_GRAPH_RESULTS_ID,
                 className="d-block flex-grow-1",
             ),
             # Importance graphs container (initially hidden)
             html.Div(
                 [
                     dcc.Graph(
-                        id=RESULTS_IMPORTANCE_SELECTED_ID,
+                        id=IMPORTANCE_SELECTED_DIV_RESULTS_ID,
                         figure=importance_selected_fig,
+                        # Bootstrap has no utility for exact chart height
                         style={"height": f"{IMPORTANCE_SINGLE_DAY_HEIGHT}px"},
                     ),
                     html.Div(
                         dcc.Graph(
-                            id=RESULTS_IMPORTANCE_ALL_ID,
                             figure=importance_all_fig,
+                            # Bootstrap has no utility for exact chart height
                             style={"height": f"{IMPORTANCE_ALL_DAYS_HEIGHT}px"},
                         ),
                         className="overflow-auto",
+                        # no Bootstrap class for calc() height  # noqa
                         style={
                             "height": f"calc(100% - {IMPORTANCE_SINGLE_DAY_HEIGHT}px)",
                             "maxHeight": f"{IMPORTANCE_ALL_DAYS_HEIGHT}px",
                         },
                     ),
                 ],
-                id=RESULTS_IMPORTANCE_GRAPH_ID,
+                id=IMPORTANCE_GRAPH_RESULTS_ID,
                 className="d-none flex-grow-1",
             ),
         ],
         className=CONTAINER_HIDDEN_CLASSES,
-        id=RESULTS_STATS_CONTAINER_ID,
+        id=STATS_CONTAINER_DIV_RESULTS_ID,
     )
 
     main_content = [
-        dcc.Store(id=RESULTS_DUMMY_ID, data=None),
-        dcc.Store(id=RESULTS_MAP_TYPES_ID, data=available_map_types),
-        dcc.Store(id=RESULTS_COLOR_BAR_INFO_ID, data=color_bar_info),
-        dcc.Store(id=RESULTS_STATS_DATA_STORE_ID, data=stats_data),
+        dcc.Store(id=DUMMY_DIV_RESULTS_ID, data=None),
+        dcc.Store(id=MAP_TYPES_STORE_RESULTS_ID, data=available_map_types),
+        dcc.Store(id=COLOR_BAR_INFO_STORE_RESULTS_ID, data=color_bar_info),
+        dcc.Store(id=STATS_DATA_STORE_RESULTS_ID, data=stats_data),
         dbc.Row(
             [
                 map_container,
@@ -917,7 +920,6 @@ def load_results_content(job_id, header_class_name):
                 dbc.Col(
                     controls,
                     className="col-3 p-0",
-                    id="controls-container",
                 ),
             ],
             className="flex-grow-1 d-flex",
@@ -928,17 +930,17 @@ def load_results_content(job_id, header_class_name):
 
 
 @callback(
-    Output(RESULTS_SOIL_MOISTURE_MAP_ID, "children"),
-    Output(RESULTS_CURRENT_DATE_DISPLAY_ID, "children"),
-    Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
-    Input(RESULTS_DATE_PAGINATION_MAP_ID, "active_page"),
-    Input(RESULTS_MAP_TYPE_SELECTOR_ID, "value"),
-    Input(RESULTS_MEASUREMENTS_SWITCH_ID, "value"),
-    Input(RESULTS_OPACITY_SLIDER_ID, "value"),
-    State(RESULTS_JOB_ID_STORE, "data"),
-    State(RESULTS_MAP_TYPES_ID, "data"),
-    State(RESULTS_COLOR_BAR_INFO_ID, "data"),
-    State(RESULTS_DATE_SELECTOR_ID, "data"),
+    Output(SOIL_MOISTURE_MAP_GRAPH_RESULTS_ID, "children"),
+    Output(CURRENT_DATE_DISPLAY_DIV_RESULTS_ID, "children"),
+    Output(LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True),
+    Input(DATE_PAGINATION_MAP_BUTTON_RESULTS_ID, "active_page"),
+    Input(MAP_TYPE_SELECTOR_DROPDOWN_RESULTS_ID, "value"),
+    Input(MEASUREMENTS_SWITCH_RESULTS_ID, "value"),
+    Input(OPACITY_SLIDER_RESULTS_ID, "value"),
+    State(JOB_STORE_RESULTS_ID, "data"),
+    State(MAP_TYPES_STORE_RESULTS_ID, "data"),
+    State(COLOR_BAR_INFO_STORE_RESULTS_ID, "data"),
+    State(DATE_SELECTOR_DROPDOWN_RESULTS_ID, "data"),
     prevent_initial_call=True,
 )
 def update_map(
@@ -960,7 +962,7 @@ def update_map(
 
     # Validate index
     if date_index < 0 or date_index >= len(available_dates):
-        logging.warning(
+        log.warning(
             f"Invalid date index {date_index} for {len(available_dates)} dates",
             extra={"tag": "frontend"},
         )
@@ -969,7 +971,7 @@ def update_map(
     # Get the actual date string
     selected_date = available_dates[date_index]
 
-    logging.info(
+    log.info(
         f"Updating map for {job_id}, type {map_type}, date {selected_date} (page {page_index}), measurements: {show_measurements}, opacity: {opacity}",  # noqa
         extra={"tag": "frontend"},
     )
@@ -993,13 +995,13 @@ def update_map(
 
 
 @callback(
-    Output(RESULTS_PREVIOUS_MAP_TYPE_STORE_ID, "data"),
-    Output(RESULTS_CURRENT_MAP_TYPE_BOX_ID, "children"),
-    Output(RESULTS_PREVIOUS_MAP_TYPE_BOX_ID, "children"),
-    Output(RESULTS_SWITCH_MAP_BUTTON_ID, "disabled"),
-    Input(RESULTS_MAP_TYPE_SELECTOR_ID, "value"),
-    State(RESULTS_PREVIOUS_MAP_TYPE_STORE_ID, "data"),
-    State(RESULTS_MAP_TYPES_ID, "data"),
+    Output(PREVIOUS_MAP_TYPE_STORE_RESULTS_ID, "data"),
+    Output(CURRENT_MAP_TYPE_BOX_DIV_RESULTS_ID, "children"),
+    Output(PREVIOUS_MAP_TYPE_BOX_DIV_RESULTS_ID, "children"),
+    Output(SWITCH_MAP_BUTTON_RESULTS_ID, "disabled"),
+    Input(MAP_TYPE_SELECTOR_DROPDOWN_RESULTS_ID, "value"),
+    State(PREVIOUS_MAP_TYPE_STORE_RESULTS_ID, "data"),
+    State(MAP_TYPES_STORE_RESULTS_ID, "data"),
     prevent_initial_call=True,
 )
 def track_map_type_changes(current_map_type, previous_store, available_map_types):
@@ -1038,25 +1040,25 @@ def track_map_type_changes(current_map_type, previous_store, available_map_types
 
 
 @callback(
-    Output(RESULTS_MAP_TYPE_SELECTOR_ID, "value", allow_duplicate=True),
-    Input(RESULTS_SWITCH_MAP_BUTTON_ID, "n_clicks"),
-    State(RESULTS_PREVIOUS_MAP_TYPE_STORE_ID, "data"),
+    Output(MAP_TYPE_SELECTOR_DROPDOWN_RESULTS_ID, "value", allow_duplicate=True),
+    Input(SWITCH_MAP_BUTTON_RESULTS_ID, "n_clicks"),
+    State(PREVIOUS_MAP_TYPE_STORE_RESULTS_ID, "data"),
     prevent_initial_call=True,
 )
 def switch_maps(n_clicks, store):
     """Switch between current and previous map types."""
-    if n_clicks and store and store.get("previous"):
+    if n_clicks and store and "previous" in store:
         # Return the previous map type, which will trigger the dropdown change
         return store["previous"]
     return dash.no_update
 
 
 @callback(
-    Output(RESULT_CONTAINER_ID, "className"),
-    Output(RESULTS_STATS_CONTAINER_ID, "className"),
-    Output(URL_ID, "pathname", allow_duplicate=True),
-    Input(RESULTS_TABS_ID, "active_tab"),
-    State(RESULTS_JOB_ID_STORE, "data"),
+    Output(RESULT_CONTAINER_DIV_RESULTS_ID, "className"),
+    Output(STATS_CONTAINER_DIV_RESULTS_ID, "className"),
+    Output(URL_LOCATION_SHARED_ID, "pathname", allow_duplicate=True),
+    Input(TABS_RESULTS_ID, "active_tab"),
+    State(JOB_STORE_RESULTS_ID, "data"),
     prevent_initial_call=True,
 )
 def tab_content(active_tab, job_id):
@@ -1088,9 +1090,9 @@ def tab_content(active_tab, job_id):
 
 
 @callback(
-    Output(RESULTS_CORRELATION_GRAPH_ID, "className"),
-    Output(RESULTS_IMPORTANCE_GRAPH_ID, "className"),
-    Input(RESULTS_STATS_VIEW_SELECTOR_ID, "value"),
+    Output(CORRELATION_GRAPH_RESULTS_ID, "className"),
+    Output(IMPORTANCE_GRAPH_RESULTS_ID, "className"),
+    Input(STATS_VIEW_SELECTOR_DROPDOWN_RESULTS_ID, "value"),
     prevent_initial_call=True,
 )
 def toggle_stats_view(view_type):
@@ -1103,12 +1105,12 @@ def toggle_stats_view(view_type):
 
 
 @callback(
-    Output(RESULTS_CORRELATION_FIGURE_ID, "figure"),
-    Output(RESULTS_IMPORTANCE_SELECTED_ID, "figure"),
-    Output(RESULTS_CURRENT_DATE_DISPLAY_ID, "children", allow_duplicate=True),
-    Input(RESULTS_DATE_PAGINATION_STATS_ID, "active_page"),
-    State(RESULTS_STATS_DATA_STORE_ID, "data"),
-    State(RESULTS_DATE_SELECTOR_ID, "data"),
+    Output(CORRELATION_FIGURE_GRAPH_RESULTS_ID, "figure"),
+    Output(IMPORTANCE_SELECTED_DIV_RESULTS_ID, "figure"),
+    Output(CURRENT_DATE_DISPLAY_DIV_RESULTS_ID, "children", allow_duplicate=True),
+    Input(DATE_PAGINATION_STATS_BUTTON_RESULTS_ID, "active_page"),
+    State(STATS_DATA_STORE_RESULTS_ID, "data"),
+    State(DATE_SELECTOR_DROPDOWN_RESULTS_ID, "data"),
     prevent_initial_call=True,
 )
 def update_stats_plots_by_timestep(page_index, stats_data, available_dates):

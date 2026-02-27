@@ -23,17 +23,26 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import Input, Output, State, callback, dash_table, dcc
 
-from cosmopolitan_app.constants import LOADING_OVERLAY_ID
+from cosmopolitan_app.constants import (
+    CLEAN_BUTTON_JOB_MANAGEMENT_ID,
+    DELETE_BUTTON_JOB_MANAGEMENT_ID,
+    DUMMY_STORE_JOB_MANAGEMENT_ID,
+    JOBS_TABLE_JOB_MANAGEMENT_ID,
+    LOADING_OVERLAY_MODAL_SHARED_ID,
+    REFRESH_BUTTON_JOB_MANAGEMENT_ID,
+)
 from cosmopolitan_app.job import Job
 from cosmopolitan_app.layouts import create_header, page_container_column_layout
 from cosmopolitan_app.postgres_manager import PostgresManager
 from cosmopolitan_app.tasks.maintenance_tasks import clean_up_jobs
 
+log = logging.getLogger(__name__)
+
 dash.register_page(__name__)
 
 
 table = dash_table.DataTable(
-    id="jobs-table",
+    id=JOBS_TABLE_JOB_MANAGEMENT_ID,
     columns=[
         {"id": "job_id", "name": "Job ID", "presentation": "markdown"},
         {"id": "status", "name": "Status"},
@@ -87,19 +96,19 @@ table = dash_table.DataTable(
 button_group = [
     dbc.Button(
         "Refresh Jobs",
-        id="refresh_btn",
+        id=REFRESH_BUTTON_JOB_MANAGEMENT_ID,
         color="primary",
         className="ms-2 float-end",
     ),
     dbc.Button(
         "Delete Selection",
-        id="delete_btn",
+        id=DELETE_BUTTON_JOB_MANAGEMENT_ID,
         color="danger",
         className="ms-2 float-end",
     ),
     dbc.Button(
         "Clean",
-        id="clean_btn",
+        id=CLEAN_BUTTON_JOB_MANAGEMENT_ID,
         color="warning",
         className="ms-2 float-end",
     ),
@@ -113,7 +122,7 @@ layout = page_container_column_layout(
             bg_color="bg-info",
         ),
         # Needed to get a different set inputs for the loading overlay
-        dcc.Store(id="dummy_store", data=None),
+        dcc.Store(id=DUMMY_STORE_JOB_MANAGEMENT_ID, data=None),
         dbc.Row(
             dbc.Col(
                 button_group,
@@ -131,11 +140,11 @@ layout = page_container_column_layout(
 
 
 @callback(
-    Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
-    Input("delete_btn", "n_clicks"),
-    Input("clean_btn", "n_clicks"),
-    Input("refresh_btn", "n_clicks"),
-    Input("dummy_store", "data"),
+    Output(LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True),
+    Input(DELETE_BUTTON_JOB_MANAGEMENT_ID, "n_clicks"),
+    Input(CLEAN_BUTTON_JOB_MANAGEMENT_ID, "n_clicks"),
+    Input(REFRESH_BUTTON_JOB_MANAGEMENT_ID, "n_clicks"),
+    Input(DUMMY_STORE_JOB_MANAGEMENT_ID, "data"),
     prevent_initial_call=True,
 )
 def show_loading(delete_clicks, clean_clicks, refresh_clicks, dummy_data):
@@ -148,36 +157,34 @@ def show_loading(delete_clicks, clean_clicks, refresh_clicks, dummy_data):
 
 
 @callback(
-    Output("jobs-table", "data"),
-    Output("jobs-table", "selected_rows"),
-    Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
-    Input("delete_btn", "n_clicks"),
-    Input("clean_btn", "n_clicks"),
-    Input("refresh_btn", "n_clicks"),
-    State("jobs-table", "selected_rows"),
-    State("jobs-table", "data"),
+    Output(JOBS_TABLE_JOB_MANAGEMENT_ID, "data"),
+    Output(JOBS_TABLE_JOB_MANAGEMENT_ID, "selected_rows"),
+    Output(LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True),
+    Input(DELETE_BUTTON_JOB_MANAGEMENT_ID, "n_clicks"),
+    Input(CLEAN_BUTTON_JOB_MANAGEMENT_ID, "n_clicks"),
+    Input(REFRESH_BUTTON_JOB_MANAGEMENT_ID, "n_clicks"),
+    State(JOBS_TABLE_JOB_MANAGEMENT_ID, "selected_rows"),
+    State(JOBS_TABLE_JOB_MANAGEMENT_ID, "data"),
     prevent_initial_call=True,
 )
 def job_management_dashboard(
     delete_clicks, clean_clicks, refresh_clicks, selected_rows, table_data
 ):
     """Manage job actions in the dashboard."""
-    logging.info(
-        "Job management dashboard callback triggered.", extra={"tag": "frontend"}
-    )
+    log.info("Job management dashboard callback triggered.", extra={"tag": "frontend"})
     button_id = dash.callback_context.triggered[0]["prop_id"].split(".")[0]
 
-    if button_id == "delete_btn" and selected_rows:
-        logging.info("Deleting selected jobs", extra={"tag": "job_submission"})
+    if button_id == DELETE_BUTTON_JOB_MANAGEMENT_ID and selected_rows:
+        log.info("Deleting selected jobs", extra={"tag": "job_submission"})
         for i in selected_rows:
             job_id = re.findall(r"\[(.*?)\]", table_data[i]["job_id"])[0]
-            logging.debug(
+            log.debug(
                 f"Deleting job with ID: {job_id}", extra={"tag": "job_submission"}
             )
             job = Job(job_id)
             job.delete()
-    elif button_id == "clean_btn":
-        logging.info("Cleaning unsubmitted jobs", extra={"tag": "job_submission"})
+    elif button_id == CLEAN_BUTTON_JOB_MANAGEMENT_ID:
+        log.info("Cleaning unsubmitted jobs", extra={"tag": "job_submission"})
         clean_up_jobs(days_delete_not_submitted=0)
 
     jobs_dict = PostgresManager.list_jobs()
@@ -204,6 +211,6 @@ def job_management_dashboard(
         )
 
     # Reset selected_rows after delete or clean, hide loading overlay
-    if button_id in ["delete_btn", "clean_btn"]:
+    if button_id in [DELETE_BUTTON_JOB_MANAGEMENT_ID, CLEAN_BUTTON_JOB_MANAGEMENT_ID]:
         return rows, [], False
     return rows, dash.no_update, False

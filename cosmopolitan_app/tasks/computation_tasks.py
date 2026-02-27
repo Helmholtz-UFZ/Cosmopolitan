@@ -13,6 +13,8 @@ from cosmopolitan_app.job import LOG_FILE_NAME
 from cosmopolitan_app.logger import get_logger_config_compuation, get_logger_config_web
 from cosmopolitan_app.utils import send_finished_mail, send_mail, send_submission_mail
 
+log = logging.getLogger(__name__)
+
 
 def flush_all_handlers():
     """Flush all logging handlers."""
@@ -20,8 +22,9 @@ def flush_all_handlers():
     for handler in logger.handlers:
         try:
             handler.flush()
-        except Exception:  # noqa
-            # Silently ignore flush errors to avoid disrupting the main flow
+        except (
+            Exception
+        ):  # flush can fail on any handler (file, DB, network); must not disrupt caller
             pass
 
 
@@ -30,8 +33,8 @@ class ComputationTask(Task):
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         """Handle task failure."""
-        logging.error(f"Task {task_id} failed: {exc}", extra={"tag": "worker"})
-        logging.error(f"Traceback: {einfo}", extra={"tag": "worker"})
+        log.error(f"Task {task_id} failed: {exc}", extra={"tag": "worker"})
+        log.error(f"Traceback: {einfo}", extra={"tag": "worker"})
 
 
 def start_computation_task(self, job_id):
@@ -43,22 +46,22 @@ def start_computation_task(self, job_id):
     This replaces the original start_computation function from job.py
     with a Celery-compatible version.
     """
-    logging.info(f"Starting computation for job {job_id}", extra={"tag": "worker"})
+    log.info(f"Starting computation for job {job_id}", extra={"tag": "worker"})
     try:
         # Import here to avoid circular imports
         from soil_moisture_prediction.smp_cli import main
 
         from cosmopolitan_app.job import Job
 
-        logging.debug("Modules imported", extra={"tag": "worker"})
+        log.debug("Modules imported", extra={"tag": "worker"})
 
         job = Job(job_id=job_id)
-        logging.debug("Job loaded", extra={"tag": "worker"})
+        log.debug("Job loaded", extra={"tag": "worker"})
 
         try:
             send_submission_mail(job)
         except SMTPAuthenticationError:
-            logging.error("Failed to send submission mail.", extra={"tag": "worker"})
+            log.error("Failed to send submission mail.", extra={"tag": "worker"})
 
         dictConfig(
             get_logger_config_compuation(os.path.join(job.working_dir, LOG_FILE_NAME))
@@ -72,17 +75,17 @@ def start_computation_task(self, job_id):
 
         flush_all_handlers()
         dictConfig(get_logger_config_web(DEBUG))
-        logging.info("Computation finished.", extra={"tag": "worker"})
+        log.info("Computation finished.", extra={"tag": "worker"})
 
         job.save()
         try:
             send_finished_mail(job)
         except SMTPAuthenticationError:
-            logging.error("Failed to send finished mail.", extra={"tag": "worker"})
-    except Exception as e:  # noqa
+            log.error("Failed to send finished mail.", extra={"tag": "worker"})
+    except Exception as e:  # catch-all: must log, email, and mark job FAILED  # noqa
         # Log error to log file
-        logging.error("An error occurred", extra={"tag": "worker"})
-        logging.error(traceback.format_exc(), extra={"tag": "worker"})
+        log.error("An error occurred", extra={"tag": "worker"})
+        log.error(traceback.format_exc(), extra={"tag": "worker"})
         # Ensure all log buffers are flushed before switching config
         flush_all_handlers()
         # Log error to web logs
@@ -92,6 +95,13 @@ def start_computation_task(self, job_id):
         Error: {str(e)}\n\n
         Traceback info: {traceback.format_exc()}\n\n
         """
-        send_mail(MAINTAINER_EMAIL, email_subject, email_body)
+        try:
+            send_mail(MAINTAINER_EMAIL, email_subject, email_body)
+        except Exception:  # noqa - must not let email failure crash task error path
+            log.error(
+                "Failed to send task failure email",
+                exc_info=True,
+                extra={"tag": "worker"},
+            )
         job.status = "FAILED"
         job.save()

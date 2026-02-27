@@ -18,11 +18,18 @@ import dash_bootstrap_components as dbc
 from dash import Input, Output, State, callback, html
 from dash.exceptions import PreventUpdate
 
-from cosmopolitan_app.constants import PREPARE_INPUT_ID, URL_ID
+from cosmopolitan_app.constants import (
+    JOB_FEEDBACK_FORMTEXT_NEW_JOB_ID,
+    JOB_INPUT_NEW_JOB_ID,
+    PREPARE_INPUT_BUTTON_NEW_JOB_ID,
+    URL_LOCATION_SHARED_ID,
+)
 from cosmopolitan_app.job import Job, find_unique_job_id
 from cosmopolitan_app.layouts import create_header, page_container_column_layout
 from cosmopolitan_app.postgres_manager import PostgresManager
 from cosmopolitan_app.pydantic_models import ModelWebsite, validate_job_id
+
+log = logging.getLogger(__name__)
 
 dash.register_page(
     __name__,
@@ -37,7 +44,7 @@ header = create_header(
 
 def layout():
     """Layout for the new job page."""
-    logging.info("Create new job page", extra={"tag": "job_submission"})
+    log.info("Create new job page", extra={"tag": "job_submission"})
     job_id = find_unique_job_id()
 
     return page_container_column_layout(
@@ -46,17 +53,17 @@ def layout():
             dbc.Row(
                 dbc.Col(
                     [
-                        dbc.Label("Job ID", style={"font-weight": "bold"}),
+                        dbc.Label("Job ID", className="fw-bold"),
                         dbc.Input(
-                            id="new_job_id",
+                            id=JOB_INPUT_NEW_JOB_ID,
                             value=job_id,
                             html_size=len(job_id) + 10,
-                            style={"width": "auto"},
+                            className="w-auto",
                             type="text",
                         ),
                         dbc.FormText(
                             "",
-                            id="new_job_id_feedback",
+                            id=JOB_FEEDBACK_FORMTEXT_NEW_JOB_ID,
                             className="text-danger",
                         ),
                         html.Br(),
@@ -65,7 +72,7 @@ def layout():
                         html.Div(
                             dbc.Button(
                                 "Prepare input",
-                                id=PREPARE_INPUT_ID,
+                                id=PREPARE_INPUT_BUTTON_NEW_JOB_ID,
                                 color="primary",
                             ),
                             className="m-2 d-flex justify-content-center",
@@ -81,14 +88,14 @@ def layout():
 
 
 @callback(
-    Output(URL_ID, "pathname", allow_duplicate=True),
-    Input(PREPARE_INPUT_ID, "n_clicks"),
-    State("new_job_id", "value"),
+    Output(URL_LOCATION_SHARED_ID, "pathname", allow_duplicate=True),
+    Input(PREPARE_INPUT_BUTTON_NEW_JOB_ID, "n_clicks"),
+    State(JOB_INPUT_NEW_JOB_ID, "value"),
     prevent_initial_call=True,
 )
 def prepare_input(n_clicks, job_id):
     """Prepare the input for the new job."""
-    logging.info("Prepare input", extra={"tag": "frontend"})
+    log.info("Prepare input", extra={"tag": "frontend"})
     if n_clicks is None:
         raise PreventUpdate
     # This will create the job in database etc
@@ -98,15 +105,15 @@ def prepare_input(n_clicks, job_id):
 
 
 @callback(
-    Output("new_job_id_feedback", "children"),
-    Output("new_job_id", "valid"),
-    Output("new_job_id", "invalid"),
-    Input("new_job_id", "value"),
+    Output(JOB_FEEDBACK_FORMTEXT_NEW_JOB_ID, "children"),
+    Output(JOB_INPUT_NEW_JOB_ID, "valid"),
+    Output(JOB_INPUT_NEW_JOB_ID, "invalid"),
+    Input(JOB_INPUT_NEW_JOB_ID, "value"),
     prevent_initial_call=True,
 )
 def validate_new_job_id(job_id):
     """Validate the job ID."""
-    logging.info("Validate job ID", extra={"tag": "job_submission"})
+    log.info("Validate job ID", extra={"tag": "job_submission"})
     try:
         validate_job_id(job_id)
     except ValueError as e:

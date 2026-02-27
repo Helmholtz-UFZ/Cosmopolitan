@@ -13,9 +13,15 @@ from sqlalchemy.exc import DatabaseError, OperationalError
 from werkzeug.exceptions import NotFound
 
 from cosmopolitan_app.config import MAINTAINER_EMAIL
-from cosmopolitan_app.constants import ERROR_MESSAGE_ID, ERROR_MODAL_ID, ERROR_TITLE_ID
+from cosmopolitan_app.constants import (
+    ERROR_MESSAGE_DIV_SHARED_ID,
+    ERROR_MODAL_SHARED_ID,
+    ERROR_TITLE_DIV_SHARED_ID,
+)
 from cosmopolitan_app.object_storage_manager import ObjectStorageError
 from cosmopolitan_app.utils import send_mail
+
+log = logging.getLogger(__name__)
 
 USE_ERROR_MESSAGE = "use_error_message"
 
@@ -180,21 +186,21 @@ error_modal = dbc.Modal(
     [
         dbc.ModalHeader(
             dbc.ModalTitle("Error"),
-            id=ERROR_TITLE_ID,
+            id=ERROR_TITLE_DIV_SHARED_ID,
             close_button=False,
             className="bg-light",
         ),
-        dbc.ModalBody(id=ERROR_MESSAGE_ID, className="text-danger bg-light"),
+        dbc.ModalBody(id=ERROR_MESSAGE_DIV_SHARED_ID, className="text-danger bg-light"),
         dbc.ModalFooter(className="bg-light"),
     ],
-    id=ERROR_MODAL_ID,
+    id=ERROR_MODAL_SHARED_ID,
     is_open=False,
 )
 
 
 def handle_error(error):
     """Handle the error and return a formatted message."""
-    logging.debug(f"Error: {error}", extra={"tag": "frontend"})
+    log.debug(f"Error: {error}", extra={"tag": "frontend"})
 
     if not isinstance(
         error,
@@ -213,10 +219,18 @@ def handle_error(error):
         Traceback info: {traceback.format_exc()}\n\n
         Input info: {json.dumps(callback_context.triggered)}
         """
-        send_mail(MAINTAINER_EMAIL, email_subject, email_body)
-        logging.error(f"Unhandled error: {error}", extra={"tag": "frontend"})
-        logging.error(email_body, extra={"tag": "frontend"})
+        try:
+            send_mail(MAINTAINER_EMAIL, email_subject, email_body)
+        except Exception:  # noqa - must not let email failure crash the error handler
+            log.error(
+                "Failed to send maintainer error email",
+                exc_info=True,
+                extra={"tag": "frontend"},
+            )
+        log.error(f"Unhandled error: {error}", extra={"tag": "frontend"})
+        log.error(email_body, extra={"tag": "frontend"})
 
+    # dispatch lookup: unknown exception types fall back to the generic Exception entry
     error_title = error_responds_dict.get(type(error), error_responds_dict[Exception])[
         0
     ]
@@ -233,8 +247,8 @@ def handle_error(error):
         # If the error does not have a job_id attribute, we just use the message as is.
         pass
 
-    logging.error(f"{error_title}: {error_message}", extra={"tag": "frontend"})
-    logging.error(f"Error details: {traceback.format_exc()}", extra={"tag": "frontend"})
-    set_props(ERROR_MODAL_ID, {"is_open": True})
-    set_props(ERROR_TITLE_ID, {"children": error_title})
-    set_props(ERROR_MESSAGE_ID, {"children": error_message})
+    log.error(f"{error_title}: {error_message}", extra={"tag": "frontend"})
+    log.error(f"Error details: {traceback.format_exc()}", extra={"tag": "frontend"})
+    set_props(ERROR_MODAL_SHARED_ID, {"is_open": True})
+    set_props(ERROR_TITLE_DIV_SHARED_ID, {"children": error_title})
+    set_props(ERROR_MESSAGE_DIV_SHARED_ID, {"children": error_message})

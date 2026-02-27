@@ -15,6 +15,8 @@ from cosmopolitan_app.config import (
     OBJECT_STORAGE_SECRET_KEY,
 )
 
+log = logging.getLogger(__name__)
+
 
 class ObjectStorageError(Exception):
     """Exception raised for errors in the ObjectStorageManager class."""
@@ -42,12 +44,12 @@ def check_result(params: list, result: subprocess.CompletedProcess) -> None:
     call = call.replace(OBJECT_STORAGE_ACCESS_KEY, "****")
     if result.returncode != 0:
         if "QuotaExceeded" in error_msg:
-            logging.error(
+            log.error(
                 f"Object storage quota exceeded for command: {call}\n{error_msg}\n{output}",  # noqa
                 extra={"tag": "object_storage"},
             )
         else:
-            logging.error(
+            log.error(
                 f"Command failed: {call}\n{error_msg}\n{output}",
                 extra={"tag": "object_storage"},
             )
@@ -76,7 +78,7 @@ def run_rclone_with_retry(params: list) -> subprocess.CompletedProcess:
             check_result(params, result)
         except ObjectStorageError:
             if attempt < max_retries - 1:
-                logging.warning(
+                log.warning(
                     f"{' '.join(params)} failed. Retry attempt {attempt + 1}",
                     extra={"tag": "object_storage"},
                 )
@@ -93,7 +95,7 @@ def setup_remote() -> None:
     Args:
         dirname: Name of the directory (used for error handling)
     """
-    logging.debug("Setting up rclone remote.", extra={"tag": "object_storage"})
+    log.debug("Setting up rclone remote.", extra={"tag": "object_storage"})
     config_params = [
         "rclone",
         "config",
@@ -116,7 +118,7 @@ def setup_remote() -> None:
     )
     check_result(config_params, result)
 
-    logging.debug(
+    log.debug(
         f"Successfully created remote {OBJECT_STORAGE_REMOTE_NAME}",
         extra={"tag": "object_storage"},
     )
@@ -183,7 +185,7 @@ def get_files(dirname: str) -> None:
     Raises:
         ObjectStorageError: If download fails or verification fails
     """
-    logging.debug(
+    log.debug(
         f"Downloading files from object storage for {dirname}",
         extra={"tag": "object_storage"},
     )
@@ -201,16 +203,14 @@ def get_files(dirname: str) -> None:
     ]
 
     result = run_rclone_with_retry(sync_params)
-    logging.debug(
-        f"Rclone sync result: {result.stdout}", extra={"tag": "object_storage"}
-    )
+    log.debug(f"Rclone sync result: {result.stdout}", extra={"tag": "object_storage"})
 
     # Verify download - check that all remote files are now in local
     # (local may have additional files, which is acceptable with copy)
     local_files_after = get_local_files(local_path)
     remote_files = get_remote_files(remote_path)
 
-    logging.debug(
+    log.debug(
         f"Downloaded {len(local_files_after - local_files_before)} new files to local",
         extra={"tag": "object_storage"},
     )
@@ -224,7 +224,7 @@ def get_files(dirname: str) -> None:
             f"Files from local: {sorted(local_files_after)}\n"
             f"Files from remote: {sorted(remote_files)}"
         )
-        logging.error(error_msg, extra={"tag": "object_storage"})
+        log.error(error_msg, extra={"tag": "object_storage"})
         raise ObjectStorageError(error_msg)
 
 
@@ -239,7 +239,7 @@ def save_files(dirname: str) -> None:
     Raises:
         ObjectStorageError: If upload fails or verification fails
     """
-    logging.debug(
+    log.debug(
         f"Uploading files to object storage for {dirname}",
         extra={"tag": "object_storage"},
     )
@@ -249,7 +249,7 @@ def save_files(dirname: str) -> None:
 
     # List local files before upload
     local_files_before = get_local_files(local_path)
-    logging.debug(
+    log.debug(
         f"Uploading {len(local_files_before)} files: {sorted(local_files_before)}",
         extra={"tag": "object_storage"},
     )
@@ -269,7 +269,7 @@ def save_files(dirname: str) -> None:
     local_files = get_local_files(local_path)
     remote_files_after = get_remote_files(remote_path)
 
-    logging.debug(
+    log.debug(
         f"Uploaded {len(remote_files_after - remote_files_before)} new files to remote",
         extra={"tag": "object_storage"},
     )
@@ -280,7 +280,7 @@ def save_files(dirname: str) -> None:
             f"Files from local: {sorted(local_files)}\n"
             f"Files from remote: {sorted(remote_files_after)}"
         )
-        logging.error(error_msg, extra={"tag": "object_storage"})
+        log.error(error_msg, extra={"tag": "object_storage"})
         raise ObjectStorageError(error_msg)
 
 
@@ -290,7 +290,7 @@ def delete_file_from_storage(filepath: str) -> None:
     Args:
         filepath: Path of the file to delete from object storage
     """
-    logging.debug(
+    log.debug(
         f"Deleting file {filepath} from object storage.",
         extra={"tag": "object_storage"},
     )
@@ -305,7 +305,7 @@ def delete_file_from_storage(filepath: str) -> None:
 
     run_rclone_with_retry(delete_params)
 
-    logging.debug(
+    log.debug(
         f"Successfully deleted file {filepath} from object storage",
         extra={"tag": "object_storage"},
     )
@@ -317,7 +317,7 @@ def delete_directory_from_storage(dirpath: str) -> None:
     Args:
         dirpath: Path of the directory to delete from object storage
     """
-    logging.debug(
+    log.debug(
         f"Deleting directory {dirpath} from object storage.",
         extra={"tag": "object_storage"},
     )
@@ -332,7 +332,7 @@ def delete_directory_from_storage(dirpath: str) -> None:
 
     run_rclone_with_retry(purge_params)
 
-    logging.debug(
+    log.debug(
         f"Successfully deleted directory {dirpath} from object storage",
         extra={"tag": "object_storage"},
     )
@@ -340,7 +340,7 @@ def delete_directory_from_storage(dirpath: str) -> None:
 
 def create_bucket() -> None:
     """Create the object storage bucket if it doesn't already exist."""
-    logging.debug(
+    log.debug(
         f"Creating bucket {OBJECT_STORAGE_BUCKET}", extra={"tag": "object_storage"}
     )
 
@@ -388,13 +388,13 @@ def main():
     try:
         if command == "setup_remote":
             setup_remote()
-            logging.info(
+            log.info(
                 "Object storage remote setup completed successfully.",
                 extra={"tag": "object_storage"},
             )
         elif command == "create_bucket":
             create_bucket()
-            logging.info(
+            log.info(
                 "Bucket creation completed successfully.",
                 extra={"tag": "object_storage"},
             )
@@ -405,9 +405,7 @@ def main():
             )
             sys.exit(1)
     except ObjectStorageError as e:
-        logging.error(
-            f"Failed to execute {command}: {e}", extra={"tag": "object_storage"}
-        )
+        log.error(f"Failed to execute {command}: {e}", extra={"tag": "object_storage"})
         sys.exit(1)
 
 

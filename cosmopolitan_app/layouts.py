@@ -5,11 +5,11 @@ import dash_bootstrap_components as dbc
 from dash import Input, Output, State, callback, dcc, html
 
 from cosmopolitan_app.constants import (
-    LOADING_OVERLAY_ID,
-    NAVBAR_COLLAPSE_ID,
-    NAVBAR_TOGGLER_ID,
-    NEW_JOB_LINK_ID,
-    URL_ID,
+    LOADING_OVERLAY_MODAL_SHARED_ID,
+    NAVBAR_COLLAPSE_DIV_SHARED_ID,
+    NAVBAR_TOGGLER_BUTTON_SHARED_ID,
+    NEW_JOB_LINK_SHARED_ID,
+    URL_LOCATION_SHARED_ID,
 )
 from cosmopolitan_app.error_handling import error_modal
 
@@ -18,7 +18,7 @@ loading_overlay = dbc.Modal(
         [dbc.Spinner(size="lg"), html.H4("Loading...", className="text-center mt-3")],
         className="text-center",
     ),
-    id=LOADING_OVERLAY_ID,
+    id=LOADING_OVERLAY_MODAL_SHARED_ID,
     is_open=False,
     backdrop="static",  # Prevents closing by clicking outside
     keyboard=False,  # Prevents closing with escape key
@@ -32,7 +32,7 @@ def app_layout():
     return html.Div(
         className="d-flex flex-column min-vh-100 bg-light",
         children=[
-            dcc.Location(id=URL_ID, refresh=True),
+            dcc.Location(id=URL_LOCATION_SHARED_ID, refresh=True),
             error_modal,
             create_navbar(),
             dash.page_container,
@@ -61,7 +61,7 @@ def create_navbar():
                             " Cosmopolitan",
                         ],
                     ),
-                    dbc.NavbarToggler(id=NAVBAR_TOGGLER_ID),
+                    dbc.NavbarToggler(id=NAVBAR_TOGGLER_BUTTON_SHARED_ID),
                     dbc.Collapse(
                         dbc.Nav(
                             className="navbar-nav me-auto mb-2 mb-lg-0",
@@ -72,7 +72,7 @@ def create_navbar():
                                         href=dash.page_registry["pages.new_job"][
                                             "relative_path"
                                         ],
-                                        id=NEW_JOB_LINK_ID,  # Id used for testing
+                                        id=NEW_JOB_LINK_SHARED_ID,  # testing  # noqa
                                     )
                                 ),
                                 dbc.NavItem(
@@ -133,7 +133,7 @@ def create_navbar():
                                 ),
                             ],
                         ),
-                        id=NAVBAR_COLLAPSE_ID,
+                        id=NAVBAR_COLLAPSE_DIV_SHARED_ID,
                         navbar=True,
                     ),
                 ]
@@ -142,19 +142,16 @@ def create_navbar():
     )
 
 
-def register_navbar_callbacks(app):
-    """Register callbacks for the navbar."""
-
-    @callback(
-        Output(NAVBAR_COLLAPSE_ID, "is_open"),
-        [Input(NAVBAR_TOGGLER_ID, "n_clicks")],
-        [State(NAVBAR_COLLAPSE_ID, "is_open")],
-    )
-    def toggle_navbar_collapse(n_clicks, is_open):
-        """Toggle the navbar collapse state."""
-        if n_clicks:
-            return not is_open
-        return is_open
+@callback(
+    Output(NAVBAR_COLLAPSE_DIV_SHARED_ID, "is_open"),
+    [Input(NAVBAR_TOGGLER_BUTTON_SHARED_ID, "n_clicks")],
+    [State(NAVBAR_COLLAPSE_DIV_SHARED_ID, "is_open")],
+)
+def toggle_navbar_collapse(n_clicks, is_open):
+    """Toggle the navbar collapse state."""
+    if n_clicks:
+        return not is_open
+    return is_open
 
 
 def create_header(title, subtitle, bg_color="bg-info", id="", rounded=True):
@@ -163,9 +160,13 @@ def create_header(title, subtitle, bg_color="bg-info", id="", rounded=True):
     layout = html.Div(
         className=className,
         children=[
-            html.H2(title, className="text-center", id=f"{id}-title"),
+            html.H2(title, className="text-center", id=f"{id}-title"),  # nocheck
             (
-                html.H3(subtitle, className="text-center", id=f"{id}-subtitle")
+                html.H3(
+                    subtitle,
+                    className="text-center",
+                    id=f"{id}-subtitle",  # nocheck
+                )
                 if subtitle != ""
                 else None
             ),
@@ -185,7 +186,7 @@ def landing_page_layout_column(
     )
 
     content = [
-        dcc.Store(id=job_id_store, data=job_id),
+        dcc.Store(id=job_id_store, data=job_id),  # nocheck
         header,
         html.Div(
             html.Div(
@@ -197,7 +198,7 @@ def landing_page_layout_column(
                 ),
                 className="d-flex justify-content-center align-items-center flex-grow-1",  # noqa
             ),
-            id=main_content_id,
+            id=main_content_id,  # nocheck
             className="flex-grow-1 d-flex flex-column",
         ),
     ]
@@ -212,7 +213,7 @@ def page_container_column_layout(content, main_content_id="main-content-containe
         dbc.Col(
             className=class_names_content,
             children=content,
-            id=main_content_id,
+            id=main_content_id,  # nocheck
         ),
         className="flex-grow-1 d-flex justify-content-center g-0",
     )
@@ -232,7 +233,7 @@ def landing_page_layout_fullscreen(
     )
 
     content = [
-        dcc.Store(id=job_id_store, data=job_id),
+        dcc.Store(id=job_id_store, data=job_id),  # nocheck
         header,
         html.Div(
             html.Div(
@@ -244,7 +245,7 @@ def landing_page_layout_fullscreen(
                 ),
                 className="d-flex justify-content-center align-items-center flex-grow-1",  # noqa
             ),
-            id=main_content_id,
+            id=main_content_id,  # nocheck
             className="flex-grow-1 d-flex flex-column",
         ),
     ]

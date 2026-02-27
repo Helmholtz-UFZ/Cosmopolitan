@@ -15,6 +15,7 @@ def level_badge(level: str) -> dbc.Badge:
         "ERROR": "danger",
         "CRITICAL": "dark",
     }
+    # dispatch lookup: level comes from log records, fallback for unexpected levels
     return dbc.Badge(level, color=color_map.get(level, "primary"), className="me-1")
 
 
@@ -34,7 +35,10 @@ def tag_badge(tag: str) -> dbc.Badge:
         "unknown": "secondary",
     }
     return dbc.Badge(
-        tag.upper(), color=color_map.get(category, "secondary"), className="me-1"
+        # dispatch lookup: category determined from tag, fallback for unknown
+        tag.upper(),
+        color=color_map.get(category, "secondary"),
+        className="me-1",
     )
 
 
@@ -70,6 +74,7 @@ def format_logs_list(
         items.append(
             html.Li(
                 content,
+                # no Bootstrap class for white-space: pre-wrap
                 style={"white-space": "pre-wrap"},
             )
         )
@@ -93,8 +98,9 @@ def create_logs_container(
         html.Div styled as a logs container
     """
     return html.Div(
-        id=container_id,
+        id=container_id,  # nocheck
         children=default_content,
         className="border p-3 bg-light rounded",
+        # no Bootstrap class for dynamic maxHeight + overflow scroll
         style={"maxHeight": max_height, "overflowY": "auto"},
     )

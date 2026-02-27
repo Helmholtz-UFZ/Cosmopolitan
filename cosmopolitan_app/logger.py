@@ -4,6 +4,7 @@ import datetime
 import logging
 import sys
 
+import psycopg2
 from psycopg2 import pool
 
 from cosmopolitan_app.config import (
@@ -100,8 +101,6 @@ class PostgreSQLHandler(logging.Handler):
             record: The log record to write. May contain 'tag' attribute from extra
             parameter.
         """
-        import psycopg2
-
         # Get a connection from the pool
         connection = self.connection_pool.getconn()
         connection_is_bad = False
@@ -158,14 +157,18 @@ class PostgreSQLHandler(logging.Handler):
                         new_connection.commit()
                 finally:
                     self.connection_pool.putconn(new_connection)
-            except Exception as retry_error:  # noqa
+            except (
+                Exception
+            ) as retry_error:  # retry can fail for any DB reason; fatal  # noqa
                 print(
                     f"FATAL: Database logging failed after retry. "
                     f"Worker cannot continue without logging capability: {retry_error}"
                 )
                 # Re-raise to fail the worker - logging is critical
                 raise
-        except Exception as e:  # noqa
+        except (
+            Exception
+        ) as e:  # any DB error is fatal — worker cannot operate without logging
             # Any other database error is also fatal
             print(f"FATAL: Error writing to PostgreSQL: {e}")
             # Re-raise to fail the worker
@@ -175,7 +178,9 @@ class PostgreSQLHandler(logging.Handler):
             if connection_is_bad:
                 try:
                     connection.close()
-                except Exception:  # noqa
+                except (
+                    Exception
+                ):  # close can fail on broken connection; safe to ignore  # noqa
                     pass
                 # putconn with close=True tells the pool this connection is bad
                 self.connection_pool.putconn(connection, close=True)

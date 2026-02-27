@@ -10,9 +10,11 @@ from cosmopolitan_app.background_job_manager import get_background_job_manager
 from cosmopolitan_app.config import DEBUG, PORT
 from cosmopolitan_app.error_handling import handle_error
 from cosmopolitan_app.files_route import serve_files
-from cosmopolitan_app.layouts import app_layout, register_navbar_callbacks
+from cosmopolitan_app.layouts import app_layout
 from cosmopolitan_app.logger import get_logger_config_web
 from cosmopolitan_app.object_storage_manager import create_bucket, setup_remote
+
+log = logging.getLogger(__name__)
 
 # Initialize the Dash app
 app = Dash(
@@ -27,7 +29,7 @@ server = app.server
 # Real server logging configuration
 dictConfig(get_logger_config_web(DEBUG))
 server.logger.setLevel(logging.DEBUG)
-logging.debug("Web application logging configured.")
+log.debug("Web application logging configured.", extra={"tag": "webserver"})
 # Start Celery Beat scheduler for periodic maintenance tasks
 setup_remote()
 create_bucket()
@@ -44,15 +46,12 @@ def start_beat_scheduler():
 # Start Beat scheduler as daemon thread
 beat_thread = Thread(target=start_beat_scheduler, daemon=True)
 beat_thread.start()
-logging.info(
+log.info(
     "Celery Beat scheduler started in background thread", extra={"tag": "scheduler"}
 )
 
 # Serve files
 serve_files(app)
-
-# Layout components
-register_navbar_callbacks(app)
 
 # Main app layout
 app.layout = app_layout()

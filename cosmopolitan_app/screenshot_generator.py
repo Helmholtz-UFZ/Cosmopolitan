@@ -13,6 +13,8 @@ from selenium.webdriver.chrome.options import Options
 
 from cosmopolitan_app.utils import wait_for_all_images_loaded
 
+log = logging.getLogger(__name__)
+
 # Pages to screenshot (module_name, url_path, display_title)
 PAGES_TO_SCREENSHOT = [
     # User workflow (5 pages)
@@ -75,7 +77,7 @@ class ScreenshotGenerator:
         driver = webdriver.Chrome(options=options)
         driver.set_window_size(self.viewport_size[0], self.viewport_size[1])
 
-        logging.info(
+        log.info(
             f"WebDriver initialized (headless={self.headless}, viewport={self.viewport_size})",  # noqa
             extra={"tag": "maintenance"},
         )
@@ -127,7 +129,7 @@ class ScreenshotGenerator:
         url = f"{self.base_url}{page_url}"
         output_path = output_dir / f"{page_name}.png"
 
-        logging.info(
+        log.info(
             f"Capturing screenshot: {page_name} from {url}",
             extra={"tag": "maintenance"},
         )
@@ -142,7 +144,7 @@ class ScreenshotGenerator:
         # Capture screenshot
         self.driver.save_screenshot(str(output_path))
 
-        logging.info(f"Screenshot saved: {output_path}", extra={"tag": "maintenance"})
+        log.info(f"Screenshot saved: {output_path}", extra={"tag": "maintenance"})
 
     def generate_all_screenshots(self, output_dir: Path) -> None:
         """Capture screenshots for all documentation pages.
@@ -155,7 +157,7 @@ class ScreenshotGenerator:
         Raises:
             Any exception from screenshot capture (fail-fast approach)
         """
-        logging.info(
+        log.info(
             f"Starting screenshot generation to {output_dir}",
             extra={"tag": "maintenance"},
         )
@@ -164,13 +166,9 @@ class ScreenshotGenerator:
         self.driver = self.setup_driver()
 
         # Verify server is accessible
-        logging.info(
-            f"Checking server at {self.base_url}...", extra={"tag": "maintenance"}
-        )
+        log.info(f"Checking server at {self.base_url}...", extra={"tag": "maintenance"})
         urllib.request.urlopen(self.base_url, timeout=5)
-        logging.info(
-            f"Server accessible at {self.base_url}", extra={"tag": "maintenance"}
-        )
+        log.info(f"Server accessible at {self.base_url}", extra={"tag": "maintenance"})
 
         # Capture all screenshots (no try/except - fail fast)
         for init_wait_time, page_name, page_url, page_title in PAGES_TO_SCREENSHOT:
@@ -180,7 +178,7 @@ class ScreenshotGenerator:
                 page_url = page_url.format(job_id_new=self.job_id_new)
             self.capture_screenshot(page_name, page_url, output_dir, init_wait_time)
 
-        logging.info(
+        log.info(
             f"All {len(PAGES_TO_SCREENSHOT)} screenshots captured successfully",
             extra={"tag": "maintenance"},
         )
@@ -189,4 +187,4 @@ class ScreenshotGenerator:
         """Clean up WebDriver."""
         if self.driver:
             self.driver.quit()
-            logging.info("WebDriver closed", extra={"tag": "maintenance"})
+            log.info("WebDriver closed", extra={"tag": "maintenance"})

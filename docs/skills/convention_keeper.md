@@ -29,7 +29,7 @@ Audit the codebase for convention violations and fix them systematically.
    - Callbacks or dynamic layouts without `log.info()` entry point
 
    **Error Handling** (`docs/conventions/error_handling.md`):
-   - `except Exception` without `# noqa` — bare exception catch
+   - `except Exception` without explanatory comment — bare exception catch
    - `dict.get(` — check if defensive or legitimate dispatch
 
    **Environment Variables** (`docs/conventions/environment_variables.md`):
@@ -46,17 +46,35 @@ Audit the codebase for convention violations and fix them systematically.
 
 3. **Categorize findings** — for each violation:
    - Is it a clear violation to fix now?
-   - Is it a known violation documented as "clean up later"?
+   - Is it an edge case where the convention doesn't apply? Add an inline comment
+     explaining why the deviation is necessary.
    - Is it an edge case that needs a convention update?
 
 4. **Fix clear violations** — apply fixes one convention at a time. Run tests after
    each batch of fixes.
 
-5. **Report remaining items** — list known violations that need future cleanup and
-   edge cases that need convention decisions.
+5. **Comment justified exceptions** — where a violation cannot be fixed (e.g., no
+   Bootstrap class exists, circular import, external API data), add a brief inline
+   comment explaining why:
+   ```python
+   # no Bootstrap class for white-space: pre-wrap
+   style={"white-space": "pre-wrap"},
+
+   # catch-all: computation can fail unpredictably; must log and email
+   except Exception as e:
+
+   # dispatch lookup: unknown exception types fall back to generic entry
+   error_responds_dict.get(type(error), ...)
+
+   # Import here to avoid circular imports
+   from cosmopolitan_app.job import Job
+   ```
+
+6. **Ask the user about ambiguous cases** — when it's unclear whether a pattern is
+   legitimate or a violation, present the context and ask rather than guessing.
 
 ## Verification
 
 - All fixes pass: `./run_pytest.sh --no-services`
 - No new violations introduced
-- Known violations are documented in the convention's "Known Violations" section
+- Every remaining exception has an inline comment explaining the deviation

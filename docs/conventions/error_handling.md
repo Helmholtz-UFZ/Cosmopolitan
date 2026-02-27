@@ -13,9 +13,15 @@ messages across all callbacks.
   catch exceptions that are already in `error_responds_dict`
 - Only catch specific exceptions in callbacks when you need to handle them differently
   (e.g., `PreventUpdate`, validation feedback)
-- Never use bare `except Exception` — always catch specific types
+- Never use bare `except Exception` — always catch specific types. When a catch-all
+  is genuinely necessary (e.g., top-level task handlers, email-must-not-crash guards),
+  add an inline comment explaining why:
+  ```python
+  except Exception as e:  # catch-all: computation can fail unpredictably; must log and mark FAILED
+  ```
 - `dict.get()` is acceptable for registry/dispatch lookups (like `error_responds_dict`)
-  where the key set is not guaranteed
+  and external API responses where keys are genuinely optional — add a brief comment.
+  Never use `dict.get()` defensively on internal data structures where keys are guaranteed
 
 ## Exception Pattern
 

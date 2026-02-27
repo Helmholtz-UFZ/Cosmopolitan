@@ -24,10 +24,29 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import Input, Output, State, callback, dash_table, dcc, html
 
-from cosmopolitan_app.constants import LOADING_OVERLAY_ID
+from cosmopolitan_app.constants import (
+    API_SENSORS_STORE_SENSOR_MANAGEMENT_ID,
+    API_SENSORS_TABLE_SENSOR_MANAGEMENT_ID,
+    DATABASE_SENSORS_STORE_SENSOR_MANAGEMENT_ID,
+    DATABASE_SENSORS_TABLE_SENSOR_MANAGEMENT_ID,
+    DATASTREAMS_FEEDBACK_SENSOR_MANAGEMENT_ID,
+    DUMMY_STORE_SENSOR_MANAGEMENT_ID,
+    EDIT_DATASTREAMS_TEXTAREA_SENSOR_MANAGEMENT_ID,
+    EDIT_IGNORED_SWITCH_SENSOR_MANAGEMENT_ID,
+    EDIT_SENSOR_INPUT_SENSOR_MANAGEMENT_ID,
+    EDIT_SENSOR_NAME_INPUT_SENSOR_MANAGEMENT_ID,
+    EDIT_SENSOR_TYPE_SELECT_SENSOR_MANAGEMENT_ID,
+    LOADING_OVERLAY_MODAL_SHARED_ID,
+    REFRESH_DATABASE_BUTTON_SENSOR_MANAGEMENT_ID,
+    REFRESH_STORE_SENSOR_MANAGEMENT_ID,
+    SUBMIT_EDIT_BUTTON_SENSOR_MANAGEMENT_ID,
+    SYNC_STATUS_ALERT_SENSOR_MANAGEMENT_ID,
+)
 from cosmopolitan_app.layouts import create_header, page_container_column_layout
 from cosmopolitan_app.postgres_manager import PostgresManager
 from cosmopolitan_app.timeio_manager import TimeIOManager
+
+log = logging.getLogger(__name__)
 
 dash.register_page(__name__, path="/sensor_management")
 
@@ -121,7 +140,7 @@ def shorten_json_string(s):
 def create_database_table():
     """Create the database sensors table component."""
     return dash_table.DataTable(
-        id="database-sensors-table",
+        id=DATABASE_SENSORS_TABLE_SENSOR_MANAGEMENT_ID,
         columns=[
             {
                 "id": "sensor_id",
@@ -202,7 +221,7 @@ def create_database_table():
 def create_api_table():
     """Create the TimeIO API sensors table component."""
     return dash_table.DataTable(
-        id="api-sensors-table",
+        id=API_SENSORS_TABLE_SENSOR_MANAGEMENT_ID,
         columns=[
             {"id": "sensor_id", "name": "ID", "type": "numeric"},
             {"id": "name", "name": "Name"},
@@ -255,9 +274,11 @@ edit_form = dbc.Form(
                 # Left column - Basic fields
                 dbc.Col(
                     [
-                        dbc.Label("Sensor ID", html_for="edit-sensor-id"),
+                        dbc.Label(
+                            "Sensor ID", html_for=EDIT_SENSOR_INPUT_SENSOR_MANAGEMENT_ID
+                        ),
                         dbc.Input(
-                            id="edit-sensor-id",
+                            id=EDIT_SENSOR_INPUT_SENSOR_MANAGEMENT_ID,
                             type="text",
                             placeholder="Enter sensor ID",
                             className="mb-3",
@@ -265,10 +286,10 @@ edit_form = dbc.Form(
                         ),
                         dbc.Label(
                             "Sensor Type",
-                            html_for="edit-sensor-type",
+                            html_for=EDIT_SENSOR_TYPE_SELECT_SENSOR_MANAGEMENT_ID,
                         ),
                         dbc.Select(
-                            id="edit-sensor-type",
+                            id=EDIT_SENSOR_TYPE_SELECT_SENSOR_MANAGEMENT_ID,
                             options=[
                                 {
                                     "label": "Station",
@@ -291,17 +312,17 @@ edit_form = dbc.Form(
                         ),
                         dbc.Label(
                             "Sensor Name",
-                            html_for="edit-sensor-name",
+                            html_for=EDIT_SENSOR_NAME_INPUT_SENSOR_MANAGEMENT_ID,
                         ),
                         dbc.Input(
-                            id="edit-sensor-name",
+                            id=EDIT_SENSOR_NAME_INPUT_SENSOR_MANAGEMENT_ID,
                             type="text",
                             placeholder="Enter sensor name",
                             className="mb-3",
                         ),
                         dbc.Label("Ignored Status"),
                         dbc.Switch(
-                            id="edit-ignored",
+                            id=EDIT_IGNORED_SWITCH_SENSOR_MANAGEMENT_ID,
                             label="Is Ignored",
                             value=False,
                             className="mb-3",
@@ -314,20 +335,22 @@ edit_form = dbc.Form(
                     [
                         dbc.Label(
                             "Datastreams (JSON)",
-                            html_for="edit-datastreams",
+                            html_for=EDIT_DATASTREAMS_TEXTAREA_SENSOR_MANAGEMENT_ID,
                         ),
                         dbc.Textarea(
-                            id="edit-datastreams",
+                            id=EDIT_DATASTREAMS_TEXTAREA_SENSOR_MANAGEMENT_ID,
                             placeholder='{"datastream_id": "datastream_name", ...}',
                             rows=20,
                             className="mb-3",
+                            # font-monospace only works on text elements, not textarea;
+                            # Bootstrap has no utility for 12px font size
                             style={
                                 "fontFamily": "monospace",
                                 "fontSize": "12px",
                             },
                         ),
                         dbc.FormFeedback(
-                            id="datastreams-feedback",
+                            id=DATASTREAMS_FEEDBACK_SENSOR_MANAGEMENT_ID,
                             type="invalid",
                         ),
                     ],
@@ -342,7 +365,7 @@ edit_form = dbc.Form(
                     [
                         dbc.Button(
                             "Update/Add Entry",
-                            id="submit-edit-btn",
+                            id=SUBMIT_EDIT_BUTTON_SENSOR_MANAGEMENT_ID,
                             color="success",
                             className="mt-3",
                             disabled=True,
@@ -363,15 +386,15 @@ layout = page_container_column_layout(
             "Manage sensor configurations and synchronize with TimeIO API",
         ),
         # Store components for data
-        dcc.Store(id="database-sensors-store", data=[]),
-        dcc.Store(id="api-sensors-store", data=[]),
-        dcc.Store(id="refresh-store", data=0),
-        dcc.Store(id="dummy-store", data=0),  # For loading overlay
+        dcc.Store(id=DATABASE_SENSORS_STORE_SENSOR_MANAGEMENT_ID, data=[]),
+        dcc.Store(id=API_SENSORS_STORE_SENSOR_MANAGEMENT_ID, data=[]),
+        dcc.Store(id=REFRESH_STORE_SENSOR_MANAGEMENT_ID, data=0),
+        dcc.Store(id=DUMMY_STORE_SENSOR_MANAGEMENT_ID, data=0),  # For loading overlay
         # Sync Status Alert (centered above tables)
         dbc.Row(
             dbc.Col(
                 dbc.Alert(
-                    id="sync-status-alert",
+                    id=SYNC_STATUS_ALERT_SENSOR_MANAGEMENT_ID,
                     className="text-center m-3",
                     is_open=False,
                 ),
@@ -395,14 +418,14 @@ layout = page_container_column_layout(
                                 create_database_table(),
                                 dbc.Button(
                                     "Refresh Database",
-                                    id="refresh-database-btn",
+                                    id=REFRESH_DATABASE_BUTTON_SENSOR_MANAGEMENT_ID,
                                     color="primary",
                                     className="mb-3",
                                 ),
                             ],
                             width=7,
                         ),
-                        # Vertical separator
+                        # Vertical separator — no Bootstrap class for 1px-wide divider
                         html.Div(
                             style={
                                 "width": "1px",
@@ -440,24 +463,24 @@ layout = page_container_column_layout(
 
 @callback(
     [
-        Output("database-sensors-store", "data"),
-        Output("database-sensors-table", "data"),
-        Output("api-sensors-store", "data"),
-        Output("api-sensors-table", "data"),
-        Output("sync-status-alert", "children"),
-        Output("sync-status-alert", "color"),
-        Output("sync-status-alert", "is_open"),
-        Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
+        Output(DATABASE_SENSORS_STORE_SENSOR_MANAGEMENT_ID, "data"),
+        Output(DATABASE_SENSORS_TABLE_SENSOR_MANAGEMENT_ID, "data"),
+        Output(API_SENSORS_STORE_SENSOR_MANAGEMENT_ID, "data"),
+        Output(API_SENSORS_TABLE_SENSOR_MANAGEMENT_ID, "data"),
+        Output(SYNC_STATUS_ALERT_SENSOR_MANAGEMENT_ID, "children"),
+        Output(SYNC_STATUS_ALERT_SENSOR_MANAGEMENT_ID, "color"),
+        Output(SYNC_STATUS_ALERT_SENSOR_MANAGEMENT_ID, "is_open"),
+        Output(LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True),
     ],
     [
-        Input("refresh-database-btn", "n_clicks"),
-        Input("refresh-store", "data"),
+        Input(REFRESH_DATABASE_BUTTON_SENSOR_MANAGEMENT_ID, "n_clicks"),
+        Input(REFRESH_STORE_SENSOR_MANAGEMENT_ID, "data"),
     ],
     prevent_initial_call=True,
 )
 def refresh_all_sensors(n_clicks, refresh_trigger):
     """Refresh both database and API sensors data."""
-    logging.info("Refreshing all sensors data", extra={"tag": "time_io"})
+    log.info("Refreshing all sensors data", extra={"tag": "time_io"})
 
     # First, refresh database sensors
     sensors = PostgresManager.get_all_timeio_sensors(not_ignored_only=False)
@@ -539,10 +562,10 @@ def refresh_all_sensors(n_clicks, refresh_trigger):
 
 
 @callback(
-    Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
-    Input("refresh-database-btn", "n_clicks"),
-    Input("refresh-store", "data"),
-    Input("dummy-store", "data"),
+    Output(LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True),
+    Input(REFRESH_DATABASE_BUTTON_SENSOR_MANAGEMENT_ID, "n_clicks"),
+    Input(REFRESH_STORE_SENSOR_MANAGEMENT_ID, "data"),
+    Input(DUMMY_STORE_SENSOR_MANAGEMENT_ID, "data"),
     prevent_initial_call=True,
 )
 def show_loading(n_clicks, refresh_trigger, _dummy_data):
@@ -550,18 +573,21 @@ def show_loading(n_clicks, refresh_trigger, _dummy_data):
     ctx = dash.callback_context
     if ctx.triggered:
         triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
-        if triggered_id in ["refresh-database-btn", "refresh-store"]:
+        if (
+            triggered_id == REFRESH_DATABASE_BUTTON_SENSOR_MANAGEMENT_ID
+            or triggered_id == REFRESH_STORE_SENSOR_MANAGEMENT_ID
+        ):
             return True
 
 
 @callback(
     [
-        Output("database-sensors-table", "selected_rows"),
-        Output("api-sensors-table", "selected_rows"),
+        Output(DATABASE_SENSORS_TABLE_SENSOR_MANAGEMENT_ID, "selected_rows"),
+        Output(API_SENSORS_TABLE_SENSOR_MANAGEMENT_ID, "selected_rows"),
     ],
     [
-        Input("database-sensors-table", "selected_rows"),
-        Input("api-sensors-table", "selected_rows"),
+        Input(DATABASE_SENSORS_TABLE_SENSOR_MANAGEMENT_ID, "selected_rows"),
+        Input(API_SENSORS_TABLE_SENSOR_MANAGEMENT_ID, "selected_rows"),
     ],
     prevent_initial_call=True,
 )
@@ -574,10 +600,10 @@ def handle_cross_table_selection(db_selected, api_selected):
     # Determine which input triggered the callback
     triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
 
-    if triggered_id == "database-sensors-table":
+    if triggered_id == DATABASE_SENSORS_TABLE_SENSOR_MANAGEMENT_ID:
         # Database table was selected, clear API selection
         return db_selected or [], []
-    elif triggered_id == "api-sensors-table":
+    elif triggered_id == API_SENSORS_TABLE_SENSOR_MANAGEMENT_ID:
         # API table was selected, clear database selection
         return [], api_selected or []
 
@@ -587,28 +613,28 @@ def handle_cross_table_selection(db_selected, api_selected):
 
 @callback(
     [
-        Output("edit-sensor-id", "value"),
-        Output("edit-sensor-name", "value"),
-        Output("edit-sensor-type", "value"),
-        Output("edit-ignored", "value"),
-        Output("edit-datastreams", "value"),
-        Output("submit-edit-btn", "disabled"),
-        Output("submit-edit-btn", "children"),
+        Output(EDIT_SENSOR_INPUT_SENSOR_MANAGEMENT_ID, "value"),
+        Output(EDIT_SENSOR_NAME_INPUT_SENSOR_MANAGEMENT_ID, "value"),
+        Output(EDIT_SENSOR_TYPE_SELECT_SENSOR_MANAGEMENT_ID, "value"),
+        Output(EDIT_IGNORED_SWITCH_SENSOR_MANAGEMENT_ID, "value"),
+        Output(EDIT_DATASTREAMS_TEXTAREA_SENSOR_MANAGEMENT_ID, "value"),
+        Output(SUBMIT_EDIT_BUTTON_SENSOR_MANAGEMENT_ID, "disabled"),
+        Output(SUBMIT_EDIT_BUTTON_SENSOR_MANAGEMENT_ID, "children"),
     ],
     [
-        Input("database-sensors-table", "selected_rows"),
-        Input("api-sensors-table", "selected_rows"),
+        Input(DATABASE_SENSORS_TABLE_SENSOR_MANAGEMENT_ID, "selected_rows"),
+        Input(API_SENSORS_TABLE_SENSOR_MANAGEMENT_ID, "selected_rows"),
     ],
     [
-        State("database-sensors-table", "data"),
-        State("database-sensors-store", "data"),
-        State("api-sensors-table", "data"),
+        State(DATABASE_SENSORS_TABLE_SENSOR_MANAGEMENT_ID, "data"),
+        State(DATABASE_SENSORS_STORE_SENSOR_MANAGEMENT_ID, "data"),
+        State(API_SENSORS_TABLE_SENSOR_MANAGEMENT_ID, "data"),
     ],
     prevent_initial_call=True,
 )
 def populate_edit_form(db_selected, api_selected, db_data, db_store_data, api_data):
     """Populate edit form based on table selection."""
-    logging.info("Populating edit form based on selection", extra={"tag": "time_io"})
+    log.info("Populating edit form based on selection", extra={"tag": "time_io"})
     if not db_selected and not api_selected:
         return (
             dash.no_update,
@@ -676,24 +702,26 @@ def populate_edit_form(db_selected, api_selected, db_data, db_store_data, api_da
 
 @callback(
     [
-        Output("edit-datastreams", "invalid"),
-        Output("datastreams-feedback", "children"),
-        Output("submit-edit-btn", "disabled", allow_duplicate=True),
+        Output(EDIT_DATASTREAMS_TEXTAREA_SENSOR_MANAGEMENT_ID, "invalid"),
+        Output(DATASTREAMS_FEEDBACK_SENSOR_MANAGEMENT_ID, "children"),
+        Output(
+            SUBMIT_EDIT_BUTTON_SENSOR_MANAGEMENT_ID, "disabled", allow_duplicate=True
+        ),
     ],
     [
-        Input("edit-datastreams", "value"),
-        Input("edit-sensor-type", "value"),
-        Input("edit-ignored", "value"),
+        Input(EDIT_DATASTREAMS_TEXTAREA_SENSOR_MANAGEMENT_ID, "value"),
+        Input(EDIT_SENSOR_TYPE_SELECT_SENSOR_MANAGEMENT_ID, "value"),
+        Input(EDIT_IGNORED_SWITCH_SENSOR_MANAGEMENT_ID, "value"),
     ],
     [
-        State("edit-sensor-id", "value"),
-        State("edit-sensor-name", "value"),
+        State(EDIT_SENSOR_INPUT_SENSOR_MANAGEMENT_ID, "value"),
+        State(EDIT_SENSOR_NAME_INPUT_SENSOR_MANAGEMENT_ID, "value"),
     ],
     prevent_initial_call=True,
 )
 def validate_datastreams_json(json_value, sensor_type, ignored, sensor_id, sensor_name):
     """Validate datastreams JSON format and content with enhanced rules."""
-    logging.info("Validating datastreams JSON", extra={"tag": "time_io"})
+    log.info("Validating datastreams JSON", extra={"tag": "time_io"})
     if sensor_id is None:
         return dash.no_update, dash.no_update, True
 
@@ -713,15 +741,15 @@ def validate_datastreams_json(json_value, sensor_type, ignored, sensor_id, senso
 
 @callback(
     [
-        Output("refresh-store", "data"),
+        Output(REFRESH_STORE_SENSOR_MANAGEMENT_ID, "data"),
     ],
-    Input("submit-edit-btn", "n_clicks"),
+    Input(SUBMIT_EDIT_BUTTON_SENSOR_MANAGEMENT_ID, "n_clicks"),
     [
-        State("edit-sensor-id", "value"),
-        State("edit-sensor-name", "value"),
-        State("edit-sensor-type", "value"),
-        State("edit-ignored", "value"),
-        State("edit-datastreams", "value"),
+        State(EDIT_SENSOR_INPUT_SENSOR_MANAGEMENT_ID, "value"),
+        State(EDIT_SENSOR_NAME_INPUT_SENSOR_MANAGEMENT_ID, "value"),
+        State(EDIT_SENSOR_TYPE_SELECT_SENSOR_MANAGEMENT_ID, "value"),
+        State(EDIT_IGNORED_SWITCH_SENSOR_MANAGEMENT_ID, "value"),
+        State(EDIT_DATASTREAMS_TEXTAREA_SENSOR_MANAGEMENT_ID, "value"),
     ],
     prevent_initial_call=True,
 )
@@ -741,7 +769,7 @@ def handle_form_submit(
     if not sensor_id or not sensor_name or not sensor_type:
         return dash.no_update
 
-    logging.info(f"Submitting form for sensor ID {sensor_id}", extra={"tag": "time_io"})
+    log.info(f"Submitting form for sensor ID {sensor_id}", extra={"tag": "time_io"})
 
     json_valid, message = valid_datastreams(datastreams_json, sensor_type, ignored)
     # Should not happen due to validation, but double-check

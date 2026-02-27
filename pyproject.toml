@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cosmopolitan"
-version = "0.0.68"
+version = "0.0.69"
 description = "COSmic ray based soil MOisture PredictiOn LIve descicion Tree ANalysis"
 authors = ["John Anders <john-eric.anders@ufz.de>"]
 readme = "README.md"
@@ -12,7 +12,7 @@ packages = [
 python = "^3.13"
 selenium = ">=4.0.0"
 dash = {extras = ["testing"], version = "^3.0.4"}
-soil-moisture-prediction = "^0.0.45"
+soil-moisture-prediction = "^0.1.0"
 dash-bootstrap-components = "^2.0.3"
 celery = {extras = ["redis"], version = "^5.3.0"}
 dotenv = "^0.9.9"

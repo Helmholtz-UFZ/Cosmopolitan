@@ -19,13 +19,15 @@ from cosmopolitan_app.postgres_manager import PostgresManager
 from cosmopolitan_app.timeio_manager import update_crns_measurments
 from cosmopolitan_app.utils import send_mail
 
+log = logging.getLogger(__name__)
+
 
 def clean_up_jobs(
     days_delete_not_submitted=DAYS_DELETE_NOT_SUMBITTED,
     days_delete_submitted=DAYS_DELETE_SUMBITTED,
 ):
     """Delete jobs depending on their status and age."""
-    logging.info("Start cleaning up jobs.", extra={"tag": "maintenance"})
+    log.info("Start cleaning up jobs.", extra={"tag": "maintenance"})
     kept_jobs = []
 
     # Define the time thresholds
@@ -37,25 +39,25 @@ def clean_up_jobs(
     for job_id, job_info in PostgresManager.list_jobs().items():
         submitted = job_info["submitted"]
         start_date = job_info["start_date"]
-        logging.debug(f"Check job {job_id}.", extra={"tag": "maintenance"})
+        log.debug(f"Check job {job_id}.", extra={"tag": "maintenance"})
         if not submitted and start_date <= job_end_of_life_not_submitted:
-            logging.debug(
+            log.debug(
                 f"Job was not submit and is older than {days_delete_not_submitted} days.",  # noqa
                 extra={"tag": "maintenance"},
             )
             PostgresManager.delete_job(job_id)
         elif start_date <= job_end_of_life_submitted:
-            logging.debug(
+            log.debug(
                 f"Job older than {days_delete_submitted} days.",
                 extra={"tag": "maintenance"},
             )
             PostgresManager.delete_job(job_id)
         else:
-            logging.debug("Job will be kept.", extra={"tag": "maintenance"})
+            log.debug("Job will be kept.", extra={"tag": "maintenance"})
             kept_jobs.append(job_id)
 
     # Delete directorys locally
-    logging.debug("Clean up directorys locally.", extra={"tag": "maintenance"})
+    log.debug("Clean up directorys locally.", extra={"tag": "maintenance"})
     for dir_name in os.listdir(WEB_WORK_DIR):
         dir_path = os.path.join(WEB_WORK_DIR, dir_name)
         if os.path.isdir(dir_path) and dir_name not in kept_jobs:
@@ -68,10 +70,10 @@ class MaintenanceTask(Task):
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         """Handle task failure."""
-        logging.error(
+        log.error(
             f"Maintenance task {task_id} failed: {exc}", extra={"tag": "maintenance"}
         )
-        logging.error(f"Traceback: {einfo}", extra={"tag": "maintenance"})
+        log.error(f"Traceback: {einfo}", extra={"tag": "maintenance"})
 
 
 def cleanup_task(self):
@@ -79,13 +81,11 @@ def cleanup_task(self):
 
     This replaces the APScheduler clean_up job.
     """
-    logging.info("Start cleaning up.", extra={"tag": "maintenance"})
+    log.info("Start cleaning up.", extra={"tag": "maintenance"})
     clean_up_jobs()
 
     log_cutoff = datetime.now() - timedelta(days=LOG_RETENTION_DAYS)
-    logging.info(
-        f"Cleaning up logs older than {log_cutoff}", extra={"tag": "maintenance"}
-    )
+    log.info(f"Cleaning up logs older than {log_cutoff}", extra={"tag": "maintenance"})
     PostgresManager.delete_logs_older_than(log_cutoff)
 
 
@@ -95,27 +95,34 @@ def update_db_task(self):
     This replaces the APScheduler update_db job.
     Tracks run progress in update_db_runs table for log filtering.
     """
-    logging.info("Start updating database.", extra={"tag": "time_io"})
+    log.info("Start updating database.", extra={"tag": "time_io"})
 
     # Create run record with current PID for log filtering
     pid = os.getpid()
     run_id = PostgresManager.create_update_run(pid)
-    logging.info(
-        f"Created update run {run_id} with PID {pid}", extra={"tag": "time_io"}
-    )
+    log.info(f"Created update run {run_id} with PID {pid}", extra={"tag": "time_io"})
 
     try:
         update_crns_measurments()
         PostgresManager.complete_update_run(run_id, "completed")
-        logging.info(
+        log.info(
             f"Update run {run_id} completed successfully", extra={"tag": "time_io"}
         )
-    except Exception as error:  # noqa
+    except Exception as error:  # catch-all: must log and email all failures  # noqa
         PostgresManager.complete_update_run(run_id, "failed")
         email_subject = f"Error updating database: {error}"
         email_body = f"""
         Traceback info: {traceback.format_exc()}\n\n
         """
-        send_mail(MAINTAINER_EMAIL, email_subject, email_body)
-        logging.error(email_subject, extra={"tag": "time_io"})
-        logging.error(email_body, extra={"tag": "time_io"})
+        try:
+            send_mail(MAINTAINER_EMAIL, email_subject, email_body)
+        except (
+            Exception
+        ):  # noqa - must not let email failure crash maintenance error path
+            log.error(
+                "Failed to send maintenance error email",
+                exc_info=True,
+                extra={"tag": "maintenance"},
+            )
+        log.error(email_subject, extra={"tag": "time_io"})
+        log.error(email_body, extra={"tag": "time_io"})

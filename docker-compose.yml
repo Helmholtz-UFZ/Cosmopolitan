@@ -6,6 +6,8 @@ services:
       context: .
       dockerfile: ./docker/dev.Dockerfile
     env_file: .env
+    environment:
+      TZ: Europe/Berlin
     user: "${DOCKER_UID}:${DOCKER_GID}"
     ports:
       - "${FLASK_PORT}:${FLASK_PORT}"
@@ -23,6 +25,8 @@ services:
       context: .
       dockerfile: ./docker/worker.Dockerfile
     env_file: .env
+    environment:
+      TZ: Europe/Berlin
     user: "${DOCKER_UID}:${DOCKER_GID}"
     depends_on:
       - postgres

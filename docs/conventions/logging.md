@@ -5,7 +5,7 @@ categorize log messages by functional area.
 
 ## Rules
 
-- Create a module-level logger in every module that logs:
+- Create a module-level logger in every module that logs, **after all imports**:
   ```python
   log = logging.getLogger(__name__)
   ```
@@ -44,6 +44,8 @@ Pick the tag that best describes the functional area. Frontend callbacks use
 
 ```python
 import logging
+
+from cosmopolitan_app.config import SOME_SETTING
 
 log = logging.getLogger(__name__)
 

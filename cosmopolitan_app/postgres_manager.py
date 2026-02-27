@@ -36,6 +36,8 @@ from cosmopolitan_app.config import (
 )
 from cosmopolitan_app.error_handling import JobNotFound
 
+log = logging.getLogger(__name__)
+
 
 class Base(DeclarativeBase):
     """Base class for declarative base."""
@@ -61,22 +63,22 @@ class SessionScope:
                 return self.session  # success
             except OperationalError as e:
                 if attempt < self.max_retries:
-                    logging.warning(
+                    log.warning(
                         f"Database OperationalError: {e}", extra={"tag": "database"}
                     )
-                    logging.warning(
+                    log.warning(
                         f"Retrying operation (attempt {attempt + 1}/{self.max_retries + 1})",  # noqa
                         extra={"tag": "database"},
                     )
                     time.sleep(self.retry_delay)
                 else:
-                    logging.error(
+                    log.error(
                         f"Max retries ({self.max_retries}) exceeded",
                         extra={"tag": "database"},
                     )
                     raise
             except SQLAlchemyError as e:
-                logging.error(f"Database error: {e}", extra={"tag": "database"})
+                log.error(f"Database error: {e}", extra={"tag": "database"})
                 raise
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -157,7 +159,7 @@ class PostgresManager:
         list
             List of dictionaries containing log records
         """
-        logging.debug(
+        log.debug(
             f"Querying logs from {date} {sh}:{sm} to {date} {eh}:{em}",
             extra={"tag": "database"},
         )
@@ -193,7 +195,7 @@ class PostgresManager:
     @classmethod
     def delete_logs_older_than(cls, cutoff_datetime):
         """Delete all log records older than the given datetime."""
-        logging.info(
+        log.info(
             f"Deleting logs older than {cutoff_datetime}", extra={"tag": "database"}
         )
         with cls.session_scope() as session:
@@ -214,7 +216,7 @@ class PostgresManager:
         Returns:
         bool: True if a job with the given job ID exists, False otherwise.
         """
-        logging.debug(f"Check existence of job: {job_id}", extra={"tag": "database"})
+        log.debug(f"Check existence of job: {job_id}", extra={"tag": "database"})
         with cls.session_scope() as session:
             job_row = session.query(JobTable.job_id).filter_by(job_id=job_id).first()
         return job_row is not None
@@ -229,7 +231,7 @@ class PostgresManager:
         data_to_insert (dict): A dictionary containing job information with keys
         equivalent to the columns in JobTable.
         """
-        logging.debug(
+        log.debug(
             f"Add entry to database: {data_to_insert['job_id']}",
             extra={"tag": "database"},
         )
@@ -243,7 +245,7 @@ class PostgresManager:
 
             if job_row is not None:
                 # Update existing entry
-                logging.debug("Update entry.", extra={"tag": "database"})
+                log.debug("Update entry.", extra={"tag": "database"})
                 job = (
                     session.query(JobTable)
                     .filter_by(job_id=data_to_insert["job_id"])
@@ -253,7 +255,7 @@ class PostgresManager:
                     setattr(job, column_name, column_value)
             else:
                 # Create new entry
-                logging.debug("New entry.", extra={"tag": "database"})
+                log.debug("New entry.", extra={"tag": "database"})
                 job_row = JobTable(**data_to_insert)
                 session.add(job_row)
 
@@ -268,7 +270,7 @@ class PostgresManager:
         Raises:
         JobNotFound: If the job with the provided job ID does not exist.
         """
-        logging.debug(f"Update columns for job: {job_id}", extra={"tag": "database"})
+        log.debug(f"Update columns for job: {job_id}", extra={"tag": "database"})
 
         with cls.session_scope() as session:
             job = session.query(JobTable).filter_by(job_id=job_id).first()
@@ -294,7 +296,7 @@ class PostgresManager:
         Raises:
         JobNotFound: If the job with the provided job ID does not exist.
         """
-        logging.debug(f"Set submitted for job: {job_id}", extra={"tag": "database"})
+        log.debug(f"Set submitted for job: {job_id}", extra={"tag": "database"})
 
         with cls.session_scope() as session:
             job = (
@@ -329,7 +331,7 @@ class PostgresManager:
         Raises:
         JobNotFound: If the job with the provided job ID does not exist.
         """
-        logging.debug(f"Get columns for job: {job_id}", extra={"tag": "database"})
+        log.debug(f"Get columns for job: {job_id}", extra={"tag": "database"})
 
         with cls.session_scope() as session:
             job_row = session.query(JobTable).filter_by(job_id=job_id).first()
@@ -358,7 +360,7 @@ class PostgresManager:
         Raises:
         JobNotFound: If the job with the provided job ID does not exist.
         """
-        logging.debug(f"Delete job: {job_id}", extra={"tag": "database"})
+        log.debug(f"Delete job: {job_id}", extra={"tag": "database"})
         with cls.session_scope() as session:
             job = session.query(JobTable).filter_by(job_id=job_id).first()
 
@@ -387,7 +389,7 @@ class PostgresManager:
         }
 
         """
-        logging.debug("List all jobs.", extra={"tag": "database"})
+        log.debug("List all jobs.", extra={"tag": "database"})
 
         with cls.session_scope() as session:
             job_rows = session.query(JobTable).all()
@@ -422,7 +424,7 @@ class PostgresManager:
         Returns:
         date: The last update date for CRNS measurements.
         """
-        logging.debug(
+        log.debug(
             "Get last update date for CRNS measurements", extra={"tag": "database"}
         )
 
@@ -458,7 +460,7 @@ class PostgresManager:
         Returns:
             date or None: The appropriate date based on the analysis logic
         """
-        logging.debug(
+        log.debug(
             "Get earliest missing or failed date for CRNS measurements",
             extra={"tag": "database"},
         )
@@ -537,7 +539,7 @@ class PostgresManager:
         # Convert to date if datetime
         update_date = cls._extract_date(day)
 
-        logging.debug(
+        log.debug(
             f"Add new update date for CRNS measurements: {update_date}",
             extra={"tag": "database"},
         )
@@ -569,7 +571,7 @@ class PostgresManager:
         # Convert to date if datetime
         check_date = cls._extract_date(day)
 
-        logging.debug(
+        log.debug(
             f"Check if update on {check_date} was successful", extra={"tag": "database"}
         )
 
@@ -580,15 +582,13 @@ class PostgresManager:
     @classmethod
     def reset_update_crns(cls):
         """Reset all update dates for CRNS measurements."""
-        logging.info(
+        log.info(
             "Reset all update dates for CRNS measurements", extra={"tag": "database"}
         )
 
         with cls.session_scope() as session:
             session.query(UpdateTimesCRNS).delete(synchronize_session=False)
-            logging.info(
-                "All CRNS update dates have been reset", extra={"tag": "database"}
-            )
+            log.info("All CRNS update dates have been reset", extra={"tag": "database"})
 
     @classmethod
     def insert_crns_measurements_from_df(cls, df):
@@ -601,7 +601,7 @@ class PostgresManager:
         Raises:
             ValueError: If required columns are missing or lat/lon contain null values.
         """
-        logging.debug(
+        log.debug(
             "Insert or update CRNS measurements from DataFrame",
             extra={"tag": "database"},
         )
@@ -621,7 +621,7 @@ class PostgresManager:
         # Check for extra columns (optional validation)
         extra_columns = df_columns - required_columns
         if extra_columns:
-            logging.warning(
+            log.warning(
                 f"DataFrame contains extra columns that will be ignored: {extra_columns}",  # noqa: E501
                 extra={"tag": "database"},
             )
@@ -631,7 +631,7 @@ class PostgresManager:
         df = df.dropna()
 
         if df.empty:
-            logging.warning(
+            log.warning(
                 "DataFrame is empty after dropping null values.",
                 extra={"tag": "database"},
             )
@@ -657,7 +657,7 @@ class PostgresManager:
 
         with cls.session_scope() as session:
             session.execute(stmt)
-            logging.debug(
+            log.debug(
                 f"Successfully inserted/updated {len(records)} CRNS measurements",
                 extra={"tag": "database"},
             )
@@ -665,7 +665,7 @@ class PostgresManager:
     @classmethod
     def get_measurement_points(cls, bbox, types, start_date, end_date, representative):
         """Retrieve measurement points."""
-        logging.debug(
+        log.debug(
             f"Get measurement points for types: {types} in bbox: {bbox} and date range: {start_date} to {end_date}",  # noqa: E501
             extra={"tag": "database"},
         )
@@ -701,11 +701,11 @@ class PostgresManager:
             col_names = [col.key for col in columns]
             data = [dict(zip(col_names, row)) for row in query.all()]
 
-        logging.debug(
+        log.debug(
             f"Retrieved {len(data)} measurement points", extra={"tag": "database"}
         )
         df = pd.DataFrame(data).dropna()
-        logging.debug(
+        log.debug(
             f"Returning {len(df)} measurement points after dropping NaNs",
             extra={"tag": "database"},
         )
@@ -721,7 +721,7 @@ class PostgresManager:
         Raises:
             Exception: If there's an error during index operations.
         """
-        logging.info(
+        log.info(
             "Rebuilding spatial index on crns_measurements.geom",
             extra={"tag": "database"},
         )
@@ -741,15 +741,15 @@ class PostgresManager:
 
             # Execute the SQL commands
             session.execute(text(drop_index_sql))
-            logging.debug("Dropped existing spatial index", extra={"tag": "database"})
+            log.debug("Dropped existing spatial index", extra={"tag": "database"})
 
             session.execute(text(create_index_sql))
-            logging.debug("Created new spatial index", extra={"tag": "database"})
+            log.debug("Created new spatial index", extra={"tag": "database"})
 
             # Commit the transaction
             session.commit()
 
-            logging.info(
+            log.info(
                 "Successfully rebuilt spatial index on crns_measurements.geom",
                 extra={"tag": "database"},
             )
@@ -764,7 +764,7 @@ class PostgresManager:
         Parameters:
         sensor_ids (list): List of sensor IDs to purge. If None, all sensors are purged.
         """
-        logging.info(
+        log.info(
             f"Purging measurement points for sensors: {sensor_ids}",
             extra={"tag": "database"},
         )
@@ -777,7 +777,7 @@ class PostgresManager:
             else:
                 session.query(CRNSMeasurement).delete(synchronize_session=False)
 
-            logging.info(
+            log.info(
                 "Measurement points purged successfully", extra={"tag": "database"}
             )
 
@@ -788,7 +788,7 @@ class PostgresManager:
         Returns:
             dict: {sensor_id: sensor_type} for active sensors
         """
-        logging.debug(
+        log.debug(
             "Getting TimeIO type mapping from database", extra={"tag": "database"}
         )
 
@@ -808,7 +808,7 @@ class PostgresManager:
         Returns:
             dict: {sensor_id: {datastream_id: datastream_name}} for active sensors
         """
-        logging.debug(
+        log.debug(
             "Getting TimeIO datastream mapping from database", extra={"tag": "database"}
         )
 
@@ -836,7 +836,7 @@ class PostgresManager:
         Returns:
             dict: {sensor_id: sensor_name} for active sensors
         """
-        logging.debug(
+        log.debug(
             "Getting TimeIO name mapping from database", extra={"tag": "database"}
         )
 
@@ -856,9 +856,7 @@ class PostgresManager:
         Returns:
             list: List of sensor_ids where ignored=True
         """
-        logging.debug(
-            "Getting ignored sensor IDs from database", extra={"tag": "database"}
-        )
+        log.debug("Getting ignored sensor IDs from database", extra={"tag": "database"})
 
         with cls.session_scope() as session:
             sensors = (
@@ -877,7 +875,7 @@ class PostgresManager:
         Returns:
             dict: Complete sensor information or None if not found
         """
-        logging.debug(
+        log.debug(
             f"Getting TimeIO sensor info for sensor_id: {sensor_id}",
             extra={"tag": "database"},
         )
@@ -913,7 +911,7 @@ class PostgresManager:
         Returns:
             list: List of sensor information dictionaries
         """
-        logging.debug(
+        log.debug(
             f"Getting all TimeIO sensors (not_ignored_only={not_ignored_only})",
             extra={"tag": "database"},
         )
@@ -948,7 +946,7 @@ class PostgresManager:
             bool: True if sensor was added/updated successfully, False otherwise
         """
         sensor_id = sensor_data["sensor_id"]
-        logging.debug(
+        log.debug(
             f"Adding/updating TimeIO sensor: {sensor_id}", extra={"tag": "database"}
         )
 
@@ -962,7 +960,7 @@ class PostgresManager:
 
             if existing_sensor:
                 # Update existing sensor
-                logging.debug(
+                log.debug(
                     f"Updating existing sensor {sensor_id}", extra={"tag": "database"}
                 )
                 for key, value in sensor_data.items():
@@ -970,9 +968,7 @@ class PostgresManager:
                         setattr(existing_sensor, key, value)
             else:
                 # Add new sensor
-                logging.debug(
-                    f"Adding new sensor {sensor_id}", extra={"tag": "database"}
-                )
+                log.debug(f"Adding new sensor {sensor_id}", extra={"tag": "database"})
                 new_sensor = TimeIOInfo(**sensor_data)
                 session.add(new_sensor)
 
@@ -987,7 +983,7 @@ class PostgresManager:
         Returns:
             Configuration value as string, or None if not found
         """
-        logging.debug(f"Getting config value for key: {key}", extra={"tag": "database"})
+        log.debug(f"Getting config value for key: {key}", extra={"tag": "database"})
 
         with cls.session_scope() as session:
             config = session.query(AppConfig).filter(AppConfig.key == key).first()
@@ -1001,7 +997,7 @@ class PostgresManager:
             key: Configuration key to set
             value: Configuration value (can be None)
         """
-        logging.debug(
+        log.debug(
             f"Setting config value for key: {key} to: {value}",
             extra={"tag": "database"},
         )
@@ -1048,7 +1044,7 @@ class PostgresManager:
         cls.set_config("crns_start_date", start_str)
         cls.set_config("crns_end_date", end_str)
 
-        logging.info(
+        log.info(
             f"Set CRNS date range: {start_date} to {end_date}",
             extra={"tag": "database"},
         )
@@ -1056,7 +1052,7 @@ class PostgresManager:
     @classmethod
     def purge_crns_data(cls) -> None:
         """Purge all CRNS measurements and reset update tracking."""
-        logging.warning(
+        log.warning(
             "Purging all CRNS measurements and update tracking",
             extra={"tag": "database"},
         )
@@ -1067,7 +1063,7 @@ class PostgresManager:
             # Delete all update tracking
             session.query(UpdateTimesCRNS).delete(synchronize_session=False)
 
-        logging.info(
+        log.info(
             "CRNS data purge complete",
             extra={"tag": "database"},
         )
@@ -1098,7 +1094,7 @@ class PostgresManager:
         Returns:
             ID of the created run record
         """
-        logging.debug(
+        log.debug(
             f"Creating update run record for PID: {pid}",
             extra={"tag": "database"},
         )
@@ -1123,7 +1119,7 @@ class PostgresManager:
             run_id: ID of the run to complete
             status: Final status ('completed' or 'failed')
         """
-        logging.debug(
+        log.debug(
             f"Completing update run {run_id} with status: {status}",
             extra={"tag": "database"},
         )

@@ -9,7 +9,7 @@ from dash import Input, Output, State, dcc, html
 from pydantic_core import ValidationError
 from soil_moisture_prediction.input_data import stream_dic
 
-from cosmopolitan_app.constants import CHECK_INPUT_ID
+from cosmopolitan_app.constants import CHECK_INPUT_BUTTON_INPUT_ID
 from cosmopolitan_app.pydantic_models import ModelWebsite
 
 
@@ -64,7 +64,7 @@ class FormFactory:
             self.delete_id_format = "delete_{field_name}"
             self.start_date_id_format = "{field_name}_start_date"
             self.end_date_id_format = "{field_name}_end_date"
-            self.id_check_input_button = CHECK_INPUT_ID
+            self.id_check_input_button = CHECK_INPUT_BUTTON_INPUT_ID
         else:
             self.id_format = ""
             self.feedback_id_format = ""
@@ -171,7 +171,7 @@ class FormFactory:
                 html.Br(),
                 dbc.FormText(
                     "",
-                    id=id_feedback,
+                    id=id_feedback,  # nocheck
                     className="text-danger",
                 ),
             ]
@@ -182,7 +182,7 @@ class FormFactory:
                 component_class(**props),
                 html.Br(),
                 dbc.FormText(field.description),
-                dbc.FormText(id=id_feedback, className="text-danger"),
+                dbc.FormText(id=id_feedback, className="text-danger"),  # nocheck
             ]
         elif field_type in ["multiple-file-upload", "file-upload"]:
             # file_information = ";".join([",".join(info) for info in value])
@@ -191,14 +191,14 @@ class FormFactory:
                 dbc.Label(field.title),
                 component_class(**props),
                 dcc.Input(
-                    id=self.hidden_id_format.format(field_name=field_name),
+                    id=self.hidden_id_format.format(field_name=field_name),  # nocheck
                     type="text",
                     value=file_information,
-                    style={"display": "none"},
+                    className="d-none",
                 ),
                 dbc.Button(
                     "Delete files",
-                    id=self.delete_id_format.format(field_name=field_name),
+                    id=self.delete_id_format.format(field_name=field_name),  # nocheck
                     color="warning",
                     className="my-2",
                 ),
@@ -207,7 +207,7 @@ class FormFactory:
                 html.Br(),
                 dbc.FormText(
                     "",
-                    id=id_feedback,
+                    id=id_feedback,  # nocheck
                     className="text-danger",
                 ),
             ]
@@ -216,7 +216,7 @@ class FormFactory:
                 dbc.Label(field.title),
                 component_class(**props),
                 dbc.FormText(field.description),
-                dbc.FormFeedback(id=id_feedback),
+                dbc.FormFeedback(id=id_feedback),  # nocheck
             ]
         return content
 
@@ -234,17 +234,17 @@ class FormFactory:
                 card_layout.append(
                     dbc.Row(
                         col,
-                        class_name="m-2",
+                        className="m-2",
                     )
                 )
 
             self.form_layout.append(
                 dbc.Card(
                     [
-                        dbc.CardHeader(group_name, class_name="w-100 text-center fs-4"),
+                        dbc.CardHeader(group_name, className="w-100 text-center fs-4"),
                         dbc.CardBody(card_layout),
                     ],
-                    class_name="my-2 d-flex justify-content-center align-items-center",
+                    className="my-2 d-flex justify-content-center align-items-center",
                 )
             )
 
@@ -254,10 +254,10 @@ class FormFactory:
                     dbc.Col(
                         dbc.Button(
                             "Check input",
-                            id=self.id_check_input_button,
+                            id=self.id_check_input_button,  # nocheck
                             color="primary",
                         ),
-                        class_name="m-2 d-flex justify-content-center align-items-center",  # noqa
+                        className="m-2 d-flex justify-content-center align-items-center",  # noqa
                     ),
                 )
             )
@@ -535,11 +535,13 @@ def construct_selected_input(
                 html.Div(input_name, className="fw-bold"),
                 html.Div(
                     coverage,
+                    # no Bootstrap class for white-space: pre-line
                     style={"white-space": "pre-line"},
                     className="" if coverage_okay else "text-danger",
                 ),
                 html.Small(
                     general_info,
+                    # no Bootstrap class for white-space: pre-line
                     style={"white-space": "pre-line"},
                     className="text-muted",
                 ),
@@ -549,6 +551,7 @@ def construct_selected_input(
                 html.Div(input_name, className="fw-bold"),
                 html.Small(
                     general_info,
+                    # no Bootstrap class for white-space: pre-line
                     style={"white-space": "pre-line"},
                     className="text-muted",
                 ),
@@ -597,14 +600,18 @@ class FormTemplateFactory:
         """Create form layout template."""
         job_id_information = [
             html.Div("Job ID", className="text-center fw-bold fs-4"),
-            html.Div(self.job_id, id=self.job_id_key, className="text-center"),
+            html.Div(
+                self.job_id,
+                id=self.job_id_key,  # nocheck
+                className="text-center",
+            ),
         ]
 
         selected_predictors = [
             html.H5("Selected Predictors", className="text-center"),
             html.Div(
                 self.selected_predictors,
-                id=self.selected_predictors_key,
+                id=self.selected_predictors_key,  # nocheck
                 className="text-center",
             ),
         ]
@@ -612,7 +619,9 @@ class FormTemplateFactory:
         selected_crns = [
             html.H5("Selected CRNS measurements", className="text-center"),
             html.Div(
-                self.selected_crns, id=self.selected_crns_key, className="text-center"
+                self.selected_crns,
+                id=self.selected_crns_key,  # nocheck
+                className="text-center",
             ),
         ]
 
@@ -620,7 +629,7 @@ class FormTemplateFactory:
             html.H5("Area preview:"),
             dbc.Spinner(
                 html.Img(
-                    id=self.area_preview_key,
+                    id=self.area_preview_key,  # nocheck
                     className="col-6 mx-auto d-block",
                     src=self.preview_src,
                     alt="area preview",
@@ -632,10 +641,9 @@ class FormTemplateFactory:
                 html.Div(
                     dbc.Button(
                         "Generate preview",
-                        id=self.new_area_preview_key,
+                        id=self.new_area_preview_key,  # nocheck
                         color="primary",
-                        class_name="my-2",
-                        style={"width": "auto"},
+                        className="my-2 w-auto",
                     ),
                     className="d-flex justify-content-center",
                 )

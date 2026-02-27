@@ -51,6 +51,8 @@ from cosmopolitan_app.utils import send_mail
 
 LOG_FILE_NAME = "logs"
 
+log = logging.getLogger(__name__)
+
 
 def find_unique_job_id() -> str:
     """Find a unique job id."""
@@ -93,7 +95,7 @@ def draw_preview(
     Raises:
         requests.exceptions.ConnectionError: If tile download fails after all retries
     """
-    logging.info(
+    log.info(
         f"Draw preview for area: {min_lat}, {min_lon}, {max_lat}, {max_lon}",
         extra={"tag": "job_submission"},
     )
@@ -166,14 +168,14 @@ def draw_preview(
         except (requests.exceptions.ConnectionError, ConnectionResetError) as e:
             if attempt < max_retries - 1:
                 delay = retry_delay * (2**attempt)
-                logging.warning(
+                log.warning(
                     f"Map tile download failed (attempt {attempt + 1}/{max_retries}), "
                     f"retrying in {delay:.1f}s: {type(e).__name__}: {e}",
                     extra={"tag": "job_submission"},
                 )
                 time.sleep(delay)
             else:
-                logging.error(
+                log.error(
                     f"Map tile download failed after {max_retries} attempts: {type(e).__name__}: {e}",  # noqa
                     extra={"tag": "job_submission"},
                 )
@@ -225,31 +227,29 @@ class Job:
 
     def load(self):
         """Load job from database and store files in working dir."""
-        logging.info(f"Load submission {self.job_id}", extra={"tag": "job_submission"})
+        log.info(f"Load submission {self.job_id}", extra={"tag": "job_submission"})
 
         try:
             validate_job_id(self.job_id)
         except ValueError:
             raise InvalidJobID(self.job_id)
 
-        logging.debug(
-            f"Job id: {self.job_id} is valid", extra={"tag": "job_submission"}
-        )
+        log.debug(f"Job id: {self.job_id} is valid", extra={"tag": "job_submission"})
 
         for name, value in PostgresManager.get_job_columns(self.job_id).items():
-            logging.debug((f"Load column {name}"), extra={"tag": "job_submission"})
+            log.debug((f"Load column {name}"), extra={"tag": "job_submission"})
             if name == "input_data":
                 self.model = ModelWebsite(**json.loads(value))
             setattr(self, str(name), value)
 
-        logging.debug(
+        log.debug(
             f"Job {self.job_id} loaded from database", extra={"tag": "job_submission"}
         )
 
         self.working_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=self.job_id)
         os.makedirs(self.working_dir, exist_ok=True)
         get_files(self.job_id)
-        logging.debug(
+        log.debug(
             f"Job {self.job_id} files downloaded from object storage",
             extra={"tag": "job_submission"},
         )
@@ -273,7 +273,7 @@ class Job:
 
     def _blank_job(self, new_job_id):
         """Create a new job with a new job id."""
-        logging.info("Create new job", extra={"tag": "job_submission"})
+        log.info("Create new job", extra={"tag": "job_submission"})
 
         if new_job_id is None:
             job_id = find_unique_job_id()
@@ -301,7 +301,7 @@ class Job:
 
     def dump_parameters(self):
         """Dump the parameters of the model to the working directory."""
-        logging.debug("Dump parameters to JSON file", extra={"tag": "job_submission"})
+        log.debug("Dump parameters to JSON file", extra={"tag": "job_submission"})
         with open(
             os.path.join(self.working_dir, "parameters.json"), "w", encoding="UTF-8"
         ) as f_handle:
@@ -320,7 +320,7 @@ class Job:
         Args:
             item_name: Name of the file or folder to delete (relative to working_dir)
         """
-        logging.debug(
+        log.debug(
             f"Delete item {item_name} from job {self.job_id}",
             extra={"tag": "job_submission"},
         )
@@ -338,7 +338,7 @@ class Job:
 
     def preview_area(self, draw_empty: bool = True):
         """Draw a preview of the area and add measurement points."""
-        logging.debug("Draw preview", extra={"tag": "job_submission"})
+        log.debug("Draw preview", extra={"tag": "job_submission"})
 
         preview_area_wildcard = os.path.join(
             self.working_dir, self.preview_area_filename_template.format(position="*")
@@ -402,7 +402,7 @@ class Job:
         This method removes all files in the working directory that match the specified
         input type.
         """
-        logging.debug(
+        log.debug(
             f"Delete input files of type {input_type}", extra={"tag": "job_submission"}
         )
         for file_name in os.listdir(self.working_dir):
@@ -415,15 +415,13 @@ class Job:
         This method parses all input files once more but cut them to the area of the
         model.
         """
-        logging.debug("Prepare input files", extra={"tag": "job_submission"})
+        log.debug("Prepare input files", extra={"tag": "job_submission"})
         crns_upload = {}
         predictors_upload = {}
         for file_name in os.listdir(self.working_dir):
-            logging.debug(f"File {file_name}", extra={"tag": "job_submission"})
+            log.debug(f"File {file_name}", extra={"tag": "job_submission"})
             if file_name.startswith(f"{self.original_file_prefix}_crn_"):
-                logging.debug(
-                    f"Parse file {file_name}", extra={"tag": "job_submission"}
-                )
+                log.debug(f"Parse file {file_name}", extra={"tag": "job_submission"})
                 file_path = os.path.join(self.working_dir, file_name)
                 with open(file_path, "r") as file:
                     file_name, file_info = self.safe_input_file(
@@ -431,9 +429,7 @@ class Job:
                     )
                 crns_upload[file_name] = file_info
             elif file_name.startswith(f"{self.original_file_prefix}_pred_"):
-                logging.debug(
-                    f"Parse file {file_name}", extra={"tag": "job_submission"}
-                )
+                log.debug(f"Parse file {file_name}", extra={"tag": "job_submission"})
                 file_path = os.path.join(self.working_dir, file_name)
                 with open(file_path, "r") as file:
                     file_name, file_info = self.safe_input_file(
@@ -442,7 +438,7 @@ class Job:
                 predictors_upload[file_name] = file_info
 
         if any((self.model.train_data, self.model.rover_data, self.model.station_data)):
-            logging.debug(
+            log.debug(
                 "Prepare CRNS data from database", extra={"tag": "job_submission"}
             )
             crns_info = self._write_crns()
@@ -453,7 +449,7 @@ class Job:
             }
             self.model.soil_moisture_data = "crns_data.csv"
         else:
-            logging.debug(crns_upload)
+            log.debug(crns_upload)
             self.model.crns_upload = crns_upload
 
         self.prepared_input = True
@@ -463,7 +459,7 @@ class Job:
 
     def _write_crns(self):
         """Write CRNS data to CSV file."""
-        logging.debug("Write CRNS data to CSV file", extra={"tag": "job_submission"})
+        log.debug("Write CRNS data to CSV file", extra={"tag": "job_submission"})
         # Bbox for PostGIS query
         transformer_to_wgs = Transformer.from_crs(
             self.model.projection, "EPSG:4326", always_xy=True
@@ -523,7 +519,7 @@ class Job:
 
     def safe_input_file(self, file_name, file_content, input_type, upload: bool = True):
         """Check the content of the files and override data with file name and hash."""
-        logging.info(f"Safe input file {file_name}", extra={"tag": "job_submission"})
+        log.info(f"Safe input file {file_name}", extra={"tag": "job_submission"})
         if upload:
             # Set the geometry to infinity to not restrict the area
             geometry = RectGeom(
@@ -637,7 +633,7 @@ class Job:
         data as to the respective column in the database.
         If the job can not be found in data base safe all attributes.
         """
-        logging.debug(
+        log.debug(
             f"Save attributes {', '.join(attribute_list)} to job {self.job_id}",
             extra={"tag": "job_submission"},
         )
@@ -654,7 +650,7 @@ class Job:
         instance. It then uses a PostgresManager instance to add the collected
         data as a new entry in the database.
         """
-        logging.debug(f"Save job {self.job_id}", extra={"tag": "job_submission"})
+        log.debug(f"Save job {self.job_id}", extra={"tag": "job_submission"})
         # Save files first. Can lead to race conditions between worker and web app.
         save_files(self.job_id)
         column_names = JobTable.__table__.columns.keys()
@@ -672,7 +668,7 @@ class Job:
         This method uses a PostgresManager instance to delete the job entry from
         the database based on the job's unique identifier ('job_id').
         """
-        logging.debug(f"Delete job {self.job_id}", extra={"tag": "job_submission"})
+        log.debug(f"Delete job {self.job_id}", extra={"tag": "job_submission"})
         if delete_work_dir:
             shutil.rmtree(self.working_dir)
         if delete_db:
@@ -691,7 +687,7 @@ class Job:
 
     def submit(self):
         """Submit job to Celery queue for background processing."""
-        logging.info(f"Submit job {self.job_id}.", extra={"tag": "job_submission"})
+        log.info(f"Submit job {self.job_id}.", extra={"tag": "job_submission"})
 
         if PostgresManager.set_submitted(self.job_id):
             self.submitted = True
@@ -707,7 +703,9 @@ class Job:
                 # Submit job to Celery queue
                 celery_task_id, failed = job_manager.submit_computation_job(self)
 
-            except Exception as e:  # noqa
+            except (
+                Exception
+            ) as e:  # catch-all: submission can fail for many reasons; must report all  # noqa
                 if "Error -3 connecting to redis" in str(e):
                     message = "Redis server is not running"
                     email_body = f"""
@@ -722,7 +720,7 @@ class Job:
                     Traceback info: {traceback.format_exc()}\n\n
                     """
 
-                logging.error(
+                log.error(
                     f"Job {self.job_id} failed to start.\n{message}",
                     extra={"tag": "job_submission"},
                 )
@@ -740,7 +738,7 @@ class Job:
                 failed = True
                 celery_task_id = None
         else:
-            logging.debug(
+            log.debug(
                 f"Job {self.job_id} was already submitted.",
                 extra={"tag": "job_submission"},
             )
@@ -778,7 +776,7 @@ class Job:
 
     def copy_input_files(self, parent_work_dir):
         """Copy input files of the parent job to the working directory of the job."""
-        logging.info(
+        log.info(
             f"Copy input files from parent for job {self.job_id}.",
             extra={"tag": "job_submission"},
         )
@@ -790,7 +788,7 @@ class Job:
 
     def spawn(self) -> Self:
         """Clone the job."""
-        logging.info(f"Spawn job {self.job_id}.", extra={"tag": "job_submission"})
+        log.info(f"Spawn job {self.job_id}.", extra={"tag": "job_submission"})
         new_model = deepcopy(self.model)
         i = 1
         while True:
@@ -806,9 +804,7 @@ class Job:
 
     def clean_work_dir(self):
         """Clean the working directory."""
-        logging.info(
-            f"Clean work dir {self.working_dir}", extra={"tag": "job_submission"}
-        )
+        log.info(f"Clean work dir {self.working_dir}", extra={"tag": "job_submission"})
 
         for file in os.listdir(self.working_dir):
             if file.startswith(self.original_file_prefix):
@@ -823,7 +819,5 @@ class Job:
 
     def delete_logs(self):
         """Delete the logs."""
-        logging.info(
-            f"Delete logs of job {self.job_id}", extra={"tag": "job_submission"}
-        )
+        log.info(f"Delete logs of job {self.job_id}", extra={"tag": "job_submission"})
         self.delete_item(LOG_FILE_NAME)

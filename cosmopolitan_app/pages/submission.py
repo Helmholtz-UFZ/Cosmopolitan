@@ -25,17 +25,21 @@ from dash import Input, Output, State, callback, callback_context, dcc, html
 from flask import url_for
 
 from cosmopolitan_app.constants import (
-    CHANGE_INPUT_BUTTON_ID,
-    JOB_LOGS_ID,
-    LOADING_OVERLAY_ID,
-    RESULT_BUTTON_ID,
-    SPAWN_BUTTON_ID,
-    SUBMISSION_HEADER_ID,
-    SUBMISSION_JOB_ID_STORE,
-    SUBMISSION_MAIN_CONTENT_ID,
-    SUBMISSION_STATUS_ID,
-    SUBMIT_JOB_ID,
-    URL_ID,
+    ACCORDION_SUBMISSION_ID,
+    CHANGE_INPUT_BUTTON_SUBMISSION_ID,
+    HEADER_DIV_SUBMISSION_ID,
+    ICON_SUBMISSION_ID,
+    INTERVAL_SUBMISSION_ID,
+    JOB_LOGS_DIV_SUBMISSION_ID,
+    JOB_STORE_SUBMISSION_ID,
+    LOADING_OVERLAY_MODAL_SHARED_ID,
+    MAIN_CONTENT_DIV_SUBMISSION_ID,
+    RESULT_BUTTON_SUBMISSION_ID,
+    SPAWN_BUTTON_SUBMISSION_ID,
+    STATUS_DIV_SUBMISSION_ID,
+    SUBMIT_JOB_BUTTON_SUBMISSION_ID,
+    TIME_TO_LIFE_DIV_SUBMISSION_ID,
+    URL_LOCATION_SHARED_ID,
 )
 from cosmopolitan_app.files_route import create_download_button
 from cosmopolitan_app.form_factory import (
@@ -46,6 +50,8 @@ from cosmopolitan_app.form_factory import (
 from cosmopolitan_app.job import Job
 from cosmopolitan_app.layouts import landing_page_layout_column
 from cosmopolitan_app.utils import swap_classes
+
+log = logging.getLogger(__name__)
 
 dash.register_page(
     __name__,
@@ -86,7 +92,7 @@ def wrap_button(button):
     return dbc.Row(
         dbc.Col(
             button,
-            class_name="m-2 d-flex justify-content-center align-items-center",
+            className="m-2 d-flex justify-content-center align-items-center",
         ),
     )
 
@@ -100,13 +106,16 @@ def create_button_set(status, job_id):
 
     submit_button = wrap_button(
         dbc.Button(
-            "Submit", id=SUBMIT_JOB_ID, color="primary", disabled=disabled_submit
+            "Submit",
+            id=SUBMIT_JOB_BUTTON_SUBMISSION_ID,
+            color="primary",
+            disabled=disabled_submit,
         )
     )
     change_input_button = wrap_button(
         dbc.Button(
             "Change input",
-            id=CHANGE_INPUT_BUTTON_ID,
+            id=CHANGE_INPUT_BUTTON_SUBMISSION_ID,
             color="primary",
             disabled=disabled_change_input,
         )
@@ -114,7 +123,7 @@ def create_button_set(status, job_id):
     spawn_button = wrap_button(
         dbc.Button(
             "Spawn new job",
-            id=SPAWN_BUTTON_ID,
+            id=SPAWN_BUTTON_SUBMISSION_ID,
             color="primary",
             disabled=disabled_spawn,
         )
@@ -122,7 +131,7 @@ def create_button_set(status, job_id):
     result_button = wrap_button(
         dbc.Button(
             "Result",
-            id=RESULT_BUTTON_ID,
+            id=RESULT_BUTTON_SUBMISSION_ID,
             color="primary",
             disabled=disabled_result,
         )
@@ -145,26 +154,26 @@ def layout(job_id):
     """Layout for submission page."""
     return landing_page_layout_column(
         "Job Submission",
-        SUBMISSION_HEADER_ID,
-        SUBMISSION_JOB_ID_STORE,
+        HEADER_DIV_SUBMISSION_ID,
+        JOB_STORE_SUBMISSION_ID,
         job_id,
-        SUBMISSION_MAIN_CONTENT_ID,
+        MAIN_CONTENT_DIV_SUBMISSION_ID,
     )
 
 
 @callback(
     [
-        Output(SUBMISSION_HEADER_ID, "className", allow_duplicate=True),
-        Output(f"{SUBMISSION_HEADER_ID}-subtitle", "children"),
-        Output(SUBMISSION_MAIN_CONTENT_ID, "children"),
+        Output(HEADER_DIV_SUBMISSION_ID, "className", allow_duplicate=True),
+        Output(f"{HEADER_DIV_SUBMISSION_ID}-subtitle", "children"),
+        Output(MAIN_CONTENT_DIV_SUBMISSION_ID, "children"),
     ],
-    [Input(SUBMISSION_JOB_ID_STORE, "data")],
-    [State(SUBMISSION_HEADER_ID, "className")],
+    [Input(JOB_STORE_SUBMISSION_ID, "data")],
+    [State(HEADER_DIV_SUBMISSION_ID, "className")],
     prevent_initial_call="initial_duplicate",
 )
 def load_submission_content(job_id, header_class_name):
     """Load the main submission content triggered by job-id-store."""
-    logging.info(
+    log.info(
         f"Loading submission content for job {job_id}", extra={"tag": "job_submission"}
     )
     job = Job(job_id)
@@ -176,7 +185,7 @@ def load_submission_content(job_id, header_class_name):
     # Generate preview
     preview_path = job.get_preview_path()
     if preview_path is None:
-        logging.info(
+        log.info(
             "No preview path found, generating new preview.", extra={"tag": "frontend"}
         )
         job.preview_area()
@@ -227,8 +236,9 @@ def load_submission_content(job_id, header_class_name):
                 [
                     html.Div(
                         job.logs,
-                        id=JOB_LOGS_ID,
+                        id=JOB_LOGS_DIV_SUBMISSION_ID,
                         className="w-100 bg-dark text-white p-3 rounded font-monospace",
+                        # no Bootstrap class for white-space: pre-wrap
                         style={"white-space": "pre-wrap"},
                     ),
                 ],
@@ -237,7 +247,7 @@ def load_submission_content(job_id, header_class_name):
                         "Logs",
                         html.I(
                             className=f"bi bi-x-octagon-fill ms-2 {icon_color}",
-                            id="submission_icon",
+                            id=ICON_SUBMISSION_ID,
                         ),
                     ]
                 ),
@@ -245,7 +255,7 @@ def load_submission_content(job_id, header_class_name):
                 style=accordion_item_style,
             ),
         ],
-        id="accordion",
+        id=ACCORDION_SUBMISSION_ID,
         active_item=active_item,
     )
 
@@ -256,22 +266,22 @@ def load_submission_content(job_id, header_class_name):
     # Create main content with interval (returned by callback)
     main_content = html.Div(
         [
-            dcc.Interval(id="interval", interval=2000, disabled=True),
+            dcc.Interval(id=INTERVAL_SUBMISSION_ID, interval=2000, disabled=True),
             html.Div(
                 status_information_template.format(status=job.status),
-                id=SUBMISSION_STATUS_ID,
+                id=STATUS_DIV_SUBMISSION_ID,
                 className="text-center fs-4",
+                # no Bootstrap class for white-space: pre-line
                 style={"white-space": "pre-line"},
             ),
             html.Div(
                 deletion_information_template.format(time_to_life=job.time_to_life()),
                 className="text-center fs-5 mb-2",
-                id="submission_time_to_life",
+                id=TIME_TO_LIFE_DIV_SUBMISSION_ID,
             ),
             dbc.Row(
                 dbc.Col(
                     submission_layout,
-                    id="form-container",
                     className="col-11 col-xl-8 mx-auto",
                 )
             ),
@@ -282,11 +292,11 @@ def load_submission_content(job_id, header_class_name):
 
 
 @callback(
-    Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
-    Input(SPAWN_BUTTON_ID, "n_clicks"),
-    Input(SUBMIT_JOB_ID, "n_clicks"),
-    Input(RESULT_BUTTON_ID, "n_clicks"),
-    Input(CHANGE_INPUT_BUTTON_ID, "n_clicks"),
+    Output(LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True),
+    Input(SPAWN_BUTTON_SUBMISSION_ID, "n_clicks"),
+    Input(SUBMIT_JOB_BUTTON_SUBMISSION_ID, "n_clicks"),
+    Input(RESULT_BUTTON_SUBMISSION_ID, "n_clicks"),
+    Input(CHANGE_INPUT_BUTTON_SUBMISSION_ID, "n_clicks"),
     prevent_initial_call=True,
 )
 def show_loading(*inputs):
@@ -295,27 +305,27 @@ def show_loading(*inputs):
 
 
 @callback(
-    Output(URL_ID, "pathname", allow_duplicate=True),
-    Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
-    Output(JOB_LOGS_ID, "children"),
-    Output(SUBMISSION_HEADER_ID, "className", allow_duplicate=True),
-    Output("interval", "disabled", allow_duplicate=True),
-    Output("submission_icon", "className"),
-    Output(SUBMIT_JOB_ID, "disabled"),
-    Output(CHANGE_INPUT_BUTTON_ID, "disabled"),
-    Output(SPAWN_BUTTON_ID, "disabled"),
-    Output(RESULT_BUTTON_ID, "disabled"),
-    Output(SUBMISSION_STATUS_ID, "children"),
-    Output("submission_time_to_life", "children"),
-    Output("accordion", "active_item"),
-    Input("interval", "n_intervals"),
-    Input(SUBMIT_JOB_ID, "n_clicks"),
-    Input(CHANGE_INPUT_BUTTON_ID, "n_clicks"),
-    Input(SPAWN_BUTTON_ID, "n_clicks"),
-    Input(RESULT_BUTTON_ID, "n_clicks"),
-    State(URL_ID, "pathname"),
-    State(SUBMISSION_HEADER_ID, "className"),
-    State("submission_icon", "className"),
+    Output(URL_LOCATION_SHARED_ID, "pathname", allow_duplicate=True),
+    Output(LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True),
+    Output(JOB_LOGS_DIV_SUBMISSION_ID, "children"),
+    Output(HEADER_DIV_SUBMISSION_ID, "className", allow_duplicate=True),
+    Output(INTERVAL_SUBMISSION_ID, "disabled", allow_duplicate=True),
+    Output(ICON_SUBMISSION_ID, "className"),
+    Output(SUBMIT_JOB_BUTTON_SUBMISSION_ID, "disabled"),
+    Output(CHANGE_INPUT_BUTTON_SUBMISSION_ID, "disabled"),
+    Output(SPAWN_BUTTON_SUBMISSION_ID, "disabled"),
+    Output(RESULT_BUTTON_SUBMISSION_ID, "disabled"),
+    Output(STATUS_DIV_SUBMISSION_ID, "children"),
+    Output(TIME_TO_LIFE_DIV_SUBMISSION_ID, "children"),
+    Output(ACCORDION_SUBMISSION_ID, "active_item"),
+    Input(INTERVAL_SUBMISSION_ID, "n_intervals"),
+    Input(SUBMIT_JOB_BUTTON_SUBMISSION_ID, "n_clicks"),
+    Input(CHANGE_INPUT_BUTTON_SUBMISSION_ID, "n_clicks"),
+    Input(SPAWN_BUTTON_SUBMISSION_ID, "n_clicks"),
+    Input(RESULT_BUTTON_SUBMISSION_ID, "n_clicks"),
+    State(URL_LOCATION_SHARED_ID, "pathname"),
+    State(HEADER_DIV_SUBMISSION_ID, "className"),
+    State(ICON_SUBMISSION_ID, "className"),
     prevent_initial_call=True,
 )
 def submission_manager(
@@ -330,24 +340,24 @@ def submission_manager(
 ):
     """Reload the logs."""
     job_id = path_name.split("/")[-1]
-    logging.info(f"Submission manager for {job_id}", extra={"tag": "job_submission"})
+    log.info(f"Submission manager for {job_id}", extra={"tag": "job_submission"})
     triggered_id = callback_context.triggered[0]["prop_id"].split(".")[0]
     num_outputs = len(dash.callback_context.outputs_list)
     input_base_path = dash.page_registry["pages.input"]["path_template"]
-    logging.debug(f"Triggered id: {triggered_id}", extra={"tag": "frontend"})
+    log.debug(f"Triggered id: {triggered_id}", extra={"tag": "frontend"})
     job = Job(job_id)
-    if triggered_id == SUBMIT_JOB_ID:
+    if triggered_id == SUBMIT_JOB_BUTTON_SUBMISSION_ID:
         job.delete_logs()
         job.submit()
-    elif triggered_id == CHANGE_INPUT_BUTTON_ID:
+    elif triggered_id == CHANGE_INPUT_BUTTON_SUBMISSION_ID:
         job.clean_work_dir()
         input_path = input_base_path.replace("<job_id>", job.job_id)
         return tuple([input_path] + [dash.no_update] * (num_outputs - 1))
-    elif triggered_id == SPAWN_BUTTON_ID:
+    elif triggered_id == SPAWN_BUTTON_SUBMISSION_ID:
         new_job = job.spawn()
         input_path = input_base_path.replace("<job_id>", new_job.job_id)
         return tuple([input_path] + [dash.no_update] * (num_outputs - 1))
-    elif triggered_id == RESULT_BUTTON_ID:
+    elif triggered_id == RESULT_BUTTON_SUBMISSION_ID:
         result_base_path = dash.page_registry["pages.results"]["path_template"]
         result_path = result_base_path.replace("<job_id>", job.job_id)
         return tuple([result_path] + [dash.no_update] * (num_outputs - 1))

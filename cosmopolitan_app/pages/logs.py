@@ -24,6 +24,20 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import Input, Output, callback, dcc, html
 
+from cosmopolitan_app.constants import (
+    DATE_RANGE_DATEPICKER_LOGS_ID,
+    END_HOUR_INPUT_LOGS_ID,
+    END_MINUTE_INPUT_LOGS_ID,
+    LOG_LEVELS_DROPDOWN_LOGS_ID,
+    LOG_OUTPUT_DIV_LOGS_ID,
+    LOG_TAGS_DROPDOWN_LOGS_ID,
+    PID_INPUT_LOGS_ID,
+    PID_RADIO_CHECKLIST_LOGS_ID,
+    START_HOUR_INPUT_LOGS_ID,
+    START_MINUTE_INPUT_LOGS_ID,
+    TIME_ERROR_DIV_LOGS_ID,
+    TIME_INPUT_GROUP_LOGS_ID,
+)
 from cosmopolitan_app.layouts import create_header, page_container_column_layout
 from cosmopolitan_app.logger import log_categories
 from cosmopolitan_app.logs_table import format_logs_list
@@ -53,7 +67,7 @@ def layout():
         html.Label("Select Date Range"),
         html.Br(),
         dcc.DatePickerSingle(
-            id="log-date-range",
+            id=DATE_RANGE_DATEPICKER_LOGS_ID,
             date=now.date(),
         ),
     ]
@@ -61,13 +75,12 @@ def layout():
     time_selector = [
         html.Label("Time Range"),
         html.Div(
-            id="time-input-wrapper",
             children=[
                 dbc.InputGroup(
                     [
                         dbc.InputGroupText("From"),
                         dbc.Input(
-                            id="start-hour",
+                            id=START_HOUR_INPUT_LOGS_ID,
                             type="number",
                             value=start_hour,
                             min=0,
@@ -75,7 +88,7 @@ def layout():
                         ),
                         dbc.InputGroupText(":"),
                         dbc.Input(
-                            id="start-minute",
+                            id=START_MINUTE_INPUT_LOGS_ID,
                             type="number",
                             value=start_minute,
                             min=0,
@@ -83,20 +96,24 @@ def layout():
                         ),
                         dbc.InputGroupText("To"),
                         dbc.Input(
-                            id="end-hour", type="number", value=end_hour, min=0, max=23
+                            id=END_HOUR_INPUT_LOGS_ID,
+                            type="number",
+                            value=end_hour,
+                            min=0,
+                            max=23,
                         ),
                         dbc.InputGroupText(":"),
                         dbc.Input(
-                            id="end-minute",
+                            id=END_MINUTE_INPUT_LOGS_ID,
                             type="number",
                             value=end_minute,
                             min=0,
                             max=59,
                         ),
                     ],
-                    id="time-input-group",
+                    id=TIME_INPUT_GROUP_LOGS_ID,
                 ),
-                html.Small(id="time-error", className="text-danger"),
+                html.Small(id=TIME_ERROR_DIV_LOGS_ID, className="text-danger"),
             ],
         ),
     ]
@@ -104,7 +121,7 @@ def layout():
     log_levels = [
         html.Label("Log Levels"),
         dcc.Dropdown(
-            id="log-levels",
+            id=LOG_LEVELS_DROPDOWN_LOGS_ID,
             options=[
                 {"label": "Debug", "value": "DEBUG"},
                 {"label": "Info", "value": "INFO"},
@@ -124,7 +141,7 @@ def layout():
     tag_filter = [
         html.Label("Tag"),
         dcc.Dropdown(
-            id="log-tags",
+            id=LOG_TAGS_DROPDOWN_LOGS_ID,
             options=tag_options,
             value=available_tags,
             multi=True,
@@ -137,14 +154,14 @@ def layout():
             [
                 dbc.InputGroupText(
                     dbc.Checklist(
-                        id="pid-radio",
+                        id=PID_RADIO_CHECKLIST_LOGS_ID,
                         options=[{"label": "Select by PID", "value": "on"}],
                         value=[],
                         switch=True,
                     ),
                 ),
                 dbc.Input(
-                    id="log-pid",
+                    id=PID_INPUT_LOGS_ID,
                     type="number",
                     placeholder="Process ID",
                     disabled=True,
@@ -170,9 +187,10 @@ def layout():
                     className="mb-4",
                 ),
                 html.Div(
-                    id="log-output",
+                    id=LOG_OUTPUT_DIV_LOGS_ID,
                     children="Logs will appear here...",
                     className="border p-3 bg-light rounded",
+                    # no Bootstrap class for dynamic maxHeight + overflow scroll
                     style={"maxHeight": "70vh", "overflowY": "auto"},
                 ),
             ],
@@ -184,19 +202,19 @@ def layout():
 
 
 @callback(
-    Output("log-output", "children"),
-    Output("log-pid", "disabled"),
-    Output("time-error", "children"),
-    Output("time-input-group", "className"),
-    Input("log-date-range", "date"),
-    Input("start-hour", "value"),
-    Input("start-minute", "value"),
-    Input("end-hour", "value"),
-    Input("end-minute", "value"),
-    Input("log-levels", "value"),
-    Input("log-tags", "value"),
-    Input("pid-radio", "value"),
-    Input("log-pid", "value"),
+    Output(LOG_OUTPUT_DIV_LOGS_ID, "children"),
+    Output(PID_INPUT_LOGS_ID, "disabled"),
+    Output(TIME_ERROR_DIV_LOGS_ID, "children"),
+    Output(TIME_INPUT_GROUP_LOGS_ID, "className"),
+    Input(DATE_RANGE_DATEPICKER_LOGS_ID, "date"),
+    Input(START_HOUR_INPUT_LOGS_ID, "value"),
+    Input(START_MINUTE_INPUT_LOGS_ID, "value"),
+    Input(END_HOUR_INPUT_LOGS_ID, "value"),
+    Input(END_MINUTE_INPUT_LOGS_ID, "value"),
+    Input(LOG_LEVELS_DROPDOWN_LOGS_ID, "value"),
+    Input(LOG_TAGS_DROPDOWN_LOGS_ID, "value"),
+    Input(PID_RADIO_CHECKLIST_LOGS_ID, "value"),
+    Input(PID_INPUT_LOGS_ID, "value"),
 )
 def log_manager(date, sh, sm, eh, em, levels, tag, pid_radio, pid):
     """Manage and display logs based on user input."""

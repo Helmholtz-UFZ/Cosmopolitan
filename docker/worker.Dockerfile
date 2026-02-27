@@ -3,6 +3,7 @@ FROM python:3.13-slim-bookworm
 
 ENV MPLCONFIGDIR=/python_docker/cosmopolitan/.config/matplotlib
 ENV PATH=$PATH:/home/appuser/rclone-binaries/
+ENV TZ=Europe/Berlin
 
 # Create non-root user early
 RUN useradd -m -u 1000 appuser

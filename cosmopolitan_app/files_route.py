@@ -10,6 +10,8 @@ from flask import send_file, send_from_directory
 
 from cosmopolitan_app.job import Job
 
+log = logging.getLogger(__name__)
+
 DOWNLOAD_ROUTE_TEMPLATE = "/download/<job_id>.zip"
 
 
@@ -35,9 +37,7 @@ def serve_files(app):
     @app.server.route("/pictures/<job_id>/<path:filename>")
     def serve_file(job_id, filename):
         """Serve pictures."""
-        logging.debug(
-            f"Serve picture {filename} for {job_id}", extra={"tag": "frontend"}
-        )
+        log.debug(f"Serve picture {filename} for {job_id}", extra={"tag": "frontend"})
         # Assure that the job exists and all files are ready
         Job(job_id)
 
@@ -63,7 +63,7 @@ def serve_files(app):
         (format check) and queries the database (existence check). The working
         directory path is taken from the validated job object, never from user input.
         """
-        logging.info(f"Download work dir for {job_id}", extra={"tag": "frontend"})
+        log.info(f"Download work dir for {job_id}", extra={"tag": "frontend"})
         job = Job(job_id)
 
         zip_buffer = io.BytesIO()

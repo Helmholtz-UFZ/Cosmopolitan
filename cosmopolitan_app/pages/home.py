@@ -48,6 +48,7 @@ page_layout = [
         dbc.Col(
             html.Img(
                 src="/static/start_banner.png",
+                # no Bootstrap class for specific viewport-relative height
                 style={"height": "70vh"},
                 className="rounded mx-auto d-block m-3",
                 alt="Welcome",

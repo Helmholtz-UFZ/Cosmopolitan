@@ -35,26 +35,28 @@ from kombu.exceptions import OperationalError as KombuOperationalError
 
 from cosmopolitan_app.background_job_manager import get_background_job_manager
 from cosmopolitan_app.constants import (
-    CRNS_ADMIN_DUMMY_ID,
-    CRNS_ADMIN_END_DATE_ID,
-    CRNS_ADMIN_FAILED_COUNT_ID,
-    CRNS_ADMIN_LAST_RUN_INFO_ID,
-    CRNS_ADMIN_LOGS_TABLE_ID,
-    CRNS_ADMIN_PURGE_BTN_ID,
-    CRNS_ADMIN_PURGE_MODAL_CANCEL_ID,
-    CRNS_ADMIN_PURGE_MODAL_CONFIRM_ID,
-    CRNS_ADMIN_PURGE_MODAL_ID,
-    CRNS_ADMIN_REFRESH_BTN_ID,
-    CRNS_ADMIN_SAVE_CONFIG_BTN_ID,
-    CRNS_ADMIN_START_DATE_ID,
-    CRNS_ADMIN_START_UPDATE_BTN_ID,
-    CRNS_ADMIN_STATUS_ALERT_ID,
-    LOADING_OVERLAY_ID,
+    DUMMY_DIV_CRNS_ADMIN_ID,
+    END_DATE_INPUT_CRNS_ADMIN_ID,
+    FAILED_COUNT_DIV_CRNS_ADMIN_ID,
+    LAST_RUN_INFO_DIV_CRNS_ADMIN_ID,
+    LOADING_OVERLAY_MODAL_SHARED_ID,
+    LOGS_TABLE_CRNS_ADMIN_ID,
+    PURGE_BUTTON_CRNS_ADMIN_ID,
+    PURGE_MODAL_CANCEL_BUTTON_CRNS_ADMIN_ID,
+    PURGE_MODAL_CONFIRM_BUTTON_CRNS_ADMIN_ID,
+    PURGE_MODAL_CRNS_ADMIN_ID,
+    REFRESH_BUTTON_CRNS_ADMIN_ID,
+    SAVE_CONFIG_BUTTON_CRNS_ADMIN_ID,
+    START_DATE_INPUT_CRNS_ADMIN_ID,
+    START_UPDATE_BUTTON_CRNS_ADMIN_ID,
+    STATUS_ALERT_CRNS_ADMIN_ID,
 )
 from cosmopolitan_app.error_handling import RedisConnectionError
 from cosmopolitan_app.layouts import create_header, page_container_column_layout
 from cosmopolitan_app.logs_table import format_logs_list
 from cosmopolitan_app.postgres_manager import PostgresManager
+
+log = logging.getLogger(__name__)
 
 register_page(__name__, path="/crns-admin", title="CRNS Database Admin")
 
@@ -76,7 +78,7 @@ def create_config_section() -> dbc.Row:
                             [
                                 dbc.Label("Start Date"),
                                 dbc.Input(
-                                    id=CRNS_ADMIN_START_DATE_ID,
+                                    id=START_DATE_INPUT_CRNS_ADMIN_ID,
                                     type="date",
                                     placeholder="Select start date",
                                     className="mb-2",
@@ -88,7 +90,7 @@ def create_config_section() -> dbc.Row:
                             [
                                 dbc.Label("End Date (optional)"),
                                 dbc.Input(
-                                    id=CRNS_ADMIN_END_DATE_ID,
+                                    id=END_DATE_INPUT_CRNS_ADMIN_ID,
                                     type="date",
                                     placeholder="Yesterday (default)",
                                     className="mb-2",
@@ -101,7 +103,7 @@ def create_config_section() -> dbc.Row:
                                 dbc.Label("\u00a0"),  # Non-breaking space for alignment
                                 dbc.Button(
                                     "Save Configuration",
-                                    id=CRNS_ADMIN_SAVE_CONFIG_BTN_ID,
+                                    id=SAVE_CONFIG_BUTTON_CRNS_ADMIN_ID,
                                     color="primary",
                                     className="d-block",
                                 ),
@@ -131,13 +133,13 @@ def create_actions_section() -> dbc.Row:
                     [
                         dbc.Button(
                             [html.I(className="bi bi-play-fill me-1"), "Start Update"],
-                            id=CRNS_ADMIN_START_UPDATE_BTN_ID,
+                            id=START_UPDATE_BUTTON_CRNS_ADMIN_ID,
                             color="success",
                             className="me-2",
                         ),
                         dbc.Button(
                             [html.I(className="bi bi-trash me-1"), "Purge Database"],
-                            id=CRNS_ADMIN_PURGE_BTN_ID,
+                            id=PURGE_BUTTON_CRNS_ADMIN_ID,
                             color="danger",
                         ),
                     ]
@@ -165,7 +167,7 @@ def create_status_section() -> dbc.Row:
                                                 "Failed Updates", className="card-title"
                                             ),
                                             html.P(
-                                                id=CRNS_ADMIN_FAILED_COUNT_ID,
+                                                id=FAILED_COUNT_DIV_CRNS_ADMIN_ID,
                                                 className="card-text display-6",
                                             ),
                                         ]
@@ -184,7 +186,9 @@ def create_status_section() -> dbc.Row:
                                                 "Latest Update Run",
                                                 className="card-title",
                                             ),
-                                            html.Div(id=CRNS_ADMIN_LAST_RUN_INFO_ID),
+                                            html.Div(
+                                                id=LAST_RUN_INFO_DIV_CRNS_ADMIN_ID
+                                            ),
                                         ]
                                     ),
                                     className="mb-3",
@@ -211,9 +215,10 @@ def create_logs_section() -> dbc.Row:
                     className="text-muted",
                 ),
                 html.Div(
-                    id=CRNS_ADMIN_LOGS_TABLE_ID,
+                    id=LOGS_TABLE_CRNS_ADMIN_ID,
                     children="No logs available.",
                     className="border p-3 bg-light rounded",
+                    # no Bootstrap class for dynamic maxHeight + overflow scroll
                     style={"maxHeight": "50vh", "overflowY": "auto"},
                 ),
             ],
@@ -241,18 +246,18 @@ def create_purge_modal() -> dbc.Modal:
                 [
                     dbc.Button(
                         "Cancel",
-                        id=CRNS_ADMIN_PURGE_MODAL_CANCEL_ID,
+                        id=PURGE_MODAL_CANCEL_BUTTON_CRNS_ADMIN_ID,
                         color="secondary",
                     ),
                     dbc.Button(
                         "Purge Database",
-                        id=CRNS_ADMIN_PURGE_MODAL_CONFIRM_ID,
+                        id=PURGE_MODAL_CONFIRM_BUTTON_CRNS_ADMIN_ID,
                         color="danger",
                     ),
                 ]
             ),
         ],
-        id=CRNS_ADMIN_PURGE_MODAL_ID,
+        id=PURGE_MODAL_CRNS_ADMIN_ID,
         is_open=False,
     )
 
@@ -264,9 +269,9 @@ layout = page_container_column_layout(
             "Manage measurement database updates and configuration",
             "bg-info",
         ),
-        dcc.Store(id=CRNS_ADMIN_DUMMY_ID, data=None),
+        dcc.Store(id=DUMMY_DIV_CRNS_ADMIN_ID, data=None),
         dbc.Alert(
-            id=CRNS_ADMIN_STATUS_ALERT_ID,
+            id=STATUS_ALERT_CRNS_ADMIN_ID,
             is_open=False,
             duration=5000,
             dismissable=True,
@@ -276,7 +281,7 @@ layout = page_container_column_layout(
             dbc.Col(
                 dbc.Button(
                     [html.I(className="bi bi-arrow-clockwise me-1"), "Refresh"],
-                    id=CRNS_ADMIN_REFRESH_BTN_ID,
+                    id=REFRESH_BUTTON_CRNS_ADMIN_ID,
                     color="secondary",
                 ),
                 className="m-2",
@@ -295,12 +300,12 @@ layout = page_container_column_layout(
 
 
 @callback(
-    Output(CRNS_ADMIN_STATUS_ALERT_ID, "children", allow_duplicate=True),
-    Output(CRNS_ADMIN_STATUS_ALERT_ID, "color", allow_duplicate=True),
-    Output(CRNS_ADMIN_STATUS_ALERT_ID, "is_open", allow_duplicate=True),
-    Input(CRNS_ADMIN_SAVE_CONFIG_BTN_ID, "n_clicks"),
-    State(CRNS_ADMIN_START_DATE_ID, "value"),
-    State(CRNS_ADMIN_END_DATE_ID, "value"),
+    Output(STATUS_ALERT_CRNS_ADMIN_ID, "children", allow_duplicate=True),
+    Output(STATUS_ALERT_CRNS_ADMIN_ID, "color", allow_duplicate=True),
+    Output(STATUS_ALERT_CRNS_ADMIN_ID, "is_open", allow_duplicate=True),
+    Input(SAVE_CONFIG_BUTTON_CRNS_ADMIN_ID, "n_clicks"),
+    State(START_DATE_INPUT_CRNS_ADMIN_ID, "value"),
+    State(END_DATE_INPUT_CRNS_ADMIN_ID, "value"),
     prevent_initial_call=True,
 )
 def save_configuration(n_clicks, start_date_str, end_date_str):
@@ -328,10 +333,10 @@ def save_configuration(n_clicks, start_date_str, end_date_str):
 
 
 @callback(
-    Output(CRNS_ADMIN_STATUS_ALERT_ID, "children", allow_duplicate=True),
-    Output(CRNS_ADMIN_STATUS_ALERT_ID, "color", allow_duplicate=True),
-    Output(CRNS_ADMIN_STATUS_ALERT_ID, "is_open", allow_duplicate=True),
-    Input(CRNS_ADMIN_START_UPDATE_BTN_ID, "n_clicks"),
+    Output(STATUS_ALERT_CRNS_ADMIN_ID, "children", allow_duplicate=True),
+    Output(STATUS_ALERT_CRNS_ADMIN_ID, "color", allow_duplicate=True),
+    Output(STATUS_ALERT_CRNS_ADMIN_ID, "is_open", allow_duplicate=True),
+    Input(START_UPDATE_BUTTON_CRNS_ADMIN_ID, "n_clicks"),
     prevent_initial_call=True,
 )
 def start_update(n_clicks):
@@ -360,18 +365,16 @@ def start_update(n_clicks):
             True,
         )
     except (ConnectionError, OSError, RuntimeError, KombuOperationalError) as e:
-        logging.error(
-            f"Failed to submit CRNS update task: {e}", extra={"tag": "time_io"}
-        )
+        log.error(f"Failed to submit CRNS update task: {e}", extra={"tag": "time_io"})
         raise RedisConnectionError() from e
 
 
 @callback(
-    Output(CRNS_ADMIN_PURGE_MODAL_ID, "is_open"),
-    Input(CRNS_ADMIN_PURGE_BTN_ID, "n_clicks"),
-    Input(CRNS_ADMIN_PURGE_MODAL_CANCEL_ID, "n_clicks"),
-    Input(CRNS_ADMIN_PURGE_MODAL_CONFIRM_ID, "n_clicks"),
-    State(CRNS_ADMIN_PURGE_MODAL_ID, "is_open"),
+    Output(PURGE_MODAL_CRNS_ADMIN_ID, "is_open"),
+    Input(PURGE_BUTTON_CRNS_ADMIN_ID, "n_clicks"),
+    Input(PURGE_MODAL_CANCEL_BUTTON_CRNS_ADMIN_ID, "n_clicks"),
+    Input(PURGE_MODAL_CONFIRM_BUTTON_CRNS_ADMIN_ID, "n_clicks"),
+    State(PURGE_MODAL_CRNS_ADMIN_ID, "is_open"),
     prevent_initial_call=True,
 )
 def toggle_purge_modal(purge_click, cancel_click, confirm_click, is_open):
@@ -380,13 +383,13 @@ def toggle_purge_modal(purge_click, cancel_click, confirm_click, is_open):
 
 
 @callback(
-    Output(CRNS_ADMIN_STATUS_ALERT_ID, "children", allow_duplicate=True),
-    Output(CRNS_ADMIN_STATUS_ALERT_ID, "color", allow_duplicate=True),
-    Output(CRNS_ADMIN_STATUS_ALERT_ID, "is_open", allow_duplicate=True),
-    Output(CRNS_ADMIN_FAILED_COUNT_ID, "children", allow_duplicate=True),
-    Output(CRNS_ADMIN_LAST_RUN_INFO_ID, "children", allow_duplicate=True),
-    Output(CRNS_ADMIN_LOGS_TABLE_ID, "children", allow_duplicate=True),
-    Input(CRNS_ADMIN_PURGE_MODAL_CONFIRM_ID, "n_clicks"),
+    Output(STATUS_ALERT_CRNS_ADMIN_ID, "children", allow_duplicate=True),
+    Output(STATUS_ALERT_CRNS_ADMIN_ID, "color", allow_duplicate=True),
+    Output(STATUS_ALERT_CRNS_ADMIN_ID, "is_open", allow_duplicate=True),
+    Output(FAILED_COUNT_DIV_CRNS_ADMIN_ID, "children", allow_duplicate=True),
+    Output(LAST_RUN_INFO_DIV_CRNS_ADMIN_ID, "children", allow_duplicate=True),
+    Output(LOGS_TABLE_CRNS_ADMIN_ID, "children", allow_duplicate=True),
+    Input(PURGE_MODAL_CONFIRM_BUTTON_CRNS_ADMIN_ID, "n_clicks"),
     prevent_initial_call=True,
 )
 def confirm_purge(n_clicks):
@@ -413,9 +416,9 @@ def confirm_purge(n_clicks):
 
 
 @callback(
-    Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
-    Input(CRNS_ADMIN_REFRESH_BTN_ID, "n_clicks"),
-    Input(CRNS_ADMIN_DUMMY_ID, "data"),
+    Output(LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True),
+    Input(REFRESH_BUTTON_CRNS_ADMIN_ID, "n_clicks"),
+    Input(DUMMY_DIV_CRNS_ADMIN_ID, "data"),
     prevent_initial_call=True,
 )
 def show_loading(*inputs):
@@ -424,13 +427,13 @@ def show_loading(*inputs):
 
 
 @callback(
-    Output(CRNS_ADMIN_FAILED_COUNT_ID, "children"),
-    Output(CRNS_ADMIN_LAST_RUN_INFO_ID, "children"),
-    Output(CRNS_ADMIN_LOGS_TABLE_ID, "children"),
-    Output(CRNS_ADMIN_START_DATE_ID, "value"),
-    Output(CRNS_ADMIN_END_DATE_ID, "value"),
-    Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
-    Input(CRNS_ADMIN_REFRESH_BTN_ID, "n_clicks"),
+    Output(FAILED_COUNT_DIV_CRNS_ADMIN_ID, "children"),
+    Output(LAST_RUN_INFO_DIV_CRNS_ADMIN_ID, "children"),
+    Output(LOGS_TABLE_CRNS_ADMIN_ID, "children"),
+    Output(START_DATE_INPUT_CRNS_ADMIN_ID, "value"),
+    Output(END_DATE_INPUT_CRNS_ADMIN_ID, "value"),
+    Output(LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True),
+    Input(REFRESH_BUTTON_CRNS_ADMIN_ID, "n_clicks"),
     prevent_initial_call="initial_duplicate",
 )
 def refresh_status(n_clicks):
@@ -475,7 +478,9 @@ def format_last_run_info(run: dict | None) -> list:
         "running": "primary",
         "completed": "success",
         "failed": "danger",
-    }.get(status, "secondary")
+    }.get(
+        status, "secondary"
+    )  # dispatch lookup: fallback for unexpected status values
 
     return [
         html.P([html.Strong("Start: "), start_time]),

@@ -17,6 +17,8 @@ from requests.exceptions import HTTPError, RequestException
 
 from cosmopolitan_app.postgres_manager import PostgresManager
 
+log = logging.getLogger(__name__)
+
 EARLIEST_START_DATE = datetime(2016, 1, 1, 0, 0, 0)
 
 
@@ -37,33 +39,29 @@ class TimeIOManager:
                 response = requests.get(query, timeout=120)
                 response.raise_for_status()
                 data = response.json()
-                for item in data.get("value", []):
+                for item in data["value"]:
                     yield query, item
-                query = data.get("@iot.nextLink")
+                query = data.get("@iot.nextLink")  # key absent when no more pages
                 max_retries = 3
             except (
                 RequestException,
                 TimeoutError,
                 HTTPError,
             ) as error:
-                logging.info(f"Error: {error}", extra={"tag": "time_io"})
-                logging.info(f"Query: {query}", extra={"tag": "time_io"})
-                logging.info(
+                log.info(f"Error: {error}", extra={"tag": "time_io"})
+                log.info(f"Query: {query}", extra={"tag": "time_io"})
+                log.info(
                     f"Hash of query: {hashlib.md5(query.encode()).hexdigest()}",
                     extra={"tag": "time_io"},
                 )
-                logging.info(
-                    f"Time of error: {datetime.now()}", extra={"tag": "time_io"}
-                )
+                log.info(f"Time of error: {datetime.now()}", extra={"tag": "time_io"})
                 if max_retries == 0:
-                    logging.error(
-                        "Max retries reached. Exiting.", extra={"tag": "time_io"}
-                    )
-                    logging.error(
+                    log.error("Max retries reached. Exiting.", extra={"tag": "time_io"})
+                    log.error(
                         f"Original query: {original_query}", extra={"tag": "time_io"}
                     )
                     raise error
-                logging.info("Retrying request.", extra={"tag": "time_io"})
+                log.info("Retrying request.", extra={"tag": "time_io"})
                 if max_retries == 3:
                     sleep(10)
                 elif max_retries == 2:
@@ -86,7 +84,7 @@ class TimeIOManager:
     def get_things(cls) -> list:
         """Get the things from the STI API."""
         url = f"{cls.base_url}/Things?$select=id,name"
-        logging.debug(f"Requesting things from {url}", extra={"tag": "time_io"})
+        log.debug(f"Requesting things from {url}", extra={"tag": "time_io"})
         querys, items = cls.collect_data(url)
         return items
 
@@ -94,7 +92,7 @@ class TimeIOManager:
     def get_datastreams_of_thing(cls, thing_id: int) -> list:
         """Get the datastreams for a thing from the STI API."""
         url = f"{cls.base_url}/Things({thing_id})/Datastreams?$select=id,name"
-        logging.debug(
+        log.debug(
             f"Requesting datastreams for thing {thing_id} from {url}",
             extra={"tag": "time_io"},
         )
@@ -105,7 +103,7 @@ class TimeIOManager:
     def get_location_of_thing(cls, thing_id: int) -> Optional[Dict[str, float]]:
         """Get the location of a thing from the STI API."""
         url = f"{cls.base_url}/Things({thing_id})/Locations"
-        logging.debug(
+        log.debug(
             f"Requesting location for thing {thing_id} from {url}",
             extra={"tag": "time_io"},
         )
@@ -145,7 +143,7 @@ class TimeIOManager:
         sensor_info = PostgresManager.get_timeio_sensor_info(thing_id)
         if not sensor_info:
             return True  # Default to stationary if sensor not found
-        return sensor_info.get("stationary", True)
+        return sensor_info["stationary"]
 
     @classmethod
     def collect_datastreams(
@@ -165,9 +163,10 @@ class TimeIOManager:
         dataframes: List[pd.DataFrame] = []
 
         # Get datastream mapping from database
+        # thing_id may not be in the dict if no datastreams are configured
         datastream_dict = cls.get_thing_datastream_dict().get(thing_id, {})
         if not datastream_dict:
-            logging.warning(
+            log.warning(
                 f"No datastream mapping found for thing_id: {thing_id}",
                 extra={"tag": "time_io"},
             )
@@ -179,11 +178,11 @@ class TimeIOManager:
             # Find duplicate indices
             duplicates = new_df.index[new_df.index.duplicated(keep=False)]
             if len(duplicates) > 0:
-                logging.warning(
+                log.warning(
                     f"Duplicate timestamps for datastream {datastream_name}:",
                     extra={"tag": "time_io"},
                 )
-                logging.warning(new_df.loc[duplicates], extra={"tag": "time_io"})
+                log.warning(new_df.loc[duplicates], extra={"tag": "time_io"})
 
             if datastream_name == "Neutron counts":
                 # Convert neutron counts to soil moisture
@@ -249,7 +248,7 @@ class TimeIOManager:
     @classmethod
     def check_things(cls) -> None:
         """Check if the known things are available using database."""
-        logging.info("Checking if all things are available.", extra={"tag": "time_io"})
+        log.info("Checking if all things are available.", extra={"tag": "time_io"})
 
         # Get current sensor mappings from database
         thing_info_dict = cls.get_thing_info_dict()
@@ -259,13 +258,13 @@ class TimeIOManager:
 
         # Validate data consistency
         if thing_info_dict.keys() != thing_datastream_dict.keys():
-            logging.warning(
+            log.warning(
                 "Thing info and datastream dict are not in sync",
                 extra={"tag": "time_io"},
             )
 
         if thing_info_dict.keys() != type_id_dict.keys():
-            logging.warning(
+            log.warning(
                 "Thing info and type id dict are not in sync", extra={"tag": "time_io"}
             )
 
@@ -281,7 +280,7 @@ class TimeIOManager:
             if thing_id in ignore_things:
                 continue
             thing_name = thing["name"]
-            logging.warning(
+            log.warning(
                 f"Thing {thing_name} with id {thing_id} unknown",
                 extra={"tag": "time_io"},
             )
@@ -296,12 +295,12 @@ class TimeIOManager:
                 )
 
         if len(new_thing_datastream_dict) > 0:
-            logging.warning(
+            log.warning(
                 "Please add new things to datastream_ids:\n"
                 + pformat(new_thing_datastream_dict),
                 extra={"tag": "time_io"},
             )
-            logging.warning(
+            log.warning(
                 "Please add new things to thing_info_dict:\n"
                 + pformat(new_thing_info_dict),
                 extra={"tag": "time_io"},
@@ -391,7 +390,7 @@ class GeoProximityTracker:
 
 def find_representative_points_mobile(df, proximity_threshold_meters=100):
     """Find representative points from a DataFrame based on proximity."""
-    logging.debug(
+    log.debug(
         "Finding representative points for mobile devices.", extra={"tag": "time_io"}
     )
     df["date"] = df["date_time"].dt.date
@@ -415,7 +414,7 @@ def find_representative_points_mobile(df, proximity_threshold_meters=100):
 
 def find_representative_points_stationary(df):
     """Mark the first point of each device per day as representative (stationary)."""
-    logging.debug(
+    log.debug(
         "Finding representative points for stationary devices.",
         extra={"tag": "time_io"},
     )
@@ -431,7 +430,7 @@ def find_representative_points_stationary(df):
 
 def transfer_data_by_day(start_date: datetime) -> None:
     """Transfer data to the postgres database."""
-    logging.info(
+    log.info(
         f"Transferring data for {start_date.strftime('%Y-%m-%d')}",
         extra={"tag": "time_io"},
     )
@@ -448,14 +447,14 @@ def transfer_data_by_day(start_date: datetime) -> None:
         if thing_id in ignore_things:
             continue
 
-        logging.info(
+        log.info(
             f"Processing thing: {thing_name} (ID: {thing_id})", extra={"tag": "time_io"}
         )
 
         # Get datastream mapping from database
         thing_datastream_dict = TimeIOManager.get_thing_datastream_dict()
         if thing_id not in thing_datastream_dict:
-            logging.warning(
+            log.warning(
                 f"Thing {thing_name} with ID {thing_id} unknown.",
                 extra={"tag": "time_io"},
             )
@@ -466,9 +465,9 @@ def transfer_data_by_day(start_date: datetime) -> None:
 
         df = TimeIOManager.collect_datastreams(thing_id, start_date, end_date)
         if df.empty:
-            logging.debug("No data found for this thing.", extra={"tag": "time_io"})
+            log.debug("No data found for this thing.", extra={"tag": "time_io"})
             continue
-        logging.debug(
+        log.debug(
             f"Found {len(df)} measurements for {thing_name}.", extra={"tag": "time_io"}
         )
 
@@ -504,7 +503,7 @@ def transfer_data_by_day(start_date: datetime) -> None:
         ]
 
         PostgresManager.insert_crns_measurements_from_df(df_new)
-        logging.info(
+        log.info(
             f"Inserted {len(df_new)} measurements for {thing_name} into the database.",
             extra={"tag": "time_io"},
         )
@@ -517,16 +516,14 @@ def update_crns_measurments() -> None:
     If start_date is None, skips the update.
     If end_date is None or > yesterday, uses yesterday.
     """
-    logging.info(
-        "Updating CRNS measurements from STI API.", extra={"tag": "crns_update"}
-    )
+    log.info("Updating CRNS measurements from STI API.", extra={"tag": "crns_update"})
 
     # Get configured date range from database
     config_start_date, config_end_date = PostgresManager.get_crns_date_range()
 
     # Skip if start_date is not configured
     if config_start_date is None:
-        logging.info(
+        log.info(
             "CRNS start_date not configured in app_config. Skipping update.",
             extra={"tag": "crns_update"},
         )
@@ -550,7 +547,7 @@ def update_crns_measurments() -> None:
     else:
         end_date = datetime.combine(config_end_date, time(23, 59, 59, 999999))
 
-    logging.info(
+    log.info(
         f"Updating CRNS data from {current_date.strftime('%Y-%m-%d')} to "
         f"{end_date.strftime('%Y-%m-%d')}",
         extra={"tag": "crns_update"},
@@ -558,7 +555,7 @@ def update_crns_measurments() -> None:
 
     while current_date <= end_date:
         if PostgresManager.was_update_successful(current_date):
-            logging.info(
+            log.info(
                 f"Data for {current_date.strftime('%Y-%m-%d')} already transferred.",
                 extra={"tag": "crns_update"},
             )
@@ -568,12 +565,12 @@ def update_crns_measurments() -> None:
         try:
             transfer_data_by_day(current_date)
             PostgresManager.add_update_crns(current_date)
-        except Exception as e:  # noqa
-            logging.error(
+        except Exception as e:  # catch-all: log and continue with next day  # noqa
+            log.error(
                 f"Error while transferring data for {current_date}: {e}",
                 extra={"tag": "crns_update"},
             )
-            logging.error(
+            log.error(
                 f"Traceback: {traceback.format_exc()}", extra={"tag": "crns_update"}
             )
 
@@ -582,9 +579,7 @@ def update_crns_measurments() -> None:
 
 def repopulate_crns_measurements() -> None:
     """Repopulate CRNS measurements from the STI API."""
-    logging.info(
-        "Repopulating CRNS measurements from STI API.", extra={"tag": "time_io"}
-    )
+    log.info("Repopulating CRNS measurements from STI API.", extra={"tag": "time_io"})
     PostgresManager.purge_measurement_points()
     PostgresManager.reset_update_crns()
     update_crns_measurments()

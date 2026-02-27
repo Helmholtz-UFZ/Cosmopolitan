@@ -7,6 +7,7 @@ from logging.config import dictConfig
 from celery import Celery
 from celery.exceptions import CeleryError
 from celery.result import AsyncResult
+from celery.schedules import crontab
 from celery.signals import worker_process_init
 
 from cosmopolitan_app.celery_config import CeleryConfig
@@ -15,6 +16,8 @@ from cosmopolitan_app.logger import get_logger_config_web
 from cosmopolitan_app.tasks.computation_tasks import start_computation_task
 from cosmopolitan_app.tasks.maintenance_tasks import cleanup_task, update_db_task
 from cosmopolitan_app.tasks.test_tasks import long_running_test_task
+
+log = logging.getLogger(__name__)
 
 
 @worker_process_init.connect
@@ -68,8 +71,6 @@ class BackgroundJobManager:
 
     def _setup_periodic_tasks(self):
         """Set up periodic tasks using Celery Beat (replaces APScheduler)."""
-        from celery.schedules import crontab
-
         self.app.conf.beat_schedule = {
             "cleanup-at-3am": {
                 "task": "cosmopolitan_app.tasks.maintenance_tasks.cleanup",
@@ -92,7 +93,7 @@ class BackgroundJobManager:
         Returns:
             str: Celery task ID
         """
-        logging.info(
+        log.info(
             f"Submitting computation job {job.job_id} to Celery",
             extra={"tag": "job_submission"},
         )
@@ -110,7 +111,7 @@ class BackgroundJobManager:
             },
         )
 
-        logging.info(
+        log.info(
             f"Job {job.job_id} submitted with Celery task ID: {result.id}",
             extra={"tag": "job_submission"},
         )
@@ -148,7 +149,7 @@ class BackgroundJobManager:
             if result.status:
                 status = result.status
         except CeleryError as e:
-            logging.debug(
+            log.debug(
                 f"Could not get result info for task {task_id}: {e}",
                 extra={"tag": "worker"},
             )
@@ -163,7 +164,7 @@ class BackgroundJobManager:
             terminate: If True, send SIGTERM to kill running task process
         """
         self.app.control.revoke(task_id, terminate=terminate)
-        logging.info(
+        log.info(
             f"Task {task_id} revoked (terminate={terminate})",
             extra={"tag": "job_submission"},
         )

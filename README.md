@@ -17,7 +17,7 @@ The web service is built as a Dash web application with the following key compon
 - **Web Framework**: Dash (plotly) with Flask server backend
 - **Database**: PostgreSQL with PostGIS extension for spatial data
 - **Object Storage**: MinIO for file storage with rclone integration
-- **Background Tasks**: Celery with PostgreSQL broker for distributed task processing
+- **Background Tasks**: Celery with Redis broker for distributed task processing
 - **External Services**: MailHog for email testing, TimeIO API for CRNS data
 
 ### Core Modules
@@ -44,7 +44,7 @@ The web service is built as a Dash web application with the following key compon
 
 The application uses **Celery** for distributed background task processing:
 
-- **Message Broker**: PostgreSQL database (same as main DB)
+- **Message Broker**: Redis
 - **Task Queues**: Separate queues for computation jobs and maintenance tasks
 - **Workers**: Dedicated worker containers process tasks independently
 - **Monitoring**: All worker activity logged to PostgreSQL database

@@ -18,15 +18,15 @@ from selenium.common.exceptions import (
 
 from cosmopolitan_app.app import app
 from cosmopolitan_app.constants import (
-    CHANGE_INPUT_BUTTON_ID,
-    CHECK_INPUT_ID,
-    JOB_LOGS_ID,
-    NAVBAR_TOGGLER_ID,
-    NEW_JOB_LINK_ID,
-    PREPARE_INPUT_ID,
-    RESULT_BUTTON_ID,
-    SUBMISSION_STATUS_ID,
-    SUBMIT_JOB_ID,
+    CHANGE_INPUT_BUTTON_SUBMISSION_ID,
+    CHECK_INPUT_BUTTON_INPUT_ID,
+    JOB_LOGS_DIV_SUBMISSION_ID,
+    NAVBAR_TOGGLER_BUTTON_SHARED_ID,
+    NEW_JOB_LINK_SHARED_ID,
+    PREPARE_INPUT_BUTTON_NEW_JOB_ID,
+    RESULT_BUTTON_SUBMISSION_ID,
+    STATUS_DIV_SUBMISSION_ID,
+    SUBMIT_JOB_BUTTON_SUBMISSION_ID,
 )
 from cosmopolitan_app.form_factory import (
     active_form_factory,
@@ -132,15 +132,17 @@ def test_full_procedure(
 
     # Expand navbar if collapsed
     try:
-        toggler = dash_duo.wait_for_element(f"#{NAVBAR_TOGGLER_ID}", timeout=10)
+        toggler = dash_duo.wait_for_element(
+            f"#{NAVBAR_TOGGLER_BUTTON_SHARED_ID}", timeout=10
+        )
         if toggler.is_displayed():
             toggler.click()
     except (NoSuchElementException, ElementNotInteractableException):
         pass
 
-    dash_duo.wait_for_element(f"#{NEW_JOB_LINK_ID}", timeout=10).click()
+    dash_duo.wait_for_element(f"#{NEW_JOB_LINK_SHARED_ID}", timeout=10).click()
     check_all_errors(dash_duo)
-    dash_duo.wait_for_element(f"#{PREPARE_INPUT_ID}", timeout=10).click()
+    dash_duo.wait_for_element(f"#{PREPARE_INPUT_BUTTON_NEW_JOB_ID}", timeout=10).click()
     check_all_errors(dash_duo)
 
     time.sleep(5)
@@ -217,23 +219,23 @@ def test_full_procedure(
     check_all_errors(dash_duo)
 
     # Check input
-    scroll_to_element_and_click(dash_duo, CHECK_INPUT_ID)
+    scroll_to_element_and_click(dash_duo, CHECK_INPUT_BUTTON_INPUT_ID)
     check_all_errors(dash_duo)
     # Change input
-    scroll_to_element_and_click(dash_duo, CHANGE_INPUT_BUTTON_ID)
+    scroll_to_element_and_click(dash_duo, CHANGE_INPUT_BUTTON_SUBMISSION_ID)
     check_all_errors(dash_duo)
-    scroll_to_element_and_click(dash_duo, CHECK_INPUT_ID)
+    scroll_to_element_and_click(dash_duo, CHECK_INPUT_BUTTON_INPUT_ID)
     check_all_errors(dash_duo)
 
     # Submit job
-    scroll_to_element_and_click(dash_duo, SUBMIT_JOB_ID)
+    scroll_to_element_and_click(dash_duo, SUBMIT_JOB_BUTTON_SUBMISSION_ID)
     check_all_errors(dash_duo)
 
     # Wait for the submission status to change
     for attempts in range(60):
         time.sleep(1)
         status_element = dash_duo.wait_for_element(
-            f"#{SUBMISSION_STATUS_ID}", timeout=1
+            f"#{STATUS_DIV_SUBMISSION_ID}", timeout=1
         )
         if "RUNNING" in status_element.text:
             continue
@@ -244,10 +246,10 @@ def test_full_procedure(
     if "COMPLETED" not in status_element.text:
         logging.error(f"Job finished with status: {status_element.text}")
         save_snapshot(dash_duo)
-        job_logs = dash_duo.find_element(f"#{JOB_LOGS_ID}").text
+        job_logs = dash_duo.find_element(f"#{JOB_LOGS_DIV_SUBMISSION_ID}").text
         raise AssertionError("Job did not complete successfully. Logs:\n" + job_logs)
 
-    scroll_to_element_and_click(dash_duo, RESULT_BUTTON_ID)
+    scroll_to_element_and_click(dash_duo, RESULT_BUTTON_SUBMISSION_ID)
     time.sleep(2)
     check_all_errors(dash_duo)
 

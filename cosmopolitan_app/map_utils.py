@@ -7,6 +7,8 @@ import dash_leaflet as dl
 
 from cosmopolitan_app.config import TILESERVER_URL
 
+log = logging.getLogger(__name__)
+
 
 def create_tile_layer_component(job_id, tiff_filename, colormap_params, opacity=0.9):
     """Create TileLayer component for GeoTIFF using TiTiler.
@@ -18,6 +20,6 @@ def create_tile_layer_component(job_id, tiff_filename, colormap_params, opacity=
     encoded_url = urllib.parse.quote(file_path, safe=":/")
 
     tile_url = f"{TILESERVER_URL}/cog/tiles/WebMercatorQuad/{{z}}/{{x}}/{{y}}@1x?url={encoded_url}&maxzoom=15{colormap_params}"  # noqa
-    logging.info(f"Using map URL: {tile_url}", extra={"tag": "frontend"})
+    log.info(f"Using map URL: {tile_url}", extra={"tag": "frontend"})
 
-    return dl.TileLayer(id="map-tile-layer", url=tile_url, opacity=opacity)
+    return dl.TileLayer(id="map-tile-layer", url=tile_url, opacity=opacity)  # nocheck

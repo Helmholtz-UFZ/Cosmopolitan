@@ -39,28 +39,30 @@ from dash import Input, Output, State, callback, dash_table, dcc, html
 
 from cosmopolitan_app.background_job_manager import get_background_job_manager
 from cosmopolitan_app.constants import (
-    ACTIVE_TASKS_TABLE_ID,
-    LOADING_OVERLAY_ID,
-    RESERVED_TASKS_TABLE_ID,
-    REVOKED_TASKS_TABLE_ID,
-    SCHEDULED_TASKS_TABLE_ID,
-    WORKER_CANCEL_BTN_ID,
-    WORKER_CANCEL_MODAL_CANCEL_ID,
-    WORKER_CANCEL_MODAL_CONFIRM_ID,
-    WORKER_CANCEL_MODAL_ID,
-    WORKER_CANCEL_MODAL_TASK_INFO_ID,
-    WORKER_KILL_BTN_ID,
-    WORKER_KILL_MODAL_CANCEL_ID,
-    WORKER_KILL_MODAL_CONFIRM_ID,
-    WORKER_KILL_MODAL_ID,
-    WORKER_KILL_MODAL_TASK_INFO_ID,
-    WORKER_LAST_REFRESH_ID,
-    WORKER_MANAGEMENT_DUMMY_ID,
-    WORKER_REFRESH_BTN_ID,
-    WORKER_STATS_CARD_ID,
+    ACTIVE_TASKS_TABLE_WORKER_MANAGEMENT_ID,
+    CANCEL_BUTTON_WORKER_MANAGEMENT_ID,
+    CANCEL_MODAL_CANCEL_BUTTON_WORKER_MANAGEMENT_ID,
+    CANCEL_MODAL_CONFIRM_BUTTON_WORKER_MANAGEMENT_ID,
+    CANCEL_MODAL_TASK_INFO_DIV_WORKER_MANAGEMENT_ID,
+    CANCEL_MODAL_WORKER_MANAGEMENT_ID,
+    DUMMY_DIV_WORKER_MANAGEMENT_ID,
+    KILL_BUTTON_WORKER_MANAGEMENT_ID,
+    KILL_MODAL_CANCEL_BUTTON_WORKER_MANAGEMENT_ID,
+    KILL_MODAL_CONFIRM_BUTTON_WORKER_MANAGEMENT_ID,
+    KILL_MODAL_TASK_INFO_DIV_WORKER_MANAGEMENT_ID,
+    KILL_MODAL_WORKER_MANAGEMENT_ID,
+    LAST_REFRESH_DIV_WORKER_MANAGEMENT_ID,
+    LOADING_OVERLAY_MODAL_SHARED_ID,
+    REFRESH_BUTTON_WORKER_MANAGEMENT_ID,
+    RESERVED_TASKS_TABLE_WORKER_MANAGEMENT_ID,
+    REVOKED_TASKS_TABLE_WORKER_MANAGEMENT_ID,
+    SCHEDULED_TASKS_TABLE_WORKER_MANAGEMENT_ID,
+    STATS_CARD_DIV_WORKER_MANAGEMENT_ID,
 )
 from cosmopolitan_app.error_handling import WorkerNotAvailableError
 from cosmopolitan_app.layouts import create_header, page_container_column_layout
+
+log = logging.getLogger(__name__)
 
 # Register the page
 dash.register_page(__name__, path="/worker_management")
@@ -164,7 +166,7 @@ def format_duration(start_timestamp: float) -> str:
 def count_tasks_for_worker(task_list, worker_name):
     """Count tasks assigned to a specific worker."""
     return sum(
-        1 for t in task_list if isinstance(t, dict) and t.get("worker") == worker_name
+        1 for t in task_list if isinstance(t, dict) and t["worker"] == worker_name
     )
 
 
@@ -177,8 +179,10 @@ def extract_job_id_from_task(task: dict) -> str:
     Returns:
         str: Job ID or empty string if not a computation task
     """
-    task_name = task.get("name", "")
-    if "computation" in task_name and task.get("args"):
+    task_name = task["name"]
+    if "computation" in task_name and task.get(
+        "args"
+    ):  # args may be empty/absent for non-computation tasks
         # Computation tasks have job_id as first argument
         try:
             return task["args"][0] if task["args"] else ""
@@ -200,20 +204,18 @@ def format_active_tasks(active_list: list) -> list:
     for task in active_list:
         tasks.append(
             {
-                "task_id": task.get("id", ""),
-                # Short name
-                "task_name": task.get("name", "").split(".")[-1],
-                # Keep full name for reference
-                "full_name": task.get("name", ""),
-                "worker": task.get("worker", ""),
+                "task_id": task["id"],
+                "task_name": task["name"].split(".")[-1],
+                "full_name": task["name"],
+                "worker": task["worker"],
                 "start_time": (
-                    datetime.fromtimestamp(task.get("time_start", 0)).strftime(
-                        "%H:%M:%S"
-                    )
-                    if task.get("time_start")
+                    datetime.fromtimestamp(task["time_start"]).strftime("%H:%M:%S")
+                    if task.get(
+                        "time_start"
+                    )  # time_start absent for tasks not yet started
                     else "N/A"
                 ),
-                "duration": format_duration(task.get("time_start")),
+                "duration": format_duration(task.get("time_start")),  # see above
                 "job_id": extract_job_id_from_task(task),
             }
         )
@@ -233,11 +235,12 @@ def format_reserved_tasks(reserved_list: list) -> list:
     for task in reserved_list:
         tasks.append(
             {
-                "task_id": task.get("id", ""),
-                "task_name": task.get("name", "").split(".")[-1],
-                "full_name": task.get("name", ""),
+                "task_id": task["id"],
+                "task_name": task["name"].split(".")[-1],
+                "full_name": task["name"],
+                # delivery_info may be absent for tasks without routing info
                 "queue": task.get("delivery_info", {}).get("routing_key", "default"),
-                "worker": task.get("worker", ""),
+                "worker": task["worker"],
             }
         )
     return tasks
@@ -254,18 +257,19 @@ def format_scheduled_tasks(scheduled_list: list) -> list:
     """
     tasks = []
     for task in scheduled_list:
-        eta = task.get("eta")
+        eta = task.get("eta")  # eta absent for tasks without scheduled time
         eta_str = (
             datetime.fromisoformat(eta).strftime("%Y-%m-%d %H:%M:%S") if eta else "N/A"
         )
         tasks.append(
             {
-                "task_id": task.get("id", ""),
-                "task_name": task.get("name", "").split(".")[-1],
-                "full_name": task.get("name", ""),
+                "task_id": task["id"],
+                "task_name": task["name"].split(".")[-1],
+                "full_name": task["name"],
                 "eta": eta_str,
+                # delivery_info may be absent for tasks without routing info
                 "queue": task.get("delivery_info", {}).get("routing_key", "default"),
-                "worker": task.get("worker", ""),
+                "worker": task["worker"],
             }
         )
     return tasks
@@ -283,8 +287,8 @@ def format_revoked_tasks(revoked_list: list) -> list:
     job_manager = get_background_job_manager()
     tasks = []
     for task in revoked_list:
-        task_id = task.get("id", "")
-        worker = task.get("worker", "")
+        task_id = task["id"]
+        worker = task["worker"]
 
         # Enrich with info from result backend
         result_info = job_manager.get_task_result_info(task_id)
@@ -311,7 +315,7 @@ def format_worker_stats(overview: dict) -> list:
         list: List of card components showing worker stats
     """
     # Get list of online workers from overview
-    all_workers = set(overview.get("workers", []))
+    all_workers = set(overview["workers"])
 
     if not all_workers:
         raise WorkerNotAvailableError("No workers currently running")
@@ -364,12 +368,12 @@ layout = page_container_column_layout(
                 [
                     dbc.Button(
                         "Refresh",
-                        id=WORKER_REFRESH_BTN_ID,
+                        id=REFRESH_BUTTON_WORKER_MANAGEMENT_ID,
                         color="primary",
                         className="me-3",
                     ),
                     html.Small(
-                        id=WORKER_LAST_REFRESH_ID,
+                        id=LAST_REFRESH_DIV_WORKER_MANAGEMENT_ID,
                         children="Last refresh: --",
                         className="text-muted",
                     ),
@@ -383,7 +387,7 @@ layout = page_container_column_layout(
                 [
                     html.H4("Worker Status", className="mb-3"),
                     html.Div(
-                        id=WORKER_STATS_CARD_ID,
+                        id=STATS_CARD_DIV_WORKER_MANAGEMENT_ID,
                         children=[
                             dbc.Alert("Loading worker information...", color="info")
                         ],
@@ -397,7 +401,7 @@ layout = page_container_column_layout(
             "Active Tasks",
             "Tasks currently being executed by workers",
             create_task_datatable(
-                ACTIVE_TASKS_TABLE_ID,
+                ACTIVE_TASKS_TABLE_WORKER_MANAGEMENT_ID,
                 [
                     {"id": "task_id", "name": "Task ID"},
                     {"id": "task_name", "name": "Task Name"},
@@ -410,7 +414,7 @@ layout = page_container_column_layout(
             ),
             dbc.Button(
                 "Kill Selected Task",
-                id=WORKER_KILL_BTN_ID,
+                id=KILL_BUTTON_WORKER_MANAGEMENT_ID,
                 color="danger",
                 className="mt-2",
                 disabled=True,
@@ -421,7 +425,7 @@ layout = page_container_column_layout(
             "Reserved Tasks",
             "Tasks claimed by workers but not yet started",
             create_task_datatable(
-                RESERVED_TASKS_TABLE_ID,
+                RESERVED_TASKS_TABLE_WORKER_MANAGEMENT_ID,
                 [
                     {"id": "task_id", "name": "Task ID"},
                     {"id": "task_name", "name": "Task Name"},
@@ -436,7 +440,7 @@ layout = page_container_column_layout(
             "Scheduled Tasks",
             "Tasks scheduled for future execution",
             create_task_datatable(
-                SCHEDULED_TASKS_TABLE_ID,
+                SCHEDULED_TASKS_TABLE_WORKER_MANAGEMENT_ID,
                 [
                     {"id": "task_id", "name": "Task ID"},
                     {"id": "task_name", "name": "Task Name"},
@@ -447,7 +451,7 @@ layout = page_container_column_layout(
             ),
             dbc.Button(
                 "Cancel Selected Task",
-                id=WORKER_CANCEL_BTN_ID,
+                id=CANCEL_BUTTON_WORKER_MANAGEMENT_ID,
                 color="warning",
                 className="mt-2",
                 disabled=True,
@@ -458,7 +462,7 @@ layout = page_container_column_layout(
             "Revoked Tasks",
             "Tasks that have been cancelled",
             create_task_datatable(
-                REVOKED_TASKS_TABLE_ID,
+                REVOKED_TASKS_TABLE_WORKER_MANAGEMENT_ID,
                 [
                     {"id": "task_id", "name": "Task ID"},
                     {"id": "task_name", "name": "Task Name"},
@@ -468,7 +472,7 @@ layout = page_container_column_layout(
             ),
         ),
         # Hidden components
-        dcc.Store(id=WORKER_MANAGEMENT_DUMMY_ID, data=None),
+        dcc.Store(id=DUMMY_DIV_WORKER_MANAGEMENT_ID, data=None),
         # Kill Confirmation Modal
         dbc.Modal(
             [
@@ -481,7 +485,8 @@ layout = page_container_column_layout(
                         ),
                         html.P("The worker process will be killed immediately."),
                         html.Pre(
-                            id=WORKER_KILL_MODAL_TASK_INFO_ID, className="bg-light p-2"
+                            id=KILL_MODAL_TASK_INFO_DIV_WORKER_MANAGEMENT_ID,
+                            className="bg-light p-2",
                         ),
                         html.P(
                             "Are you sure you want to KILL this task?",
@@ -493,18 +498,18 @@ layout = page_container_column_layout(
                     [
                         dbc.Button(
                             "Cancel",
-                            id=WORKER_KILL_MODAL_CANCEL_ID,
+                            id=KILL_MODAL_CANCEL_BUTTON_WORKER_MANAGEMENT_ID,
                             color="secondary",
                         ),
                         dbc.Button(
                             "Kill Task",
-                            id=WORKER_KILL_MODAL_CONFIRM_ID,
+                            id=KILL_MODAL_CONFIRM_BUTTON_WORKER_MANAGEMENT_ID,
                             color="danger",
                         ),
                     ]
                 ),
             ],
-            id=WORKER_KILL_MODAL_ID,
+            id=KILL_MODAL_WORKER_MANAGEMENT_ID,
             is_open=False,
         ),
         # Cancel Confirmation Modal
@@ -518,7 +523,7 @@ layout = page_container_column_layout(
                             "If the task is already running, it will continue until completion."  # noqa
                         ),
                         html.Pre(
-                            id=WORKER_CANCEL_MODAL_TASK_INFO_ID,
+                            id=CANCEL_MODAL_TASK_INFO_DIV_WORKER_MANAGEMENT_ID,
                             className="bg-light p-2",
                         ),
                         html.P(
@@ -531,18 +536,18 @@ layout = page_container_column_layout(
                     [
                         dbc.Button(
                             "Cancel",
-                            id=WORKER_CANCEL_MODAL_CANCEL_ID,
+                            id=CANCEL_MODAL_CANCEL_BUTTON_WORKER_MANAGEMENT_ID,
                             color="secondary",
                         ),
                         dbc.Button(
                             "Cancel Task",
-                            id=WORKER_CANCEL_MODAL_CONFIRM_ID,
+                            id=CANCEL_MODAL_CONFIRM_BUTTON_WORKER_MANAGEMENT_ID,
                             color="warning",
                         ),
                     ]
                 ),
             ],
-            id=WORKER_CANCEL_MODAL_ID,
+            id=CANCEL_MODAL_WORKER_MANAGEMENT_ID,
             is_open=False,
         ),
     ]
@@ -554,11 +559,11 @@ layout = page_container_column_layout(
 
 # Callback 1: Show loading overlay
 @callback(
-    Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
-    Input(WORKER_REFRESH_BTN_ID, "n_clicks"),
-    Input(WORKER_KILL_BTN_ID, "n_clicks"),
-    Input(WORKER_CANCEL_BTN_ID, "n_clicks"),
-    Input(WORKER_MANAGEMENT_DUMMY_ID, "data"),
+    Output(LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True),
+    Input(REFRESH_BUTTON_WORKER_MANAGEMENT_ID, "n_clicks"),
+    Input(KILL_BUTTON_WORKER_MANAGEMENT_ID, "n_clicks"),
+    Input(CANCEL_BUTTON_WORKER_MANAGEMENT_ID, "n_clicks"),
+    Input(DUMMY_DIV_WORKER_MANAGEMENT_ID, "data"),
     prevent_initial_call=True,
 )
 def show_loading(*inputs):
@@ -568,23 +573,23 @@ def show_loading(*inputs):
 
 # Callback 2: Refresh all data
 @callback(
-    Output(WORKER_STATS_CARD_ID, "children"),
-    Output(ACTIVE_TASKS_TABLE_ID, "data"),
-    Output(RESERVED_TASKS_TABLE_ID, "data"),
-    Output(SCHEDULED_TASKS_TABLE_ID, "data"),
-    Output(REVOKED_TASKS_TABLE_ID, "data"),
-    Output(WORKER_LAST_REFRESH_ID, "children"),
-    Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
-    Input(WORKER_REFRESH_BTN_ID, "n_clicks"),
+    Output(STATS_CARD_DIV_WORKER_MANAGEMENT_ID, "children"),
+    Output(ACTIVE_TASKS_TABLE_WORKER_MANAGEMENT_ID, "data"),
+    Output(RESERVED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "data"),
+    Output(SCHEDULED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "data"),
+    Output(REVOKED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "data"),
+    Output(LAST_REFRESH_DIV_WORKER_MANAGEMENT_ID, "children"),
+    Output(LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True),
+    Input(REFRESH_BUTTON_WORKER_MANAGEMENT_ID, "n_clicks"),
     prevent_initial_call=True,
 )
 def refresh_data(refresh_clicks):
     """Refresh all worker and task data."""
-    logging.info("Refreshing worker data", extra={"tag": "frontend"})
+    log.info("Refreshing worker data", extra={"tag": "frontend"})
 
     job_manager = get_background_job_manager()
     overview = job_manager.get_all_tasks_overview()
-    logging.debug(f"Retrieved task overview: {overview}", extra={"tag": "frontend"})
+    log.debug(f"Retrieved task overview: {overview}", extra={"tag": "frontend"})
 
     # Format data for display
     worker_cards = format_worker_stats(overview)
@@ -596,7 +601,7 @@ def refresh_data(refresh_clicks):
     timestamp = datetime.now().strftime("%H:%M:%S")
     last_refresh_text = f"Last refresh: {timestamp}"
 
-    logging.info(
+    log.info(
         f"Refreshed: {len(active_data)} active, {len(reserved_data)} reserved, "
         f"{len(scheduled_data)} scheduled, {len(revoked_data)} revoked tasks",
         extra={"tag": "frontend"},
@@ -615,8 +620,8 @@ def refresh_data(refresh_clicks):
 
 # Callback 4: Enable/disable kill button based on selection
 @callback(
-    Output(WORKER_KILL_BTN_ID, "disabled"),
-    Input(ACTIVE_TASKS_TABLE_ID, "selected_rows"),
+    Output(KILL_BUTTON_WORKER_MANAGEMENT_ID, "disabled"),
+    Input(ACTIVE_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selected_rows"),
 )
 def enable_kill_button(selected_rows):
     """Enable kill button only when a task is selected."""
@@ -625,9 +630,9 @@ def enable_kill_button(selected_rows):
 
 # Callback 5: Enable/disable cancel button based on selection
 @callback(
-    Output(WORKER_CANCEL_BTN_ID, "disabled"),
-    Input(RESERVED_TASKS_TABLE_ID, "selected_rows"),
-    Input(SCHEDULED_TASKS_TABLE_ID, "selected_rows"),
+    Output(CANCEL_BUTTON_WORKER_MANAGEMENT_ID, "disabled"),
+    Input(RESERVED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selected_rows"),
+    Input(SCHEDULED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selected_rows"),
 )
 def enable_cancel_button(reserved_selected, scheduled_selected):
     """Enable cancel button when a task is selected in either table."""
@@ -636,11 +641,11 @@ def enable_cancel_button(reserved_selected, scheduled_selected):
 
 # Callback 6: Open kill confirmation modal
 @callback(
-    Output(WORKER_KILL_MODAL_ID, "is_open"),
-    Output(WORKER_KILL_MODAL_TASK_INFO_ID, "children"),
-    Input(WORKER_KILL_BTN_ID, "n_clicks"),
-    State(ACTIVE_TASKS_TABLE_ID, "selected_rows"),
-    State(ACTIVE_TASKS_TABLE_ID, "data"),
+    Output(KILL_MODAL_WORKER_MANAGEMENT_ID, "is_open"),
+    Output(KILL_MODAL_TASK_INFO_DIV_WORKER_MANAGEMENT_ID, "children"),
+    Input(KILL_BUTTON_WORKER_MANAGEMENT_ID, "n_clicks"),
+    State(ACTIVE_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selected_rows"),
+    State(ACTIVE_TASKS_TABLE_WORKER_MANAGEMENT_ID, "data"),
     prevent_initial_call=True,
 )
 def open_kill_modal(n_clicks, selected_rows, table_data):
@@ -656,7 +661,7 @@ def open_kill_modal(n_clicks, selected_rows, table_data):
         f"Duration: {task['duration']}\n"
     )
 
-    logging.info(
+    log.info(
         f"Opening kill modal for task {task['task_id']}", extra={"tag": "frontend"}
     )
 
@@ -665,20 +670,18 @@ def open_kill_modal(n_clicks, selected_rows, table_data):
 
 # Callback 7: Confirm kill task
 @callback(
-    Output(WORKER_KILL_MODAL_ID, "is_open", allow_duplicate=True),
-    Output(ACTIVE_TASKS_TABLE_ID, "selected_rows"),
-    Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
-    Input(WORKER_KILL_MODAL_CONFIRM_ID, "n_clicks"),
-    State(ACTIVE_TASKS_TABLE_ID, "selected_rows"),
-    State(ACTIVE_TASKS_TABLE_ID, "data"),
+    Output(KILL_MODAL_WORKER_MANAGEMENT_ID, "is_open", allow_duplicate=True),
+    Output(ACTIVE_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selected_rows"),
+    Output(LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True),
+    Input(KILL_MODAL_CONFIRM_BUTTON_WORKER_MANAGEMENT_ID, "n_clicks"),
+    State(ACTIVE_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selected_rows"),
+    State(ACTIVE_TASKS_TABLE_WORKER_MANAGEMENT_ID, "data"),
     prevent_initial_call=True,
 )
 def confirm_kill_task(n_clicks, selected_rows, table_data):
     """Kill the selected task."""
     if not selected_rows or not table_data:
-        logging.warning(
-            "Kill task attempted with no selection", extra={"tag": "frontend"}
-        )
+        log.warning("Kill task attempted with no selection", extra={"tag": "frontend"})
         # Close modal gracefully, no task to kill
         return False, [], False
 
@@ -688,7 +691,7 @@ def confirm_kill_task(n_clicks, selected_rows, table_data):
     job_manager = get_background_job_manager()
     job_manager.revoke_job(task_id, terminate=True)
 
-    logging.info(f"Killed task {task_id}", extra={"tag": "frontend"})
+    log.info(f"Killed task {task_id}", extra={"tag": "frontend"})
 
     # Close modal, reset selection, hide overlay
     return False, [], False
@@ -696,8 +699,8 @@ def confirm_kill_task(n_clicks, selected_rows, table_data):
 
 # Callback 8: Cancel kill modal
 @callback(
-    Output(WORKER_KILL_MODAL_ID, "is_open", allow_duplicate=True),
-    Input(WORKER_KILL_MODAL_CANCEL_ID, "n_clicks"),
+    Output(KILL_MODAL_WORKER_MANAGEMENT_ID, "is_open", allow_duplicate=True),
+    Input(KILL_MODAL_CANCEL_BUTTON_WORKER_MANAGEMENT_ID, "n_clicks"),
     prevent_initial_call=True,
 )
 def cancel_kill_modal(n_clicks):
@@ -707,13 +710,13 @@ def cancel_kill_modal(n_clicks):
 
 # Callback 9: Open cancel confirmation modal
 @callback(
-    Output(WORKER_CANCEL_MODAL_ID, "is_open"),
-    Output(WORKER_CANCEL_MODAL_TASK_INFO_ID, "children"),
-    Input(WORKER_CANCEL_BTN_ID, "n_clicks"),
-    State(RESERVED_TASKS_TABLE_ID, "selected_rows"),
-    State(RESERVED_TASKS_TABLE_ID, "data"),
-    State(SCHEDULED_TASKS_TABLE_ID, "selected_rows"),
-    State(SCHEDULED_TASKS_TABLE_ID, "data"),
+    Output(CANCEL_MODAL_WORKER_MANAGEMENT_ID, "is_open"),
+    Output(CANCEL_MODAL_TASK_INFO_DIV_WORKER_MANAGEMENT_ID, "children"),
+    Input(CANCEL_BUTTON_WORKER_MANAGEMENT_ID, "n_clicks"),
+    State(RESERVED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selected_rows"),
+    State(RESERVED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "data"),
+    State(SCHEDULED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selected_rows"),
+    State(SCHEDULED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "data"),
     prevent_initial_call=True,
 )
 def open_cancel_modal(
@@ -732,10 +735,10 @@ def open_cancel_modal(
     task_info = (
         f"Task: {task['task_name']}\n"
         f"ID: {task['task_id']}\n"
-        f"Queue: {task.get('queue', 'N/A')}\n"
+        f"Queue: {task.get('queue', 'N/A')}\n"  # queue absent for active/revoked tasks
     )
 
-    logging.info(
+    log.info(
         f"Opening cancel modal for task {task['task_id']}", extra={"tag": "frontend"}
     )
 
@@ -744,15 +747,15 @@ def open_cancel_modal(
 
 # Callback 10: Confirm cancel task
 @callback(
-    Output(WORKER_CANCEL_MODAL_ID, "is_open", allow_duplicate=True),
-    Output(RESERVED_TASKS_TABLE_ID, "selected_rows"),
-    Output(SCHEDULED_TASKS_TABLE_ID, "selected_rows"),
-    Output(LOADING_OVERLAY_ID, "is_open", allow_duplicate=True),
-    Input(WORKER_CANCEL_MODAL_CONFIRM_ID, "n_clicks"),
-    State(RESERVED_TASKS_TABLE_ID, "selected_rows"),
-    State(RESERVED_TASKS_TABLE_ID, "data"),
-    State(SCHEDULED_TASKS_TABLE_ID, "selected_rows"),
-    State(SCHEDULED_TASKS_TABLE_ID, "data"),
+    Output(CANCEL_MODAL_WORKER_MANAGEMENT_ID, "is_open", allow_duplicate=True),
+    Output(RESERVED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selected_rows"),
+    Output(SCHEDULED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selected_rows"),
+    Output(LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True),
+    Input(CANCEL_MODAL_CONFIRM_BUTTON_WORKER_MANAGEMENT_ID, "n_clicks"),
+    State(RESERVED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selected_rows"),
+    State(RESERVED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "data"),
+    State(SCHEDULED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selected_rows"),
+    State(SCHEDULED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "data"),
     prevent_initial_call=True,
 )
 def confirm_cancel_task(
@@ -766,7 +769,7 @@ def confirm_cancel_task(
         task = scheduled_data[scheduled_selected[0]]
 
     if not task:
-        logging.warning(
+        log.warning(
             "Cancel task attempted with no selection", extra={"tag": "frontend"}
         )
         # Close modal gracefully, no task to cancel
@@ -777,7 +780,7 @@ def confirm_cancel_task(
     job_manager = get_background_job_manager()
     job_manager.revoke_job(task_id, terminate=False)
 
-    logging.info(f"Cancelled task {task_id}", extra={"tag": "frontend"})
+    log.info(f"Cancelled task {task_id}", extra={"tag": "frontend"})
 
     # Close modal, reset selections, hide overlay
     return False, [], [], False
@@ -785,8 +788,8 @@ def confirm_cancel_task(
 
 # Callback 11: Cancel cancel modal
 @callback(
-    Output(WORKER_CANCEL_MODAL_ID, "is_open", allow_duplicate=True),
-    Input(WORKER_CANCEL_MODAL_CANCEL_ID, "n_clicks"),
+    Output(CANCEL_MODAL_WORKER_MANAGEMENT_ID, "is_open", allow_duplicate=True),
+    Input(CANCEL_MODAL_CANCEL_BUTTON_WORKER_MANAGEMENT_ID, "n_clicks"),
     prevent_initial_call=True,
 )
 def cancel_cancel_modal(n_clicks):

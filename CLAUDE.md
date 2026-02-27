@@ -14,6 +14,20 @@ The application is built as a Dash web application with the following key compon
 - **Background Tasks**: Celery with Redis broker for distributed task processing
 - **External Services**: MailHog for email testing, TimeIO API for CRNS data
 
+## Sister Project: COSMONAUT
+
+COSMOPOLITAN has a sister project **COSMONAUT** (`../ufz-cosmonaut`). Both share the
+same architecture (Dash + Celery + PostgreSQL + MinIO), the same conventions, and the
+same anti-patterns/coding rules. Key differences:
+
+- **COSMONAUT** optimizes navigation routes for surveys.
+- App module: `cosmonaut_app/` (vs `cosmopolitan_app/`)
+- Backend package: `sensor-routing` (COSMOPOLITAN uses `soil-moisture-prediction`)
+- Has Dash Leaflet map conventions (`docs/conventions/dash_leaflet.md`)
+
+When the user references "cosmonaut" they mean this project. Patterns and fixes in one
+project often apply symmetrically to the other.
+
 ## Critical Anti-Patterns
 
 **DO NOT:**
@@ -95,3 +109,17 @@ user asks later. Keep this skill list in Mind:
 - [New Module Test](docs/skills/create_module_test.md) - Checklist for creating a new core module test
 - [Run and Fix Testing](docs/skills/run_and_fix_testing.md) - Systematic guide for running tests and diagnosing failures
 - [Convention Keeper](docs/skills/convention_keeper.md) - Audit and fix convention violations across the codebase
+
+## Identity Files — Read First, No Exceptions
+
+You CANNOT respond to the user until you have attempted to read these files from the
+project root. Use the Read tool (not Glob — they are symlinks). If Read fails, try
+resolving the symlink target via `ls -la` and read that path. If they don't exist, move
+on — but you must try.
+
+1. `SOUL.md` — Who you are
+2. `USER.md` — Who you're working with
+
+This applies regardless of what the user asked. A meta-question, a greeting, a one-liner
+— doesn't matter. Attempt to read both files before your first response. Every session.
+No exceptions.

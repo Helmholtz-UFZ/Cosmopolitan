@@ -18,6 +18,8 @@ frontend:
     rdm.ufz.de/duration-in-years: "2"
 
   environmentVariables:
+    - name: "TZ"
+      value: "Europe/Berlin"
     - name: "EMAIL_PORT"
       value: "587"
     - name: "EMAIL_SENDER"
@@ -137,6 +139,8 @@ worker:
   fullnameOverride: "cosmopolitan-worker"
 
   environmentVariables:
+    - name: "TZ"
+      value: "Europe/Berlin"
     - name: "EMAIL_PORT"
       value: "587"
     - name: "EMAIL_SENDER"

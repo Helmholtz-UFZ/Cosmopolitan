@@ -21,6 +21,8 @@ from cosmopolitan_app.config import (
     WEB_OUTSIDE_URL,
 )
 
+log = logging.getLogger(__name__)
+
 submission_url = "{external_url}/submission/{job_id}"
 
 
@@ -98,7 +100,7 @@ def zip_directory(directory_path):
 
 def send_mail(recipient, subject, content):
     """Send an email using the provided details."""
-    logging.debug(
+    log.debug(
         f"Send mail to {recipient} with subject {subject}.",
         extra={"tag": "email_service"},
     )
@@ -110,7 +112,7 @@ def send_mail(recipient, subject, content):
     body = content
     msg.attach(MIMEText(body, "plain"))
 
-    logging.debug(
+    log.debug(
         f"Connect to email server {EMAIL_SERVER}:{EMAIL_PORT}.",
         extra={"tag": "email_service"},
     )
@@ -126,7 +128,7 @@ def send_finished_mail(job):
     """Send a notification email to the user that the job finished."""
     if job.model.email == "" or job.notified_end:
         return
-    logging.info("Send mail about finished job.", extra={"tag": "email_service"})
+    log.info("Send mail about finished job.", extra={"tag": "email_service"})
 
     # Use configured external URL instead of Flask request context
     try:
@@ -152,7 +154,7 @@ def send_submission_mail(job):
     """Send a notification email to the user that the job was submitted."""
     if job.model.email == "":
         return
-    logging.info(
+    log.info(
         f"Send mail about submitted job {job.job_id}.", extra={"tag": "email_service"}
     )
 

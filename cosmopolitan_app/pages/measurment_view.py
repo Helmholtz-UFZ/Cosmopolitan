@@ -27,10 +27,31 @@ import pandas as pd
 from dash import Input, Output, State, callback, dash_table, dcc, html
 from pyproj import Transformer
 
+from cosmopolitan_app.constants import (
+    BBOX_INPUT_GROUP_MEASUREMENT_VIEW_ID,
+    BBOX_MAX_LAT_INPUT_MEASUREMENT_VIEW_ID,
+    BBOX_MAX_LON_INPUT_MEASUREMENT_VIEW_ID,
+    BBOX_MIN_LAT_INPUT_MEASUREMENT_VIEW_ID,
+    BBOX_MIN_LON_INPUT_MEASUREMENT_VIEW_ID,
+    CURRENT_DATA_STORE_DIV_MEASUREMENT_VIEW_ID,
+    DATE_RANGE_PICKER_MEASUREMENT_VIEW_ID,
+    DOWNLOAD_CSV_MEASUREMENT_VIEW_ID,
+    EXPORT_BUTTON_MEASUREMENT_VIEW_ID,
+    LOAD_BUTTON_MEASUREMENT_VIEW_ID,
+    MEASUREMENTS_TABLE_MEASUREMENT_VIEW_ID,
+    PREVIEW_IMAGE_DIV_MEASUREMENT_VIEW_ID,
+    PROJECTION_INPUT_MEASUREMENT_VIEW_ID,
+    REPRESENTATIVE_SWITCH_MEASUREMENT_VIEW_ID,
+    STATS_CONTENT_DIV_MEASUREMENT_VIEW_ID,
+    TRANSFORMATION_FEEDBACK_MEASUREMENT_VIEW_ID,
+    TYPE_DROPDOWN_MEASUREMENT_VIEW_ID,
+)
 from cosmopolitan_app.job import draw_preview
 from cosmopolitan_app.layouts import create_header, page_container_column_layout
 from cosmopolitan_app.postgres_manager import PostgresManager
 from cosmopolitan_app.timeio_info import type_id_dict
+
+log = logging.getLogger(__name__)
 
 dash.register_page(__name__)
 
@@ -39,7 +60,7 @@ available_types = list(set(type_id_dict.values()))
 
 # Create the measurement data table
 measurement_table = dash_table.DataTable(
-    id="measurements-table",
+    id=MEASUREMENTS_TABLE_MEASUREMENT_VIEW_ID,
     columns=[
         {"id": "date_time", "name": "Date Time"},
         {"id": "sensor_id", "name": "Sensor ID"},
@@ -122,7 +143,7 @@ filter_controls = dbc.Card(
                                     "Measurement Types:", className="form-label"
                                 ),
                                 dcc.Dropdown(
-                                    id="type-dropdown",
+                                    id=TYPE_DROPDOWN_MEASUREMENT_VIEW_ID,
                                     options=[
                                         {"label": t, "value": t}
                                         for t in available_types
@@ -142,11 +163,11 @@ filter_controls = dbc.Card(
                             [
                                 html.Label("Date Range:", className="form-label"),
                                 dcc.DatePickerRange(
-                                    id="date-range-picker",
+                                    id=DATE_RANGE_PICKER_MEASUREMENT_VIEW_ID,
                                     start_date=date(2024, 2, 1),
                                     end_date=date(2024, 2, 29),
                                     display_format="YYYY-MM-DD",
-                                    style={"width": "100%"},
+                                    className="w-100",
                                 ),
                             ],
                             md=4,
@@ -157,7 +178,7 @@ filter_controls = dbc.Card(
                                     "Representative Only:", className="form-label"
                                 ),
                                 dbc.Switch(
-                                    id="representative-switch",
+                                    id=REPRESENTATIVE_SWITCH_MEASUREMENT_VIEW_ID,
                                     label="Show only representative measurements",
                                     value=False,
                                 ),
@@ -179,46 +200,45 @@ filter_controls = dbc.Card(
                                     [
                                         dbc.InputGroupText("X1"),
                                         dbc.Input(
-                                            id="bbox-min-lon",
+                                            id=BBOX_MIN_LON_INPUT_MEASUREMENT_VIEW_ID,
                                             type="number",
                                             value=580000,
                                             step=1,
                                         ),
                                         dbc.InputGroupText("Y1"),
                                         dbc.Input(
-                                            id="bbox-min-lat",
+                                            id=BBOX_MIN_LAT_INPUT_MEASUREMENT_VIEW_ID,
                                             type="number",
                                             value=5710000,
                                             step=1,
                                         ),
                                         dbc.InputGroupText("X2"),
                                         dbc.Input(
-                                            id="bbox-max-lon",
+                                            id=BBOX_MAX_LON_INPUT_MEASUREMENT_VIEW_ID,
                                             type="number",
                                             value=660000,
                                             step=1,
                                         ),
                                         dbc.InputGroupText("Y2"),
                                         dbc.Input(
-                                            id="bbox-max-lat",
+                                            id=BBOX_MAX_LAT_INPUT_MEASUREMENT_VIEW_ID,
                                             type="number",
                                             value=5777000,
                                             step=1,
                                         ),
                                         dbc.InputGroupText("EPSG:"),
                                         dbc.Input(
-                                            id="projection-input",
+                                            id=PROJECTION_INPUT_MEASUREMENT_VIEW_ID,
                                             type="text",
                                             value="25832",
                                         ),
                                     ],
-                                    id="bbox-input-group",
+                                    id=BBOX_INPUT_GROUP_MEASUREMENT_VIEW_ID,
                                     size="sm",
                                 ),
                                 dbc.FormText(
-                                    id="transformation-feedback",
-                                    className="text-danger",
-                                    style={"display": "none"},
+                                    id=TRANSFORMATION_FEEDBACK_MEASUREMENT_VIEW_ID,
+                                    className="text-danger d-none",
                                 ),
                             ],
                             md=8,
@@ -230,13 +250,13 @@ filter_controls = dbc.Card(
                                     [
                                         dbc.Button(
                                             "Load Data",
-                                            id="load-btn",
+                                            id=LOAD_BUTTON_MEASUREMENT_VIEW_ID,
                                             color="primary",
                                             size="sm",
                                         ),
                                         dbc.Button(
                                             "Export CSV",
-                                            id="export-btn",
+                                            id=EXPORT_BUTTON_MEASUREMENT_VIEW_ID,
                                             color="success",
                                             size="sm",
                                             disabled=True,
@@ -261,7 +281,7 @@ stats_card = dbc.Card(
         dbc.CardBody(
             [
                 html.H5("Data Statistics", className="card-title text-center"),
-                html.Div(id="stats-content"),
+                html.Div(id=STATS_CONTENT_DIV_MEASUREMENT_VIEW_ID),
             ]
         ),
     ],
@@ -274,7 +294,10 @@ preview_card = dbc.Card(
             [
                 html.H5("Area Preview", className="card-title text-center mb-3"),
                 dbc.Spinner(
-                    html.Div(id="preview-image", style={"text-align": "center"}),
+                    html.Div(
+                        id=PREVIEW_IMAGE_DIV_MEASUREMENT_VIEW_ID,
+                        className="text-center",
+                    ),
                     color="primary",
                 ),
             ]
@@ -336,9 +359,9 @@ layout = page_container_column_layout(
             ]
         ),
         # Hidden div to store the current data for export
-        html.Div(id="current-data-store", style={"display": "none"}),
+        html.Div(id=CURRENT_DATA_STORE_DIV_MEASUREMENT_VIEW_ID, className="d-none"),
         # Download component for CSV export
-        dcc.Download(id="download-csv"),
+        dcc.Download(id=DOWNLOAD_CSV_MEASUREMENT_VIEW_ID),
     ]
 )
 
@@ -395,17 +418,17 @@ def transform_coordinates_to_projection(df, target_proj="EPSG:4326"):
 
 
 @callback(
-    Output("preview-image", "children"),
-    [Input("load-btn", "n_clicks")],
+    Output(PREVIEW_IMAGE_DIV_MEASUREMENT_VIEW_ID, "children"),
+    [Input(LOAD_BUTTON_MEASUREMENT_VIEW_ID, "n_clicks")],
     [
-        State("type-dropdown", "value"),
-        State("date-range-picker", "start_date"),
-        State("date-range-picker", "end_date"),
-        State("bbox-min-lon", "value"),
-        State("bbox-min-lat", "value"),
-        State("bbox-max-lon", "value"),
-        State("bbox-max-lat", "value"),
-        State("projection-input", "value"),
+        State(TYPE_DROPDOWN_MEASUREMENT_VIEW_ID, "value"),
+        State(DATE_RANGE_PICKER_MEASUREMENT_VIEW_ID, "start_date"),
+        State(DATE_RANGE_PICKER_MEASUREMENT_VIEW_ID, "end_date"),
+        State(BBOX_MIN_LON_INPUT_MEASUREMENT_VIEW_ID, "value"),
+        State(BBOX_MIN_LAT_INPUT_MEASUREMENT_VIEW_ID, "value"),
+        State(BBOX_MAX_LON_INPUT_MEASUREMENT_VIEW_ID, "value"),
+        State(BBOX_MAX_LAT_INPUT_MEASUREMENT_VIEW_ID, "value"),
+        State(PROJECTION_INPUT_MEASUREMENT_VIEW_ID, "value"),
     ],
     prevent_initial_call=True,
 )
@@ -459,6 +482,7 @@ def update_preview_image(
         [
             html.Img(
                 src=f"data:image/png;base64,{img_data}",
+                # image needs border/shadow styling not available as Bootstrap utilities
                 style={
                     "max-width": "100%",
                     "height": "auto",
@@ -470,6 +494,7 @@ def update_preview_image(
             html.P(
                 "Green area shows the selected bounding box. Markers show measurement points (Green: train, Blue: station, Red: rover).",  # noqa
                 className="text-muted text-center mt-2",
+                # Bootstrap fs-* classes don't go as small as 12px
                 style={"font-size": "12px"},
             ),
         ]
@@ -480,25 +505,25 @@ def update_preview_image(
 
 @callback(
     [
-        Output("measurements-table", "data"),
-        Output("stats-content", "children"),
-        Output("export-btn", "disabled"),
-        Output("current-data-store", "children"),
-        Output("bbox-input-group", "invalid"),
-        Output("transformation-feedback", "children"),
-        Output("transformation-feedback", "style"),
+        Output(MEASUREMENTS_TABLE_MEASUREMENT_VIEW_ID, "data"),
+        Output(STATS_CONTENT_DIV_MEASUREMENT_VIEW_ID, "children"),
+        Output(EXPORT_BUTTON_MEASUREMENT_VIEW_ID, "disabled"),
+        Output(CURRENT_DATA_STORE_DIV_MEASUREMENT_VIEW_ID, "children"),
+        Output(BBOX_INPUT_GROUP_MEASUREMENT_VIEW_ID, "invalid"),
+        Output(TRANSFORMATION_FEEDBACK_MEASUREMENT_VIEW_ID, "children"),
+        Output(TRANSFORMATION_FEEDBACK_MEASUREMENT_VIEW_ID, "style"),
     ],
-    [Input("load-btn", "n_clicks")],
+    [Input(LOAD_BUTTON_MEASUREMENT_VIEW_ID, "n_clicks")],
     [
-        State("type-dropdown", "value"),
-        State("date-range-picker", "start_date"),
-        State("date-range-picker", "end_date"),
-        State("representative-switch", "value"),
-        State("bbox-min-lon", "value"),
-        State("bbox-min-lat", "value"),
-        State("bbox-max-lon", "value"),
-        State("bbox-max-lat", "value"),
-        State("projection-input", "value"),
+        State(TYPE_DROPDOWN_MEASUREMENT_VIEW_ID, "value"),
+        State(DATE_RANGE_PICKER_MEASUREMENT_VIEW_ID, "start_date"),
+        State(DATE_RANGE_PICKER_MEASUREMENT_VIEW_ID, "end_date"),
+        State(REPRESENTATIVE_SWITCH_MEASUREMENT_VIEW_ID, "value"),
+        State(BBOX_MIN_LON_INPUT_MEASUREMENT_VIEW_ID, "value"),
+        State(BBOX_MIN_LAT_INPUT_MEASUREMENT_VIEW_ID, "value"),
+        State(BBOX_MAX_LON_INPUT_MEASUREMENT_VIEW_ID, "value"),
+        State(BBOX_MAX_LAT_INPUT_MEASUREMENT_VIEW_ID, "value"),
+        State(PROJECTION_INPUT_MEASUREMENT_VIEW_ID, "value"),
     ],
     prevent_initial_call=True,
 )
@@ -526,7 +551,7 @@ def load_measurement_data(
             {"display": "none"},
         )
 
-    logging.info(
+    log.info(
         f"Loading measurement data with filters: types={selected_types}, "
         f"date_range={start_date} to {end_date}, representative={representative_only}, "
         f"bbox=({min_lon}, {min_lat}, {max_lon}, {max_lat}), projection={projection}",
@@ -547,7 +572,7 @@ def load_measurement_data(
     # Transform coordinates if projection is not WGS84 (EPSG:4326)
     if projection and projection != "4326":
         bbox = transform_bbox_coordinates(bbox, projection, "EPSG:4326")
-        logging.info(
+        log.info(
             f"Transformed bbox from EPSG:{projection} to EPSG:4326: {bbox}",
             extra={"tag": "frontend"},
         )
@@ -611,9 +636,9 @@ def load_measurement_data(
 
 
 @callback(
-    Output("download-csv", "data"),
-    [Input("export-btn", "n_clicks")],
-    [State("current-data-store", "children")],
+    Output(DOWNLOAD_CSV_MEASUREMENT_VIEW_ID, "data"),
+    [Input(EXPORT_BUTTON_MEASUREMENT_VIEW_ID, "n_clicks")],
+    [State(CURRENT_DATA_STORE_DIV_MEASUREMENT_VIEW_ID, "children")],
     prevent_initial_call=True,
 )
 def export_csv(n_clicks, stored_data):

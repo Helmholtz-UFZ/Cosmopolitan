@@ -85,7 +85,14 @@ from cosmopolitan_app.utils import swap_classes
 new_class = swap_classes("bg-info", current_class_name)
 ```
 
-## Known Violations
+## Justified Exceptions
 
-Existing `style={}` usages without justifying comments are violations to be cleaned
-up. Do not add new ones unless Bootstrap cannot achieve the result.
+When `style={}` is necessary (no Bootstrap class exists), add an inline comment:
+
+```python
+# no Bootstrap class for white-space: pre-wrap
+style={"white-space": "pre-wrap"},
+```
+
+Every `style={}` in the codebase must either be replaced with a Bootstrap class or
+have a comment explaining why it can't be.
