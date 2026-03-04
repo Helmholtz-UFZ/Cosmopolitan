@@ -214,7 +214,11 @@ def form_manager(**state):
 
     file_upload_error = {}
 
-    triggered_ids = {t["prop_id"].split(".")[0] for t in callback_context.triggered}
+    triggered_ids = {
+        t["prop_id"].split(".")[0]
+        for t in callback_context.triggered
+        if t["value"] is not None
+    }
     triggered_id = callback_context.triggered[0]["prop_id"].split(".")[0]
     log.debug(f"Triggered ids: {triggered_ids}", extra={"tag": "frontend"})
 
