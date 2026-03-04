@@ -349,7 +349,11 @@ def submission_manager(
     """Reload the logs."""
     job_id = path_name.split("/")[-1]
     log.info(f"Submission manager for {job_id}", extra={"tag": "job_submission"})
-    triggered_ids = {t["prop_id"].split(".")[0] for t in callback_context.triggered}
+    triggered_ids = {
+        t["prop_id"].split(".")[0]
+        for t in callback_context.triggered
+        if t["value"] is not None
+    }
     num_outputs = len(dash.callback_context.outputs_list)
     input_base_path = dash.page_registry["pages.input"]["path_template"]
     log.debug(f"Triggered ids: {triggered_ids}", extra={"tag": "frontend"})
