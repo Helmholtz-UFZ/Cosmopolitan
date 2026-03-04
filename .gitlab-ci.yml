@@ -42,7 +42,7 @@ linting:
   script:
     - "uv run black --check ."
     - "uv run isort --check --profile black ."
-    - "uv run flake8 --max-line-length 88 --ignore=E203,W503"
+    - "uv run flake8 --max-line-length 88 --ignore=E203,W503 --exclude .venv"
 
 test:
   stage: "test"
