@@ -262,7 +262,6 @@ DATABASE_SENSORS_STORE_SENSOR_MANAGEMENT_ID = (
 )
 API_SENSORS_STORE_SENSOR_MANAGEMENT_ID = "api-sensors-store-sensor-management-id"
 REFRESH_STORE_SENSOR_MANAGEMENT_ID = "refresh-store-sensor-management-id"
-DUMMY_STORE_SENSOR_MANAGEMENT_ID = "dummy-store-sensor-management-id"
 
 # --- Switches ---
 EDIT_IGNORED_SWITCH_SENSOR_MANAGEMENT_ID = "edit-ignored-switch-sensor-management-id"

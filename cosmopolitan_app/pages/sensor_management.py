@@ -30,7 +30,6 @@ from cosmopolitan_app.constants import (
     DATABASE_SENSORS_STORE_SENSOR_MANAGEMENT_ID,
     DATABASE_SENSORS_TABLE_SENSOR_MANAGEMENT_ID,
     DATASTREAMS_FEEDBACK_SENSOR_MANAGEMENT_ID,
-    DUMMY_STORE_SENSOR_MANAGEMENT_ID,
     EDIT_DATASTREAMS_TEXTAREA_SENSOR_MANAGEMENT_ID,
     EDIT_IGNORED_SWITCH_SENSOR_MANAGEMENT_ID,
     EDIT_SENSOR_INPUT_SENSOR_MANAGEMENT_ID,
@@ -389,7 +388,6 @@ layout = page_container_column_layout(
         dcc.Store(id=DATABASE_SENSORS_STORE_SENSOR_MANAGEMENT_ID, data=[]),
         dcc.Store(id=API_SENSORS_STORE_SENSOR_MANAGEMENT_ID, data=[]),
         dcc.Store(id=REFRESH_STORE_SENSOR_MANAGEMENT_ID, data=0),
-        dcc.Store(id=DUMMY_STORE_SENSOR_MANAGEMENT_ID, data=0),  # For loading overlay
         # Sync Status Alert (centered above tables)
         dbc.Row(
             dbc.Col(
@@ -561,23 +559,16 @@ def refresh_all_sensors(n_clicks, refresh_trigger):
     )
 
 
-@callback(
+# Clientside callback: open loading overlay instantly in the browser.
+# A server-side callback here would race with the processing callback
+# (due to allow_duplicate), potentially leaving the overlay stuck open.
+# Only listens to refresh triggers — not DUMMY_STORE (which should not show overlay).
+dash.clientside_callback(
+    "function(n) { return !!n; }",
     Output(LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True),
     Input(REFRESH_DATABASE_BUTTON_SENSOR_MANAGEMENT_ID, "n_clicks"),
-    Input(REFRESH_STORE_SENSOR_MANAGEMENT_ID, "data"),
-    Input(DUMMY_STORE_SENSOR_MANAGEMENT_ID, "data"),
     prevent_initial_call=True,
 )
-def show_loading(n_clicks, refresh_trigger, _dummy_data):
-    """Show loading overlay when refresh button is clicked."""
-    ctx = dash.callback_context
-    if ctx.triggered:
-        triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
-        if (
-            triggered_id == REFRESH_DATABASE_BUTTON_SENSOR_MANAGEMENT_ID
-            or triggered_id == REFRESH_STORE_SENSOR_MANAGEMENT_ID
-        ):
-            return True
 
 
 @callback(

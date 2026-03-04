@@ -106,7 +106,7 @@ def get_app_version() -> str:
     with open(pyproject_path, "rb") as f:
         pyproject = tomllib.load(f)
 
-    return pyproject["tool"]["poetry"]["version"]
+    return pyproject["project"]["version"]
 
 
 class DocumentationGenerator:

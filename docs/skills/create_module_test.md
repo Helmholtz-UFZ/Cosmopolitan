@@ -24,8 +24,8 @@ Create a new test file for a module in `cosmopolitan_app/`.
    - Postgres? (uses `PostgresManager` or SQLAlchemy)
    - Redis? (uses Celery or `BackgroundJobManager`)
    - MinIO? (uses `ObjectStorageManager`)
-   - MailHog? (uses `send_mail`)
    - If none, the test can run without services
+   - Note: `send_mail` logs instead of sending when `EMAIL_SERVER="test"` — no service needed
 
 4. **Add fixtures for cleanup** — if the test writes to a database or filesystem,
    add an `autouse` fixture to reset state:

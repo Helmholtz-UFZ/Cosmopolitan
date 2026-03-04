@@ -29,6 +29,7 @@ NOTE: This docstring is displayed on the documentation webpage.
 import logging
 from datetime import datetime
 
+import dash
 import dash_bootstrap_components as dbc
 from dash import Input, Output, State, callback, dcc, html, register_page
 from kombu.exceptions import OperationalError as KombuOperationalError
@@ -415,15 +416,23 @@ def confirm_purge(n_clicks):
     )
 
 
-@callback(
+# Clientside callback: open loading overlay instantly in the browser.
+# A server-side callback here would race with the processing callback
+# (due to allow_duplicate), potentially leaving the overlay stuck open.
+dash.clientside_callback(
+    """
+    function() {
+        for (var i = 0; i < arguments.length; i++) {
+            if (arguments[i] != null) return true;
+        }
+        return false;
+    }
+    """,
     Output(LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True),
     Input(REFRESH_BUTTON_CRNS_ADMIN_ID, "n_clicks"),
     Input(DUMMY_DIV_CRNS_ADMIN_ID, "data"),
     prevent_initial_call=True,
 )
-def show_loading(*inputs):
-    """Show loading overlay when refresh is triggered."""
-    return any(inp is not None for inp in inputs)
 
 
 @callback(

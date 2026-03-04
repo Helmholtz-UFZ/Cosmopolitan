@@ -1,0 +1,17 @@
+# Override for local soil-moisture-prediction development.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.local-smp.yml up
+#
+# Expects soil-moisture-prediction repo at ../soil-moisture-prediction (sibling directory).
+# The local source is prepended to PYTHONPATH, shadowing the PyPI version.
+services:
+  webserver:
+    volumes:
+      - "../soil-moisture-prediction:/python_docker/soil-moisture-prediction"
+    environment:
+      - PYTHONPATH=/python_docker/soil-moisture-prediction:/python_docker/cosmopolitan/
+
+  worker:
+    volumes:
+      - "../soil-moisture-prediction:/python_docker/soil-moisture-prediction"
+    environment:
+      - PYTHONPATH=/python_docker/soil-moisture-prediction:/python_docker/cosmopolitan/

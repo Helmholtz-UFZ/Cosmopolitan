@@ -83,6 +83,37 @@ header = create_header("Title", "Subtitle", bg_color="bg-info", id=HEADER_ID)
 - `id` is required when the header is updated by callbacks
 - `create_header` generates `f"{id}-title"` and `f"{id}-subtitle"` sub-IDs
 
+## Loading Overlay
+
+A global modal that blocks user interaction during server-side work. Defined in
+`cosmopolitan_app/layouts.py`:
+
+```python
+loading_overlay = dbc.Modal(
+    dbc.ModalBody(
+        [dbc.Spinner(size="lg"), html.H4("Loading...", className="text-center mt-3")],
+        className="text-center",
+    ),
+    id=LOADING_OVERLAY_MODAL_SHARED_ID,
+    is_open=False,
+    backdrop="static",
+    keyboard=False,
+    centered=True,
+    size="sm",
+)
+```
+
+The overlay is rendered once in `app_layout()` and shared across all pages.
+Opening **must** use a `dash.clientside_callback` — see
+[Callbacks: Loading Overlay](callbacks.md#loading-overlay--clientside-only) for the
+pattern and rationale.
+
+**Critical:** The clientside (open) and server-side (close) callbacks must have
+**different `Input()` sets**. Dash hashes the inputs to generate `allow_duplicate`
+callback IDs — identical inputs produce the same hash and raise an "already in use"
+error. If both callbacks naturally share the same inputs, add a dummy store/div as an
+extra input to the server-side callback to differentiate them.
+
 ## Notes
 
 - `page_container_column_layout` accepts an optional `main_content_id` parameter —

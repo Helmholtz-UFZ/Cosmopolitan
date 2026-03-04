@@ -131,16 +131,15 @@ def load_submission_content(job_id, header_class_name):
     return header_class_name, header_subtitle, content
 
 
-@callback(
+# Clientside callback: open loading overlay instantly in the browser.
+# A server-side callback here would race with the processing callback
+# (due to allow_duplicate), potentially leaving the overlay stuck open.
+dash.clientside_callback(
+    "function(n) { return !!n; }",
     Output(LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True),
     Input(active_form_factory.get_key_submit_button(), "n_clicks"),
     prevent_initial_call=True,
 )
-def show_loading(n_clicks):
-    """Show loading overlay when preparing input."""
-    if n_clicks:
-        return True
-    return False
 
 
 @callback(

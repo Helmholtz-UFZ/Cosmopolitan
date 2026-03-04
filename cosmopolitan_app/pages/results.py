@@ -796,15 +796,23 @@ IMPORTANCE_SINGLE_DAY_HEIGHT = 500
 IMPORTANCE_ALL_DAYS_HEIGHT = 1700
 
 
-@callback(
+# Clientside callback: open loading overlay instantly in the browser.
+# A server-side callback here would race with the processing callback
+# (due to allow_duplicate), potentially leaving the overlay stuck open.
+dash.clientside_callback(
+    """
+    function() {
+        for (var i = 0; i < arguments.length; i++) {
+            if (arguments[i] != null) return true;
+        }
+        return false;
+    }
+    """,
     Output(LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True),
     Input(DATE_SELECTOR_DROPDOWN_RESULTS_ID, "value"),
     Input(DUMMY_DIV_RESULTS_ID, "data"),
     prevent_initial_call=True,
 )
-def show_loading(*inputs):
-    """Show loading overlay when preparing input."""
-    return any(input for input in inputs if input is not None)
 
 
 @callback(

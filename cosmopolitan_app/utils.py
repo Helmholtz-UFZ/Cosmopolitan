@@ -99,7 +99,19 @@ def zip_directory(directory_path):
 
 
 def send_mail(recipient, subject, content):
-    """Send an email using the provided details."""
+    """Send an email via SMTP with STARTTLS.
+
+    In test/dev environments (EMAIL_SERVER == "test"), logs the email
+    instead of sending it.
+    """
+    if EMAIL_SERVER == "test":
+        log.info(
+            f"Test mode — email not sent. "
+            f"To: {recipient}, Subject: {subject}, Body: {content}",
+            extra={"tag": "email_service"},
+        )
+        return
+
     log.debug(
         f"Send mail to {recipient} with subject {subject}.",
         extra={"tag": "email_service"},
@@ -109,16 +121,14 @@ def send_mail(recipient, subject, content):
     msg["To"] = recipient
     msg["Subject"] = subject
 
-    body = content
-    msg.attach(MIMEText(body, "plain"))
+    msg.attach(MIMEText(content, "plain"))
 
     log.debug(
         f"Connect to email server {EMAIL_SERVER}:{EMAIL_PORT}.",
         extra={"tag": "email_service"},
     )
     server = smtplib.SMTP(EMAIL_SERVER, EMAIL_PORT)
-    if EMAIL_PASSWORD != "test":
-        server.starttls()
+    server.starttls()
     server.login(EMAIL_USERNAME, EMAIL_PASSWORD)
     server.sendmail(EMAIL_SENDER, recipient, msg.as_string())
     server.quit()

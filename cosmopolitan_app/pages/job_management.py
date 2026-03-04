@@ -139,21 +139,25 @@ layout = page_container_column_layout(
 )
 
 
-@callback(
+# Clientside callback: open loading overlay instantly in the browser.
+# A server-side callback here would race with the processing callback
+# (due to allow_duplicate), potentially leaving the overlay stuck open.
+# Only listens to button clicks — not DUMMY_STORE (which should not show overlay).
+dash.clientside_callback(
+    """
+    function() {
+        for (var i = 0; i < arguments.length; i++) {
+            if (arguments[i] != null) return true;
+        }
+        return false;
+    }
+    """,
     Output(LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True),
     Input(DELETE_BUTTON_JOB_MANAGEMENT_ID, "n_clicks"),
     Input(CLEAN_BUTTON_JOB_MANAGEMENT_ID, "n_clicks"),
     Input(REFRESH_BUTTON_JOB_MANAGEMENT_ID, "n_clicks"),
-    Input(DUMMY_STORE_JOB_MANAGEMENT_ID, "data"),
     prevent_initial_call=True,
 )
-def show_loading(delete_clicks, clean_clicks, refresh_clicks, dummy_data):
-    """Show loading overlay when buttons are clicked."""
-    return any(
-        n_clicks
-        for n_clicks in [delete_clicks, clean_clicks, refresh_clicks]
-        if n_clicks
-    )
 
 
 @callback(
@@ -163,12 +167,13 @@ def show_loading(delete_clicks, clean_clicks, refresh_clicks, dummy_data):
     Input(DELETE_BUTTON_JOB_MANAGEMENT_ID, "n_clicks"),
     Input(CLEAN_BUTTON_JOB_MANAGEMENT_ID, "n_clicks"),
     Input(REFRESH_BUTTON_JOB_MANAGEMENT_ID, "n_clicks"),
+    Input(DUMMY_STORE_JOB_MANAGEMENT_ID, "data"),
     State(JOBS_TABLE_JOB_MANAGEMENT_ID, "selected_rows"),
     State(JOBS_TABLE_JOB_MANAGEMENT_ID, "data"),
     prevent_initial_call=True,
 )
 def job_management_dashboard(
-    delete_clicks, clean_clicks, refresh_clicks, selected_rows, table_data
+    delete_clicks, clean_clicks, refresh_clicks, _dummy, selected_rows, table_data
 ):
     """Manage job actions in the dashboard."""
     log.info("Job management dashboard callback triggered.", extra={"tag": "frontend"})

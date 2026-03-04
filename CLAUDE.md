@@ -12,7 +12,7 @@ The application is built as a Dash web application with the following key compon
 - **Database**: PostgreSQL with PostGIS extension for spatial data
 - **Object Storage**: MinIO for file storage with rclone integration
 - **Background Tasks**: Celery with Redis broker for distributed task processing
-- **External Services**: MailHog for email testing, TimeIO API for CRNS data
+- **External Services**: TimeIO API for CRNS data
 
 ## Sister Project: COSMONAUT
 

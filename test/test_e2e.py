@@ -1,22 +1,16 @@
-"""Test the Dash app."""
+"""End-to-end Playwright test for the Dash app."""
 
 import io
 import logging
 import os
-import time
 import zipfile
 from logging.config import dictConfig
+from test.help_functions_tests import check_all_errors
 from unittest.mock import patch
 
-import pytest
-from selenium.common.exceptions import (
-    ElementClickInterceptedException,
-    ElementNotInteractableException,
-    NoSuchElementException,
-    StaleElementReferenceException,
-)
+from playwright.sync_api import expect
 
-from cosmopolitan_app.app import app
+from cosmopolitan_app.config import PORT
 from cosmopolitan_app.constants import (
     CHANGE_INPUT_BUTTON_SUBMISSION_ID,
     CHECK_INPUT_BUTTON_INPUT_ID,
@@ -33,88 +27,23 @@ from cosmopolitan_app.form_factory import (
     active_form_template_factory,
 )
 from cosmopolitan_app.logger import get_logger_config_web
+from cosmopolitan_app.postgres_manager import PostgresManager
 from cosmopolitan_app.pydantic_models import ModelWebsite
-from cosmopolitan_app.utils import wait_for_all_images_loaded
-
-
-def check_all_errors(dash_duo):
-    """Simplified error checking that works with most WebDriver configurations."""
-    time.sleep(1)  # for everything to load properly
-    errors = []
-
-    # Console errors (most reliable)
-    console_logs = dash_duo.driver.get_log("browser")
-    console_errors = [
-        log
-        for log in console_logs
-        if log["level"] in ["SEVERE", "ERROR"]
-        and "favicon" not in log["message"].lower()
-    ]
-    if console_errors:
-        errors.extend([f"Console: {log['message']}" for log in console_errors])
-
-    # JavaScript errors
-    js_errors = dash_duo.driver.execute_script(
-        """
-        return (window.jsErrors || []).concat(
-            Array.from(document.querySelectorAll('[data-error]'))
-            .map(el => el.dataset.error)
-        );
-        """
-    )
-    if js_errors:
-        errors.extend([f"JS Error: {err}" for err in js_errors if err])
-
-    # Basic broken image check
-    wait_for_all_images_loaded(dash_duo.driver)
-    broken_images = dash_duo.driver.execute_script(
-        """
-        return Array.from(document.querySelectorAll('img'))
-            .filter(img => img.complete && img.naturalWidth === 0 && img.src !== '')
-            .map(img => img.src);
-        """
-    )
-    if broken_images:
-        errors.extend([f"Broken image: {img}" for img in broken_images])
-
-    if errors:
-        pytest.fail("Errors detected:\n" + "\n".join(errors))
-
-
-def scroll_to_element_and_click(dash_duo, element_id):
-    """Scroll to a specific element in the Dash app."""
-    for _ in range(5):
-        element = dash_duo.wait_for_element(f"#{element_id}", timeout=10)
-        try:
-            dash_duo.driver.execute_script(
-                "arguments[0].scrollIntoView({block: 'center'});", element
-            )
-            time.sleep(0.5)
-            element.click()
-            return element
-        except ElementClickInterceptedException:
-            pass
-        except StaleElementReferenceException:
-            pass
-
-
-def save_snapshot(dash_duo):
-    """Save a snapshot of the current state of the Dash app."""
-    rendered_html = dash_duo.driver.execute_script(
-        "return document.documentElement.outerHTML"
-    )
-    with open("debug_source.html", "w") as f:
-        f.write(rendered_html)
-    dash_duo.driver.save_screenshot("headless_debug.png")
 
 
 @patch("cosmopolitan_app.map_utils.create_tile_layer_component")
 def test_full_procedure(
-    mock_tile_layer, dash_duo, crns_file_path, pred_file_paths, celery_worker
+    mock_tile_layer,
+    page,
+    dash_app,
+    crns_file_path,
+    pred_file_paths,
+    celery_worker,
+    worker_log_path,
 ):
     """Test the full procedure of the Dash app."""
-    # Mock tile layer creation to avoid tile server dependency in tests Mock returns
-    # None so only the legend is rendered, preventing JavaScript tile fetch errors
+    # Mock tile layer creation to avoid tile server dependency in tests
+    # Mock returns None so only the legend is rendered, preventing JS tile fetch errors
     mock_tile_layer.return_value = None
 
     # Ensure Celery worker is running before starting tests
@@ -124,46 +53,53 @@ def test_full_procedure(
         raise RuntimeError("Celery worker not available for testing")
 
     logging.info("Starting full procedure test with Celery worker")
-    dash_duo.start_server(app)
-    dash_duo.driver.set_window_size(1920, 1080)
-    dash_duo.driver.execute_cdp_cmd("Runtime.enable", {})
-    dash_duo.driver.execute_cdp_cmd("Log.enable", {})
-    check_all_errors(dash_duo)
+
+    # Navigate to the app
+    page.goto(f"http://localhost:{PORT}/")
+    page.set_viewport_size({"width": 1920, "height": 1080})
+    check_all_errors(page)
 
     # Expand navbar if collapsed
-    try:
-        toggler = dash_duo.wait_for_element(
-            f"#{NAVBAR_TOGGLER_BUTTON_SHARED_ID}", timeout=10
-        )
-        if toggler.is_displayed():
-            toggler.click()
-    except (NoSuchElementException, ElementNotInteractableException):
-        pass
+    toggler = page.locator(f"#{NAVBAR_TOGGLER_BUTTON_SHARED_ID}")
+    if toggler.is_visible():
+        toggler.click()
 
-    dash_duo.wait_for_element(f"#{NEW_JOB_LINK_SHARED_ID}", timeout=10).click()
-    check_all_errors(dash_duo)
-    dash_duo.wait_for_element(f"#{PREPARE_INPUT_BUTTON_NEW_JOB_ID}", timeout=10).click()
-    check_all_errors(dash_duo)
+    # Navigate to New Job > Prepare Input
+    page.locator(f"#{NEW_JOB_LINK_SHARED_ID}").click()
+    check_all_errors(page)
+    page.locator(f"#{PREPARE_INPUT_BUTTON_NEW_JOB_ID}").click()
+    check_all_errors(page)
 
-    time.sleep(5)
+    page.wait_for_timeout(5000)
+
     # Uncheck predictors
     predictor_dropdown_id = active_form_factory.id_format.format(
         field_name="pred_streams"
     )
     # First the button to open the dropdown menu
-    dropdown_menu = dash_duo.find_element("#pred_streams").find_element(
-        "xpath", "./ancestor::div[contains(@class, 'dropdown-menu')]"
+    dropdown_menu = page.locator("#pred_streams").locator(
+        "xpath=./ancestor::div[contains(@class, 'dropdown-menu')]"
     )
     aria_labelledby = dropdown_menu.get_attribute("aria-labelledby")
-    aria_labelledby = aria_labelledby.replace(":", "\\:")
-    scroll_to_element_and_click(dash_duo, aria_labelledby)
+    aria_labelledby_escaped = aria_labelledby.replace(":", "\\:")
+    page.locator(f"#{aria_labelledby_escaped}").scroll_into_view_if_needed()
+    page.locator(f"#{aria_labelledby_escaped}").click()
+
     # Now the dropdown menu should be open
-    # Find all checked checkboxes in the dropdown menu and uncheck them
-    checked_checkboxes = dash_duo.find_elements(
-        f"#{predictor_dropdown_id} input[type='checkbox']:checked", "CSS_SELECTOR"
+    # Collect all checked checkbox IDs first, then uncheck them one by one.
+    # Clicking a checkbox triggers a Dash callback that re-renders the dropdown,
+    # so we cannot iterate a live locator list.
+    checked_checkboxes = page.locator(
+        f"#{predictor_dropdown_id} input[type='checkbox']:checked"
     )
-    for checkbox in checked_checkboxes:
-        scroll_to_element_and_click(dash_duo, checkbox.get_attribute("id"))
+    checkbox_ids = [
+        checked_checkboxes.nth(i).get_attribute("id")
+        for i in range(checked_checkboxes.count())
+    ]
+    for checkbox_id in checkbox_ids:
+        checkbox_id_escaped = checkbox_id.replace(":", "\\:")
+        page.locator(f"#{checkbox_id_escaped}").scroll_into_view_if_needed()
+        page.locator(f"#{checkbox_id_escaped}").click()
 
     # Upload predictor files
     pred_field_name = "predictor_upload"
@@ -171,21 +107,17 @@ def test_full_procedure(
         pred_field_name in ModelWebsite.model_fields
     ), "Predictor field not found in pymodel"
     pred_upload_id = active_form_factory.id_format.format(field_name=pred_field_name)
-    upload_element = dash_duo.find_element(f"#{pred_upload_id} input[type='file']")
     selected_pred_id = active_form_template_factory.selected_predictors_key
     for pred_file_path in pred_file_paths:
         pred_file_name = str(pred_file_path.name)
 
-        upload_element.send_keys(str(pred_file_path))
-        for attempts in range(10):
-            time.sleep(1)
-            items = dash_duo.find_elements(f"#{selected_pred_id}")
-            if any(pred_file_name in item.text for item in items):
-                break
-        else:
-            raise AssertionError(
-                f"Predictor file {pred_file_name} not found in the list after upload"  # noqa
-            )
+        page.locator(f"#{pred_upload_id} input[type='file']").set_input_files(
+            str(pred_file_path)
+        )
+        # Wait for the file to appear in the list
+        expect(page.locator(f"#{selected_pred_id}")).to_contain_text(
+            pred_file_name, timeout=10000
+        )
 
     # Upload CRNS file
 
@@ -194,7 +126,8 @@ def test_full_procedure(
         crns_measurment_id = active_form_factory.id_format.format(
             field_name=crns_measurment_field_name
         )
-        scroll_to_element_and_click(dash_duo, crns_measurment_id)
+        page.locator(f"#{crns_measurment_id}").scroll_into_view_if_needed()
+        page.locator(f"#{crns_measurment_id}").click()
 
     crns_file_name = str(crns_file_path.name)
     crns_field_name = "crns_upload"
@@ -203,66 +136,89 @@ def test_full_procedure(
     ), "CRNS field not found in pymodel"
     crns_upload_id = active_form_factory.id_format.format(field_name=crns_field_name)
 
-    upload_element = dash_duo.find_element(f"#{crns_upload_id} input[type='file']")
-    upload_element.send_keys(str(crns_file_path))
+    page.locator(f"#{crns_upload_id} input[type='file']").set_input_files(
+        str(crns_file_path)
+    )
     selected_crns_id = active_form_template_factory.selected_crns_key
-    for attempts in range(10):
-        time.sleep(1)
-        items = dash_duo.find_elements(f"#{selected_crns_id}")
-        if any(crns_file_name in item.text for item in items):
-            break
-    else:
-        raise AssertionError(
-            f"CRNS file {crns_file_name} not found in the list after upload"
-        )
+    expect(page.locator(f"#{selected_crns_id}")).to_contain_text(
+        crns_file_name, timeout=10000
+    )
 
-    check_all_errors(dash_duo)
+    check_all_errors(page)
+
+    # Fill in email address for notification testing
+    email_id = active_form_factory.id_format.format(field_name="email")
+    page.locator(f"#{email_id}").scroll_into_view_if_needed()
+    page.locator(f"#{email_id}").fill("test@ufz.de")
 
     # Check input
-    scroll_to_element_and_click(dash_duo, CHECK_INPUT_BUTTON_INPUT_ID)
-    check_all_errors(dash_duo)
+    page.locator(f"#{CHECK_INPUT_BUTTON_INPUT_ID}").scroll_into_view_if_needed()
+    page.locator(f"#{CHECK_INPUT_BUTTON_INPUT_ID}").click()
+    check_all_errors(page)
+
     # Change input
-    scroll_to_element_and_click(dash_duo, CHANGE_INPUT_BUTTON_SUBMISSION_ID)
-    check_all_errors(dash_duo)
-    scroll_to_element_and_click(dash_duo, CHECK_INPUT_BUTTON_INPUT_ID)
-    check_all_errors(dash_duo)
+    page.locator(f"#{CHANGE_INPUT_BUTTON_SUBMISSION_ID}").scroll_into_view_if_needed()
+    page.locator(f"#{CHANGE_INPUT_BUTTON_SUBMISSION_ID}").click()
+    check_all_errors(page)
+
+    page.locator(f"#{CHECK_INPUT_BUTTON_INPUT_ID}").scroll_into_view_if_needed()
+    page.locator(f"#{CHECK_INPUT_BUTTON_INPUT_ID}").click()
+    check_all_errors(page)
 
     # Submit job
-    scroll_to_element_and_click(dash_duo, SUBMIT_JOB_BUTTON_SUBMISSION_ID)
-    check_all_errors(dash_duo)
+    page.locator(f"#{SUBMIT_JOB_BUTTON_SUBMISSION_ID}").scroll_into_view_if_needed()
+    page.locator(f"#{SUBMIT_JOB_BUTTON_SUBMISSION_ID}").click()
+    check_all_errors(page)
 
-    # Wait for the submission status to change
-    for attempts in range(60):
-        time.sleep(1)
-        status_element = dash_duo.wait_for_element(
-            f"#{STATUS_DIV_SUBMISSION_ID}", timeout=1
-        )
-        if "RUNNING" in status_element.text:
-            continue
-        elif "PENDING" in status_element.text:
+    # Wait for the job to finish — poll status until it leaves RUNNING/PENDING
+    status_locator = page.locator(f"#{STATUS_DIV_SUBMISSION_ID}")
+    for _ in range(120):
+        page.wait_for_timeout(1000)
+        status_text = status_locator.text_content()
+        if "RUNNING" in status_text or "PENDING" in status_text:
             continue
         break
 
-    if "COMPLETED" not in status_element.text:
-        logging.error(f"Job finished with status: {status_element.text}")
-        save_snapshot(dash_duo)
-        job_logs = dash_duo.find_element(f"#{JOB_LOGS_DIV_SUBMISSION_ID}").text
+    status_text = status_locator.text_content()
+    if "COMPLETED" not in status_text:
+        logging.error(f"Job finished with status: {status_text}")
+        job_logs = page.locator(f"#{JOB_LOGS_DIV_SUBMISSION_ID}").text_content()
         raise AssertionError("Job did not complete successfully. Logs:\n" + job_logs)
 
-    scroll_to_element_and_click(dash_duo, RESULT_BUTTON_SUBMISSION_ID)
-    time.sleep(2)
-    check_all_errors(dash_duo)
+    # Verify email notifications were logged by the worker
+    worker_log = worker_log_path.read_text()
+    assert (
+        "Send mail about submitted job" in worker_log
+    ), "Worker log missing submission email log"
+    assert (
+        "Send mail about finished job" in worker_log
+    ), "Worker log missing finished email log"
+
+    # Verify notification flag in DB
+    # Extract job_id from the download link (available after results page)
+    # We do this after the results page loads below, but the DB check can
+    # use the URL on the current submission page
+    current_url = page.url
+    job_id = current_url.split("/submission/")[-1].split("/")[0].split("?")[0]
+    job_data = PostgresManager.get_job_columns(job_id)
+    assert (
+        job_data["notified_end"] is True
+    ), "Expected notified_end=True in DB after job completion"
+
+    page.locator(f"#{RESULT_BUTTON_SUBMISSION_ID}").scroll_into_view_if_needed()
+    page.locator(f"#{RESULT_BUTTON_SUBMISSION_ID}").click()
+    page.wait_for_timeout(2000)
+    check_all_errors(page)
 
     # Test work_dir download
-    # Verify button has external_link (rendered as plain <a>, not Dash-intercepted)
-    download_link = dash_duo.wait_for_element(
-        "a[href*='/download/'][href$='.zip']", timeout=10
-    )
+    # The download link appears in multiple tab panes; target the visible one.
+    download_link = page.locator("a[href*='/download/'][href$='.zip']").first
+    expect(download_link).to_be_visible(timeout=10000)
     download_href = download_link.get_attribute("href")
     logging.info(f"Download button href: {download_href}")
 
     # Use Flask test client to fetch the zip from the route
-    with app.server.test_client() as client:
+    with dash_app.server.test_client() as client:
         response = client.get(download_href)
         assert response.status_code == 200, f"Download failed: {response.status_code}"
         assert response.content_type == "application/zip"
@@ -273,7 +229,6 @@ def test_full_procedure(
             logging.info(f"Zip file names: {zip_file_names}")
 
             # Verify files match the work_dir on disk
-            # Extract job_id from href: /download/<job_id>.zip
             job_id = download_href.split("/download/")[-1].removesuffix(".zip")
             work_dir = f"cosmopolitan_app/work_dir/{job_id}"
 

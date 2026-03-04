@@ -245,61 +245,92 @@ def get_logger_config_compuation(log_file_path):
     }
 
 
-def get_logger_config_web(debug, tag="webserver"):
-    """Get the logging configuration dictionary for the webservice logger.
-
-    This configuration sets up both console and database logging with the tag-based
-    system. The PostgreSQLHandler will use the provided tag as the default for logs that
-    don't specify their own tag via extra={"tag": "value"}.
+def _build_stream_config(stream, disable_existing_loggers, tag="webserver"):
+    """Build a logging config that writes to a stream and PostgreSQL.
 
     Args:
-        debug (bool): Whether to enable debug mode logging
-        tag (str): Default tag for the PostgreSQLHandler. Common values:
-                  - "webserver" for web interface processes
-                  - "worker" for Celery worker processes
-                  - "scheduler" for Celery Beat processes
+        stream: The stream ext:// URI for the StreamHandler
+            (e.g. "ext://sys.stderr" or "ext://sys.__stderr__")
+        disable_existing_loggers: Whether to disable loggers not in the config.
+            False preserves Celery's own handlers; True is the default for the
+            web process in production.
+        tag: Default tag for the PostgreSQLHandler.
 
     Returns:
         dict: Logging configuration dictionary for use with dictConfig()
     """
-    # Detect if we're in test environment
-    in_tests = "pytest" in sys.modules
-
-    # Base handlers
-    handler_configs = {
-        "wsgi": {
-            "class": "logging.StreamHandler",
-            "stream": "ext://sys.stdout",
-            "formatter": "default",
-            "filters": ["exclude_submodules"],
-            "level": "DEBUG",
-        },
-        "postgres": {
-            "class": __name__ + ".PostgreSQLHandler",
-            "level": "DEBUG",
-            "formatter": "message_only",
-            "filters": ["exclude_submodules"],
-            "connection_params": postgres_params,
-            "tag": tag,
-        },
-    }
-
-    logging_config = {
+    return {
         "version": 1,
-        "disable_existing_loggers": not in_tests,  # Preserve test loggers
+        "disable_existing_loggers": disable_existing_loggers,
         "formatters": {
             "default": {"format": format_string},
-            "message_only": {
-                "format": "%(message)s",
-            },
+            "message_only": {"format": "%(message)s"},
         },
         "filters": {"exclude_submodules": {"()": ExcludeSubmodulesFilter}},
-        "handlers": handler_configs,
+        "handlers": {
+            "stream": {
+                "class": "logging.StreamHandler",
+                "stream": stream,
+                "formatter": "default",
+                "filters": ["exclude_submodules"],
+                "level": "DEBUG",
+            },
+            "postgres": {
+                "class": __name__ + ".PostgreSQLHandler",
+                "level": "DEBUG",
+                "formatter": "message_only",
+                "filters": ["exclude_submodules"],
+                "connection_params": postgres_params,
+                "tag": tag,
+            },
+        },
         "root": {
-            "handlers": handler_configs.keys(),
+            "handlers": ["stream", "postgres"],
             "level": "DEBUG",
             "filters": ["exclude_submodules"],
         },
     }
 
-    return logging_config
+
+def get_logger_config_web(debug, tag="webserver"):
+    """Get the logging configuration for the web process (Dash/Flask).
+
+    Writes to sys.stderr and PostgreSQL.
+
+    Args:
+        debug (bool): Whether to enable debug mode logging
+        tag (str): Default tag for the PostgreSQLHandler.
+
+    Returns:
+        dict: Logging configuration dictionary for use with dictConfig()
+    """
+    in_tests = "pytest" in sys.modules
+    return _build_stream_config(
+        stream="ext://sys.stderr",
+        disable_existing_loggers=not in_tests,
+        tag=tag,
+    )
+
+
+def get_logger_config_worker(tag="worker"):
+    """Get the logging configuration for use inside a Celery worker task.
+
+    Writes to sys.__stderr__ (the real stderr fd) instead of sys.stderr.
+    This is necessary because Celery's prefork pool replaces sys.stderr
+    with a LoggingProxy, and writing to it from a StreamHandler causes
+    circular recursion.
+
+    disable_existing_loggers is always False to preserve Celery's own
+    logging handlers.
+
+    Args:
+        tag (str): Default tag for the PostgreSQLHandler.
+
+    Returns:
+        dict: Logging configuration dictionary for use with dictConfig()
+    """
+    return _build_stream_config(
+        stream="ext://sys.__stderr__",
+        disable_existing_loggers=False,
+        tag=tag,
+    )

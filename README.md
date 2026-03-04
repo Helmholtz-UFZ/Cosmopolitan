@@ -18,7 +18,7 @@ The web service is built as a Dash web application with the following key compon
 - **Database**: PostgreSQL with PostGIS extension for spatial data
 - **Object Storage**: MinIO for file storage with rclone integration
 - **Background Tasks**: Celery with Redis broker for distributed task processing
-- **External Services**: MailHog for email testing, TimeIO API for CRNS data
+- **External Services**: TimeIO API for CRNS data
 
 ### Core Modules
 
@@ -79,7 +79,6 @@ The application runs in multiple containers:
 - **worker**: Celery worker for background task processing
 - **postgres**: Database with PostGIS and Celery broker tables
 - **minio**: Object storage for job files
-- **mailhog**: Email testing service
 
 ```bash
 # Start all services (uses PyPI soil-moisture-prediction)
@@ -131,28 +130,28 @@ pytest -s
 
 ```bash
 # Format code
-poetry run black .
-poetry run isort --profile black .
+uv run black .
+uv run isort --profile black .
 
 # Lint code
-poetry run flake8 --max-line-length 88 --ignore=E203,W503
+uv run flake8 --max-line-length 88 --ignore=E203,W503
 
 # Pre-commit hooks (recommended)
 pre-commit install
 pre-commit run --all-files
 ```
 
-### Poetry Commands
+### uv Commands
 
 ```bash
 # Install dependencies
-poetry install
+uv sync
 
 # Add new dependency
-poetry add package-name
+uv add package-name
 
 # Update dependencies
-poetry update
+uv sync --upgrade
 ```
 
 ## Environment Configuration
@@ -178,10 +177,9 @@ Key environment variables:
 
 The web service relies on external services:
 
-1. **Mail server**: [MailHog](https://github.com/mailhog/MailHog) service is used to catch emails during development
-2. **PostgreSQL Database**: PostGIS-enabled database for spatial data storage
-3. **MinIO**: Object storage for job files and results
-4. **TimeIO API**: Source for cosmic ray neutron sensor data
+1. **PostgreSQL Database**: PostGIS-enabled database for spatial data storage
+2. **MinIO**: Object storage for job files and results
+3. **TimeIO API**: Source for cosmic ray neutron sensor data
 
 ## Deployment
 

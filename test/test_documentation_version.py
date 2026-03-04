@@ -17,7 +17,7 @@ def test_documentation_version_matches_app_version():
     pyproject_path = project_root / "pyproject.toml"
     with open(pyproject_path, "rb") as f:
         pyproject = tomllib.load(f)
-    app_version = pyproject["tool"]["poetry"]["version"]
+    app_version = pyproject["project"]["version"]
 
     # Read doc version from doc_version.txt
     version_file = (

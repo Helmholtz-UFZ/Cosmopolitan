@@ -18,6 +18,10 @@ env_dev_stage_priv
 timeIO*.logs
 celerybeat-schedule
 .env.bak
+.docker_build_hash
 test_failures
+test/artifacts/
 notes.txt
 .claude
+SOUL.md
+USER.md

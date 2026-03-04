@@ -557,8 +557,18 @@ layout = page_container_column_layout(
 # Callbacks
 
 
-# Callback 1: Show loading overlay
-@callback(
+# Clientside callback: open loading overlay instantly in the browser.
+# A server-side callback here would race with the processing callback
+# (due to allow_duplicate), potentially leaving the overlay stuck open.
+dash.clientside_callback(
+    """
+    function() {
+        for (var i = 0; i < arguments.length; i++) {
+            if (arguments[i] != null) return true;
+        }
+        return false;
+    }
+    """,
     Output(LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True),
     Input(REFRESH_BUTTON_WORKER_MANAGEMENT_ID, "n_clicks"),
     Input(KILL_BUTTON_WORKER_MANAGEMENT_ID, "n_clicks"),
@@ -566,9 +576,6 @@ layout = page_container_column_layout(
     Input(DUMMY_DIV_WORKER_MANAGEMENT_ID, "data"),
     prevent_initial_call=True,
 )
-def show_loading(*inputs):
-    """Show loading overlay when any action is triggered."""
-    return any(inp is not None for inp in inputs)
 
 
 # Callback 2: Refresh all data

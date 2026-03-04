@@ -16,7 +16,7 @@ WEB_OUTSIDE_URL="https://cosmopolitan.web-intern-stage.app.ufz.de"
 TILESERVER_URL="http://127.0.0.1:8001"
 
 ### Email ###
-EMAIL_SERVER="mailhog"
+EMAIL_SERVER="test"
 EMAIL_PORT="1025"
 EMAIL_USERNAME="soncosmo"
 EMAIL_PASSWORD="test"

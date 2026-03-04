@@ -42,15 +42,6 @@ services:
     volumes:
       - redis_data:/data
 
-  mailhog:
-    image: mailhog/mailhog
-    container_name: mailhog
-    logging:
-      driver: "none" # disable saving logs
-    ports:
-      - "${EMAIL_PORT}:${EMAIL_PORT}" # stmp server
-      - "8025:8025" # web ui
-
   postgres:
     image: postgis/postgis:latest
     ports:

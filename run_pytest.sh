@@ -2,38 +2,26 @@
 
 set -e
 
-# Parse command line arguments
-START_SERVICES=1
-TEST_PATH=""
+trap cleaning_up EXIT
 
-show_help() {
-    echo "Usage: ./run_pytest.sh [OPTIONS] [TEST_PATH]"
-    echo ""
-    echo "Pytest runner with service management and test selection"
-    echo ""
-    echo "Options:"
-    echo "  --no-services     Don't start/stop services (assume already running)"
-    echo "  -h, --help        Show this help message"
-    echo ""
-    echo "Examples:"
-    echo "  ./run_pytest.sh                    # Run all tests with all services"
-    echo "  ./run_pytest.sh test/test_app.py   # Run specific test file"
-    echo "  ./run_pytest.sh --no-services      # Run tests, assume services already running"
-    echo "  ./run_pytest.sh --no-services test/test_app.py"
-    exit 0
-}
-
+# Cleanup function - restores environment and stops services
 cleaning_up() {
+    echo "Cleaning up..."
+
     # Restore original .env
     if [ -f .env.bak ]; then
         mv .env.bak .env
     fi
 
-    docker rm -f postgres 2>/dev/null || true
+    # Stop and remove containers
+    docker stop postgres_cosmopolitan minio_cosmopolitan redis_cosmopolitan 2>/dev/null || true
+    docker rm postgres_cosmopolitan minio_cosmopolitan redis_cosmopolitan 2>/dev/null || true
     docker compose down 2>/dev/null || true
+
     echo "Cleanup complete"
 }
 
+# Service health check with retry logic
 check_service() {
     local check_command="$1"
     local service_name="$2"
@@ -48,17 +36,62 @@ check_service() {
             cleaning_up
             exit 1
         fi
-        echo "Waiting for ${service_name} to be available... (${retry_count}/${max_retries})"
+        echo "Waiting for ${service_name}... (${retry_count}/${max_retries})"
         sleep 1
         retry_count=$((retry_count + 1))
     done
     echo "${service_name} is ready"
 }
 
+# Help message
+show_help() {
+    echo "Usage: ./run_pytest.sh [OPTIONS] [TEST_PATH]"
+    echo ""
+    echo "Pytest runner with service management and test selection"
+    echo ""
+    echo "Options:"
+    echo "  --headed          Run browser tests with visible browser"
+    echo "  --local-smp       Use local ../soil-moisture-prediction instead of PyPI version"
+    echo "  --no-services     Skip Docker service management (assume already running)"
+    echo "  --no-artifacts    Disable Playwright artifact capture"
+    echo "  -h, --help        Show this help message"
+    echo ""
+    echo "Test Selection:"
+    echo "  [TEST_PATH]       Specific test file or directory to run (optional)"
+    echo ""
+    echo "Examples:"
+    echo "  ./run_pytest.sh                                      # Run all tests headless"
+    echo "  ./run_pytest.sh --headed                             # Run all tests with browser visible"
+    echo "  ./run_pytest.sh test/test_e2e.py                     # Run specific test file"
+    echo "  ./run_pytest.sh --no-services test/test_env.py       # Run specific test without services"
+    echo "  ./run_pytest.sh --local-smp test/test_e2e.py         # Run with local smp repo"
+    echo "  ./run_pytest.sh --headed --no-services test/test_env.py  # Combine flags"
+    exit 0
+}
+
+# Parse command line arguments
+START_SERVICES=1
+HEADED=false
+LOCAL_SMP=false
+ARTIFACTS=true
+TEST_PATH=""
+
 while [[ $# -gt 0 ]]; do
     case $1 in
+    --headed)
+        HEADED=true
+        shift
+        ;;
+    --local-smp)
+        LOCAL_SMP=true
+        shift
+        ;;
     --no-services)
         START_SERVICES=0
+        shift
+        ;;
+    --no-artifacts)
+        ARTIFACTS=false
         shift
         ;;
     -h | --help)
@@ -71,7 +104,19 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Backup existing .env if present
+# Validate --local-smp
+if [ "$LOCAL_SMP" = true ]; then
+    if [ ! -d "../soil-moisture-prediction" ]; then
+        echo "Error: ../soil-moisture-prediction directory not found."
+        echo "Clone soil-moisture-prediction as a sibling directory first."
+        exit 1
+    fi
+    SMP_PATH="$(cd ../soil-moisture-prediction && pwd)"
+    export PYTHONPATH="${SMP_PATH}:${PYTHONPATH:-}"
+    echo "Using local soil-moisture-prediction from ${SMP_PATH}"
+fi
+
+# Backup existing .env
 if [ -f .env ]; then
     mv .env .env.bak
 fi
@@ -79,33 +124,48 @@ fi
 # Use test environment configuration
 cp env_test_local .env
 
-docker compose down 2>/dev/null || true
-
-# Source the .env file to load environment variables
+# Source for environment variables
 source .env
 
 if [ "$START_SERVICES" -eq 1 ]; then
-    # Clean up any existing postgres container
-    docker rm -f postgres 2>/dev/null || true
+    # Clean up existing containers
+    docker compose down 2>/dev/null || true
 
-    # Start Docker services
-    echo "Starting services: postgres, mailhog, minio, redis"
-    cp env_dev_mock .env # Ensure env file is set for services
-    docker compose up postgres mailhog minio redis -d
-    cp env_test_local .env # Restore test env
+    # Start services
+    echo "Starting services: postgres, minio, redis"
+    docker compose up postgres minio redis -d
 
-    # Wait for services to be ready
-    check_service "docker exec postgres_cosmopolitan pg_isready -q" "PostgreSQL"
-    check_service "curl --silent --output /dev/null http://localhost:8025" "MailHog"
-    check_service "curl --silent --output /dev/null ${OBJECT_STORAGE_HOST}/minio/health/live" "MinIO"
-    check_service "docker exec redis_cosmopolitan redis-cli ping | grep -q PONG" "Redis"
+    # Wait for services with retry logic
+    check_service "docker exec postgres_cosmopolitan pg_isready -q 2>/dev/null" "PostgreSQL"
+    check_service "docker exec minio_cosmopolitan curl -sf http://localhost:9000/minio/health/ready >/dev/null 2>&1" "MinIO"
+    check_service "docker exec redis_cosmopolitan redis-cli ping 2>/dev/null | grep -q PONG" "Redis"
 else
     echo "Skipping service management (assuming services already running)"
 fi
 
-# Run pytest with optional test path
-echo "Running pytest..."
-pytest "$TEST_PATH"
+# Build pytest command dynamically based on flags
+PYTEST_CMD="uv run pytest"
 
-# Cleanup
-cleaning_up
+# Add artifact flags (enabled by default)
+if [ "$ARTIFACTS" = true ]; then
+    PYTEST_CMD="$PYTEST_CMD --screenshot only-on-failure --tracing retain-on-failure --output test/artifacts"
+fi
+
+# Add --no-services flag if needed
+if [ "$START_SERVICES" -eq 0 ]; then
+    PYTEST_CMD="$PYTEST_CMD --no-services"
+fi
+
+# Add --headed flag if needed
+if [ "$HEADED" = true ]; then
+    PYTEST_CMD="$PYTEST_CMD --headed"
+fi
+
+# Add test path if specified
+if [ -n "$TEST_PATH" ]; then
+    PYTEST_CMD="$PYTEST_CMD $TEST_PATH"
+fi
+
+# Run pytest with all accumulated flags
+echo "Running: $PYTEST_CMD"
+$PYTEST_CMD

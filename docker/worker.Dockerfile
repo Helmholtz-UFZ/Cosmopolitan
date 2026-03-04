@@ -33,8 +33,8 @@ RUN curl -O https://downloads.rclone.org/rclone-current-linux-amd64.zip && \
 
 RUN rclone --version
 
-# Set up Python environment
-RUN pip install --upgrade pip && pip install poetry
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /python_docker/cosmopolitan
 
@@ -50,8 +50,7 @@ COPY --chown=appuser:appuser . .
 COPY --chown=1000:1000 env_prod .env
 
 # Install dependencies
-RUN poetry config virtualenvs.create false && \
-    poetry install --no-interaction --no-ansi
+RUN uv sync --no-dev --frozen
 
 # Switch to non-root user
 USER appuser

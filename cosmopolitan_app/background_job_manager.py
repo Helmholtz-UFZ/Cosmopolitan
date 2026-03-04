@@ -11,8 +11,7 @@ from celery.schedules import crontab
 from celery.signals import worker_process_init
 
 from cosmopolitan_app.celery_config import CeleryConfig
-from cosmopolitan_app.config import DEBUG
-from cosmopolitan_app.logger import get_logger_config_web
+from cosmopolitan_app.logger import get_logger_config_worker
 from cosmopolitan_app.tasks.computation_tasks import start_computation_task
 from cosmopolitan_app.tasks.maintenance_tasks import cleanup_task, update_db_task
 from cosmopolitan_app.tasks.test_tasks import long_running_test_task
@@ -23,7 +22,7 @@ log = logging.getLogger(__name__)
 @worker_process_init.connect
 def configure_worker_logging(sender=None, conf=None, **kwargs):
     """Configure database logging for Celery worker processes."""
-    dictConfig(get_logger_config_web(DEBUG, tag="worker"))
+    dictConfig(get_logger_config_worker())
 
 
 class BackgroundJobManager:

@@ -8,9 +8,12 @@ from smtplib import SMTPAuthenticationError
 
 from celery import Task
 
-from cosmopolitan_app.config import DEBUG, MAINTAINER_EMAIL
+from cosmopolitan_app.config import MAINTAINER_EMAIL
 from cosmopolitan_app.job import LOG_FILE_NAME
-from cosmopolitan_app.logger import get_logger_config_compuation, get_logger_config_web
+from cosmopolitan_app.logger import (
+    get_logger_config_compuation,
+    get_logger_config_worker,
+)
 from cosmopolitan_app.utils import send_finished_mail, send_mail, send_submission_mail
 
 log = logging.getLogger(__name__)
@@ -58,6 +61,8 @@ def start_computation_task(self, job_id):
         job = Job(job_id=job_id)
         log.debug("Job loaded", extra={"tag": "worker"})
 
+        dictConfig(get_logger_config_worker())
+
         try:
             send_submission_mail(job)
         except SMTPAuthenticationError:
@@ -74,7 +79,7 @@ def start_computation_task(self, job_id):
             job.status = "COMPLETED"
 
         flush_all_handlers()
-        dictConfig(get_logger_config_web(DEBUG))
+        dictConfig(get_logger_config_worker())
         log.info("Computation finished.", extra={"tag": "worker"})
 
         job.save()
@@ -89,7 +94,7 @@ def start_computation_task(self, job_id):
         # Ensure all log buffers are flushed before switching config
         flush_all_handlers()
         # Log error to web logs
-        dictConfig(get_logger_config_web(DEBUG))
+        dictConfig(get_logger_config_worker())
         email_subject = "Computation task failed"
         email_body = f"""
         Error: {str(e)}\n\n

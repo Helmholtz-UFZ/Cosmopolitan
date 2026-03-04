@@ -16,8 +16,6 @@ variables:
   POSTGRES_HOST_AUTH_METHOD: trust
   POSTGRES_HOST_NAME: postgres
   POSTGRES_PORT: 5432
-  EMAIL_PORT: 1025
-  MAIL_HOG_PORT: 8025
   MINIO_ACCESS_KEY: "accesskey"
   MINIO_SECRET_KEY: "secretkey"
   REDIS_HOST: "redis"
@@ -39,12 +37,12 @@ linting:
   stage: "lint"
   image: "python:3.13"
   before_script:
-    - "pip install poetry"
-    - "poetry install"
+    - "pip install uv"
+    - "uv sync"
   script:
-    - "poetry run black --check ."
-    - "poetry run isort --check --profile black ."
-    - "poetry run flake8 --max-line-length 88 --ignore=E203,W503"
+    - "uv run black --check ."
+    - "uv run isort --check --profile black ."
+    - "uv run flake8 --max-line-length 88 --ignore=E203,W503"
 
 test:
   stage: "test"
@@ -52,17 +50,6 @@ test:
   services:
     - name: postgis/postgis:latest
       alias: postgres
-    - name: "mailhog/mailhog:latest"
-      alias: mailhog
-      command:
-        [
-          "-smtp-bind-addr",
-          "0.0.0.0:1025",
-          "-api-bind-addr",
-          "0.0.0.0:8025",
-          "-ui-bind-addr",
-          "0.0.0.0:8025",
-        ]
     - name: "minio/minio:latest"
       alias: minio
       command: ["server", "/data", "--console-address", ":9001"]
@@ -74,21 +61,7 @@ test:
   variables:
     MINIO_URL: "http://minio:9000"
   before_script:
-    - apt-get update && apt-get install -y postgresql-client libc-dev libcairo2-dev curl unzip wget gnupg2 libglib2.0-0 libnss3 libfontconfig1 libxss1 libappindicator3-1 libasound2 xvfb
-
-    # Install Chrome
-    - wget -q https://dl.google.com/linux/linux_signing_key.pub -O- | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg
-    - echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
-    - apt-get update && apt-get install -y google-chrome-stable
-
-    # Install matching ChromeDriver
-    - CHROME_MAJOR=$(google-chrome-stable --version | grep -oP '\d+' | head -1)
-    - CHROMEDRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_${CHROME_MAJOR}")
-    - CHROMEDRIVER_ZIP_URL="https://storage.googleapis.com/chrome-for-testing-public/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip"
-    - wget -O /tmp/chromedriver.zip "$CHROMEDRIVER_ZIP_URL"
-    - unzip /tmp/chromedriver.zip -d /tmp/
-    - mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver
-    - chmod +x /usr/local/bin/chromedriver
+    - apt-get update && apt-get install -y postgresql-client libcairo2-dev curl unzip
 
     # Install rclone
     - "curl -O https://downloads.rclone.org/rclone-current-linux-amd64.zip"
@@ -98,21 +71,22 @@ test:
     - "rm -rf rclone-*"
     - "rclone config create minio s3 provider=Minio access_key_id=${MINIO_ACCESS_KEY} secret_access_key=${MINIO_SECRET_KEY} endpoint=http://minio:9000"
     - "rclone mkdir minio:cosmopolitan-dev"
-    - "rclone lsd minio:" # List available buckets
+    - "rclone lsd minio:"
 
     - "export PGPASSWORD=${POSTGRES_PASSWORD}"
     - "psql -h ${POSTGRES_HOST_NAME} -U ${POSTGRES_USER} -d ${POSTGRES_DB} < docker/init.sql"
     - "cp env_test .env"
-    - "curl mailhog:8025 > /dev/null"
-    - "pip install poetry"
-    - "poetry install"
+    - "pip install uv"
+    - "uv sync"
+    - "uv run playwright install --with-deps chromium"
+    - "mkdir -p test/artifacts"
   script:
-    - poetry run pytest --webdriver=Chrome --headless --capture=no
+    - uv run pytest -v --screenshot only-on-failure --tracing retain-on-failure --output test/artifacts
   artifacts:
     when: on_failure
-    expire_in: 1 week
+    expire_in: 7 days
     paths:
-      - test_failures/
+      - test/artifacts/
 
 # "latest" image will be built on every push to the main-branch
 build-latest:
