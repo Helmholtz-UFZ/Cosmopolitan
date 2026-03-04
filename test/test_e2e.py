@@ -4,7 +4,6 @@ import io
 import logging
 import os
 import zipfile
-from logging.config import dictConfig
 from test.help_functions_tests import check_all_errors
 from unittest.mock import patch
 
@@ -26,7 +25,6 @@ from cosmopolitan_app.form_factory import (
     active_form_factory,
     active_form_template_factory,
 )
-from cosmopolitan_app.logger import get_logger_config_web
 from cosmopolitan_app.postgres_manager import PostgresManager
 from cosmopolitan_app.pydantic_models import ModelWebsite
 
@@ -47,7 +45,6 @@ def test_full_procedure(
     mock_tile_layer.return_value = None
 
     # Ensure Celery worker is running before starting tests
-    dictConfig(get_logger_config_web(True))
     if celery_worker.poll() is not None:
         logging.error("Celery worker process terminated unexpectedly")
         raise RuntimeError("Celery worker not available for testing")
@@ -150,6 +147,7 @@ def test_full_procedure(
     email_id = active_form_factory.id_format.format(field_name="email")
     page.locator(f"#{email_id}").scroll_into_view_if_needed()
     page.locator(f"#{email_id}").fill("test@ufz.de")
+    page.wait_for_load_state("networkidle")
 
     # Check input
     page.locator(f"#{CHECK_INPUT_BUTTON_INPUT_ID}").scroll_into_view_if_needed()

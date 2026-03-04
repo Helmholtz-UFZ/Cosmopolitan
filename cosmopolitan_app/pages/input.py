@@ -214,8 +214,9 @@ def form_manager(**state):
 
     file_upload_error = {}
 
+    triggered_ids = {t["prop_id"].split(".")[0] for t in callback_context.triggered}
     triggered_id = callback_context.triggered[0]["prop_id"].split(".")[0]
-    log.debug(f"Triggered id: {triggered_id}", extra={"tag": "frontend"})
+    log.debug(f"Triggered ids: {triggered_ids}", extra={"tag": "frontend"})
 
     if triggered_id == active_form_factory.get_id_delete_button("crns_upload"):
         job_id = state["job_id"]
@@ -279,7 +280,7 @@ def form_manager(**state):
     output_dict["loading_overlay"] = False
     active_form_factory.pymodel.job_id = state["job_id"]
 
-    if triggered_id == active_form_factory.get_key_submit_button() and valid:
+    if active_form_factory.get_key_submit_button() in triggered_ids and valid:
         log.debug("Submit button clicked", extra={"tag": "job_submission"})
         job = Job(model=active_form_factory.pymodel)
         job.prepare_input_files()

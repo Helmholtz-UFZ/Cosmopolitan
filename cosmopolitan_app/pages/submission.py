@@ -349,23 +349,23 @@ def submission_manager(
     """Reload the logs."""
     job_id = path_name.split("/")[-1]
     log.info(f"Submission manager for {job_id}", extra={"tag": "job_submission"})
-    triggered_id = callback_context.triggered[0]["prop_id"].split(".")[0]
+    triggered_ids = {t["prop_id"].split(".")[0] for t in callback_context.triggered}
     num_outputs = len(dash.callback_context.outputs_list)
     input_base_path = dash.page_registry["pages.input"]["path_template"]
-    log.debug(f"Triggered id: {triggered_id}", extra={"tag": "frontend"})
+    log.debug(f"Triggered ids: {triggered_ids}", extra={"tag": "frontend"})
     job = Job(job_id)
-    if triggered_id == SUBMIT_JOB_BUTTON_SUBMISSION_ID:
+    if SUBMIT_JOB_BUTTON_SUBMISSION_ID in triggered_ids:
         job.delete_logs()
         job.submit()
-    elif triggered_id == CHANGE_INPUT_BUTTON_SUBMISSION_ID:
+    elif CHANGE_INPUT_BUTTON_SUBMISSION_ID in triggered_ids:
         job.clean_work_dir()
         input_path = input_base_path.replace("<job_id>", job.job_id)
         return tuple([input_path] + [dash.no_update] * (num_outputs - 1))
-    elif triggered_id == SPAWN_BUTTON_SUBMISSION_ID:
+    elif SPAWN_BUTTON_SUBMISSION_ID in triggered_ids:
         new_job = job.spawn()
         input_path = input_base_path.replace("<job_id>", new_job.job_id)
         return tuple([input_path] + [dash.no_update] * (num_outputs - 1))
-    elif triggered_id == RESULT_BUTTON_SUBMISSION_ID:
+    elif RESULT_BUTTON_SUBMISSION_ID in triggered_ids:
         result_base_path = dash.page_registry["pages.results"]["path_template"]
         result_path = result_base_path.replace("<job_id>", job.job_id)
         return tuple([result_path] + [dash.no_update] * (num_outputs - 1))
