@@ -46,8 +46,8 @@ def check_all_errors(page):
     if js_errors:
         errors.extend([f"JS Error: {err}" for err in js_errors if err])
 
-    # Wait for images to load
-    page.wait_for_load_state("networkidle", timeout=5000)
+    # Wait for all network requests (Dash callbacks, image loads) to settle
+    page.wait_for_load_state("networkidle", timeout=30000)
 
     # Check for broken images (exclude Leaflet tile images)
     broken_images = page.evaluate(
