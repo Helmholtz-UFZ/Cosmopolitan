@@ -37,7 +37,7 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import Input, Output, State, callback, dash_table, dcc, html
 
-from cosmopolitan_app.background_job_manager import get_background_job_manager
+from cosmopolitan_app.background_job_manager import background_job_manager
 from cosmopolitan_app.constants import (
     ACTIVE_TASKS_TABLE_WORKER_MANAGEMENT_ID,
     CANCEL_BUTTON_WORKER_MANAGEMENT_ID,
@@ -284,14 +284,13 @@ def format_revoked_tasks(revoked_list: list) -> list:
     Returns:
         list: List of task dictionaries formatted for table
     """
-    job_manager = get_background_job_manager()
     tasks = []
     for task in revoked_list:
         task_id = task["id"]
         worker = task["worker"]
 
         # Enrich with info from result backend
-        result_info = job_manager.get_task_result_info(task_id)
+        result_info = background_job_manager.get_task_result_info(task_id)
 
         tasks.append(
             {
@@ -594,8 +593,7 @@ def refresh_data(refresh_clicks):
     """Refresh all worker and task data."""
     log.info("Refreshing worker data", extra={"tag": "frontend"})
 
-    job_manager = get_background_job_manager()
-    overview = job_manager.get_all_tasks_overview()
+    overview = background_job_manager.get_all_tasks_overview()
     log.debug(f"Retrieved task overview: {overview}", extra={"tag": "frontend"})
 
     # Format data for display
@@ -695,8 +693,7 @@ def confirm_kill_task(n_clicks, selected_rows, table_data):
     task = table_data[selected_rows[0]]
     task_id = task["task_id"]
 
-    job_manager = get_background_job_manager()
-    job_manager.revoke_job(task_id, terminate=True)
+    background_job_manager.revoke_job(task_id, terminate=True)
 
     log.info(f"Killed task {task_id}", extra={"tag": "frontend"})
 
@@ -784,8 +781,7 @@ def confirm_cancel_task(
 
     task_id = task["task_id"]
 
-    job_manager = get_background_job_manager()
-    job_manager.revoke_job(task_id, terminate=False)
+    background_job_manager.revoke_job(task_id, terminate=False)
 
     log.info(f"Cancelled task {task_id}", extra={"tag": "frontend"})
 

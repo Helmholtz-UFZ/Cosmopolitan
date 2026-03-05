@@ -8,3 +8,5 @@ DAYS_DELETE_SUMBITTED = 60
 DAYS_DELETE_NOT_SUMBITTED = 2
 # Number of days to keep the logs
 LOG_RETENTION_DAYS = 60
+
+LOG_FILE_NAME = "logs"

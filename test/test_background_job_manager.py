@@ -5,7 +5,7 @@ import time
 import pytest
 from celery import states
 
-from cosmopolitan_app.background_job_manager import get_background_job_manager
+from cosmopolitan_app.background_job_manager import background_job_manager
 
 
 def test_worker_management_workflow(celery_worker, logger):
@@ -23,14 +23,12 @@ def test_worker_management_workflow(celery_worker, logger):
 
     logger.info("Starting worker management integration test")
 
-    job_manager = get_background_job_manager()
-
     # Give worker time to fully start
     logger.info("Waiting for worker to be ready...")
     time.sleep(5)
 
     # Test that get_all_tasks_overview returns proper structure
-    overview = job_manager.get_all_tasks_overview()
+    overview = background_job_manager.get_all_tasks_overview()
     assert "active" in overview, "Overview missing 'active' key"
     assert "reserved" in overview, "Overview missing 'reserved' key"
     assert "scheduled" in overview, "Overview missing 'scheduled' key"
@@ -38,7 +36,7 @@ def test_worker_management_workflow(celery_worker, logger):
     logger.info(f"Task overview structure verified: {list(overview.keys())}")
     # Step 1: Submit long running task which takes some time to execute
     logger.info("Submitting long running test task to maintenance queue...")
-    result = job_manager.long_running_test_task.apply_async(
+    result = background_job_manager.long_running_test_task.apply_async(
         args=[60], queue="maintenance"  # Run for 60 seconds
     )
     task_id = result.id
@@ -50,7 +48,7 @@ def test_worker_management_workflow(celery_worker, logger):
     task_started = False
     for attempt in range(max_wait):
         time.sleep(1)
-        status_info = job_manager.get_job_status(task_id)
+        status_info = background_job_manager.get_job_status(task_id)
         current_status = status_info["status"]
         logger.info(f"Task status (attempt {attempt + 1}): {current_status}")
 
@@ -62,7 +60,7 @@ def test_worker_management_workflow(celery_worker, logger):
             break
 
     if not task_started:
-        final_status = job_manager.get_job_status(task_id)
+        final_status = background_job_manager.get_job_status(task_id)
         logger.error(f"Task never started. Final status: {final_status}")
         pytest.fail(
             f"Task {task_id} never started after {max_wait} seconds. Final status: {final_status['status']}"  # noqa
@@ -70,19 +68,19 @@ def test_worker_management_workflow(celery_worker, logger):
 
     # Step 3: Immediately kill the task while it's running
     logger.info(f"Killing task {task_id} with terminate=True...")
-    job_manager.revoke_job(task_id, terminate=True)
+    background_job_manager.revoke_job(task_id, terminate=True)
     logger.info("Revoke command sent")
 
     # Step 4: Wait and verify task is terminated (status becomes REVOKED)
     logger.info("Waiting for task to be revoked...")
     time.sleep(5)  # Give it time to process the revoke
 
-    final_status_info = job_manager.get_job_status(task_id)
+    final_status_info = background_job_manager.get_job_status(task_id)
     final_status = final_status_info["status"]
     logger.info(f"Final task status after revoke: {final_status}")
 
     # Also verify task appears in overview
-    final_overview = job_manager.get_all_tasks_overview()
+    final_overview = background_job_manager.get_all_tasks_overview()
     active_count = len(final_overview["active"])
     revoked_count = len(final_overview["revoked"])
     scheduled_count = len(final_overview["scheduled"])

@@ -9,7 +9,7 @@ from smtplib import SMTPAuthenticationError
 from celery import Task
 
 from cosmopolitan_app.config import MAINTAINER_EMAIL
-from cosmopolitan_app.job import LOG_FILE_NAME
+from cosmopolitan_app.constants import LOG_FILE_NAME
 from cosmopolitan_app.logger import (
     get_logger_config_compuation,
     get_logger_config_worker,

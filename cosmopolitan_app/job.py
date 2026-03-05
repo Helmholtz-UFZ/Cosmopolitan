@@ -29,8 +29,13 @@ from soil_moisture_prediction.input_file_parser import (
 )
 from werkzeug.utils import secure_filename
 
+from cosmopolitan_app.background_job_manager import background_job_manager
 from cosmopolitan_app.config import JOB_WORK_DIR_TEMPLATE, MAINTAINER_EMAIL
-from cosmopolitan_app.constants import DAYS_DELETE_NOT_SUMBITTED, DAYS_DELETE_SUMBITTED
+from cosmopolitan_app.constants import (
+    DAYS_DELETE_NOT_SUMBITTED,
+    DAYS_DELETE_SUMBITTED,
+    LOG_FILE_NAME,
+)
 from cosmopolitan_app.error_handling import (
     InvalidJobID,
     JobExists,
@@ -48,8 +53,6 @@ from cosmopolitan_app.postgres_manager import JobTable, PostgresManager
 from cosmopolitan_app.pydantic_models import ModelWebsite, validate_job_id
 from cosmopolitan_app.timeio_info import type_id_dict
 from cosmopolitan_app.utils import send_mail
-
-LOG_FILE_NAME = "logs"
 
 log = logging.getLogger(__name__)
 
@@ -692,16 +695,9 @@ class Job:
         if PostgresManager.set_submitted(self.job_id):
             self.submitted = True
             try:
-                # Import here to avoid circular imports and enable lazy loading
-                from cosmopolitan_app.background_job_manager import (
-                    get_background_job_manager,
+                celery_task_id, failed = background_job_manager.submit_computation_job(
+                    self
                 )
-
-                # Get the background job manager (lazy initialization)
-                job_manager = get_background_job_manager()
-
-                # Submit job to Celery queue
-                celery_task_id, failed = job_manager.submit_computation_job(self)
 
             except (
                 Exception

@@ -34,7 +34,7 @@ import dash_bootstrap_components as dbc
 from dash import Input, Output, State, callback, dcc, html, register_page
 from kombu.exceptions import OperationalError as KombuOperationalError
 
-from cosmopolitan_app.background_job_manager import get_background_job_manager
+from cosmopolitan_app.background_job_manager import background_job_manager
 from cosmopolitan_app.constants import (
     DUMMY_DIV_CRNS_ADMIN_ID,
     END_DATE_INPUT_CRNS_ADMIN_ID,
@@ -357,8 +357,7 @@ def start_update(n_clicks):
 
     # Submit task to Celery
     try:
-        job_manager = get_background_job_manager()
-        result = job_manager.update_db_task.apply_async(queue="maintenance")
+        result = background_job_manager.update_db_task.apply_async(queue="maintenance")
 
         return (
             f"Update task submitted. Task ID: {result.id}",

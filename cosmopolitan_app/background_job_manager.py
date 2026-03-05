@@ -214,33 +214,18 @@ class BackgroundJobManager:
         }
 
 
-# Lazy initialization - instance created only when needed
-_background_job_manager = None
+# Module-level singleton — instantiated on first import.
+# The Celery worker command needs `celery` at module scope anyway,
+# so lazy initialization would be defeated.
+background_job_manager = BackgroundJobManager()
 
-
-def get_background_job_manager() -> BackgroundJobManager:
-    """Get the global BackgroundJobManager instance (lazy instanziation)."""
-    global _background_job_manager
-    if _background_job_manager is None:
-        _background_job_manager = BackgroundJobManager()
-    return _background_job_manager
-
-
-# Expose the Celery app for the worker command
-# Use a function to avoid eager initialization
-def make_celery():
-    """Create the Celery app for worker use."""
-    return get_background_job_manager().app
-
-
-# Standard Celery app instance for worker command
-celery = make_celery()
+# Expose Celery app for worker command:
+# celery -A cosmopolitan_app.background_job_manager.celery worker ...
+celery = background_job_manager.app
 
 if __name__ == "__main__":
-    # For manual testing of the BackgroundJobManager
-    job_manager = get_background_job_manager()
     print("BackgroundJobManager initialized with Celery app:")
     while True:
-        overview = job_manager.get_all_tasks_overview()
+        overview = background_job_manager.get_all_tasks_overview()
         print(f"Retrieved task overview: {overview}")
         time.sleep(2)
