@@ -5,7 +5,10 @@ import time
 import pytest
 from celery import states
 
-from cosmopolitan_app.background_job_manager import background_job_manager
+from cosmopolitan_app.background_job_manager import (
+    NAME_TEST_TASK,
+    background_job_manager,
+)
 
 
 def test_worker_management_workflow(celery_worker, logger):
@@ -36,8 +39,8 @@ def test_worker_management_workflow(celery_worker, logger):
     logger.info(f"Task overview structure verified: {list(overview.keys())}")
     # Step 1: Submit long running task which takes some time to execute
     logger.info("Submitting long running test task to maintenance queue...")
-    result = background_job_manager.long_running_test_task.apply_async(
-        args=[60], queue="maintenance"  # Run for 60 seconds
+    result = background_job_manager.app.send_task(
+        NAME_TEST_TASK, args=[60], queue="maintenance"  # Run for 60 seconds
     )
     task_id = result.id
     logger.info(f"Task submitted with ID: {task_id}")

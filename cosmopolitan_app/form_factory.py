@@ -160,7 +160,9 @@ class FormFactory:
         elif field_type in ["multiple-file-upload", "file-upload"]:
             props["id"] = id_field
             props["multiple"] = field_type == "multiple-file-upload"
-            props["children"] = dbc.Button("Browse files", color="primary")
+            props["children"] = dbc.Button(
+                [html.I(className="bi bi-upload me-1"), "Browse files"], color="primary"
+            )
         else:
             raise ValueError(f"Unknown field type {field_type}")
 
@@ -197,7 +199,7 @@ class FormFactory:
                     className="d-none",
                 ),
                 dbc.Button(
-                    "Delete files",
+                    [html.I(className="bi bi-trash me-1"), "Delete files"],
                     id=self.delete_id_format.format(field_name=field_name),  # nocheck
                     color="warning",
                     className="my-2",
@@ -253,7 +255,10 @@ class FormFactory:
                 dbc.Row(
                     dbc.Col(
                         dbc.Button(
-                            "Check input",
+                            [
+                                html.I(className="bi bi-check-circle me-1"),
+                                "Check input",
+                            ],
                             id=self.id_check_input_button,  # nocheck
                             color="primary",
                         ),
@@ -374,9 +379,7 @@ class FormFactory:
         for field_name in ModelWebsite.model_fields:
             field_type = ModelWebsite.model_fields[field_name].json_schema_extra["type"]
             if field_name == "predictors":
-                predictors_stream = {
-                    stream: None for stream in form_data["pred_streams"]
-                }
+                predictors_stream = dict.fromkeys(form_data["pred_streams"])
                 hidden_id = self.hidden_id_format.format(field_name="predictor_upload")
                 predictor_upload_wrong_keys = (
                     json.loads(form_data[hidden_id])
@@ -640,7 +643,7 @@ class FormTemplateFactory:
             area_preview_elements.append(
                 html.Div(
                     dbc.Button(
-                        "Generate preview",
+                        [html.I(className="bi bi-image me-1"), "Generate preview"],
                         id=self.new_area_preview_key,  # nocheck
                         color="primary",
                         className="my-2 w-auto",

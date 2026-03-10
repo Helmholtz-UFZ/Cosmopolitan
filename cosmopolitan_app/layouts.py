@@ -68,7 +68,10 @@ def create_navbar():
                             children=[
                                 dbc.NavItem(
                                     dbc.NavLink(
-                                        "New Job",
+                                        [
+                                            html.I(className="bi bi-plus-circle me-1"),
+                                            "New Job",
+                                        ],
                                         href=dash.page_registry["pages.new_job"][
                                             "relative_path"
                                         ],
@@ -77,7 +80,10 @@ def create_navbar():
                                 ),
                                 dbc.NavItem(
                                     dbc.NavLink(
-                                        "Documentation",
+                                        [
+                                            html.I(className="bi bi-book me-1"),
+                                            "Documentation",
+                                        ],
                                         href=dash.page_registry["pages.documentation"][
                                             "relative_path"
                                         ],
@@ -85,7 +91,10 @@ def create_navbar():
                                 ),
                                 dbc.NavItem(
                                     dbc.NavLink(
-                                        "Job Management",
+                                        [
+                                            html.I(className="bi bi-list-task me-1"),
+                                            "Job Management",
+                                        ],
                                         href=dash.page_registry["pages.job_management"][
                                             "relative_path"
                                         ],
@@ -93,7 +102,10 @@ def create_navbar():
                                 ),
                                 dbc.NavItem(
                                     dbc.NavLink(
-                                        "Worker Management",
+                                        [
+                                            html.I(className="bi bi-cpu me-1"),
+                                            "Worker Management",
+                                        ],
                                         href=dash.page_registry[
                                             "pages.worker_management"
                                         ]["relative_path"],
@@ -101,7 +113,10 @@ def create_navbar():
                                 ),
                                 dbc.NavItem(
                                     dbc.NavLink(
-                                        "Logs",
+                                        [
+                                            html.I(className="bi bi-journal-text me-1"),
+                                            "Logs",
+                                        ],
                                         href=dash.page_registry["pages.logs"][
                                             "relative_path"
                                         ],
@@ -109,7 +124,10 @@ def create_navbar():
                                 ),
                                 dbc.NavItem(
                                     dbc.NavLink(
-                                        "Measurements",
+                                        [
+                                            html.I(className="bi bi-graph-up me-1"),
+                                            "Measurements",
+                                        ],
                                         href=dash.page_registry[
                                             "pages.measurment_view"
                                         ]["relative_path"],
@@ -117,7 +135,12 @@ def create_navbar():
                                 ),
                                 dbc.NavItem(
                                     dbc.NavLink(
-                                        "Sensor Management",
+                                        [
+                                            html.I(
+                                                className="bi bi-broadcast-pin me-1"
+                                            ),
+                                            "Sensor Management",
+                                        ],
                                         href=dash.page_registry[
                                             "pages.sensor_management"
                                         ]["relative_path"],
@@ -125,7 +148,12 @@ def create_navbar():
                                 ),
                                 dbc.NavItem(
                                     dbc.NavLink(
-                                        "CRNS Admin",
+                                        [
+                                            html.I(
+                                                className="bi bi-database-gear me-1"
+                                            ),
+                                            "CRNS Admin",
+                                        ],
                                         href=dash.page_registry["pages.crns_db_admin"][
                                             "relative_path"
                                         ],

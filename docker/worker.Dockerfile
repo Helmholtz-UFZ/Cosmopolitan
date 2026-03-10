@@ -58,7 +58,7 @@ USER appuser
 # Worker-specific command with conditional debug mode
 CMD echo "Starting Celery worker in PRODUCTION mode..."; \
     python3 /python_docker/cosmopolitan/cosmopolitan_app/object_storage_manager.py setup_remote; \
-    exec celery -A cosmopolitan_app.background_job_manager.celery worker \
+    exec celery -A cosmopolitan_app.celery_app.celery worker \
         --loglevel=debug \
         --concurrency=4 \
         --queues=default,computation,maintenance \

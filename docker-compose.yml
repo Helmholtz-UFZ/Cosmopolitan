@@ -17,6 +17,7 @@ services:
       - redis
     volumes:
       - "./:/python_docker/cosmopolitan"
+      - "/python_docker/cosmopolitan/.venv"
 
   worker:
     image: cosmopolitan-worker

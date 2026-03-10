@@ -131,147 +131,136 @@ measurement_table = dash_table.DataTable(
 )
 
 # Filter controls
-filter_controls = dbc.Card(
+_type_col = dbc.Col(
     [
-        dbc.CardBody(
-            [
-                dbc.Row(
-                    [
-                        dbc.Col(
-                            [
-                                html.Label(
-                                    "Measurement Types:", className="form-label"
-                                ),
-                                dcc.Dropdown(
-                                    id=TYPE_DROPDOWN_MEASUREMENT_VIEW_ID,
-                                    options=[
-                                        {"label": t, "value": t}
-                                        for t in available_types
-                                    ],
-                                    value=(
-                                        available_types[:3]
-                                        if len(available_types) >= 3
-                                        else available_types
-                                    ),
-                                    multi=True,
-                                    placeholder="Select measurement types...",
-                                ),
-                            ],
-                            md=4,
-                        ),
-                        dbc.Col(
-                            [
-                                html.Label("Date Range:", className="form-label"),
-                                dcc.DatePickerRange(
-                                    id=DATE_RANGE_PICKER_MEASUREMENT_VIEW_ID,
-                                    start_date=date(2024, 2, 1),
-                                    end_date=date(2024, 2, 29),
-                                    display_format="YYYY-MM-DD",
-                                    className="w-100",
-                                ),
-                            ],
-                            md=4,
-                        ),
-                        dbc.Col(
-                            [
-                                html.Label(
-                                    "Representative Only:", className="form-label"
-                                ),
-                                dbc.Switch(
-                                    id=REPRESENTATIVE_SWITCH_MEASUREMENT_VIEW_ID,
-                                    label="Show only representative measurements",
-                                    value=False,
-                                ),
-                            ],
-                            md=4,
-                        ),
-                    ],
-                    className="mb-3",
-                ),
-                dbc.Row(
-                    [
-                        dbc.Col(
-                            [
-                                html.Label(
-                                    "Bounding Box & Projection:",
-                                    className="form-label",
-                                ),
-                                dbc.InputGroup(
-                                    [
-                                        dbc.InputGroupText("X1"),
-                                        dbc.Input(
-                                            id=BBOX_MIN_LON_INPUT_MEASUREMENT_VIEW_ID,
-                                            type="number",
-                                            value=580000,
-                                            step=1,
-                                        ),
-                                        dbc.InputGroupText("Y1"),
-                                        dbc.Input(
-                                            id=BBOX_MIN_LAT_INPUT_MEASUREMENT_VIEW_ID,
-                                            type="number",
-                                            value=5710000,
-                                            step=1,
-                                        ),
-                                        dbc.InputGroupText("X2"),
-                                        dbc.Input(
-                                            id=BBOX_MAX_LON_INPUT_MEASUREMENT_VIEW_ID,
-                                            type="number",
-                                            value=660000,
-                                            step=1,
-                                        ),
-                                        dbc.InputGroupText("Y2"),
-                                        dbc.Input(
-                                            id=BBOX_MAX_LAT_INPUT_MEASUREMENT_VIEW_ID,
-                                            type="number",
-                                            value=5777000,
-                                            step=1,
-                                        ),
-                                        dbc.InputGroupText("EPSG:"),
-                                        dbc.Input(
-                                            id=PROJECTION_INPUT_MEASUREMENT_VIEW_ID,
-                                            type="text",
-                                            value="25832",
-                                        ),
-                                    ],
-                                    id=BBOX_INPUT_GROUP_MEASUREMENT_VIEW_ID,
-                                    size="sm",
-                                ),
-                                dbc.FormText(
-                                    id=TRANSFORMATION_FEEDBACK_MEASUREMENT_VIEW_ID,
-                                    className="text-danger d-none",
-                                ),
-                            ],
-                            md=8,
-                        ),
-                        dbc.Col(
-                            [
-                                html.Label("Actions:", className="form-label"),
-                                dbc.ButtonGroup(
-                                    [
-                                        dbc.Button(
-                                            "Load Data",
-                                            id=LOAD_BUTTON_MEASUREMENT_VIEW_ID,
-                                            color="primary",
-                                            size="sm",
-                                        ),
-                                        dbc.Button(
-                                            "Export CSV",
-                                            id=EXPORT_BUTTON_MEASUREMENT_VIEW_ID,
-                                            color="success",
-                                            size="sm",
-                                            disabled=True,
-                                        ),
-                                    ],
-                                    className="d-flex",
-                                ),
-                            ],
-                            md=4,
-                        ),
-                    ]
-                ),
-            ]
+        html.Label("Measurement Types:", className="form-label"),
+        dcc.Dropdown(
+            id=TYPE_DROPDOWN_MEASUREMENT_VIEW_ID,
+            options=[{"label": t, "value": t} for t in available_types],
+            value=(
+                available_types[:3] if len(available_types) >= 3 else available_types
+            ),
+            multi=True,
+            placeholder="Select measurement types...",
         ),
     ],
+    md=4,
+)
+
+_date_range_col = dbc.Col(
+    [
+        html.Label("Date Range:", className="form-label"),
+        dcc.DatePickerRange(
+            id=DATE_RANGE_PICKER_MEASUREMENT_VIEW_ID,
+            start_date=date(2024, 2, 1),
+            end_date=date(2024, 2, 29),
+            display_format="YYYY-MM-DD",
+            className="w-100",
+        ),
+    ],
+    md=4,
+)
+
+_representative_col = dbc.Col(
+    [
+        html.Label("Representative Only:", className="form-label"),
+        dbc.Switch(
+            id=REPRESENTATIVE_SWITCH_MEASUREMENT_VIEW_ID,
+            label="Show only representative measurements",
+            value=False,
+        ),
+    ],
+    md=4,
+)
+
+_bbox_col = dbc.Col(
+    [
+        html.Label("Bounding Box & Projection:", className="form-label"),
+        dbc.InputGroup(
+            [
+                dbc.InputGroupText("X1"),
+                dbc.Input(
+                    id=BBOX_MIN_LON_INPUT_MEASUREMENT_VIEW_ID,
+                    type="number",
+                    value=580000,
+                    step=1,
+                ),
+                dbc.InputGroupText("Y1"),
+                dbc.Input(
+                    id=BBOX_MIN_LAT_INPUT_MEASUREMENT_VIEW_ID,
+                    type="number",
+                    value=5710000,
+                    step=1,
+                ),
+                dbc.InputGroupText("X2"),
+                dbc.Input(
+                    id=BBOX_MAX_LON_INPUT_MEASUREMENT_VIEW_ID,
+                    type="number",
+                    value=660000,
+                    step=1,
+                ),
+                dbc.InputGroupText("Y2"),
+                dbc.Input(
+                    id=BBOX_MAX_LAT_INPUT_MEASUREMENT_VIEW_ID,
+                    type="number",
+                    value=5777000,
+                    step=1,
+                ),
+                dbc.InputGroupText("EPSG:"),
+                dbc.Input(
+                    id=PROJECTION_INPUT_MEASUREMENT_VIEW_ID,
+                    type="text",
+                    value="25832",
+                ),
+            ],
+            id=BBOX_INPUT_GROUP_MEASUREMENT_VIEW_ID,
+            size="sm",
+        ),
+        dbc.FormText(
+            id=TRANSFORMATION_FEEDBACK_MEASUREMENT_VIEW_ID,
+            className="text-danger d-none",
+        ),
+    ],
+    md=8,
+)
+
+_actions_col = dbc.Col(
+    [
+        html.Label("Actions:", className="form-label"),
+        dbc.ButtonGroup(
+            [
+                dbc.Button(
+                    [html.I(className="bi bi-database me-1"), "Load Data"],
+                    id=LOAD_BUTTON_MEASUREMENT_VIEW_ID,
+                    color="primary",
+                    size="sm",
+                ),
+                dbc.Button(
+                    [
+                        html.I(className="bi bi-file-earmark-arrow-down me-1"),
+                        "Export CSV",
+                    ],
+                    id=EXPORT_BUTTON_MEASUREMENT_VIEW_ID,
+                    color="success",
+                    size="sm",
+                    disabled=True,
+                ),
+            ],
+            className="d-flex",
+        ),
+    ],
+    md=4,
+)
+
+filter_controls = dbc.Card(
+    dbc.CardBody(
+        [
+            dbc.Row(
+                [_type_col, _date_range_col, _representative_col], className="mb-3"
+            ),
+            dbc.Row([_bbox_col, _actions_col]),
+        ]
+    ),
     className="mb-3",
 )
 

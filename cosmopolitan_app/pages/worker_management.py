@@ -366,7 +366,7 @@ layout = page_container_column_layout(
             dbc.Col(
                 [
                     dbc.Button(
-                        "Refresh",
+                        [html.I(className="bi bi-arrow-clockwise me-1"), "Refresh"],
                         id=REFRESH_BUTTON_WORKER_MANAGEMENT_ID,
                         color="primary",
                         className="me-3",
@@ -412,7 +412,7 @@ layout = page_container_column_layout(
                 row_selectable="single",
             ),
             dbc.Button(
-                "Kill Selected Task",
+                [html.I(className="bi bi-x-octagon-fill me-1"), "Kill Selected Task"],
                 id=KILL_BUTTON_WORKER_MANAGEMENT_ID,
                 color="danger",
                 className="mt-2",
@@ -449,7 +449,7 @@ layout = page_container_column_layout(
                 row_selectable="single",
             ),
             dbc.Button(
-                "Cancel Selected Task",
+                [html.I(className="bi bi-x-circle me-1"), "Cancel Selected Task"],
                 id=CANCEL_BUTTON_WORKER_MANAGEMENT_ID,
                 color="warning",
                 className="mt-2",
@@ -496,12 +496,15 @@ layout = page_container_column_layout(
                 dbc.ModalFooter(
                     [
                         dbc.Button(
-                            "Cancel",
+                            [html.I(className="bi bi-x-circle me-1"), "Cancel"],
                             id=KILL_MODAL_CANCEL_BUTTON_WORKER_MANAGEMENT_ID,
                             color="secondary",
                         ),
                         dbc.Button(
-                            "Kill Task",
+                            [
+                                html.I(className="bi bi-x-octagon-fill me-1"),
+                                "Kill Task",
+                            ],
                             id=KILL_MODAL_CONFIRM_BUTTON_WORKER_MANAGEMENT_ID,
                             color="danger",
                         ),
@@ -534,12 +537,12 @@ layout = page_container_column_layout(
                 dbc.ModalFooter(
                     [
                         dbc.Button(
-                            "Cancel",
+                            [html.I(className="bi bi-x-circle me-1"), "Cancel"],
                             id=CANCEL_MODAL_CANCEL_BUTTON_WORKER_MANAGEMENT_ID,
                             color="secondary",
                         ),
                         dbc.Button(
-                            "Cancel Task",
+                            [html.I(className="bi bi-x-circle me-1"), "Cancel Task"],
                             id=CANCEL_MODAL_CONFIRM_BUTTON_WORKER_MANAGEMENT_ID,
                             color="warning",
                         ),

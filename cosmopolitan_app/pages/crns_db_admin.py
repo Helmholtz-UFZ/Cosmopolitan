@@ -103,7 +103,10 @@ def create_config_section() -> dbc.Row:
                             [
                                 dbc.Label("\u00a0"),  # Non-breaking space for alignment
                                 dbc.Button(
-                                    "Save Configuration",
+                                    [
+                                        html.I(className="bi bi-floppy me-1"),
+                                        "Save Configuration",
+                                    ],
                                     id=SAVE_CONFIG_BUTTON_CRNS_ADMIN_ID,
                                     color="primary",
                                     className="d-block",
@@ -246,12 +249,12 @@ def create_purge_modal() -> dbc.Modal:
             dbc.ModalFooter(
                 [
                     dbc.Button(
-                        "Cancel",
+                        [html.I(className="bi bi-x-circle me-1"), "Cancel"],
                         id=PURGE_MODAL_CANCEL_BUTTON_CRNS_ADMIN_ID,
                         color="secondary",
                     ),
                     dbc.Button(
-                        "Purge Database",
+                        [html.I(className="bi bi-trash me-1"), "Purge Database"],
                         id=PURGE_MODAL_CONFIRM_BUTTON_CRNS_ADMIN_ID,
                         color="danger",
                     ),

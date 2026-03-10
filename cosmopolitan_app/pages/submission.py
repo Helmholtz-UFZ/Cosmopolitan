@@ -106,7 +106,7 @@ def create_button_set(status, job_id):
 
     submit_button = wrap_button(
         dbc.Button(
-            "Submit",
+            [html.I(className="bi bi-play-fill me-1"), "Submit"],
             id=SUBMIT_JOB_BUTTON_SUBMISSION_ID,
             color="primary",
             disabled=disabled_submit,
@@ -114,7 +114,7 @@ def create_button_set(status, job_id):
     )
     change_input_button = wrap_button(
         dbc.Button(
-            "Change input",
+            [html.I(className="bi bi-pencil-square me-1"), "Change input"],
             id=CHANGE_INPUT_BUTTON_SUBMISSION_ID,
             color="primary",
             disabled=disabled_change_input,
@@ -122,7 +122,7 @@ def create_button_set(status, job_id):
     )
     spawn_button = wrap_button(
         dbc.Button(
-            "Spawn new job",
+            [html.I(className="bi bi-copy me-1"), "Spawn new job"],
             id=SPAWN_BUTTON_SUBMISSION_ID,
             color="primary",
             disabled=disabled_spawn,
@@ -130,7 +130,7 @@ def create_button_set(status, job_id):
     )
     result_button = wrap_button(
         dbc.Button(
-            "Result",
+            [html.I(className="bi bi-bar-chart-line me-1"), "Result"],
             id=RESULT_BUTTON_SUBMISSION_ID,
             color="primary",
             disabled=disabled_result,

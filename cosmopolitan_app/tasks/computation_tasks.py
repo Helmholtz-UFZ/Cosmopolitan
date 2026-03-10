@@ -7,9 +7,11 @@ from logging.config import dictConfig
 from smtplib import SMTPAuthenticationError
 
 from celery import Task
+from soil_moisture_prediction.smp_cli import main as smp_main
 
 from cosmopolitan_app.config import MAINTAINER_EMAIL
 from cosmopolitan_app.constants import LOG_FILE_NAME
+from cosmopolitan_app.job import Job
 from cosmopolitan_app.logger import (
     get_logger_config_compuation,
     get_logger_config_worker,
@@ -51,13 +53,6 @@ def start_computation_task(self, job_id):
     """
     log.info(f"Starting computation for job {job_id}", extra={"tag": "worker"})
     try:
-        # Import here to avoid circular imports
-        from soil_moisture_prediction.smp_cli import main
-
-        from cosmopolitan_app.job import Job
-
-        log.debug("Modules imported", extra={"tag": "worker"})
-
         job = Job(job_id=job_id)
         log.debug("Job loaded", extra={"tag": "worker"})
 
@@ -72,7 +67,7 @@ def start_computation_task(self, job_id):
             get_logger_config_compuation(os.path.join(job.working_dir, LOG_FILE_NAME))
         )
 
-        rfo_model = main(verbosity="debug", work_dir=job.working_dir)
+        rfo_model = smp_main(verbosity="debug", work_dir=job.working_dir)
         if rfo_model is None:
             job.status = "FAILED"
         else:

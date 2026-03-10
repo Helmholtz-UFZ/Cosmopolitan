@@ -71,7 +71,7 @@ def layout():
                         html.Br(),
                         html.Div(
                             dbc.Button(
-                                "Prepare input",
+                                [html.I(className="bi bi-gear me-1"), "Prepare input"],
                                 id=PREPARE_INPUT_BUTTON_NEW_JOB_ID,
                                 color="primary",
                             ),

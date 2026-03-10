@@ -6,6 +6,7 @@ import os
 import zipfile
 
 import dash_bootstrap_components as dbc
+from dash import html
 from flask import send_file, send_from_directory
 
 from cosmopolitan_app.job import Job
@@ -23,7 +24,7 @@ def _download_href(job_id):
 def create_download_button(job_id, class_name="w-100 mt-2"):
     """Create a download button for a job's work directory."""
     return dbc.Button(
-        "Download work_dir",
+        [html.I(className="bi bi-download me-1"), "Download work_dir"],
         color="primary",
         href=_download_href(job_id),
         external_link=True,

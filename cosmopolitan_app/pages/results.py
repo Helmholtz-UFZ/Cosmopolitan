@@ -376,7 +376,7 @@ def create_map_controls(available_dates, available_map_types, job_id):
                         className="mb-3",
                     ),
                     dbc.Button(
-                        "Switch",
+                        [html.I(className="bi bi-arrow-left-right me-1"), "Switch"],
                         id=SWITCH_MAP_BUTTON_RESULTS_ID,
                         color="primary",
                         className="w-100",

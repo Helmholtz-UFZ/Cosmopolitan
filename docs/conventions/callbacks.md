@@ -104,18 +104,37 @@ dash.clientside_callback(
 ## Identifying the Trigger
 
 When a callback has multiple inputs, use `callback_context` to determine which
-triggered it:
+triggered it. **Never use `triggered[0]`** — Dash can batch multiple input changes
+into a single callback invocation (e.g., a field change and a button click arriving
+together). `triggered[0]` picks whichever input appears first in the callback
+definition, silently ignoring the rest.
+
+Build a set filtered by `value is not None` to handle both batching and
+`prevent_initial_call="initial_duplicate"` (where all inputs appear in `triggered`
+with null values on page load):
 
 ```python
 from dash import callback_context
 
-triggered_id = callback_context.triggered[0]["prop_id"].split(".")[0]
+triggered_ids = {
+    t["prop_id"].split(".")[0]
+    for t in callback_context.triggered
+    if t["value"] is not None
+}
 
-if triggered_id == SUBMIT_BUTTON_ID:
+if SUBMIT_BUTTON_ID in triggered_ids:
     ...
-elif triggered_id == CANCEL_BUTTON_ID:
+elif CANCEL_BUTTON_ID in triggered_ids:
     ...
 ```
+
+**Why `is not None`:** In multi-page apps, navigating to a page re-renders its
+components. Dash fires callbacks with ALL inputs in `triggered`, but buttons that
+were never clicked have `n_clicks: null`. Without the filter, the set would contain
+every button on every page load.
+
+**When `triggered[0]` is acceptable:** Only in callbacks with a single `Input()` where
+batching is impossible. If there are two or more `Input()` entries, use the set.
 
 ## Navigation Pattern
 

@@ -363,7 +363,10 @@ edit_form = dbc.Form(
                 dbc.Col(
                     [
                         dbc.Button(
-                            "Update/Add Entry",
+                            [
+                                html.I(className="bi bi-check-circle me-1"),
+                                "Update/Add Entry",
+                            ],
                             id=SUBMIT_EDIT_BUTTON_SENSOR_MANAGEMENT_ID,
                             color="success",
                             className="mt-3",
@@ -415,7 +418,10 @@ layout = page_container_column_layout(
                                 ),
                                 create_database_table(),
                                 dbc.Button(
-                                    "Refresh Database",
+                                    [
+                                        html.I(className="bi bi-arrow-clockwise me-1"),
+                                        "Refresh Database",
+                                    ],
                                     id=REFRESH_DATABASE_BUTTON_SENSOR_MANAGEMENT_ID,
                                     color="primary",
                                     className="mb-3",
@@ -634,7 +640,7 @@ def populate_edit_form(db_selected, api_selected, db_data, db_store_data, api_da
             dash.no_update,
             dash.no_update,
             True,
-            "Update/Add Entry",
+            [html.I(className="bi bi-check-circle me-1"), "Update/Add Entry"],
         )
 
     # Populate from database table selection
@@ -662,7 +668,10 @@ def populate_edit_form(db_selected, api_selected, db_data, db_store_data, api_da
             row["ignored"] == "True",
             formatted_json,
             False,  # Enable submit button
-            "Update Entry",  # Database selection = update
+            [
+                html.I(className="bi bi-check-circle me-1"),
+                "Update Entry",
+            ],  # Database selection = update
         )
 
     # Populate from API table selection
@@ -687,7 +696,10 @@ def populate_edit_form(db_selected, api_selected, db_data, db_store_data, api_da
             False,  # Default not ignored
             formatted_json,
             False,  # Enable submit button
-            "Add Entry",  # API selection = add new
+            [
+                html.I(className="bi bi-plus-circle me-1"),
+                "Add Entry",
+            ],  # API selection = add new
         )
 
 

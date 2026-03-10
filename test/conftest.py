@@ -351,7 +351,7 @@ def celery_worker(request):
             "run",
             "celery",
             "-A",
-            "cosmopolitan_app.background_job_manager.celery",
+            "cosmopolitan_app.celery_app.celery",
             "worker",
             "--loglevel=debug",
             "--concurrency=1",

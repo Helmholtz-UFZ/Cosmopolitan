@@ -1,4 +1,8 @@
-"""Background job manager using Celery for distributed task processing."""
+"""Background job manager using Celery for distributed task processing.
+
+Task registration lives in celery_app.py (the worker entry point) to avoid a
+circular import: tasks/*.py → job → this module → tasks/*.py.
+"""
 
 import logging
 import time
@@ -12,11 +16,13 @@ from celery.signals import worker_process_init
 
 from cosmopolitan_app.celery_config import CeleryConfig
 from cosmopolitan_app.logger import get_logger_config_worker
-from cosmopolitan_app.tasks.computation_tasks import start_computation_task
-from cosmopolitan_app.tasks.maintenance_tasks import cleanup_task, update_db_task
-from cosmopolitan_app.tasks.test_tasks import long_running_test_task
 
 log = logging.getLogger(__name__)
+
+NAME_COMPUTATION_TASK = "cosmopolitan_app.tasks.computation_tasks.start_computation"
+NAME_CLEANUP_TASK = "cosmopolitan_app.tasks.maintenance_tasks.cleanup"
+NAME_UPDATE_DB_TASK = "cosmopolitan_app.tasks.maintenance_tasks.update_db"
+NAME_TEST_TASK = "cosmopolitan_app.tasks.test_tasks.long_running_test"
 
 
 @worker_process_init.connect
@@ -30,54 +36,24 @@ class BackgroundJobManager:
 
     def __init__(self):
         """Initialize the BackgroundJobManager with Celery app."""
-        self.app = self._create_celery_app()
-        self._register_tasks()
-        self._setup_periodic_tasks()
-
-    def _create_celery_app(self) -> Celery:
-        """Create and configure the Celery application."""
-        app = Celery("cosmopolitan")
-        app.config_from_object(CeleryConfig)
-
-        # Update configuration with current instance
-        app.conf.update(
+        self.app = Celery("cosmopolitan")
+        self.app.config_from_object(CeleryConfig)
+        self.app.conf.update(
             broker_connection_retry_on_startup=True,
             broker_connection_retry=True,
         )
-
-        return app
-
-    def _register_tasks(self):
-        """Register all task functions with the Celery app."""
-        # Register computation tasks
-        self.computation_task = self.app.task(
-            bind=True, name="cosmopolitan_app.tasks.computation_tasks.start_computation"
-        )(start_computation_task)
-
-        # Register maintenance tasks
-        self.cleanup_task = self.app.task(
-            bind=True, name="cosmopolitan_app.tasks.maintenance_tasks.cleanup"
-        )(cleanup_task)
-
-        self.update_db_task = self.app.task(
-            bind=True, name="cosmopolitan_app.tasks.maintenance_tasks.update_db"
-        )(update_db_task)
-
-        # Register test tasks
-        self.long_running_test_task = self.app.task(
-            bind=True, name="cosmopolitan_app.tasks.test_tasks.long_running_test"
-        )(long_running_test_task)
+        self._setup_periodic_tasks()
 
     def _setup_periodic_tasks(self):
         """Set up periodic tasks using Celery Beat (replaces APScheduler)."""
         self.app.conf.beat_schedule = {
             "cleanup-at-3am": {
-                "task": "cosmopolitan_app.tasks.maintenance_tasks.cleanup",
+                "task": NAME_CLEANUP_TASK,
                 "schedule": crontab(minute=0, hour=3),  # Every day at 3:00 AM
                 "options": {"queue": "maintenance"},
             },
             "update-db-at-4am": {
-                "task": "cosmopolitan_app.tasks.maintenance_tasks.update_db",
+                "task": NAME_UPDATE_DB_TASK,
                 "schedule": crontab(minute=0, hour=4),  # Every day at 4:00 AM
                 "options": {"queue": "maintenance"},
             },
@@ -98,7 +74,8 @@ class BackgroundJobManager:
         )
 
         # Submit to Celery (pass job_id, not job object)
-        result = self.computation_task.apply_async(
+        result = self.app.send_task(
+            NAME_COMPUTATION_TASK,
             args=[job.job_id],
             queue="computation",
             retry=True,
@@ -215,13 +192,7 @@ class BackgroundJobManager:
 
 
 # Module-level singleton — instantiated on first import.
-# The Celery worker command needs `celery` at module scope anyway,
-# so lazy initialization would be defeated.
 background_job_manager = BackgroundJobManager()
-
-# Expose Celery app for worker command:
-# celery -A cosmopolitan_app.background_job_manager.celery worker ...
-celery = background_job_manager.app
 
 if __name__ == "__main__":
     print("BackgroundJobManager initialized with Celery app:")
