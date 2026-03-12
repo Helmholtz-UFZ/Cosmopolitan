@@ -21,8 +21,9 @@ import json
 import logging
 
 import dash
+import dash_ag_grid as dag
 import dash_bootstrap_components as dbc
-from dash import Input, Output, State, callback, dash_table, dcc, html
+from dash import Input, Output, State, callback, dcc, html
 
 from cosmopolitan_app.constants import (
     API_SENSORS_STORE_SENSOR_MANAGEMENT_ID,
@@ -138,131 +139,116 @@ def shorten_json_string(s):
 
 def create_database_table():
     """Create the database sensors table component."""
-    return dash_table.DataTable(
+    return dag.AgGrid(
         id=DATABASE_SENSORS_TABLE_SENSOR_MANAGEMENT_ID,
-        columns=[
+        columnDefs=[
+            {"field": "sensor_id", "headerName": "Sensor ID", "type": "numericColumn"},
+            {"field": "sensor_name", "headerName": "Name"},
+            {"field": "sensor_type", "headerName": "Type"},
             {
-                "id": "sensor_id",
-                "name": "Sensor ID",
-                "type": "numeric",
-                "editable": False,
-            },
-            {"id": "sensor_name", "name": "Name", "editable": False},
-            {
-                "id": "sensor_type",
-                "name": "Type",
-                "editable": False,
-            },
-            {"id": "ignored", "name": "Ignored", "type": "text", "editable": False},
-            {
-                "id": "stationary",
-                "name": "Stationary",
-                "type": "text",
-                "editable": False,
-            },
-            {
-                "id": "datastreams",
-                "name": "Datastreams",
-                "editable": False,
-            },
-        ],
-        data=[],
-        row_selectable="single",
-        selected_rows=[],
-        editable=True,
-        dropdown={
-            "sensor_type": {
-                "options": [
-                    {"label": "Station", "value": "station"},
-                    {"label": "Train", "value": "train"},
-                    {"label": "Rover", "value": "rover"},
-                    {"label": "Unknown", "value": "unknown"},
-                ]
-            }
-        },
-        style_cell={"textAlign": "center", "fontSize": "12px"},
-        style_data_conditional=[
-            {
-                "if": {"filter_query": "{ignored} = False", "column_id": "ignored"},
-                "backgroundColor": "#d4edda",
-                "color": "#155724",
-            },
-            {
-                "if": {"filter_query": "{ignored} = True", "column_id": "ignored"},
-                "backgroundColor": "#f8d7da",
-                "color": "#721c24",
-            },
-            {
-                "if": {
-                    "filter_query": "{stationary} = True",
-                    "column_id": "stationary",
+                "field": "ignored",
+                "headerName": "Ignored",
+                "cellStyle": {
+                    "styleConditions": [
+                        {
+                            "condition": "params.value === 'False'",
+                            "style": {"backgroundColor": "#d4edda", "color": "#155724"},
+                        },
+                        {
+                            "condition": "params.value === 'True'",
+                            "style": {"backgroundColor": "#f8d7da", "color": "#721c24"},
+                        },
+                    ],
                 },
-                "backgroundColor": "#e2e3e5",
             },
             {
-                "if": {
-                    "filter_query": "{stationary} = False",
-                    "column_id": "stationary",
+                "field": "stationary",
+                "headerName": "Stationary",
+                "cellStyle": {
+                    "styleConditions": [
+                        {
+                            "condition": "params.value === 'True'",
+                            "style": {"backgroundColor": "#e2e3e5"},
+                        },
+                        {
+                            "condition": "params.value === 'False'",
+                            "style": {"backgroundColor": "#fff3cd"},
+                        },
+                    ],
                 },
-                "backgroundColor": "#fff3cd",
             },
+            {"field": "datastreams", "headerName": "Datastreams"},
         ],
-        sort_action="native",
-        page_size=20,
-        style_table={
-            "height": "70vh",
-            "overflowY": "auto",
-            "paddingLeft": "4px",
+        rowData=[],
+        defaultColDef={
+            "sortable": True,
+            "resizable": True,
+            "cellStyle": {"textAlign": "center", "fontSize": "12px"},
         },
+        dashGridOptions={
+            "rowSelection": {"mode": "singleRow"},
+            "pagination": True,
+            "paginationPageSize": 20,
+        },
+        # AG Grid height set via style since Bootstrap has no 70vh utility
+        style={"height": "70vh"},
+        columnSize="responsiveSizeToFit",
     )
 
 
 def create_api_table():
     """Create the TimeIO API sensors table component."""
-    return dash_table.DataTable(
+    return dag.AgGrid(
         id=API_SENSORS_TABLE_SENSOR_MANAGEMENT_ID,
-        columns=[
-            {"id": "sensor_id", "name": "ID", "type": "numeric"},
-            {"id": "name", "name": "Name"},
-            {"id": "status", "name": "Status"},
-            {"id": "in_database", "name": "In DB"},
-        ],
-        data=[],
-        row_selectable="single",
-        selected_rows=[],
-        style_cell={"textAlign": "center", "fontSize": "12px"},
-        style_data_conditional=[
+        columnDefs=[
+            {"field": "sensor_id", "headerName": "ID", "type": "numericColumn"},
+            {"field": "name", "headerName": "Name"},
             {
-                "if": {"filter_query": "{status} = 'active'", "column_id": "status"},
-                "backgroundColor": "#d4edda",
-                "color": "#155724",
-            },
-            {
-                "if": {"filter_query": "{status} = 'ignored'", "column_id": "status"},
-                "backgroundColor": "#f8d7da",
-                "color": "#721c24",
-            },
-            {
-                "if": {"filter_query": "{status} = 'new'", "column_id": "status"},
-                "backgroundColor": "#fff3cd",
-                "color": "#856404",
-            },
-            {
-                "if": {
-                    "filter_query": "{in_database} = True",
-                    "column_id": "in_database",
+                "field": "status",
+                "headerName": "Status",
+                "cellStyle": {
+                    "styleConditions": [
+                        {
+                            "condition": "params.value === 'active'",
+                            "style": {"backgroundColor": "#d4edda", "color": "#155724"},
+                        },
+                        {
+                            "condition": "params.value === 'ignored'",
+                            "style": {"backgroundColor": "#f8d7da", "color": "#721c24"},
+                        },
+                        {
+                            "condition": "params.value === 'new'",
+                            "style": {"backgroundColor": "#fff3cd", "color": "#856404"},
+                        },
+                    ],
                 },
-                "backgroundColor": "#d4edda",
-                "color": "#155724",
+            },
+            {
+                "field": "in_database",
+                "headerName": "In DB",
+                "cellStyle": {
+                    "styleConditions": [
+                        {
+                            "condition": "params.value === 'True'",
+                            "style": {"backgroundColor": "#d4edda", "color": "#155724"},
+                        },
+                    ],
+                },
             },
         ],
-        sort_action="native",
-        page_size=20,
-        style_table={
-            "height": "70vh",
-            "overflowY": "auto",
-            "paddingLeft": "4px",
+        rowData=[],
+        defaultColDef={
+            "sortable": True,
+            "resizable": True,
+            "cellStyle": {"textAlign": "center", "fontSize": "12px"},
         },
+        dashGridOptions={
+            "rowSelection": {"mode": "singleRow"},
+            "pagination": True,
+            "paginationPageSize": 20,
+        },
+        style={"height": "70vh"},
+        columnSize="responsiveSizeToFit",
     )
 
 
@@ -468,9 +454,9 @@ layout = page_container_column_layout(
 @callback(
     [
         Output(DATABASE_SENSORS_STORE_SENSOR_MANAGEMENT_ID, "data"),
-        Output(DATABASE_SENSORS_TABLE_SENSOR_MANAGEMENT_ID, "data"),
+        Output(DATABASE_SENSORS_TABLE_SENSOR_MANAGEMENT_ID, "rowData"),
         Output(API_SENSORS_STORE_SENSOR_MANAGEMENT_ID, "data"),
-        Output(API_SENSORS_TABLE_SENSOR_MANAGEMENT_ID, "data"),
+        Output(API_SENSORS_TABLE_SENSOR_MANAGEMENT_ID, "rowData"),
         Output(SYNC_STATUS_ALERT_SENSOR_MANAGEMENT_ID, "children"),
         Output(SYNC_STATUS_ALERT_SENSOR_MANAGEMENT_ID, "color"),
         Output(SYNC_STATUS_ALERT_SENSOR_MANAGEMENT_ID, "is_open"),
@@ -579,12 +565,12 @@ dash.clientside_callback(
 
 @callback(
     [
-        Output(DATABASE_SENSORS_TABLE_SENSOR_MANAGEMENT_ID, "selected_rows"),
-        Output(API_SENSORS_TABLE_SENSOR_MANAGEMENT_ID, "selected_rows"),
+        Output(DATABASE_SENSORS_TABLE_SENSOR_MANAGEMENT_ID, "selectedRows"),
+        Output(API_SENSORS_TABLE_SENSOR_MANAGEMENT_ID, "selectedRows"),
     ],
     [
-        Input(DATABASE_SENSORS_TABLE_SENSOR_MANAGEMENT_ID, "selected_rows"),
-        Input(API_SENSORS_TABLE_SENSOR_MANAGEMENT_ID, "selected_rows"),
+        Input(DATABASE_SENSORS_TABLE_SENSOR_MANAGEMENT_ID, "selectedRows"),
+        Input(API_SENSORS_TABLE_SENSOR_MANAGEMENT_ID, "selectedRows"),
     ],
     prevent_initial_call=True,
 )
@@ -619,17 +605,15 @@ def handle_cross_table_selection(db_selected, api_selected):
         Output(SUBMIT_EDIT_BUTTON_SENSOR_MANAGEMENT_ID, "children"),
     ],
     [
-        Input(DATABASE_SENSORS_TABLE_SENSOR_MANAGEMENT_ID, "selected_rows"),
-        Input(API_SENSORS_TABLE_SENSOR_MANAGEMENT_ID, "selected_rows"),
+        Input(DATABASE_SENSORS_TABLE_SENSOR_MANAGEMENT_ID, "selectedRows"),
+        Input(API_SENSORS_TABLE_SENSOR_MANAGEMENT_ID, "selectedRows"),
     ],
     [
-        State(DATABASE_SENSORS_TABLE_SENSOR_MANAGEMENT_ID, "data"),
         State(DATABASE_SENSORS_STORE_SENSOR_MANAGEMENT_ID, "data"),
-        State(API_SENSORS_TABLE_SENSOR_MANAGEMENT_ID, "data"),
     ],
     prevent_initial_call=True,
 )
-def populate_edit_form(db_selected, api_selected, db_data, db_store_data, api_data):
+def populate_edit_form(db_selected, api_selected, db_store_data):
     """Populate edit form based on table selection."""
     log.info("Populating edit form based on selection", extra={"tag": "time_io"})
     if not db_selected and not api_selected:
@@ -644,8 +628,8 @@ def populate_edit_form(db_selected, api_selected, db_data, db_store_data, api_da
         )
 
     # Populate from database table selection
-    if db_selected and db_data and db_store_data:
-        row = db_data[db_selected[0]]
+    if db_selected and db_store_data:
+        row = db_selected[0]
         sensor_id = row["sensor_id"]
 
         # Find the corresponding sensor in store data for full JSON
@@ -675,8 +659,8 @@ def populate_edit_form(db_selected, api_selected, db_data, db_store_data, api_da
         )
 
     # Populate from API table selection
-    elif api_selected and api_data:
-        row = api_data[api_selected[0]]
+    elif api_selected:
+        row = api_selected[0]
         sensor_id = row["sensor_id"]
 
         # Get datastreams from TimeIO API

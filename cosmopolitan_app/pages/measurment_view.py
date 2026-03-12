@@ -22,9 +22,10 @@ import logging
 from datetime import date, datetime, timedelta
 
 import dash
+import dash_ag_grid as dag
 import dash_bootstrap_components as dbc
 import pandas as pd
-from dash import Input, Output, State, callback, dash_table, dcc, html
+from dash import Input, Output, State, callback, dcc, html
 from pyproj import Transformer
 
 from cosmopolitan_app.constants import (
@@ -59,75 +60,83 @@ dash.register_page(__name__)
 available_types = list(set(type_id_dict.values()))
 
 # Create the measurement data table
-measurement_table = dash_table.DataTable(
+measurement_table = dag.AgGrid(
     id=MEASUREMENTS_TABLE_MEASUREMENT_VIEW_ID,
-    columns=[
-        {"id": "date_time", "name": "Date Time"},
-        {"id": "sensor_id", "name": "Sensor ID"},
-        {"id": "sensor_name", "name": "Sensor Name"},
+    columnDefs=[
+        {"field": "date_time", "headerName": "Date Time", "filter": True},
+        {"field": "sensor_id", "headerName": "Sensor ID", "filter": True},
         {
-            "id": "soil_moisture",
-            "name": "Soil Moisture",
-            "type": "numeric",
-            "format": {"specifier": ".3f"},
+            "field": "sensor_name",
+            "headerName": "Sensor Name",
+            "filter": True,
+            "cellStyle": {"textAlign": "left"},
         },
         {
-            "id": "error_high",
-            "name": "Error High",
-            "type": "numeric",
-            "format": {"specifier": ".3f"},
+            "field": "soil_moisture",
+            "headerName": "Soil Moisture",
+            "type": "numericColumn",
+            "filter": "agNumberColumnFilter",
+            "valueFormatter": {
+                "function": "params.value != null ? params.value.toFixed(3) : ''"
+            },
         },
         {
-            "id": "error_low",
-            "name": "Error Low",
-            "type": "numeric",
-            "format": {"specifier": ".3f"},
+            "field": "error_high",
+            "headerName": "Error High",
+            "type": "numericColumn",
+            "filter": "agNumberColumnFilter",
+            "valueFormatter": {
+                "function": "params.value != null ? params.value.toFixed(3) : ''"
+            },
         },
         {
-            "id": "latitude",
-            "name": "Latitude",
-            "type": "numeric",
-            "format": {"specifier": ".6f"},
+            "field": "error_low",
+            "headerName": "Error Low",
+            "type": "numericColumn",
+            "filter": "agNumberColumnFilter",
+            "valueFormatter": {
+                "function": "params.value != null ? params.value.toFixed(3) : ''"
+            },
         },
         {
-            "id": "longitude",
-            "name": "Longitude",
-            "type": "numeric",
-            "format": {"specifier": ".6f"},
+            "field": "latitude",
+            "headerName": "Latitude",
+            "type": "numericColumn",
+            "filter": "agNumberColumnFilter",
+            "valueFormatter": {
+                "function": "params.value != null ? params.value.toFixed(6) : ''"
+            },
         },
-        {"id": "representative", "name": "Representative"},
+        {
+            "field": "longitude",
+            "headerName": "Longitude",
+            "type": "numericColumn",
+            "filter": "agNumberColumnFilter",
+            "valueFormatter": {
+                "function": "params.value != null ? params.value.toFixed(6) : ''"
+            },
+        },
+        {"field": "representative", "headerName": "Representative", "filter": True},
     ],
-    data=[],
-    sort_action="native",
-    filter_action="native",
-    page_action="native",
-    page_current=0,
-    page_size=20,
-    style_cell={
-        "textAlign": "center",
-        "fontSize": "12px",
-        "padding": "8px",
+    rowData=[],
+    defaultColDef={
+        "sortable": True,
+        "resizable": True,
+        "cellStyle": {"textAlign": "center", "fontSize": "12px", "padding": "8px"},
     },
-    style_header={
-        "backgroundColor": "#f8f9fa",
-        "fontWeight": "bold",
-        "border": "1px solid #dee2e6",
+    dashGridOptions={
+        "pagination": True,
+        "paginationPageSize": 20,
     },
-    style_data={
-        "border": "1px solid #dee2e6",
+    getRowStyle={
+        "styleConditions": [
+            {
+                "condition": "params.data && params.data.representative === 'Yes'",
+                "style": {"backgroundColor": "#e8f5e8"},
+            },
+        ],
     },
-    style_data_conditional=[
-        {
-            "if": {"column_id": "sensor_name"},
-            "textAlign": "left",
-        },
-        {
-            "if": {"filter_query": "{representative} = true"},
-            "backgroundColor": "#e8f5e8",
-        },
-    ],
-    tooltip_data=[],
-    tooltip_duration=None,
+    columnSize="responsiveSizeToFit",
 )
 
 # Filter controls
@@ -494,7 +503,7 @@ def update_preview_image(
 
 @callback(
     [
-        Output(MEASUREMENTS_TABLE_MEASUREMENT_VIEW_ID, "data"),
+        Output(MEASUREMENTS_TABLE_MEASUREMENT_VIEW_ID, "rowData"),
         Output(STATS_CONTENT_DIV_MEASUREMENT_VIEW_ID, "children"),
         Output(EXPORT_BUTTON_MEASUREMENT_VIEW_ID, "disabled"),
         Output(CURRENT_DATA_STORE_DIV_MEASUREMENT_VIEW_ID, "children"),

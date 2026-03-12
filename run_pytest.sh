@@ -47,25 +47,44 @@ check_service() {
 show_help() {
     echo "Usage: ./run_pytest.sh [OPTIONS] [TEST_PATH]"
     echo ""
-    echo "Pytest runner with service management and test selection"
+    echo "The ONLY way to run tests. Do NOT run pytest directly."
+    echo ""
+    echo "This script manages the test environment: backs up .env, starts Docker"
+    echo "services, runs pytest, then restores .env and stops services on exit."
     echo ""
     echo "Options:"
-    echo "  --headed          Run browser tests with visible browser"
+    echo "  --headed          Run browser tests with visible browser (for debugging)"
     echo "  --local-smp       Use local ../soil-moisture-prediction instead of PyPI version"
-    echo "  --no-services     Skip Docker service management (assume already running)"
-    echo "  --no-artifacts    Disable Playwright artifact capture"
+    echo "  --no-services     Skip Docker service start/stop (services must already be running)."
+    echo "                    WARNING: also passes --no-services to pytest, which causes"
+    echo "                    dash_app and celery_worker fixtures to SKIP. This means ALL"
+    echo "                    e2e tests and most module tests will be SKIPPED. Only useful"
+    echo "                    for tests that need no services (test_env, test_smp_assumptions,"
+    echo "                    test_documentation_version)."
+    echo "  --no-artifacts    Disable Playwright artifact capture (screenshots, traces)"
+    echo "  --keep-artifacts  Keep artifacts from previous runs (default: clear on each run)"
     echo "  -h, --help        Show this help message"
     echo ""
     echo "Test Selection:"
-    echo "  [TEST_PATH]       Specific test file or directory to run (optional)"
+    echo "  [TEST_PATH]       Specific test file, directory, or pytest node ID (optional)."
+    echo "                    Passed directly to pytest as the last argument."
+    echo "                    Examples: test/test_e2e.py"
+    echo "                              test/test_e2e.py::test_full_procedure"
+    echo ""
+    echo "Note: This script does NOT support arbitrary pytest flags like -k, -x, etc."
+    echo "Only the options listed above are supported."
     echo ""
     echo "Examples:"
-    echo "  ./run_pytest.sh                                      # Run all tests headless"
-    echo "  ./run_pytest.sh --headed                             # Run all tests with browser visible"
-    echo "  ./run_pytest.sh test/test_e2e.py                     # Run specific test file"
-    echo "  ./run_pytest.sh --no-services test/test_env.py       # Run specific test without services"
-    echo "  ./run_pytest.sh --local-smp test/test_e2e.py         # Run with local smp repo"
-    echo "  ./run_pytest.sh --headed --no-services test/test_env.py  # Combine flags"
+    echo "  ./run_pytest.sh                                        # Run all tests"
+    echo "  ./run_pytest.sh --headed                               # Visible browser"
+    echo "  ./run_pytest.sh test/test_e2e.py                       # Specific file"
+    echo "  ./run_pytest.sh test/test_e2e.py::test_full_procedure  # Specific test"
+    echo "  ./run_pytest.sh --keep-artifacts test/test_e2e.py      # Keep old artifacts"
+    echo "  ./run_pytest.sh --local-smp test/test_e2e.py           # Local smp repo"
+    echo "  ./run_pytest.sh --no-services test/test_env.py         # No-service tests only"
+    echo ""
+    echo "Artifacts (on failure): screenshots, traces, HTML, logs in test/artifacts/"
+    echo "View traces: npx playwright show-trace test/artifacts/<test-name>/trace.zip"
     exit 0
 }
 
@@ -74,6 +93,7 @@ START_SERVICES=1
 HEADED=false
 LOCAL_SMP=false
 ARTIFACTS=true
+KEEP_ARTIFACTS=false
 TEST_PATH=""
 
 while [[ $# -gt 0 ]]; do
@@ -92,6 +112,10 @@ while [[ $# -gt 0 ]]; do
         ;;
     --no-artifacts)
         ARTIFACTS=false
+        shift
+        ;;
+    --keep-artifacts)
+        KEEP_ARTIFACTS=true
         shift
         ;;
     -h | --help)
@@ -141,6 +165,12 @@ if [ "$START_SERVICES" -eq 1 ]; then
     check_service "docker exec redis_cosmopolitan redis-cli ping 2>/dev/null | grep -q PONG" "Redis"
 else
     echo "Skipping service management (assuming services already running)"
+fi
+
+# Clear previous artifacts unless --keep-artifacts is set
+if [ "$KEEP_ARTIFACTS" = false ] && [ -d test/artifacts ]; then
+    echo "Clearing previous artifacts..."
+    rm -rf test/artifacts/*
 fi
 
 # Build pytest command dynamically based on flags

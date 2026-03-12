@@ -426,22 +426,12 @@ class FormFactory:
         # Try to set model with the data from the form.
         try:
             self.pymodel = ModelWebsite(**model_dict)
-        except ValidationError as e:
-            # If there are any validation errors, we need to set default values for any
-            # missing or invalid fields. Otherwise, there will be a mismatch between the
-            # form and the model. If a field is invalid and the user continues to edit
-            # the form, any subsequent edits will not be reflected in the model.
-            for error in e.errors():
-                locs = error["loc"]
-                if len(locs) == 0:
-                    # This should be a model validator that manually passed the location
-                    locs = error["ctx"]["loc_tuple"]
-
-                field = locs[0]
-                if field in ModelWebsite.__fields__:
-                    default = ModelWebsite.__fields__[field].get_default()
-                    model_dict[field] = default
-            self.pymodel = ModelWebsite(**model_dict)
+        except ValidationError:
+            # Always set pymodel to reflect the current form state, even when
+            # invalid. model_construct skips all validators, preventing cascade
+            # failures from model validators with multi-field loc_tuples where
+            # resetting only locs[0] to default doesn't fix the constraint.
+            self.pymodel = ModelWebsite.model_construct(**model_dict)
             raise
 
     def get_file_content(

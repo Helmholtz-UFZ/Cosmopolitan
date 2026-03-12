@@ -43,6 +43,7 @@ RUN mkdir -p $MPLCONFIGDIR && \
     chmod 777 $MPLCONFIGDIR
 
 ENV PYTHONPATH=/python_docker/cosmopolitan/
+ENV PATH="/python_docker/cosmopolitan/.venv/bin:$PATH"
 
 # Copy dependency files
 COPY --chown=appuser:appuser . .

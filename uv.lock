@@ -406,7 +406,7 @@ source = { editable = "." }
 dependencies = [
     { name = "celery", extra = ["redis"] },
     { name = "coolname" },
-    { name = "dash" },
+    { name = "dash", extra = ["ag-grid"] },
     { name = "dash-bootstrap-components" },
     { name = "dash-leaflet" },
     { name = "dotenv" },
@@ -438,7 +438,7 @@ dev = [
 requires-dist = [
     { name = "celery", extras = ["redis"], specifier = ">=5.3.0,<6" },
     { name = "coolname", specifier = ">=2.2.0,<3" },
-    { name = "dash", specifier = ">=3.0.4,<4" },
+    { name = "dash", extras = ["ag-grid"], specifier = ">=3.0.4,<4" },
     { name = "dash-bootstrap-components", specifier = ">=2.0.3,<3" },
     { name = "dash-leaflet", specifier = ">=1.1.3,<2" },
     { name = "dotenv", specifier = ">=0.9.9,<0.10" },
@@ -493,6 +493,23 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/7a/3a/322a583ca3479ad2dc6a8bfbaf7f8e4d01e16cc5030d8e7b45445bc22502/dash-3.4.0.tar.gz", hash = "sha256:3944beb32000ee8b22cd7fbb33545a0a43e25916c63aa41ba59ee5611997815e", size = 7581177, upload-time = "2026-01-20T20:46:47.43Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/87/2e/8fa7d095f7ab28649ece149118ccbde8286be52037b02ab02fbe52c34601/dash-3.4.0-py3-none-any.whl", hash = "sha256:62b1c2eca3cfbe05f5e6ed8666e2c9a204aa08e2ceef89f01ce9bcccb3c18e95", size = 7921864, upload-time = "2026-01-20T20:46:36.088Z" },
+]
+
+[package.optional-dependencies]
+ag-grid = [
+    { name = "dash-ag-grid" },
+]
+
+[[package]]
+name = "dash-ag-grid"
+version = "33.3.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "dash" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3c/03/fa827ee5495d97245c043a248b2beecc0a45683051383138deba2492b61f/dash_ag_grid-33.3.3.tar.gz", hash = "sha256:7c646de0b19a1bc51ee09b8787bbba22293a6f2931bb31a47bb03d7194f6ace0", size = 4795838, upload-time = "2026-01-21T15:45:20.063Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d1/fc/121ccd949503b1db8ca8ab7c03ebf19497324928a153c89b2ec4ae3bb7b4/dash_ag_grid-33.3.3-py3-none-any.whl", hash = "sha256:987b5789441455bbfbff61dd6d839f2897f9e914e4fbb8e2d26eba5d92a4f8ef", size = 4825723, upload-time = "2026-01-21T15:45:18.018Z" },
 ]
 
 [[package]]

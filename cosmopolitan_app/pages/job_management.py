@@ -20,8 +20,9 @@ import re
 from datetime import datetime
 
 import dash
+import dash_ag_grid as dag
 import dash_bootstrap_components as dbc
-from dash import Input, Output, State, callback, dash_table, dcc, html
+from dash import Input, Output, State, callback, dcc, html
 
 from cosmopolitan_app.constants import (
     CLEAN_BUTTON_JOB_MANAGEMENT_ID,
@@ -41,56 +42,49 @@ log = logging.getLogger(__name__)
 dash.register_page(__name__)
 
 
-table = dash_table.DataTable(
+table = dag.AgGrid(
     id=JOBS_TABLE_JOB_MANAGEMENT_ID,
-    columns=[
-        {"id": "job_id", "name": "Job ID", "presentation": "markdown"},
-        {"id": "status", "name": "Status"},
-        {"id": "start_date", "name": "Start Date"},
-        {"id": "submitted", "name": "Submitted"},
+    columnDefs=[
+        {
+            "field": "job_id",
+            "headerName": "Job ID",
+            "cellRenderer": "markdown",
+            "cellStyle": {"textAlign": "left", "fontFamily": "monospace"},
+        },
+        {
+            "field": "status",
+            "headerName": "Status",
+            "cellStyle": {
+                "styleConditions": [
+                    {
+                        "condition": "params.value === 'COMPLETED'",
+                        "style": {"backgroundColor": "#3498db"},
+                    },
+                    {
+                        "condition": "params.value === 'RUNNING'",
+                        "style": {"backgroundColor": "#2ecc71"},
+                    },
+                    {
+                        "condition": "params.value === 'FAILED'",
+                        "style": {"backgroundColor": "#e74c3c"},
+                    },
+                    {
+                        "condition": "params.value === 'PENDING'",
+                        "style": {"backgroundColor": "#f39c12"},
+                    },
+                ],
+            },
+        },
+        {"field": "start_date", "headerName": "Start Date"},
+        {"field": "submitted", "headerName": "Submitted"},
     ],
-    data=[],
-    row_selectable="multi",
-    selected_rows=[],
-    style_cell={"textAlign": "center"},
-    cell_selectable=False,
-    style_data_conditional=[
-        {
-            "if": {
-                "column_id": "job_id",
-            },
-            "textAlign": "left",
-            "fontFamily": "monospace",
-        },
-        {
-            "if": {
-                "filter_query": '{status} = "COMPLETED"',
-                "column_id": "status",
-            },
-            "backgroundColor": "#3498db",
-        },
-        {
-            "if": {
-                "filter_query": '{status} = "RUNNING"',
-                "column_id": "status",
-            },
-            "backgroundColor": "#2ecc71",
-        },
-        {
-            "if": {
-                "filter_query": '{status} = "FAILED"',
-                "column_id": "status",
-            },
-            "backgroundColor": "#e74c3c",
-        },
-        {
-            "if": {
-                "filter_query": '{status} = "PENDING"',
-                "column_id": "status",
-            },
-            "backgroundColor": "#f39c12",
-        },
-    ],
+    rowData=[],
+    defaultColDef={"cellStyle": {"textAlign": "center"}},
+    dashGridOptions={
+        "rowSelection": {"mode": "multiRow"},
+        "suppressCellFocus": True,
+    },
+    columnSize="responsiveSizeToFit",
 )
 
 button_group = [
@@ -161,19 +155,18 @@ dash.clientside_callback(
 
 
 @callback(
-    Output(JOBS_TABLE_JOB_MANAGEMENT_ID, "data"),
-    Output(JOBS_TABLE_JOB_MANAGEMENT_ID, "selected_rows"),
+    Output(JOBS_TABLE_JOB_MANAGEMENT_ID, "rowData"),
+    Output(JOBS_TABLE_JOB_MANAGEMENT_ID, "selectedRows"),
     Output(LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True),
     Input(DELETE_BUTTON_JOB_MANAGEMENT_ID, "n_clicks"),
     Input(CLEAN_BUTTON_JOB_MANAGEMENT_ID, "n_clicks"),
     Input(REFRESH_BUTTON_JOB_MANAGEMENT_ID, "n_clicks"),
     Input(DUMMY_STORE_JOB_MANAGEMENT_ID, "data"),
-    State(JOBS_TABLE_JOB_MANAGEMENT_ID, "selected_rows"),
-    State(JOBS_TABLE_JOB_MANAGEMENT_ID, "data"),
+    State(JOBS_TABLE_JOB_MANAGEMENT_ID, "selectedRows"),
     prevent_initial_call=True,
 )
 def job_management_dashboard(
-    delete_clicks, clean_clicks, refresh_clicks, _dummy, selected_rows, table_data
+    delete_clicks, clean_clicks, refresh_clicks, _dummy, selected_rows
 ):
     """Manage job actions in the dashboard."""
     log.info("Job management dashboard callback triggered.", extra={"tag": "frontend"})
@@ -181,8 +174,8 @@ def job_management_dashboard(
 
     if button_id == DELETE_BUTTON_JOB_MANAGEMENT_ID and selected_rows:
         log.info("Deleting selected jobs", extra={"tag": "job_submission"})
-        for i in selected_rows:
-            job_id = re.findall(r"\[(.*?)\]", table_data[i]["job_id"])[0]
+        for row in selected_rows:
+            job_id = re.findall(r"\[(.*?)\]", row["job_id"])[0]
             log.debug(
                 f"Deleting job with ID: {job_id}", extra={"tag": "job_submission"}
             )

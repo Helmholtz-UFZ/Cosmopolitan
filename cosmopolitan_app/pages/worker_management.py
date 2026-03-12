@@ -34,8 +34,9 @@ import logging
 from datetime import datetime
 
 import dash
+import dash_ag_grid as dag
 import dash_bootstrap_components as dbc
-from dash import Input, Output, State, callback, dash_table, dcc, html
+from dash import Input, Output, State, callback, dcc, html
 
 from cosmopolitan_app.background_job_manager import background_job_manager
 from cosmopolitan_app.constants import (
@@ -71,42 +72,53 @@ dash.register_page(__name__, path="/worker_management")
 # Factory functions for layout components
 def create_task_datatable(
     table_id: str, columns: list, row_selectable: str | bool = False
-) -> dash_table.DataTable:
-    """Create a DataTable with common styling for task display.
+) -> dag.AgGrid:
+    """Create an AgGrid with common styling for task display.
 
     Args:
         table_id: Component ID for the table
-        columns: List of column definitions
+        columns: List of column definitions (DataTable format, converted internally)
         row_selectable: "single", "multi", or False
 
     Returns:
-        dash_table.DataTable with common styling applied
+        dag.AgGrid with common styling applied
     """
-    table_props = {
-        "id": table_id,
-        "columns": columns,
-        "data": [],
-        "style_cell": {"textAlign": "left", "padding": "8px"},
-        "style_header": {"fontWeight": "bold", "backgroundColor": "#f8f9fa"},
-        "style_data_conditional": [
-            {
-                "if": {"column_id": "task_id"},
-                "fontFamily": "monospace",
-                "fontSize": "12px",
-            },
-            {
-                "if": {"row_index": "odd"},
-                "backgroundColor": "#f8f9fa",
-            },
-        ],
-        "page_size": 10,
+    column_defs = []
+    for col in columns:
+        col_def = {"field": col["id"], "headerName": col["name"]}
+        if col["id"] == "task_id":
+            col_def["cellStyle"] = {"fontFamily": "monospace", "fontSize": "12px"}
+        column_defs.append(col_def)
+
+    grid_options = {
+        "pagination": True,
+        "paginationPageSize": 10,
     }
 
     if row_selectable:
-        table_props["row_selectable"] = row_selectable
-        table_props["selected_rows"] = []
+        mode = "multiRow" if row_selectable == "multi" else "singleRow"
+        grid_options["rowSelection"] = {"mode": mode}
 
-    return dash_table.DataTable(**table_props)
+    return dag.AgGrid(
+        id=table_id,
+        columnDefs=column_defs,
+        rowData=[],
+        defaultColDef={
+            "cellStyle": {"textAlign": "left", "padding": "8px"},
+            "sortable": True,
+            "resizable": True,
+        },
+        dashGridOptions=grid_options,
+        getRowStyle={
+            "styleConditions": [
+                {
+                    "condition": "params.node.rowIndex % 2 !== 0",
+                    "style": {"backgroundColor": "#f8f9fa"},
+                },
+            ],
+        },
+        columnSize="responsiveSizeToFit",
+    )
 
 
 def create_task_section(
@@ -583,10 +595,10 @@ dash.clientside_callback(
 # Callback 2: Refresh all data
 @callback(
     Output(STATS_CARD_DIV_WORKER_MANAGEMENT_ID, "children"),
-    Output(ACTIVE_TASKS_TABLE_WORKER_MANAGEMENT_ID, "data"),
-    Output(RESERVED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "data"),
-    Output(SCHEDULED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "data"),
-    Output(REVOKED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "data"),
+    Output(ACTIVE_TASKS_TABLE_WORKER_MANAGEMENT_ID, "rowData"),
+    Output(RESERVED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "rowData"),
+    Output(SCHEDULED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "rowData"),
+    Output(REVOKED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "rowData"),
     Output(LAST_REFRESH_DIV_WORKER_MANAGEMENT_ID, "children"),
     Output(LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True),
     Input(REFRESH_BUTTON_WORKER_MANAGEMENT_ID, "n_clicks"),
@@ -629,7 +641,7 @@ def refresh_data(refresh_clicks):
 # Callback 4: Enable/disable kill button based on selection
 @callback(
     Output(KILL_BUTTON_WORKER_MANAGEMENT_ID, "disabled"),
-    Input(ACTIVE_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selected_rows"),
+    Input(ACTIVE_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selectedRows"),
 )
 def enable_kill_button(selected_rows):
     """Enable kill button only when a task is selected."""
@@ -639,8 +651,8 @@ def enable_kill_button(selected_rows):
 # Callback 5: Enable/disable cancel button based on selection
 @callback(
     Output(CANCEL_BUTTON_WORKER_MANAGEMENT_ID, "disabled"),
-    Input(RESERVED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selected_rows"),
-    Input(SCHEDULED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selected_rows"),
+    Input(RESERVED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selectedRows"),
+    Input(SCHEDULED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selectedRows"),
 )
 def enable_cancel_button(reserved_selected, scheduled_selected):
     """Enable cancel button when a task is selected in either table."""
@@ -652,16 +664,15 @@ def enable_cancel_button(reserved_selected, scheduled_selected):
     Output(KILL_MODAL_WORKER_MANAGEMENT_ID, "is_open"),
     Output(KILL_MODAL_TASK_INFO_DIV_WORKER_MANAGEMENT_ID, "children"),
     Input(KILL_BUTTON_WORKER_MANAGEMENT_ID, "n_clicks"),
-    State(ACTIVE_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selected_rows"),
-    State(ACTIVE_TASKS_TABLE_WORKER_MANAGEMENT_ID, "data"),
+    State(ACTIVE_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selectedRows"),
     prevent_initial_call=True,
 )
-def open_kill_modal(n_clicks, selected_rows, table_data):
+def open_kill_modal(n_clicks, selected_rows):
     """Open kill confirmation modal with task info."""
-    if not selected_rows or not table_data:
+    if not selected_rows:
         return False, ""
 
-    task = table_data[selected_rows[0]]
+    task = selected_rows[0]
     task_info = (
         f"Task: {task['task_name']}\n"
         f"ID: {task['task_id']}\n"
@@ -679,21 +690,20 @@ def open_kill_modal(n_clicks, selected_rows, table_data):
 # Callback 7: Confirm kill task
 @callback(
     Output(KILL_MODAL_WORKER_MANAGEMENT_ID, "is_open", allow_duplicate=True),
-    Output(ACTIVE_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selected_rows"),
+    Output(ACTIVE_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selectedRows"),
     Output(LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True),
     Input(KILL_MODAL_CONFIRM_BUTTON_WORKER_MANAGEMENT_ID, "n_clicks"),
-    State(ACTIVE_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selected_rows"),
-    State(ACTIVE_TASKS_TABLE_WORKER_MANAGEMENT_ID, "data"),
+    State(ACTIVE_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selectedRows"),
     prevent_initial_call=True,
 )
-def confirm_kill_task(n_clicks, selected_rows, table_data):
+def confirm_kill_task(n_clicks, selected_rows):
     """Kill the selected task."""
-    if not selected_rows or not table_data:
+    if not selected_rows:
         log.warning("Kill task attempted with no selection", extra={"tag": "frontend"})
         # Close modal gracefully, no task to kill
         return False, [], False
 
-    task = table_data[selected_rows[0]]
+    task = selected_rows[0]
     task_id = task["task_id"]
 
     background_job_manager.revoke_job(task_id, terminate=True)
@@ -720,21 +730,17 @@ def cancel_kill_modal(n_clicks):
     Output(CANCEL_MODAL_WORKER_MANAGEMENT_ID, "is_open"),
     Output(CANCEL_MODAL_TASK_INFO_DIV_WORKER_MANAGEMENT_ID, "children"),
     Input(CANCEL_BUTTON_WORKER_MANAGEMENT_ID, "n_clicks"),
-    State(RESERVED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selected_rows"),
-    State(RESERVED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "data"),
-    State(SCHEDULED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selected_rows"),
-    State(SCHEDULED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "data"),
+    State(RESERVED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selectedRows"),
+    State(SCHEDULED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selectedRows"),
     prevent_initial_call=True,
 )
-def open_cancel_modal(
-    n_clicks, reserved_selected, reserved_data, scheduled_selected, scheduled_data
-):
+def open_cancel_modal(n_clicks, reserved_selected, scheduled_selected):
     """Open cancel confirmation modal with task info."""
     task = None
-    if reserved_selected and reserved_data:
-        task = reserved_data[reserved_selected[0]]
-    elif scheduled_selected and scheduled_data:
-        task = scheduled_data[scheduled_selected[0]]
+    if reserved_selected:
+        task = reserved_selected[0]
+    elif scheduled_selected:
+        task = scheduled_selected[0]
 
     if not task:
         return False, ""
@@ -755,25 +761,21 @@ def open_cancel_modal(
 # Callback 10: Confirm cancel task
 @callback(
     Output(CANCEL_MODAL_WORKER_MANAGEMENT_ID, "is_open", allow_duplicate=True),
-    Output(RESERVED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selected_rows"),
-    Output(SCHEDULED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selected_rows"),
+    Output(RESERVED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selectedRows"),
+    Output(SCHEDULED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selectedRows"),
     Output(LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True),
     Input(CANCEL_MODAL_CONFIRM_BUTTON_WORKER_MANAGEMENT_ID, "n_clicks"),
-    State(RESERVED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selected_rows"),
-    State(RESERVED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "data"),
-    State(SCHEDULED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selected_rows"),
-    State(SCHEDULED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "data"),
+    State(RESERVED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selectedRows"),
+    State(SCHEDULED_TASKS_TABLE_WORKER_MANAGEMENT_ID, "selectedRows"),
     prevent_initial_call=True,
 )
-def confirm_cancel_task(
-    n_clicks, reserved_selected, reserved_data, scheduled_selected, scheduled_data
-):
+def confirm_cancel_task(n_clicks, reserved_selected, scheduled_selected):
     """Cancel the selected task."""
     task = None
-    if reserved_selected and reserved_data:
-        task = reserved_data[reserved_selected[0]]
-    elif scheduled_selected and scheduled_data:
-        task = scheduled_data[scheduled_selected[0]]
+    if reserved_selected:
+        task = reserved_selected[0]
+    elif scheduled_selected:
+        task = scheduled_selected[0]
 
     if not task:
         log.warning(

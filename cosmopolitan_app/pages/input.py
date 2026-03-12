@@ -282,7 +282,7 @@ def form_manager(**state):
     output_dict["error_title"] = ""
     output_dict["error_message"] = ""
     output_dict["loading_overlay"] = False
-    active_form_factory.pymodel.job_id = state["job_id"]
+    active_form_factory.pymodel.__dict__["job_id"] = state["job_id"]
 
     if active_form_factory.get_key_submit_button() in triggered_ids and valid:
         log.debug("Submit button clicked", extra={"tag": "job_submission"})

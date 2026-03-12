@@ -1,9 +1,29 @@
 # Testing
 
-All tests live in `test/` and run against real services via Docker. Tests are
-executed with `run_pytest.sh` or directly with `pytest`.
+All tests live in `test/` and run against real services via Docker.
 
-## Rules
+## Critical Rules for Running Tests
+
+**ALWAYS run `./run_pytest.sh --help` before your first test execution in a session.**
+The help output is the single source of truth for available flags and usage. Do not
+guess flags or invent arguments — only use what `--help` shows.
+
+**NEVER run `pytest` or `uv run pytest` directly.** Always use `./run_pytest.sh`.
+The script manages `.env` backup/restore, Docker services, and cleanup. Running
+pytest directly will use the wrong `.env`, skip service setup, and leave stale state.
+
+**`--no-services` SKIPS most tests.** It passes `--no-services` to pytest, which
+causes `dash_app` and `celery_worker` fixtures to call `pytest.skip()`. All e2e
+tests and most module tests will be skipped. Only use it for tests that truly need
+no services (`test_env`, `test_smp_assumptions`, `test_documentation_version`).
+
+**Check artifacts before rerunning.** On failure, `test/artifacts/<test-name>/`
+contains screenshots, traces, HTML snapshots, server logs, and worker logs. Read
+these first — they usually explain the failure without needing another run. Note
+that `run_pytest.sh` clears previous artifacts by default (use `--keep-artifacts`
+to preserve them across runs).
+
+## Code Rules
 
 - All tests go in `test/` (flat directory, no subdirectories)
 - Use constants from `cosmopolitan_app/constants.py` for element IDs in Playwright
@@ -21,7 +41,8 @@ executed with `run_pytest.sh` or directly with `pytest`.
 - App served by `dash_app` fixture (werkzeug make_server in background thread)
 - Require all services: Postgres, Redis, MinIO, Celery worker
 - Test full user workflows through the browser
-- Artifacts captured on failure: screenshots, traces, HTML snapshots, console/server/worker logs (saved to `test/artifacts/`)
+- Reusable helpers in `test/help_functions_tests.py` (3 layers: atomic form actions,
+  page navigation, complete setups)
 
 ### Module tests (everything else)
 
@@ -35,35 +56,6 @@ Service requirements vary by test:
 | `test_env.py` | None (reads env files only) |
 | `test_smp_assumptions.py` | None (checks data structures only) |
 | `test_documentation_version.py` | None (reads files only) |
-
-## Running Tests
-
-```bash
-# All tests with full service management
-./run_pytest.sh
-
-# Run with visible browser (debugging)
-./run_pytest.sh --headed
-
-# Specific test file
-./run_pytest.sh test/test_e2e.py
-
-# Services already running (faster iteration)
-./run_pytest.sh --no-services test/test_e2e.py
-
-# Disable artifact capture
-./run_pytest.sh --no-artifacts
-
-# Use local soil-moisture-prediction repo (sibling directory)
-./run_pytest.sh --local-smp test/test_smp_assumptions.py
-```
-
-`run_pytest.sh`:
-1. Backs up `.env`, copies `env_test_local` to `.env`
-2. Starts Docker services (Postgres, MinIO, Redis)
-3. Waits for all services to be healthy (10 retry limit)
-4. Runs `uv run pytest` with Playwright artifact flags
-5. Restores `.env`, stops services
 
 ## Fixtures (`conftest.py`)
 
@@ -82,7 +74,7 @@ Playwright artifacts are stored in `test/artifacts/` and include:
 - **Traces** (`--tracing retain-on-failure`): Playwright traces viewable with `npx playwright show-trace`
 - **HTML snapshots**: rendered DOM at failure time
 - **Console logs**: browser console messages
-- **Server logs**: Python server-side logs
+- **Server logs**: Python server-side logs (callbacks, validation errors, file operations)
 - **Worker logs**: Celery worker output
 
 ## Examples

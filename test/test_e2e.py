@@ -4,7 +4,20 @@ import io
 import logging
 import os
 import zipfile
-from test.help_functions_tests import check_all_errors
+from test.help_functions_tests import (
+    check_all_errors,
+    check_crns_checkbox,
+    check_input_and_submit,
+    check_pred_stream,
+    click_delete_button,
+    fill_email,
+    navigate_to_input_page,
+    uncheck_all_crns_checkboxes,
+    uncheck_all_pred_streams,
+    upload_crns_file,
+    upload_predictor_files,
+    wait_for_job_completion,
+)
 from unittest.mock import patch
 
 from playwright.sync_api import expect
@@ -300,3 +313,192 @@ def test_full_procedure(
                 f"Unexpected files in work_dir zip.\n"
                 f"Zip: {sorted(zip_file_names)}\nExpected: {sorted(expected_files)}"
             )
+
+
+@patch("cosmopolitan_app.map_utils.create_tile_layer_component")
+def test_predictor_upload_delete_reselect(
+    mock_tile_layer,
+    page,
+    dash_app,
+    crns_file_path,
+    pred_file_paths,
+    celery_worker,
+    worker_log_path,
+):
+    """Upload predictor files, delete them, re-select a stream, then submit."""
+    mock_tile_layer.return_value = None
+
+    if celery_worker.poll() is not None:
+        raise RuntimeError("Celery worker not available for testing")
+
+    navigate_to_input_page(page)
+
+    # Uncheck all streams so we start with no predictors
+    uncheck_all_pred_streams(page)
+
+    # Upload predictor files (helper verifies each appears after upload)
+    upload_predictor_files(page, pred_file_paths)
+    selected_pred_id = active_form_template_factory.selected_predictors_key
+
+    # Delete uploaded predictors — verify the last uploaded file disappears
+    last_pred_name = str(pred_file_paths[-1].name)
+    click_delete_button(page, "predictor_upload")
+    expect(page.locator(f"#{selected_pred_id}")).not_to_contain_text(
+        last_pred_name, timeout=10000
+    )
+
+    # Re-check a stream predictor — verify only the stream appears
+    stream_name = check_pred_stream(page, index=0)
+    expect(page.locator(f"#{selected_pred_id}")).to_contain_text(
+        stream_name, timeout=10000
+    )
+    expect(page.locator(f"#{selected_pred_id}")).not_to_contain_text(last_pred_name)
+    check_all_errors(page)
+
+    # Set up for submission with known-working config
+    uncheck_all_pred_streams(page)
+    upload_predictor_files(page, pred_file_paths)
+    uncheck_all_crns_checkboxes(page)
+    upload_crns_file(page, crns_file_path)
+    fill_email(page)
+
+    check_input_and_submit(page)
+    wait_for_job_completion(page)
+
+
+@patch("cosmopolitan_app.map_utils.create_tile_layer_component")
+def test_crns_upload_delete_recheck(
+    mock_tile_layer,
+    page,
+    dash_app,
+    crns_file_path,
+    pred_file_paths,
+    celery_worker,
+    worker_log_path,
+):
+    """Upload CRNS file, delete it, re-check a checkbox — UI verification only.
+
+    Verifies the upload→delete→recheck flow produces correct UI state.
+    No submission: dcc.Upload doesn't re-trigger callbacks for the same file
+    after delete (Dash sees no property change), so re-uploading for submission
+    would require a different file. Submission is covered by test_full_procedure.
+    """
+    mock_tile_layer.return_value = None
+
+    if celery_worker.poll() is not None:
+        raise RuntimeError("Celery worker not available for testing")
+
+    navigate_to_input_page(page)
+
+    # Uncheck all CRNS checkboxes, then upload CRNS file
+    uncheck_all_crns_checkboxes(page)
+    upload_crns_file(page, crns_file_path)
+    selected_crns_id = active_form_template_factory.selected_crns_key
+
+    # Delete CRNS upload — "Either select" error appears
+    crns_feedback_id = active_form_factory.feedback_id_format.format(
+        field_name="crns_upload"
+    )
+    click_delete_button(page, "crns_upload")
+    expect(page.locator(f"#{crns_feedback_id}")).to_contain_text(
+        "Either select", timeout=10000
+    )
+
+    # Re-check station_data — error clears, selected_crns shows station_data
+    check_crns_checkbox(page, "station_data")
+    station_feedback_id = active_form_factory.feedback_id_format.format(
+        field_name="station_data"
+    )
+    expect(page.locator(f"#{station_feedback_id}")).not_to_contain_text(
+        "Either select", timeout=10000
+    )
+    expect(page.locator(f"#{crns_feedback_id}")).not_to_contain_text("Either select")
+    expect(page.locator(f"#{selected_crns_id}")).to_contain_text("station_data")
+    expect(page.locator(f"#{selected_crns_id}")).not_to_contain_text(
+        str(crns_file_path.name)
+    )
+    check_all_errors(page)
+
+
+@patch("cosmopolitan_app.map_utils.create_tile_layer_component")
+def test_mixed_streams_and_uploads_predictors(
+    mock_tile_layer,
+    page,
+    dash_app,
+    crns_file_path,
+    pred_file_paths,
+    celery_worker,
+    worker_log_path,
+):
+    """Verify both stream predictors and uploaded files appear together."""
+    mock_tile_layer.return_value = None
+
+    if celery_worker.poll() is not None:
+        raise RuntimeError("Celery worker not available for testing")
+
+    navigate_to_input_page(page)
+
+    # Default state has elevation_bkg and bdod_5-15cm checked.
+    # Upload predictor files on top of that.
+    upload_predictor_files(page, pred_file_paths)
+
+    # Verify both streams and the last uploaded file appear in selected_predictors
+    # (Sequential uploads replace previous files; only the last survives)
+    selected_pred_id = active_form_template_factory.selected_predictors_key
+    last_pred_name = str(pred_file_paths[-1].name)
+    expect(page.locator(f"#{selected_pred_id}")).to_contain_text("elevation_bkg")
+    expect(page.locator(f"#{selected_pred_id}")).to_contain_text("bdod_5-15cm")
+    expect(page.locator(f"#{selected_pred_id}")).to_contain_text(last_pred_name)
+    check_all_errors(page)
+
+
+@patch("cosmopolitan_app.map_utils.create_tile_layer_component")
+def test_crns_mutual_exclusivity(
+    mock_tile_layer,
+    page,
+    dash_app,
+    crns_file_path,
+    pred_file_paths,
+    celery_worker,
+    worker_log_path,
+):
+    """Verify mutual exclusivity: CRNS checkboxes + upload triggers error."""
+    mock_tile_layer.return_value = None
+
+    if celery_worker.poll() is not None:
+        raise RuntimeError("Celery worker not available for testing")
+
+    navigate_to_input_page(page)
+
+    # Default: all 3 CRNS checkboxes checked. Upload CRNS file → "not both" error.
+    # Don't use upload_crns_file helper — validation will fail (mutual exclusivity),
+    # so pymodel won't update and the filename won't appear in selected_crns.
+    crns_upload_id = active_form_factory.id_format.format(field_name="crns_upload")
+    page.locator(f"#{crns_upload_id} input[type='file']").set_input_files(
+        str(crns_file_path)
+    )
+
+    crns_feedback_id = active_form_factory.feedback_id_format.format(
+        field_name="crns_upload"
+    )
+    train_feedback_id = active_form_factory.feedback_id_format.format(
+        field_name="train_data"
+    )
+    expect(page.locator(f"#{crns_feedback_id}")).to_contain_text(
+        "not both", timeout=10000
+    )
+    expect(page.locator(f"#{train_feedback_id}")).to_contain_text("not both")
+
+    # Uncheck all checkboxes — error should clear, upload remains valid
+    uncheck_all_crns_checkboxes(page)
+
+    expect(page.locator(f"#{crns_feedback_id}")).not_to_contain_text(
+        "not both", timeout=10000
+    )
+    expect(page.locator(f"#{crns_feedback_id}")).not_to_contain_text("Either select")
+
+    selected_crns_id = active_form_template_factory.selected_crns_key
+    expect(page.locator(f"#{selected_crns_id}")).to_contain_text(
+        str(crns_file_path.name)
+    )
+    check_all_errors(page)
