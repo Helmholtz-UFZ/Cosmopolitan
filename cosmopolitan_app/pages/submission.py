@@ -22,6 +22,7 @@ import os
 import dash
 import dash_bootstrap_components as dbc
 from dash import Input, Output, State, callback, callback_context, dcc, html
+from dash_form_factory import FormFactory
 from flask import url_for
 
 from cosmopolitan_app.constants import (
@@ -42,8 +43,7 @@ from cosmopolitan_app.constants import (
     URL_LOCATION_SHARED_ID,
 )
 from cosmopolitan_app.files_route import create_download_button
-from cosmopolitan_app.form_factory import (
-    FormFactory,
+from cosmopolitan_app.form_template_factory import (
     FormTemplateFactory,
     construct_selected_input,
 )
@@ -200,16 +200,16 @@ def load_submission_content(job_id, header_class_name):
     )
     selected_crns = construct_selected_input(job.model, "crns_upload", full_info=True)
 
-    form_template_factory = FormTemplateFactory(
+    template_factory = FormTemplateFactory(
         job_id=job.job_id,
         active=False,
         preview_src=preview_src,
         selected_predictors=selected_predictors,
         selected_crns=selected_crns,
     )
-    form_template = form_template_factory.generate_template()
-    form_factory = FormFactory(job.model, form_template, active=False)
-    form_layout = form_factory.generate_form()
+    form_layout = template_factory.generate_template()
+    factory = FormFactory(job.model, form_layout, active=False)
+    form = factory.process_layout(factory.layout)
 
     # Determine icon and active accordion item
     icon_color = "icon-error" if job.status == "FAILED" else "icon-none"
@@ -227,7 +227,7 @@ def load_submission_content(job_id, header_class_name):
     accordion = dbc.Accordion(
         [
             dbc.AccordionItem(
-                form_layout,
+                form,
                 title="Input",
                 item_id="input_accordion",
                 style=accordion_item_style,

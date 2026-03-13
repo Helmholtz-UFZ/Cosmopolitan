@@ -408,6 +408,7 @@ dependencies = [
     { name = "coolname" },
     { name = "dash", extra = ["ag-grid"] },
     { name = "dash-bootstrap-components" },
+    { name = "dash-form-factory" },
     { name = "dash-leaflet" },
     { name = "dotenv" },
     { name = "email-validator" },
@@ -440,6 +441,7 @@ requires-dist = [
     { name = "coolname", specifier = ">=2.2.0,<3" },
     { name = "dash", extras = ["ag-grid"], specifier = ">=3.0.4,<4" },
     { name = "dash-bootstrap-components", specifier = ">=2.0.3,<3" },
+    { name = "dash-form-factory", specifier = "==0.1.5" },
     { name = "dash-leaflet", specifier = ">=1.1.3,<2" },
     { name = "dotenv", specifier = ">=0.9.9,<0.10" },
     { name = "email-validator", specifier = ">=2.2.0,<3" },
@@ -539,6 +541,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/71/12/acaa0d1740bb31741dc984e833cc9c481ae643f66038e972503f3f1765ba/dash_extensions-2.0.4.tar.gz", hash = "sha256:fdab16f15349422c28e1fe3bf39f064f96fc54eb1dcd8d02440a45a63d8b1a6a", size = 1008215, upload-time = "2025-04-22T13:07:51.595Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a5/4f/af00ec901b3be747877f69fe91ca548080105d47d92688229b0a058ca3f7/dash_extensions-2.0.4-py3-none-any.whl", hash = "sha256:fae5cbac985f28cbb330be3600d784f69416f6fb6016e25c0f14e436e5cc0cd1", size = 1028796, upload-time = "2025-04-22T13:07:49.616Z" },
+]
+
+[[package]]
+name = "dash-form-factory"
+version = "0.1.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "dash" },
+    { name = "dash-bootstrap-components" },
+    { name = "pydantic" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b0/8d/d049f39748558f2512be9c95a1f66e971b781a7f82b66d16b265c3e8786e/dash_form_factory-0.1.5.tar.gz", hash = "sha256:35a08a13ba5209121aaa8785f7a9acac78a1f343299568ff10d09e0136de5f28", size = 8023, upload-time = "2026-03-13T08:24:21.314Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2f/fc/ef11129753f7d6c0a764d0e3118b1d92d156aea770683aac37e59eb85427/dash_form_factory-0.1.5-py3-none-any.whl", hash = "sha256:e83adc47f69b98ab87ce6d6192451db8a07938c1810ee18804d9fca497fb5ab5", size = 9585, upload-time = "2026-03-13T08:24:20.256Z" },
 ]
 
 [[package]]

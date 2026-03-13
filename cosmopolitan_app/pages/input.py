@@ -14,6 +14,7 @@ you can proceed to the submission page.
 NOTE: This docstring is displayed on the documentation webpage.
 """
 
+import json
 import logging
 import os
 
@@ -21,9 +22,11 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import Input, Output, State, callback, callback_context, html
 from dash.exceptions import PreventUpdate
+from dash_form_factory import FormFactory
 from flask import url_for
 
 from cosmopolitan_app.constants import (
+    CHECK_INPUT_BUTTON_INPUT_ID,
     ERROR_MESSAGE_DIV_SHARED_ID,
     ERROR_MODAL_SHARED_ID,
     ERROR_TITLE_DIV_SHARED_ID,
@@ -33,14 +36,18 @@ from cosmopolitan_app.constants import (
     MAIN_CONTENT_DIV_INPUT_ID,
     URL_LOCATION_SHARED_ID,
 )
-from cosmopolitan_app.form_factory import (
-    FormFactory,
+from cosmopolitan_app.form_template_factory import (
+    FormTemplateFactory,
     active_form_factory,
     active_form_template_factory,
     construct_selected_input,
+    delete_id,
+    feedback_id,
+    hidden_id,
 )
 from cosmopolitan_app.job import Job
 from cosmopolitan_app.layouts import landing_page_layout_column
+from cosmopolitan_app.pydantic_models import ModelWebsite
 from cosmopolitan_app.utils import swap_classes
 
 log = logging.getLogger(__name__)
@@ -49,6 +56,60 @@ dash.register_page(
     __name__,
     path_template="/input/<job_id>",
 )
+
+# File upload field names
+FILE_UPLOAD_FIELDS = {
+    "crns_upload": {"file_type": "crn", "multiple": False},
+    "predictor_upload": {"file_type": "pred", "multiple": True},
+}
+
+
+def preprocess_form_data(form_data: dict) -> dict:
+    """Transform raw form state into clean model dict.
+
+    Reads hidden inputs for file uploads, deserializes JSON, and injects
+    predictors, soil_moisture_data, predictor_upload, and crns_upload
+    into form_data so set_model() can pick them up via the generic path.
+    """
+    hidden_pred = form_data[hidden_id("predictor_upload")]
+    predictor_upload_raw = json.loads(hidden_pred) if hidden_pred.strip() else {}
+    predictor_upload = {}
+    for key, value in predictor_upload_raw.items():
+        predictor_upload[value["predictor_name"]] = value
+
+    hidden_crns = form_data[hidden_id("crns_upload")]
+    crns_upload = json.loads(hidden_crns) if hidden_crns.strip() else {}
+    try:
+        soil_moisture_data = list(crns_upload.keys())[0]
+    except IndexError:
+        soil_moisture_data = ""
+
+    predictors = dict.fromkeys(form_data["pred_streams"]) | predictor_upload
+
+    form_data["predictors"] = predictors
+    form_data["soil_moisture_data"] = soil_moisture_data
+    form_data["predictor_upload"] = predictor_upload_raw
+    form_data["crns_upload"] = crns_upload
+
+    return form_data
+
+
+def build_display_model(form_data: dict) -> ModelWebsite:
+    """Construct a ModelWebsite from preprocessed form_data without validators."""
+    model_dict = {}
+    for field_name in ModelWebsite.model_fields:
+        field_type = ModelWebsite.model_fields[field_name].json_schema_extra["type"]
+        if field_type == "date-picker":
+            model_dict[field_name] = (
+                form_data[f"{field_name}_start_date"],
+                form_data[f"{field_name}_end_date"],
+            )
+        else:
+            try:
+                model_dict[field_name] = form_data[field_name]
+            except KeyError:
+                pass
+    return ModelWebsite.model_construct(**model_dict)
 
 
 def layout(job_id):
@@ -114,16 +175,19 @@ def load_submission_content(job_id, header_class_name):
     preview_file_name = os.path.basename(preview_path)
     preview_src = url_for("serve_file", job_id=job.job_id, filename=preview_file_name)
 
-    active_form_template_factory.preview_src = preview_src
-    active_form_template_factory.job_id = job.job_id
-    active_form_template = active_form_template_factory.generate_template()
+    template_factory = FormTemplateFactory(
+        job_id=job.job_id,
+        active=True,
+        preview_src=preview_src,
+        model=job.model,
+    )
+    form_layout = template_factory.generate_template()
+    factory = FormFactory(job.model, form_layout)
+    form = factory.process_layout(factory.layout)
 
-    active_form_factory = FormFactory(job.model, active_form_template)
-
-    form_layout = active_form_factory.generate_form()
     content = dbc.Row(
         dbc.Col(
-            form_layout,
+            form,
             className="col-11 col-xl-8 mx-auto",
         )
     )
@@ -132,14 +196,116 @@ def load_submission_content(job_id, header_class_name):
 
 
 # Clientside callback: open loading overlay instantly in the browser.
-# A server-side callback here would race with the processing callback
-# (due to allow_duplicate), potentially leaving the overlay stuck open.
 dash.clientside_callback(
     "function(n) { return !!n; }",
     Output(LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True),
-    Input(active_form_factory.get_key_submit_button(), "n_clicks"),
+    Input(CHECK_INPUT_BUTTON_INPUT_ID, "n_clicks"),
     prevent_initial_call=True,
 )
+
+
+# ---------------------------------------------------------------------------
+# File upload callback
+# ---------------------------------------------------------------------------
+
+
+@callback(
+    output={
+        hidden_id("crns_upload"): Output(hidden_id("crns_upload"), "value"),
+        hidden_id("predictor_upload"): Output(hidden_id("predictor_upload"), "value"),
+        feedback_id("crns_upload"): Output(
+            feedback_id("crns_upload"), "children", allow_duplicate=True
+        ),
+        feedback_id("predictor_upload"): Output(
+            feedback_id("predictor_upload"), "children", allow_duplicate=True
+        ),
+    },
+    inputs={
+        "crns_upload_contents": Input("crns_upload", "contents"),
+        "predictor_upload_contents": Input("predictor_upload", "contents"),
+        delete_id("crns_upload"): Input(delete_id("crns_upload"), "n_clicks"),
+        delete_id("predictor_upload"): Input(delete_id("predictor_upload"), "n_clicks"),
+    },
+    state={
+        "crns_upload_filename": State("crns_upload", "filename"),
+        "predictor_upload_filename": State("predictor_upload", "filename"),
+        hidden_id("crns_upload"): State(hidden_id("crns_upload"), "value"),
+        hidden_id("predictor_upload"): State(hidden_id("predictor_upload"), "value"),
+        active_form_template_factory.job_id_key: State(
+            active_form_template_factory.job_id_key, "children"
+        ),
+    },
+    prevent_initial_call=True,
+)
+def file_upload_callback(**state):
+    """Handle file upload and delete actions."""
+    log.info("File upload callback", extra={"tag": "frontend"})
+
+    triggered_id = callback_context.triggered[0]["prop_id"].split(".")[0]
+    log.debug(f"File upload triggered by: {triggered_id}", extra={"tag": "frontend"})
+
+    job_id = state["job_id"]
+
+    output_dict = {
+        hidden_id("crns_upload"): state[hidden_id("crns_upload")],
+        hidden_id("predictor_upload"): state[hidden_id("predictor_upload")],
+        feedback_id("crns_upload"): "",
+        feedback_id("predictor_upload"): "",
+    }
+
+    if triggered_id == delete_id("crns_upload"):
+        job = Job(job_id=job_id)
+        log.debug("Delete CRNS button clicked", extra={"tag": "frontend"})
+        job.delete_input_files("crn")
+        output_dict[hidden_id("crns_upload")] = json.dumps({})
+
+    elif triggered_id == delete_id("predictor_upload"):
+        job = Job(job_id=job_id)
+        log.debug("Delete predictor button clicked", extra={"tag": "frontend"})
+        job.delete_input_files("pred")
+        output_dict[hidden_id("predictor_upload")] = json.dumps({})
+
+    elif triggered_id == "crns_upload":
+        job = Job(job_id=job_id)
+        log.debug("CRNS file uploaded", extra={"tag": "job_submission"})
+        job.delete_input_files("crn")
+        file_name = state["crns_upload_filename"]
+        file_content = state["crns_upload_contents"]
+        try:
+            file_name, file_information = job.safe_input_file(
+                file_name, file_content, "crn", upload=True
+            )
+            output_dict[hidden_id("crns_upload")] = json.dumps(
+                {file_name: file_information}
+            )
+        except ValueError as e:
+            output_dict[feedback_id("crns_upload")] = str(e)
+
+    elif triggered_id == "predictor_upload":
+        job = Job(job_id=job_id)
+        log.debug("Predictor file(s) uploaded", extra={"tag": "job_submission"})
+        job.delete_input_files("pred")
+        file_names = state["predictor_upload_filename"]
+        file_contents = state["predictor_upload_contents"]
+        uploaded_file_information = {}
+        try:
+            for file_name, content in zip(file_names, file_contents):
+                file_name, file_information = job.safe_input_file(
+                    file_name, content, "pred", upload=True
+                )
+                uploaded_file_information[file_name] = file_information
+            output_dict[hidden_id("predictor_upload")] = json.dumps(
+                uploaded_file_information
+            )
+        except ValueError as e:
+            output_dict[feedback_id("predictor_upload")] = str(e)
+
+    return output_dict
+
+
+# ---------------------------------------------------------------------------
+# Preview callback
+# ---------------------------------------------------------------------------
 
 
 @callback(
@@ -150,6 +316,8 @@ dash.clientside_callback(
     },
     state={
         **active_form_factory.produce_callback_inputs(use_state=True),
+        hidden_id("crns_upload"): State(hidden_id("crns_upload"), "value"),
+        hidden_id("predictor_upload"): State(hidden_id("predictor_upload"), "value"),
         active_form_template_factory.job_id_key: Input(
             active_form_template_factory.job_id_key, "children"
         ),
@@ -165,23 +333,36 @@ def regenerate_preview(**state):
     log.info("Regenerate preview", extra={"tag": "frontend"})
     job_id = state["job_id"]
 
+    preprocess_form_data(state)
     try:
         active_form_factory.set_model(state)
     except ValueError:
         log.debug("Model not valid", extra={"tag": "frontend"})
         raise PreventUpdate
 
-    active_form_factory.pymodel.job_id = job_id
-    job = Job(model=active_form_factory.pymodel)
+    display_model = build_display_model(state)
+    display_model.job_id = job_id
+    job = Job(model=display_model)
     file_name = job.preview_area()
     image_src = url_for("serve_file", job_id=job.job_id, filename=file_name)
 
     return {"area_preview": image_src}
 
 
+# ---------------------------------------------------------------------------
+# Form validation callback
+# ---------------------------------------------------------------------------
+
+
 @callback(
     output={
         **active_form_factory.produce_callback_outputs(),
+        feedback_id("crns_upload"): Output(
+            feedback_id("crns_upload"), "children", allow_duplicate=True
+        ),
+        feedback_id("predictor_upload"): Output(
+            feedback_id("predictor_upload"), "children", allow_duplicate=True
+        ),
         active_form_template_factory.selected_crns_key: Output(
             active_form_template_factory.selected_crns_key, "children"
         ),
@@ -200,7 +381,12 @@ def regenerate_preview(**state):
         ),
         "error_modal": Output(ERROR_MODAL_SHARED_ID, "is_open", allow_duplicate=True),
     },
-    inputs=active_form_factory.produce_callback_inputs(),
+    inputs={
+        **active_form_factory.produce_callback_inputs(),
+        hidden_id("crns_upload"): Input(hidden_id("crns_upload"), "value"),
+        hidden_id("predictor_upload"): Input(hidden_id("predictor_upload"), "value"),
+        CHECK_INPUT_BUTTON_INPUT_ID: Input(CHECK_INPUT_BUTTON_INPUT_ID, "n_clicks"),
+    },
     state={
         active_form_template_factory.job_id_key: Input(
             active_form_template_factory.job_id_key, "children"
@@ -208,85 +394,45 @@ def regenerate_preview(**state):
     },
     prevent_initial_call="initial_duplicate",
 )
-def form_manager(**state):
-    """Wrap all input logic of the form into one callback."""
-    log.info("Form manager", extra={"tag": "frontend"})
-
-    file_upload_error = {}
+def form_validation_callback(**state):
+    """Validate form inputs and handle submission."""
+    log.info("Form validation callback", extra={"tag": "frontend"})
 
     triggered_ids = {
         t["prop_id"].split(".")[0]
         for t in callback_context.triggered
         if t["value"] is not None
     }
-    triggered_id = callback_context.triggered[0]["prop_id"].split(".")[0]
     log.debug(f"Triggered ids: {triggered_ids}", extra={"tag": "frontend"})
 
-    if triggered_id == active_form_factory.get_id_delete_button("crns_upload"):
-        job_id = state["job_id"]
-        job = Job(job_id=job_id)
-        log.debug("Delete CRNS button clicked", extra={"tag": "frontend"})
-        job.delete_input_files("crn")
-        active_form_factory.set_file_information(state, {}, "crns_upload")
-    elif triggered_id == active_form_factory.get_id_delete_button("predictor_upload"):
-        job_id = state["job_id"]
-        job = Job(job_id=job_id)
-        log.debug("Delete predictor button clicked", extra={"tag": "frontend"})
-        job.delete_input_files("pred")
-        active_form_factory.set_file_information(state, {}, "predictor_upload")
-    elif triggered_id == active_form_factory.get_id_input_file_content("crns_upload"):
-        job_id = state["job_id"]
-        job = Job(job_id=job_id)
-        log.debug("CRNS file uploaded", extra={"tag": "job_submission"})
-        job.delete_input_files("crn")
+    # Preprocessing: inject predictors, soil_moisture_data, uploads into form_data
+    preprocess_form_data(state)
 
-        file_name, file_content = active_form_factory.get_file_content(
-            state, "crns_upload"
-        )
-        try:
-            file_name, file_information = job.safe_input_file(
-                file_name, file_content, "crn", upload=True
-            )
-            active_form_factory.set_file_information(
-                state, {file_name: file_information}, "crns_upload"
-            )
-        except ValueError as e:
-            file_upload_error["crns_upload"] = str(e)
-    elif triggered_id == active_form_factory.get_id_input_file_content(
-        "predictor_upload"
-    ):
-        job_id = state["job_id"]
-        job = Job(job_id=job_id)
-        log.debug("Predictor file(s) uploaded", extra={"tag": "job_submission"})
-        job.delete_input_files("pred")
+    valid, output_dict = active_form_factory.validate_callback(state)
 
-        uploaded_file_information = {}
-        try:
-            for file_name, content in zip(
-                *active_form_factory.get_file_content(state, "predictor_upload")
-            ):
-                file_name, file_information = job.safe_input_file(
-                    file_name, content, "pred", upload=True
-                )
-                uploaded_file_information[file_name] = file_information
-
-            active_form_factory.set_file_information(
-                state, uploaded_file_information, "predictor_upload"
-            )
-        except ValueError as e:
-            file_upload_error["predictor_upload"] = str(e)
-
-    valid, output_dict = active_form_factory.validate_callback(state, file_upload_error)
+    # Route file upload field validation errors to their feedback divs.
+    # Model validators (e.g. check_soil_moisture_data) produce errors for
+    # fields not in fields_website. validate_callback returns them as
+    # unhandled exceptions with key "<field_name>".
+    for field_name in FILE_UPLOAD_FIELDS:
+        feedback_key = f"{field_name}_feedback_children"
+        if feedback_key in output_dict:
+            output_dict[feedback_id(field_name)] = output_dict.pop(feedback_key)
+        else:
+            output_dict[feedback_id(field_name)] = ""
 
     output_dict["error_modal"] = False
     output_dict["error_title"] = ""
     output_dict["error_message"] = ""
     output_dict["loading_overlay"] = False
-    active_form_factory.pymodel.__dict__["job_id"] = state["job_id"]
 
-    if active_form_factory.get_key_submit_button() in triggered_ids and valid:
+    # Construct display model (always succeeds, no validators)
+    display_model = build_display_model(state)
+    display_model.__dict__["job_id"] = state["job_id"]
+
+    if CHECK_INPUT_BUTTON_INPUT_ID in triggered_ids and valid:
         log.debug("Submit button clicked", extra={"tag": "job_submission"})
-        job = Job(model=active_form_factory.pymodel)
+        job = Job(model=display_model)
         job.prepare_input_files()
         submission_base_path = dash.page_registry["pages.submission"]["path_template"]
         output_dict["redirect"] = submission_base_path.replace(
@@ -296,10 +442,10 @@ def form_manager(**state):
         output_dict["redirect"] = dash.no_update
 
     output_dict["selected_predictors"] = construct_selected_input(
-        active_form_factory.pymodel, "predictor_upload"
+        display_model, "predictor_upload"
     )
     output_dict["selected_crns"] = construct_selected_input(
-        active_form_factory.pymodel, "crns_upload"
+        display_model, "crns_upload"
     )
 
     return output_dict

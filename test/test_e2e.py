@@ -34,7 +34,7 @@ from cosmopolitan_app.constants import (
     STATUS_DIV_SUBMISSION_ID,
     SUBMIT_JOB_BUTTON_SUBMISSION_ID,
 )
-from cosmopolitan_app.form_factory import (
+from cosmopolitan_app.form_template_factory import (
     active_form_factory,
     active_form_template_factory,
 )

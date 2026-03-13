@@ -17,9 +17,10 @@ from cosmopolitan_app.constants import (
     STATUS_DIV_SUBMISSION_ID,
     SUBMIT_JOB_BUTTON_SUBMISSION_ID,
 )
-from cosmopolitan_app.form_factory import (
+from cosmopolitan_app.form_template_factory import (
     active_form_factory,
     active_form_template_factory,
+    delete_id,
 )
 
 
@@ -235,9 +236,9 @@ def upload_crns_file(page, crns_file_path):
 
 def click_delete_button(page, field_name):
     """Click the delete button for a given upload field."""
-    delete_id = active_form_factory.delete_id_format.format(field_name=field_name)
-    page.locator(f"#{delete_id}").scroll_into_view_if_needed()
-    page.locator(f"#{delete_id}").click()
+    delete_button_id = delete_id(field_name)
+    page.locator(f"#{delete_button_id}").scroll_into_view_if_needed()
+    page.locator(f"#{delete_button_id}").click()
     wait_for_dash_callback(page)
 
 
