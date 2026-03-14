@@ -17,12 +17,16 @@ See docs/conventions/html_ids.md for full details.
 URL_LOCATION_SHARED_ID = "url-location-shared-id"
 
 # --- Modals ---
-ERROR_MODAL_SHARED_ID = "error-modal-shared-id"
+ERROR_MODAL_SHARED_ID = "error-modal-shared-id"  # nocheck - used via set_props()
 LOADING_OVERLAY_MODAL_SHARED_ID = "loading-overlay-modal-shared-id"
 
 # --- Divs ---
-ERROR_TITLE_DIV_SHARED_ID = "error-title-div-shared-id"
-ERROR_MESSAGE_DIV_SHARED_ID = "error-message-div-shared-id"
+ERROR_TITLE_DIV_SHARED_ID = (
+    "error-title-div-shared-id"  # nocheck - used via set_props()
+)
+ERROR_MESSAGE_DIV_SHARED_ID = (
+    "error-message-div-shared-id"  # nocheck - used via set_props()
+)
 
 # --- Buttons ---
 NAVBAR_TOGGLER_BUTTON_SHARED_ID = "navbar-toggler-button-shared-id"

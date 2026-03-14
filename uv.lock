@@ -441,7 +441,7 @@ requires-dist = [
     { name = "coolname", specifier = ">=2.2.0,<3" },
     { name = "dash", extras = ["ag-grid"], specifier = ">=3.0.4,<4" },
     { name = "dash-bootstrap-components", specifier = ">=2.0.3,<3" },
-    { name = "dash-form-factory", specifier = "==0.1.6" },
+    { name = "dash-form-factory", specifier = "==0.1.7" },
     { name = "dash-leaflet", specifier = ">=1.1.3,<2" },
     { name = "dotenv", specifier = ">=0.9.9,<0.10" },
     { name = "email-validator", specifier = ">=2.2.0,<3" },
@@ -545,16 +545,16 @@ wheels = [
 
 [[package]]
 name = "dash-form-factory"
-version = "0.1.6"
+version = "0.1.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "dash" },
     { name = "dash-bootstrap-components" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0d/d7/be90d3bdae4c570f23dbfb166d848e092dedabdecb83eea1b7b962465bc3/dash_form_factory-0.1.6.tar.gz", hash = "sha256:7524705dfc8fcfb039d1132dca50c72040cd0131b526fd3191d1fec652bcfee8", size = 8102, upload-time = "2026-03-13T09:24:02.894Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/73/ca/8e95c3f01735f93e60445ea648c43edd2f7fc80987deeac32febc0f649ab/dash_form_factory-0.1.7.tar.gz", hash = "sha256:afed024270d08aa1326990b47f1e66ca9cedb3906678cc13edef4f5dcf4d47f0", size = 8115, upload-time = "2026-03-14T20:54:15.559Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/53/31/2db725752e35d89fdb5d5d82851822f4d66a25272d502ca858935cb2d534/dash_form_factory-0.1.6-py3-none-any.whl", hash = "sha256:7691412d8fb859613178519108bae02a50f2153d600a046edb9918b347c99f10", size = 9671, upload-time = "2026-03-13T09:24:02.184Z" },
+    { url = "https://files.pythonhosted.org/packages/61/af/dc8cb992692d475237fdf06aad78898be5eb484834169c215c3e07b7ca23/dash_form_factory-0.1.7-py3-none-any.whl", hash = "sha256:149ff8fc880c7eb557e0d11effa094dbb950f04acbc74d19da80529ab1fcd5b5", size = 9682, upload-time = "2026-03-14T20:54:14.365Z" },
 ]
 
 [[package]]

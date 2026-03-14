@@ -7,7 +7,7 @@ from typing import Annotated, ClassVar, Dict, List, Literal, Tuple
 
 from coolname import generate
 from email_validator import EmailNotValidError, validate_email
-from pydantic import AfterValidator, Field, field_validator, model_validator
+from pydantic import AfterValidator, ConfigDict, Field, field_validator, model_validator
 from pydantic_core import PydanticCustomError
 from soil_moisture_prediction.input_data import stream_dic
 from soil_moisture_prediction.pydantic_models import InputParameters
@@ -75,7 +75,7 @@ class ModelWebsite(InputParameters):
             "",
             description="Email address to be notified when job submission is complete.",
             title="Email",
-            type="email",
+            json_schema_extra={"type": "email"},
         ),
         AfterValidator(check_email),
     ]
@@ -86,7 +86,7 @@ class ModelWebsite(InputParameters):
             "poised_python_of_wonder",
             description='Identifier for your submission. Only letters, numbers and "_".',  # noqa
             title="Job ID",
-            type="text",
+            json_schema_extra={"type": "text"},
         ),
         AfterValidator(validate_job_id),
     ]
@@ -97,7 +97,7 @@ class ModelWebsite(InputParameters):
             ("2025-06-01", "2025-06-28"),
             description="Choose a date range for the CRNS measurements.",
             title="Date range",
-            type="date-picker",
+            json_schema_extra={"type": "date-picker"},
         ),
     ]
 
@@ -108,7 +108,7 @@ class ModelWebsite(InputParameters):
             ["elevation_bkg", "bdod_5-15cm"],
             description=("Select which the predictor source should to be used"),
             title="Predictor streams",
-            type="dropdown-checklist",
+            json_schema_extra={"type": "dropdown-checklist"},
         ),
     ]
 
@@ -118,7 +118,7 @@ class ModelWebsite(InputParameters):
             {},
             description=("Upload a files with the predictor data"),
             title="Predictor upload",
-            type="multiple-file-upload",
+            json_schema_extra={"type": "multiple-file-upload"},
         ),
     ]
 
@@ -128,7 +128,7 @@ class ModelWebsite(InputParameters):
             {},
             description=("Upload a file with the crns data"),
             title="Crns upload",
-            type="file-upload",
+            json_schema_extra={"type": "file-upload"},
         ),
     ]
     train_data: Annotated[
@@ -137,7 +137,7 @@ class ModelWebsite(InputParameters):
             True,
             description="Use measurements from the CRNS devices on trains for the prediction.",  # noqa
             title="Train data",
-            type="checkbox",
+            json_schema_extra={"type": "checkbox"},
         ),
     ]
     station_data: Annotated[
@@ -146,7 +146,7 @@ class ModelWebsite(InputParameters):
             True,
             description="Use measurements from the stationary CRNS devices for the prediction.",  # noqa
             title="Station data",
-            type="checkbox",
+            json_schema_extra={"type": "checkbox"},
         ),
     ]
     rover_data: Annotated[
@@ -155,7 +155,7 @@ class ModelWebsite(InputParameters):
             True,
             description="Use measurements from rover CRNS devices for the prediction.",
             title="Rover data",
-            type="checkbox",
+            json_schema_extra={"type": "checkbox"},
         ),
     ]
 
@@ -226,7 +226,4 @@ class ModelWebsite(InputParameters):
         return date_range
 
     # Security feature: No model can have an invalid job_id
-    class Config:
-        """Pydantic config."""
-
-        validate_assignment = True
+    model_config = ConfigDict(validate_assignment=True)

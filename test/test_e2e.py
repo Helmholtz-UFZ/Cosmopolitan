@@ -26,6 +26,8 @@ from cosmopolitan_app.config import PORT
 from cosmopolitan_app.constants import (
     CHANGE_INPUT_BUTTON_SUBMISSION_ID,
     CHECK_INPUT_BUTTON_INPUT_ID,
+    DELETE_CRNS_UPLOAD_BUTTON_INPUT_ID,
+    DELETE_PREDICTOR_UPLOAD_BUTTON_INPUT_ID,
     JOB_LOGS_DIV_SUBMISSION_ID,
     NAVBAR_TOGGLER_BUTTON_SHARED_ID,
     NEW_JOB_LINK_SHARED_ID,
@@ -342,7 +344,7 @@ def test_predictor_upload_delete_reselect(
 
     # Delete uploaded predictors — verify the last uploaded file disappears
     last_pred_name = str(pred_file_paths[-1].name)
-    click_delete_button(page, "predictor_upload")
+    click_delete_button(page, DELETE_PREDICTOR_UPLOAD_BUTTON_INPUT_ID)
     expect(page.locator(f"#{selected_pred_id}")).not_to_contain_text(
         last_pred_name, timeout=10000
     )
@@ -399,7 +401,7 @@ def test_crns_upload_delete_recheck(
     crns_feedback_id = active_form_factory.feedback_id_format.format(
         field_name="crns_upload"
     )
-    click_delete_button(page, "crns_upload")
+    click_delete_button(page, DELETE_CRNS_UPLOAD_BUTTON_INPUT_ID)
     expect(page.locator(f"#{crns_feedback_id}")).to_contain_text(
         "Either select", timeout=10000
     )

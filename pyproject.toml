@@ -22,7 +22,7 @@ dependencies = [
     "email-validator>=2.2.0,<3",
     "gunicorn>=23.0.0,<24",
     "dash-leaflet>=1.1.3,<2",
-    "dash-form-factory==0.1.6",
+    "dash-form-factory==0.1.7",
 ]
 
 [dependency-groups]

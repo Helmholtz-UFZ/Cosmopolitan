@@ -62,12 +62,13 @@ dash.register_page(
 )
 
 
-def preprocess_form_data(form_data: dict) -> dict:
+def preprocess_form_data(form_data: dict) -> None:
     """Transform raw form state into clean model dict.
 
-    Reads hidden inputs for file uploads, deserializes JSON, and injects
-    predictors, soil_moisture_data, predictor_upload, and crns_upload
-    into form_data so set_model() can pick them up via the generic path.
+    Mutates form_data in-place. Reads hidden inputs for file uploads,
+    deserializes JSON, and injects predictors, soil_moisture_data,
+    predictor_upload, and crns_upload so set_model() can pick them up
+    via the generic path.
     """
     hidden_pred = form_data[HIDDEN_PREDICTOR_UPLOAD_INPUT_INPUT_ID]
     predictor_upload_raw = json.loads(hidden_pred) if hidden_pred.strip() else {}
@@ -91,11 +92,13 @@ def preprocess_form_data(form_data: dict) -> dict:
     form_data["predictor_upload"] = predictor_upload_raw
     form_data["crns_upload"] = crns_upload
 
-    return form_data
 
+def build_display_model(form_data: dict, job_id: str) -> ModelWebsite:
+    """Construct a ModelWebsite from preprocessed form_data without validators.
 
-def build_display_model(form_data: dict) -> ModelWebsite:
-    """Construct a ModelWebsite from preprocessed form_data without validators."""
+    Used for display purposes only (e.g. construct_selected_input).
+    Do NOT pass the result to Job() — use a validated model instead.
+    """
     model_dict = {}
     for field_name in ModelWebsite.model_fields:
         field_type = ModelWebsite.model_fields[field_name].json_schema_extra["type"]
@@ -109,7 +112,9 @@ def build_display_model(form_data: dict) -> ModelWebsite:
                 model_dict[field_name] = form_data[field_name]
             except KeyError:
                 pass
-    return ModelWebsite.model_construct(**model_dict)
+    model = ModelWebsite.model_construct(**model_dict)
+    model.__dict__["job_id"] = job_id
+    return model
 
 
 def layout(job_id):
@@ -342,7 +347,7 @@ def file_upload_callback(**state):
         HIDDEN_PREDICTOR_UPLOAD_INPUT_INPUT_ID: State(
             HIDDEN_PREDICTOR_UPLOAD_INPUT_INPUT_ID, "value"
         ),
-        active_form_template_factory.job_id_key: Input(  # nocheck
+        active_form_template_factory.job_id_key: State(  # nocheck
             active_form_template_factory.job_id_key, "children"  # nocheck
         ),
     },
@@ -359,14 +364,13 @@ def regenerate_preview(**state):
 
     preprocess_form_data(state)
     try:
-        active_form_factory.set_model(state)
+        validated_model = active_form_factory.set_model(state)
     except ValueError:
         log.debug("Model not valid", extra={"tag": "frontend"})
         raise PreventUpdate
 
-    display_model = build_display_model(state)
-    display_model.job_id = job_id
-    job = Job(model=display_model)
+    validated_model.__dict__["job_id"] = job_id
+    job = Job(model=validated_model)
     file_name = job.preview_area()
     image_src = url_for("serve_file", job_id=job.job_id, filename=file_name)
 
@@ -411,7 +415,7 @@ def regenerate_preview(**state):
         CHECK_INPUT_BUTTON_INPUT_ID: Input(CHECK_INPUT_BUTTON_INPUT_ID, "n_clicks"),
     },
     state={
-        active_form_template_factory.job_id_key: Input(  # nocheck
+        active_form_template_factory.job_id_key: State(  # nocheck
             active_form_template_factory.job_id_key, "children"  # nocheck
         ),
     },
@@ -455,13 +459,13 @@ def form_validation_callback(**state):
 
     output_dict["loading_overlay"] = False
 
-    # Construct display model (always succeeds, no validators)
-    display_model = build_display_model(state)
-    display_model.__dict__["job_id"] = state["job_id"]
+    job_id = state["job_id"]
 
     if CHECK_INPUT_BUTTON_INPUT_ID in triggered_ids and valid:
         log.debug("Submit button clicked", extra={"tag": "job_submission"})
-        job = Job(model=display_model)
+        validated_model = active_form_factory.set_model(state)
+        validated_model.__dict__["job_id"] = job_id
+        job = Job(model=validated_model)
         job.prepare_input_files()
         submission_base_path = dash.page_registry["pages.submission"]["path_template"]
         output_dict["redirect"] = submission_base_path.replace(
@@ -470,6 +474,8 @@ def form_validation_callback(**state):
     else:
         output_dict["redirect"] = dash.no_update
 
+    # Display model for showing current selections (even when invalid)
+    display_model = build_display_model(state, job_id)
     output_dict["selected_predictors"] = construct_selected_input(
         display_model, "predictor_upload"
     )
