@@ -29,6 +29,7 @@ from cosmopolitan_app.constants import (
     ACCORDION_SUBMISSION_ID,
     CHANGE_INPUT_BUTTON_SUBMISSION_ID,
     HEADER_DIV_SUBMISSION_ID,
+    HEADER_SUBTITLE_DIV_SUBMISSION_ID,
     ICON_SUBMISSION_ID,
     INTERVAL_SUBMISSION_ID,
     JOB_LOGS_DIV_SUBMISSION_ID,
@@ -164,7 +165,7 @@ def layout(job_id):
 @callback(
     [
         Output(HEADER_DIV_SUBMISSION_ID, "className", allow_duplicate=True),
-        Output(f"{HEADER_DIV_SUBMISSION_ID}-subtitle", "children"),
+        Output(HEADER_SUBTITLE_DIV_SUBMISSION_ID, "children"),
         Output(MAIN_CONTENT_DIV_SUBMISSION_ID, "children"),
     ],
     [Input(JOB_STORE_SUBMISSION_ID, "data")],

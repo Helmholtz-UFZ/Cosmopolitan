@@ -54,13 +54,28 @@ JOB_FEEDBACK_FORMTEXT_NEW_JOB_ID = "job-feedback-formtext-new-job-id"
 CHECK_INPUT_BUTTON_INPUT_ID = (  # nocheck - used via FormFactory
     "check_input_button_input_id"  # underscores: used as dict key in callback
 )
+DELETE_CRNS_UPLOAD_BUTTON_INPUT_ID = "delete_crns_upload"
+DELETE_PREDICTOR_UPLOAD_BUTTON_INPUT_ID = "delete_predictor_upload"
 
 # --- Divs ---
 HEADER_DIV_INPUT_ID = "header-div-input-id"
+HEADER_SUBTITLE_DIV_INPUT_ID = "header-div-input-id-subtitle"
 MAIN_CONTENT_DIV_INPUT_ID = "main-content-div-input-id"
+
+# --- FormTexts ---
+CRNS_UPLOAD_FEEDBACK_FORMTEXT_INPUT_ID = "crns_upload_feedback"
+PREDICTOR_UPLOAD_FEEDBACK_FORMTEXT_INPUT_ID = "predictor_upload_feedback"
+
+# --- Hiddens ---
+HIDDEN_CRNS_UPLOAD_INPUT_INPUT_ID = "hidden_crns_upload"
+HIDDEN_PREDICTOR_UPLOAD_INPUT_INPUT_ID = "hidden_predictor_upload"
 
 # --- Stores ---
 JOB_STORE_INPUT_ID = "job-store-input-id"
+
+# --- Uploads ---
+CRNS_UPLOAD_INPUT_ID = "crns_upload"  # nocheck - used via FormFactory
+PREDICTOR_UPLOAD_INPUT_ID = "predictor_upload"  # nocheck - used via FormFactory
 
 # =============================================================================
 # SUBMISSION
@@ -74,6 +89,7 @@ RESULT_BUTTON_SUBMISSION_ID = "result-button-submission-id"
 
 # --- Divs ---
 HEADER_DIV_SUBMISSION_ID = "header-div-submission-id"
+HEADER_SUBTITLE_DIV_SUBMISSION_ID = "header-div-submission-id-subtitle"
 MAIN_CONTENT_DIV_SUBMISSION_ID = "main-content-div-submission-id"
 JOB_LOGS_DIV_SUBMISSION_ID = "job-logs-div-submission-id"
 STATUS_DIV_SUBMISSION_ID = "status-div-submission-id"
@@ -104,6 +120,7 @@ DATE_PAGINATION_STATS_BUTTON_RESULTS_ID = "date-pagination-stats-button-results-
 
 # --- Divs ---
 HEADER_DIV_RESULTS_ID = "header-div-results-id"
+HEADER_SUBTITLE_DIV_RESULTS_ID = "header-div-results-id-subtitle"
 MAIN_CONTENT_DIV_RESULTS_ID = "main-content-div-results-id"
 RESULT_CONTAINER_DIV_RESULTS_ID = "result-container-div-results-id"
 CURRENT_DATE_DISPLAY_DIV_RESULTS_ID = "current-date-display-div-results-id"
@@ -302,8 +319,18 @@ END_HOUR_INPUT_LOGS_ID = "end-hour-input-logs-id"
 END_MINUTE_INPUT_LOGS_ID = "end-minute-input-logs-id"
 PID_INPUT_LOGS_ID = "pid-input-logs-id"
 
+# --- Buttons ---
+REFRESH_BUTTON_LOGS_ID = "refresh-button-logs-id"
+
 # --- Checklists ---
 PID_RADIO_CHECKLIST_LOGS_ID = "pid-radio-checklist-logs-id"
+LIVE_MODE_CHECKLIST_LOGS_ID = "live-mode-checklist-logs-id"
+
+# --- Dropdowns (continued) ---
+MODULE_EXCLUDE_DROPDOWN_LOGS_ID = "module-exclude-dropdown-logs-id"
+
+# --- Intervals ---
+AUTO_POLL_INTERVAL_LOGS_ID = "auto-poll-interval-logs-id"
 
 # =============================================================================
 # MEASUREMENT_VIEW

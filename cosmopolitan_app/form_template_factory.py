@@ -8,27 +8,18 @@ from dash import dcc, html
 from dash_form_factory import FormFactory, InputField
 from soil_moisture_prediction.input_data import stream_dic
 
-from cosmopolitan_app.constants import CHECK_INPUT_BUTTON_INPUT_ID
+from cosmopolitan_app.constants import (
+    CHECK_INPUT_BUTTON_INPUT_ID,
+    CRNS_UPLOAD_FEEDBACK_FORMTEXT_INPUT_ID,
+    CRNS_UPLOAD_INPUT_ID,
+    DELETE_CRNS_UPLOAD_BUTTON_INPUT_ID,
+    DELETE_PREDICTOR_UPLOAD_BUTTON_INPUT_ID,
+    HIDDEN_CRNS_UPLOAD_INPUT_INPUT_ID,
+    HIDDEN_PREDICTOR_UPLOAD_INPUT_INPUT_ID,
+    PREDICTOR_UPLOAD_FEEDBACK_FORMTEXT_INPUT_ID,
+    PREDICTOR_UPLOAD_INPUT_ID,
+)
 from cosmopolitan_app.pydantic_models import ModelWebsite
-
-HIDDEN_ID_FORMAT = "hidden_{field_name}"
-DELETE_ID_FORMAT = "delete_{field_name}"
-FEEDBACK_ID_FORMAT = "{field_name}_feedback"
-
-
-def hidden_id(field_name: str) -> str:
-    """Get the hidden input ID for a file upload field."""
-    return HIDDEN_ID_FORMAT.format(field_name=field_name)
-
-
-def delete_id(field_name: str) -> str:
-    """Get the delete button ID for a file upload field."""
-    return DELETE_ID_FORMAT.format(field_name=field_name)
-
-
-def feedback_id(field_name: str) -> str:
-    """Get the feedback div ID for a file upload field."""
-    return FEEDBACK_ID_FORMAT.format(field_name=field_name)
 
 
 def construct_selected_input(
@@ -116,7 +107,13 @@ def construct_selected_input(
 
 
 def create_file_upload_component(
-    field_name: str, multiple: bool = False, value: Any = None
+    field_name: str,
+    upload_id: str,
+    hidden_id: str,
+    delete_id: str,
+    feedback_id: str,
+    multiple: bool = False,
+    value: Any = None,
 ) -> list:
     """Build file upload components: Upload+hidden input+delete button+feedback."""
     field = ModelWebsite.model_fields[field_name]
@@ -127,21 +124,21 @@ def create_file_upload_component(
     return [
         dbc.Label(field.title),
         dcc.Upload(
-            id=field_name,  # nocheck
+            id=upload_id,  # nocheck
             multiple=multiple,
             children=dbc.Button(
                 [html.I(className="bi bi-upload me-1"), "Browse files"], color="primary"
             ),
         ),
         dcc.Input(
-            id=hidden_id(field_name),  # nocheck
+            id=hidden_id,  # nocheck
             type="text",
             value=file_information,
             className="d-none",
         ),
         dbc.Button(
             [html.I(className="bi bi-trash me-1"), "Delete files"],
-            id=delete_id(field_name),  # nocheck
+            id=delete_id,  # nocheck
             color="warning",
             className="my-2",
         ),
@@ -150,7 +147,7 @@ def create_file_upload_component(
         html.Br(),
         dbc.FormText(
             "",
-            id=feedback_id(field_name),  # nocheck
+            id=feedback_id,  # nocheck
             className="text-danger",
         ),
     ]
@@ -315,7 +312,13 @@ class FormTemplateFactory:
             crns_rows.append(
                 [
                     create_file_upload_component(
-                        "crns_upload", multiple=False, value=crns_value
+                        "crns_upload",
+                        upload_id=CRNS_UPLOAD_INPUT_ID,
+                        hidden_id=HIDDEN_CRNS_UPLOAD_INPUT_INPUT_ID,
+                        delete_id=DELETE_CRNS_UPLOAD_BUTTON_INPUT_ID,
+                        feedback_id=CRNS_UPLOAD_FEEDBACK_FORMTEXT_INPUT_ID,
+                        multiple=False,
+                        value=crns_value,
                     )
                 ]
             )
@@ -334,7 +337,13 @@ class FormTemplateFactory:
             pred_rows.append(
                 [
                     create_file_upload_component(
-                        "predictor_upload", multiple=True, value=pred_value
+                        "predictor_upload",
+                        upload_id=PREDICTOR_UPLOAD_INPUT_ID,
+                        hidden_id=HIDDEN_PREDICTOR_UPLOAD_INPUT_INPUT_ID,
+                        delete_id=DELETE_PREDICTOR_UPLOAD_BUTTON_INPUT_ID,
+                        feedback_id=PREDICTOR_UPLOAD_FEEDBACK_FORMTEXT_INPUT_ID,
+                        multiple=True,
+                        value=pred_value,
                     )
                 ]
             )

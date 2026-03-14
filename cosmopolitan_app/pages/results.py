@@ -60,6 +60,7 @@ from cosmopolitan_app.constants import (
     DATE_SELECTOR_DROPDOWN_RESULTS_ID,
     DUMMY_DIV_RESULTS_ID,
     HEADER_DIV_RESULTS_ID,
+    HEADER_SUBTITLE_DIV_RESULTS_ID,
     IMPORTANCE_GRAPH_RESULTS_ID,
     IMPORTANCE_SELECTED_DIV_RESULTS_ID,
     JOB_STORE_RESULTS_ID,
@@ -818,7 +819,7 @@ dash.clientside_callback(
 @callback(
     [
         Output(HEADER_DIV_RESULTS_ID, "className", allow_duplicate=True),
-        Output(f"{HEADER_DIV_RESULTS_ID}-subtitle", "children"),
+        Output(HEADER_SUBTITLE_DIV_RESULTS_ID, "children"),
         Output(MAIN_CONTENT_DIV_RESULTS_ID, "children"),
     ],
     [Input(JOB_STORE_RESULTS_ID, "data")],

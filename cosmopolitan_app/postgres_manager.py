@@ -118,6 +118,24 @@ class PostgresManager:
         return SessionScope(session_factory=cls.Session)
 
     @classmethod
+    def query_distinct_modules(cls) -> List[str]:
+        """Return all distinct module names from the logs table.
+
+        Returns
+        -------
+        list[str]
+            Sorted list of unique module names.
+        """
+        with cls.session_scope() as session:
+            rows = (
+                session.query(LogTable.module)
+                .distinct()
+                .order_by(LogTable.module)
+                .all()
+            )
+            return [row[0] for row in rows]
+
+    @classmethod
     def query_logs(
         cls,
         date: str,
@@ -128,14 +146,12 @@ class PostgresManager:
         levels: List[str],
         pid: Optional[int] = None,
         tag: Optional[List[str]] = None,
+        excluded_modules: Optional[List[str]] = None,
     ) -> List[Dict[str, Any]]:
         """Query logs from the database with specified filters.
 
-        This method supports filtering by the tag-based logging system that categorizes
-        logs by functional area (e.g., 'database', 'time_io', 'job_submission').
-
-        Parameters:
-        -----------
+        Parameters
+        ----------
         date : str
             Date in the format 'YYYY-MM-DD'
         sh : int
@@ -151,13 +167,9 @@ class PostgresManager:
         pid : int, optional
             Process ID to filter logs by
         tag : list, optional
-            List of tags to filter logs by using the tag-based logging system.
-            Use None to get logs from all tags.
-
-        Returns:
-        --------
-        list
-            List of dictionaries containing log records
+            List of tags to filter logs by
+        excluded_modules : list[str], optional
+            Module names to exclude from results
         """
         log.debug(
             f"Querying logs from {date} {sh}:{sm} to {date} {eh}:{em}",
@@ -183,6 +195,9 @@ class PostgresManager:
 
             if tag is not None:
                 query = query.filter(LogTable.tag.in_(tag))
+
+            if excluded_modules:
+                query = query.filter(LogTable.module.notin_(excluded_modules))
 
             # Order results by timestamp
             query = query.order_by(LogTable.timestamp)
