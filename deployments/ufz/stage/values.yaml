@@ -7,7 +7,7 @@ frontend:
   enabled: true
   image:
     repository: registry.hzdr.de/ufz/tb5-smm/met/wg7/cosmopolitan/frontend
-    tag: "0.0.72-2026.03.13"
+    tag: "0.0.72-2026.03.15"
   imagePullSecrets:
     - name: wombat-docker-registry-codebase
   podAnnotations:
@@ -120,7 +120,7 @@ worker:
   image:
     repository: registry.hzdr.de/ufz/tb5-smm/met/wg7/cosmopolitan/worker
     pullPolicy: Always
-    tag: "0.0.72-2026.03.13"
+    tag: "0.0.72-2026.03.15"
   imagePullSecrets:
     - name: wombat-docker-registry-codebase
   nameOverride: ""
