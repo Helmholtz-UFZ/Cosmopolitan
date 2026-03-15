@@ -5,7 +5,7 @@ prediction job:
 
 **Interactive Maps:**
 - View soil moisture predictions overlaid on geographic maps
-- Switch between different map types (OpenStreetMap, satellite imagery)
+- Switch between different map types (predictions, distance, dispersion, predictors)
 - Navigate through prediction time steps
 - Toggle measurement point displays
 - Adjust map opacity and explore spatial patterns
@@ -14,7 +14,6 @@ prediction job:
 - Correlation heatmaps showing relationships between variables
 - Feature importance plots revealing which predictors matter most
 - Statistical summaries for each time step
-- Detailed performance metrics
 
 You can explore results across multiple time periods, examine which environmental
 factors most influence soil moisture predictions, and understand model performance
@@ -828,7 +827,7 @@ dash.clientside_callback(
 )
 def load_results_content(job_id, header_class_name):
     """Load results content for the given job ID."""
-    log.info(f"Loading results for job {job_id}", extra={"tag": "frontend"})
+    log.info(f"Loading results for job {job_id}")
     job = Job(job_id)
 
     if job.status != "COMPLETED":
@@ -973,7 +972,6 @@ def update_map(
     if date_index < 0 or date_index >= len(available_dates):
         log.warning(
             f"Invalid date index {date_index} for {len(available_dates)} dates",
-            extra={"tag": "frontend"},
         )
         return dash.no_update, dash.no_update, False
 
@@ -982,7 +980,6 @@ def update_map(
 
     log.info(
         f"Updating map for {job_id}, type {map_type}, date {selected_date} (page {page_index}), measurements: {show_measurements}, opacity: {opacity}",  # noqa
-        extra={"tag": "frontend"},
     )
 
     # Create base map layers (returns [tile_layer, colorbar])

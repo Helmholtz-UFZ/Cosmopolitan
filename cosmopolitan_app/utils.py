@@ -108,13 +108,11 @@ def send_mail(recipient, subject, content):
         log.info(
             f"Test mode — email not sent. "
             f"To: {recipient}, Subject: {subject}, Body: {content}",
-            extra={"tag": "email_service"},
         )
         return
 
     log.debug(
         f"Send mail to {recipient} with subject {subject}.",
-        extra={"tag": "email_service"},
     )
     msg = MIMEMultipart()
     msg["From"] = EMAIL_SENDER
@@ -125,7 +123,6 @@ def send_mail(recipient, subject, content):
 
     log.debug(
         f"Connect to email server {EMAIL_SERVER}:{EMAIL_PORT}.",
-        extra={"tag": "email_service"},
     )
     server = smtplib.SMTP(EMAIL_SERVER, EMAIL_PORT)
     server.starttls()
@@ -138,7 +135,7 @@ def send_finished_mail(job):
     """Send a notification email to the user that the job finished."""
     if job.model.email == "" or job.notified_end:
         return
-    log.info("Send mail about finished job.", extra={"tag": "email_service"})
+    log.info("Send mail about finished job.")
 
     # Use configured external URL instead of Flask request context
     try:
@@ -164,9 +161,7 @@ def send_submission_mail(job):
     """Send a notification email to the user that the job was submitted."""
     if job.model.email == "":
         return
-    log.info(
-        f"Send mail about submitted job {job.job_id}.", extra={"tag": "email_service"}
-    )
+    log.info(f"Send mail about submitted job {job.job_id}.")
 
     # Use configured external URL instead of Flask request context
     try:

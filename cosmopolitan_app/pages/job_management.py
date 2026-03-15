@@ -9,7 +9,7 @@ You can:
 - Access individual job pages directly from the table
 
 The table uses color coding to quickly identify job statuses: blue for completed jobs,
-green for running jobs, red for failed jobs, and grey for pending jobs. You can select
+green for running jobs, red for failed jobs, and orange for pending jobs. You can select
 rows to perform bulk operations like deletion.
 
 NOTE: This docstring is displayed on the documentation webpage.
@@ -169,20 +169,18 @@ def job_management_dashboard(
     delete_clicks, clean_clicks, refresh_clicks, _dummy, selected_rows
 ):
     """Manage job actions in the dashboard."""
-    log.info("Job management dashboard callback triggered.", extra={"tag": "frontend"})
+    log.info("Job management dashboard callback triggered.")
     button_id = dash.callback_context.triggered[0]["prop_id"].split(".")[0]
 
     if button_id == DELETE_BUTTON_JOB_MANAGEMENT_ID and selected_rows:
-        log.info("Deleting selected jobs", extra={"tag": "job_submission"})
+        log.info("Deleting selected jobs")
         for row in selected_rows:
             job_id = re.findall(r"\[(.*?)\]", row["job_id"])[0]
-            log.debug(
-                f"Deleting job with ID: {job_id}", extra={"tag": "job_submission"}
-            )
+            log.debug(f"Deleting job with ID: {job_id}")
             job = Job(job_id)
             job.delete()
     elif button_id == CLEAN_BUTTON_JOB_MANAGEMENT_ID:
-        log.info("Cleaning unsubmitted jobs", extra={"tag": "job_submission"})
+        log.info("Cleaning unsubmitted jobs")
         clean_up_jobs(days_delete_not_submitted=0)
 
     jobs_dict = PostgresManager.list_jobs()

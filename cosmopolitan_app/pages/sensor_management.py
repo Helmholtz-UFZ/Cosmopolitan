@@ -470,7 +470,7 @@ layout = page_container_column_layout(
 )
 def refresh_all_sensors(n_clicks, refresh_trigger):
     """Refresh both database and API sensors data."""
-    log.info("Refreshing all sensors data", extra={"tag": "time_io"})
+    log.info("Refreshing all sensors data")
 
     # First, refresh database sensors
     sensors = PostgresManager.get_all_timeio_sensors(not_ignored_only=False)
@@ -615,7 +615,7 @@ def handle_cross_table_selection(db_selected, api_selected):
 )
 def populate_edit_form(db_selected, api_selected, db_store_data):
     """Populate edit form based on table selection."""
-    log.info("Populating edit form based on selection", extra={"tag": "time_io"})
+    log.info("Populating edit form based on selection")
     if not db_selected and not api_selected:
         return (
             dash.no_update,
@@ -708,7 +708,7 @@ def populate_edit_form(db_selected, api_selected, db_store_data):
 )
 def validate_datastreams_json(json_value, sensor_type, ignored, sensor_id, sensor_name):
     """Validate datastreams JSON format and content with enhanced rules."""
-    log.info("Validating datastreams JSON", extra={"tag": "time_io"})
+    log.info("Validating datastreams JSON")
     if sensor_id is None:
         return dash.no_update, dash.no_update, True
 
@@ -756,7 +756,7 @@ def handle_form_submit(
     if not sensor_id or not sensor_name or not sensor_type:
         return dash.no_update
 
-    log.info(f"Submitting form for sensor ID {sensor_id}", extra={"tag": "time_io"})
+    log.info(f"Submitting form for sensor ID {sensor_id}")
 
     json_valid, message = valid_datastreams(datastreams_json, sensor_type, ignored)
     # Should not happen due to validation, but double-check

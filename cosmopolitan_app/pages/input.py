@@ -3,7 +3,7 @@
 This page provides a comprehensive form where you can:
 - Upload cosmic ray neutron sensor (CRNS) measurement data
 - Upload predictor variable files (environmental data)
-- Define your prediction area by drawing on a map or uploading boundaries
+- Define your prediction area by specifying geographic coordinates
 - Set time ranges and other prediction parameters
 - Preview your prediction area before submission
 
@@ -140,11 +140,9 @@ def layout(job_id):
 )
 def load_submission_content(job_id, header_class_name):
     """Load the main submission content triggered by job-id-store."""
-    log.info(
-        f"Loading submission content for job {job_id}", extra={"tag": "job_submission"}
-    )
+    log.info(f"Loading submission content for job {job_id}")
     job = Job(job_id)
-    log.debug(job.start_date, extra={"tag": "frontend"})
+    log.debug(job.start_date)
 
     if job.status not in ["PENDING", "FAILED"]:
         if job.status == "RUNNING":
@@ -172,9 +170,7 @@ def load_submission_content(job_id, header_class_name):
     header_class_name = swap_classes("bg-info", header_class_name)
     preview_path = job.get_preview_path()
     if preview_path is None:
-        log.info(
-            "No preview path found, generating new preview.", extra={"tag": "frontend"}
-        )
+        log.info("No preview path found, generating new preview.")
         job.preview_area()
         preview_path = job.get_preview_path()
     preview_file_name = os.path.basename(preview_path)
@@ -258,14 +254,14 @@ dash.clientside_callback(
 )
 def file_upload_callback(**state):
     """Handle file upload and delete actions."""
-    log.info("File upload callback", extra={"tag": "frontend"})
+    log.info("File upload callback")
 
     triggered_ids = {
         t["prop_id"].split(".")[0]
         for t in callback_context.triggered
         if t["value"] is not None
     }
-    log.debug(f"File upload triggered by: {triggered_ids}", extra={"tag": "frontend"})
+    log.debug(f"File upload triggered by: {triggered_ids}")
 
     job_id = state["job_id"]
 
@@ -280,19 +276,19 @@ def file_upload_callback(**state):
 
     if DELETE_CRNS_UPLOAD_BUTTON_INPUT_ID in triggered_ids:
         job = Job(job_id=job_id)
-        log.debug("Delete CRNS button clicked", extra={"tag": "frontend"})
+        log.debug("Delete CRNS button clicked")
         job.delete_input_files("crn")
         output_dict[HIDDEN_CRNS_UPLOAD_INPUT_INPUT_ID] = json.dumps({})
 
     elif DELETE_PREDICTOR_UPLOAD_BUTTON_INPUT_ID in triggered_ids:
         job = Job(job_id=job_id)
-        log.debug("Delete predictor button clicked", extra={"tag": "frontend"})
+        log.debug("Delete predictor button clicked")
         job.delete_input_files("pred")
         output_dict[HIDDEN_PREDICTOR_UPLOAD_INPUT_INPUT_ID] = json.dumps({})
 
     elif CRNS_UPLOAD_INPUT_ID in triggered_ids:
         job = Job(job_id=job_id)
-        log.debug("CRNS file uploaded", extra={"tag": "job_submission"})
+        log.debug("CRNS file uploaded")
         job.delete_input_files("crn")
         file_name = state["crns_upload_filename"]
         file_content = state["crns_upload_contents"]
@@ -308,7 +304,7 @@ def file_upload_callback(**state):
 
     elif PREDICTOR_UPLOAD_INPUT_ID in triggered_ids:
         job = Job(job_id=job_id)
-        log.debug("Predictor file(s) uploaded", extra={"tag": "job_submission"})
+        log.debug("Predictor file(s) uploaded")
         job.delete_input_files("pred")
         file_names = state["predictor_upload_filename"]
         file_contents = state["predictor_upload_contents"]
@@ -359,14 +355,14 @@ def file_upload_callback(**state):
 )
 def regenerate_preview(**state):
     """Regenerate the preview."""
-    log.info("Regenerate preview", extra={"tag": "frontend"})
+    log.info("Regenerate preview")
     job_id = state["job_id"]
 
     preprocess_form_data(state)
     try:
         validated_model = active_form_factory.set_model(state)
     except ValueError:
-        log.debug("Model not valid", extra={"tag": "frontend"})
+        log.debug("Model not valid")
         raise PreventUpdate
 
     validated_model.__dict__["job_id"] = job_id
@@ -423,14 +419,14 @@ def regenerate_preview(**state):
 )
 def form_validation_callback(**state):
     """Validate form inputs and handle submission."""
-    log.info("Form validation callback", extra={"tag": "frontend"})
+    log.info("Form validation callback")
 
     triggered_ids = {
         t["prop_id"].split(".")[0]
         for t in callback_context.triggered
         if t["value"] is not None
     }
-    log.debug(f"Triggered ids: {triggered_ids}", extra={"tag": "frontend"})
+    log.debug(f"Triggered ids: {triggered_ids}")
 
     # Preprocessing: inject predictors, soil_moisture_data, uploads into form_data
     preprocess_form_data(state)
@@ -462,7 +458,7 @@ def form_validation_callback(**state):
     job_id = state["job_id"]
 
     if CHECK_INPUT_BUTTON_INPUT_ID in triggered_ids and valid:
-        log.debug("Submit button clicked", extra={"tag": "job_submission"})
+        log.debug("Submit button clicked")
         validated_model = active_form_factory.set_model(state)
         validated_model.__dict__["job_id"] = job_id
         job = Job(model=validated_model)

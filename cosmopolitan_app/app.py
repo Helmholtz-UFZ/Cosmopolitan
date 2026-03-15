@@ -19,7 +19,7 @@ from cosmopolitan_app.object_storage_manager import create_bucket, setup_remote
 # that already exists, so it must run before imports/inits that create loggers.
 logging.config.dictConfig(get_logger_config_web(DEBUG))
 log = logging.getLogger(__name__)
-log.debug("Web application logging configured.", extra={"tag": "webserver"})
+log.debug("Web application logging configured.")
 
 # Initialize the Dash app
 app = Dash(
@@ -45,9 +45,7 @@ def start_beat_scheduler():
 # Start Beat scheduler as daemon thread
 beat_thread = Thread(target=start_beat_scheduler, daemon=True)
 beat_thread.start()
-log.info(
-    "Celery Beat scheduler started in background thread", extra={"tag": "scheduler"}
-)
+log.info("Celery Beat scheduler started in background thread")
 
 # Serve files
 serve_files(app)

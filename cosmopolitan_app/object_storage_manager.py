@@ -1,4 +1,4 @@
-"""This module provides a class to manage object storage using rclone."""
+"""This module provides functions to manage object storage using rclone."""
 
 import logging
 import os
@@ -46,12 +46,10 @@ def check_result(params: list, result: subprocess.CompletedProcess) -> None:
         if "QuotaExceeded" in error_msg:
             log.error(
                 f"Object storage quota exceeded for command: {call}\n{error_msg}\n{output}",  # noqa
-                extra={"tag": "object_storage"},
             )
         else:
             log.error(
                 f"Command failed: {call}\n{error_msg}\n{output}",
-                extra={"tag": "object_storage"},
             )
         raise ObjectStorageError
 
@@ -80,7 +78,6 @@ def run_rclone_with_retry(params: list) -> subprocess.CompletedProcess:
             if attempt < max_retries - 1:
                 log.warning(
                     f"{' '.join(params)} failed. Retry attempt {attempt + 1}",
-                    extra={"tag": "object_storage"},
                 )
                 time.sleep(retry_delay)
             else:
@@ -95,7 +92,7 @@ def setup_remote() -> None:
     Args:
         dirname: Name of the directory (used for error handling)
     """
-    log.debug("Setting up rclone remote.", extra={"tag": "object_storage"})
+    log.debug("Setting up rclone remote.")
     config_params = [
         "rclone",
         "config",
@@ -120,7 +117,6 @@ def setup_remote() -> None:
 
     log.debug(
         f"Successfully created remote {OBJECT_STORAGE_REMOTE_NAME}",
-        extra={"tag": "object_storage"},
     )
 
 
@@ -187,7 +183,6 @@ def get_files(dirname: str) -> None:
     """
     log.debug(
         f"Downloading files from object storage for {dirname}",
-        extra={"tag": "object_storage"},
     )
     local_path = JOB_WORK_DIR_TEMPLATE.format(job_id=dirname)
     remote_path = f"{OBJECT_STORAGE_REMOTE_NAME}:{OBJECT_STORAGE_BUCKET}/{dirname}"
@@ -203,7 +198,7 @@ def get_files(dirname: str) -> None:
     ]
 
     result = run_rclone_with_retry(sync_params)
-    log.debug(f"Rclone sync result: {result.stdout}", extra={"tag": "object_storage"})
+    log.debug(f"Rclone sync result: {result.stdout}")
 
     # Verify download - check that all remote files are now in local
     # (local may have additional files, which is acceptable with copy)
@@ -212,7 +207,6 @@ def get_files(dirname: str) -> None:
 
     log.debug(
         f"Downloaded {len(local_files_after - local_files_before)} new files to local",
-        extra={"tag": "object_storage"},
     )
 
     # Check that all remote files are present locally
@@ -224,7 +218,7 @@ def get_files(dirname: str) -> None:
             f"Files from local: {sorted(local_files_after)}\n"
             f"Files from remote: {sorted(remote_files)}"
         )
-        log.error(error_msg, extra={"tag": "object_storage"})
+        log.error(error_msg)
         raise ObjectStorageError(error_msg)
 
 
@@ -241,7 +235,6 @@ def save_files(dirname: str) -> None:
     """
     log.debug(
         f"Uploading files to object storage for {dirname}",
-        extra={"tag": "object_storage"},
     )
     local_path = JOB_WORK_DIR_TEMPLATE.format(job_id=dirname)
     remote_path = f"{OBJECT_STORAGE_REMOTE_NAME}:{OBJECT_STORAGE_BUCKET}/{dirname}"
@@ -251,7 +244,6 @@ def save_files(dirname: str) -> None:
     local_files_before = get_local_files(local_path)
     log.debug(
         f"Uploading {len(local_files_before)} files: {sorted(local_files_before)}",
-        extra={"tag": "object_storage"},
     )
 
     # Upload: make remote identical to local
@@ -271,7 +263,6 @@ def save_files(dirname: str) -> None:
 
     log.debug(
         f"Uploaded {len(remote_files_after - remote_files_before)} new files to remote",
-        extra={"tag": "object_storage"},
     )
 
     if local_files != remote_files_after:
@@ -280,7 +271,7 @@ def save_files(dirname: str) -> None:
             f"Files from local: {sorted(local_files)}\n"
             f"Files from remote: {sorted(remote_files_after)}"
         )
-        log.error(error_msg, extra={"tag": "object_storage"})
+        log.error(error_msg)
         raise ObjectStorageError(error_msg)
 
 
@@ -292,7 +283,6 @@ def delete_file_from_storage(filepath: str) -> None:
     """
     log.debug(
         f"Deleting file {filepath} from object storage.",
-        extra={"tag": "object_storage"},
     )
 
     remote_path = f"{OBJECT_STORAGE_REMOTE_NAME}:{OBJECT_STORAGE_BUCKET}/{filepath}"
@@ -307,7 +297,6 @@ def delete_file_from_storage(filepath: str) -> None:
 
     log.debug(
         f"Successfully deleted file {filepath} from object storage",
-        extra={"tag": "object_storage"},
     )
 
 
@@ -319,7 +308,6 @@ def delete_directory_from_storage(dirpath: str) -> None:
     """
     log.debug(
         f"Deleting directory {dirpath} from object storage.",
-        extra={"tag": "object_storage"},
     )
 
     remote_path = f"{OBJECT_STORAGE_REMOTE_NAME}:{OBJECT_STORAGE_BUCKET}/{dirpath}"
@@ -334,15 +322,12 @@ def delete_directory_from_storage(dirpath: str) -> None:
 
     log.debug(
         f"Successfully deleted directory {dirpath} from object storage",
-        extra={"tag": "object_storage"},
     )
 
 
 def create_bucket() -> None:
     """Create the object storage bucket if it doesn't already exist."""
-    log.debug(
-        f"Creating bucket {OBJECT_STORAGE_BUCKET}", extra={"tag": "object_storage"}
-    )
+    log.debug(f"Creating bucket {OBJECT_STORAGE_BUCKET}")
 
     # Check if bucket already exists
     lsd_params = [
@@ -390,13 +375,11 @@ def main():
             setup_remote()
             log.info(
                 "Object storage remote setup completed successfully.",
-                extra={"tag": "object_storage"},
             )
         elif command == "create_bucket":
             create_bucket()
             log.info(
                 "Bucket creation completed successfully.",
-                extra={"tag": "object_storage"},
             )
         else:
             print(f"Unknown command: {command}")
@@ -405,7 +388,7 @@ def main():
             )
             sys.exit(1)
     except ObjectStorageError as e:
-        log.error(f"Failed to execute {command}: {e}", extra={"tag": "object_storage"})
+        log.error(f"Failed to execute {command}: {e}")
         sys.exit(1)
 
 

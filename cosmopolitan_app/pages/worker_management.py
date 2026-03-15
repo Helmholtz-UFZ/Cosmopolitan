@@ -606,10 +606,10 @@ dash.clientside_callback(
 )
 def refresh_data(refresh_clicks):
     """Refresh all worker and task data."""
-    log.info("Refreshing worker data", extra={"tag": "frontend"})
+    log.info("Refreshing worker data")
 
     overview = background_job_manager.get_all_tasks_overview()
-    log.debug(f"Retrieved task overview: {overview}", extra={"tag": "frontend"})
+    log.debug(f"Retrieved task overview: {overview}")
 
     # Format data for display
     worker_cards = format_worker_stats(overview)
@@ -624,7 +624,6 @@ def refresh_data(refresh_clicks):
     log.info(
         f"Refreshed: {len(active_data)} active, {len(reserved_data)} reserved, "
         f"{len(scheduled_data)} scheduled, {len(revoked_data)} revoked tasks",
-        extra={"tag": "frontend"},
     )
 
     return (
@@ -680,9 +679,7 @@ def open_kill_modal(n_clicks, selected_rows):
         f"Duration: {task['duration']}\n"
     )
 
-    log.info(
-        f"Opening kill modal for task {task['task_id']}", extra={"tag": "frontend"}
-    )
+    log.info(f"Opening kill modal for task {task['task_id']}")
 
     return True, task_info
 
@@ -699,7 +696,7 @@ def open_kill_modal(n_clicks, selected_rows):
 def confirm_kill_task(n_clicks, selected_rows):
     """Kill the selected task."""
     if not selected_rows:
-        log.warning("Kill task attempted with no selection", extra={"tag": "frontend"})
+        log.warning("Kill task attempted with no selection")
         # Close modal gracefully, no task to kill
         return False, [], False
 
@@ -708,7 +705,7 @@ def confirm_kill_task(n_clicks, selected_rows):
 
     background_job_manager.revoke_job(task_id, terminate=True)
 
-    log.info(f"Killed task {task_id}", extra={"tag": "frontend"})
+    log.info(f"Killed task {task_id}")
 
     # Close modal, reset selection, hide overlay
     return False, [], False
@@ -751,9 +748,7 @@ def open_cancel_modal(n_clicks, reserved_selected, scheduled_selected):
         f"Queue: {task.get('queue', 'N/A')}\n"  # queue absent for active/revoked tasks
     )
 
-    log.info(
-        f"Opening cancel modal for task {task['task_id']}", extra={"tag": "frontend"}
-    )
+    log.info(f"Opening cancel modal for task {task['task_id']}")
 
     return True, task_info
 
@@ -778,9 +773,7 @@ def confirm_cancel_task(n_clicks, reserved_selected, scheduled_selected):
         task = scheduled_selected[0]
 
     if not task:
-        log.warning(
-            "Cancel task attempted with no selection", extra={"tag": "frontend"}
-        )
+        log.warning("Cancel task attempted with no selection")
         # Close modal gracefully, no task to cancel
         return False, [], [], False
 
@@ -788,7 +781,7 @@ def confirm_cancel_task(n_clicks, reserved_selected, scheduled_selected):
 
     background_job_manager.revoke_job(task_id, terminate=False)
 
-    log.info(f"Cancelled task {task_id}", extra={"tag": "frontend"})
+    log.info(f"Cancelled task {task_id}")
 
     # Close modal, reset selections, hide overlay
     return False, [], [], False

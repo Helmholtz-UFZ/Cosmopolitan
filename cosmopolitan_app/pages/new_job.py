@@ -44,7 +44,7 @@ header = create_header(
 
 def layout():
     """Layout for the new job page."""
-    log.info("Create new job page", extra={"tag": "job_submission"})
+    log.info("Create new job page")
     job_id = find_unique_job_id()
 
     return page_container_column_layout(
@@ -95,7 +95,7 @@ def layout():
 )
 def prepare_input(n_clicks, job_id):
     """Prepare the input for the new job."""
-    log.info("Prepare input", extra={"tag": "frontend"})
+    log.info("Prepare input")
     if n_clicks is None:
         raise PreventUpdate
     # This will create the job in database etc
@@ -113,7 +113,7 @@ def prepare_input(n_clicks, job_id):
 )
 def validate_new_job_id(job_id):
     """Validate the job ID."""
-    log.info("Validate job ID", extra={"tag": "job_submission"})
+    log.info("Validate job ID")
     try:
         validate_job_id(job_id)
     except ValueError as e:

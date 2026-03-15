@@ -70,7 +70,6 @@ class BackgroundJobManager:
         """
         log.info(
             f"Submitting computation job {job.job_id} to Celery",
-            extra={"tag": "job_submission"},
         )
 
         # Submit to Celery (pass job_id, not job object)
@@ -89,7 +88,6 @@ class BackgroundJobManager:
 
         log.info(
             f"Job {job.job_id} submitted with Celery task ID: {result.id}",
-            extra={"tag": "job_submission"},
         )
 
         return result.id, False
@@ -127,7 +125,6 @@ class BackgroundJobManager:
         except CeleryError as e:
             log.debug(
                 f"Could not get result info for task {task_id}: {e}",
-                extra={"tag": "worker"},
             )
 
         return {"task_name": task_name, "status": status}
@@ -142,7 +139,6 @@ class BackgroundJobManager:
         self.app.control.revoke(task_id, terminate=terminate)
         log.info(
             f"Task {task_id} revoked (terminate={terminate})",
-            extra={"tag": "job_submission"},
         )
 
     def get_all_tasks_overview(self) -> dict:

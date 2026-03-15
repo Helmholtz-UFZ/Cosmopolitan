@@ -4,7 +4,7 @@ This page provides a powerful interface for exploring the cosmic ray neutron sen
 measurement data stored in the database. You can:
 
 - Filter measurements by date range, sensor type, and geographic area
-- Define search areas using coordinates or by drawing on a map
+- Define search areas using geographic coordinates
 - View measurement data in a detailed, sortable table
 - Generate statistical summaries of queried data
 - Export filtered results to CSV format for external analysis
@@ -553,7 +553,6 @@ def load_measurement_data(
         f"Loading measurement data with filters: types={selected_types}, "
         f"date_range={start_date} to {end_date}, representative={representative_only}, "
         f"bbox=({min_lon}, {min_lat}, {max_lon}, {max_lat}), projection={projection}",
-        extra={"tag": "database"},
     )
 
     # Convert date strings to datetime objects
@@ -572,7 +571,6 @@ def load_measurement_data(
         bbox = transform_bbox_coordinates(bbox, projection, "EPSG:4326")
         log.info(
             f"Transformed bbox from EPSG:{projection} to EPSG:4326: {bbox}",
-            extra={"tag": "frontend"},
         )
 
     # Get measurement data

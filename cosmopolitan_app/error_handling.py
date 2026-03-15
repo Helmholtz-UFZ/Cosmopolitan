@@ -200,7 +200,7 @@ error_modal = dbc.Modal(
 
 def handle_error(error):
     """Handle the error and return a formatted message."""
-    log.debug(f"Error: {error}", extra={"tag": "frontend"})
+    log.debug(f"Error: {error}")
 
     if not isinstance(
         error,
@@ -225,10 +225,9 @@ def handle_error(error):
             log.error(
                 "Failed to send maintainer error email",
                 exc_info=True,
-                extra={"tag": "frontend"},
             )
-        log.error(f"Unhandled error: {error}", extra={"tag": "frontend"})
-        log.error(email_body, extra={"tag": "frontend"})
+        log.error(f"Unhandled error: {error}")
+        log.error(email_body)
 
     # dispatch lookup: unknown exception types fall back to the generic Exception entry
     error_title = error_responds_dict.get(type(error), error_responds_dict[Exception])[
@@ -247,8 +246,8 @@ def handle_error(error):
         # If the error does not have a job_id attribute, we just use the message as is.
         pass
 
-    log.error(f"{error_title}: {error_message}", extra={"tag": "frontend"})
-    log.error(f"Error details: {traceback.format_exc()}", extra={"tag": "frontend"})
+    log.error(f"{error_title}: {error_message}")
+    log.error(f"Error details: {traceback.format_exc()}")
     set_props(ERROR_MODAL_SHARED_ID, {"is_open": True})
     set_props(ERROR_TITLE_DIV_SHARED_ID, {"children": error_title})
     set_props(ERROR_MESSAGE_DIV_SHARED_ID, {"children": error_message})

@@ -117,7 +117,7 @@ class DocumentationGenerator:
         self.user_workflow_pages = USER_WORKFLOW_PAGES
         self.admin_pages = ADMIN_PAGES
         self.excluded_pages = EXCLUDED_PAGES
-        log.info("Documentation generator initialized", extra={"tag": "maintenance"})
+        log.info("Documentation generator initialized")
 
     def extract_docstring(self, module_name: str) -> tuple[str, str]:
         """Extract docstring from a page module by parsing the file.
@@ -221,7 +221,7 @@ class DocumentationGenerator:
         Returns:
             str: Complete markdown documentation
         """
-        log.info("Generating documentation", extra={"tag": "maintenance"})
+        log.info("Generating documentation")
 
         # Generate all sections
         intro = self.generate_introduction_section()
@@ -231,7 +231,7 @@ class DocumentationGenerator:
         # Combine all sections with footer
         full_doc = intro + workflow + admin + FOOTER_TEMPLATE + "\n"
 
-        log.info("Documentation generated successfully", extra={"tag": "maintenance"})
+        log.info("Documentation generated successfully")
         return full_doc
 
     def write_static_documentation(self, output_file: Path, version_file: Path) -> None:
@@ -277,7 +277,6 @@ def generate_documentation(
 
     log.info(
         f"Generating documentation for version {get_app_version()}",
-        extra={"tag": "maintenance"},
     )
 
     # Define output paths
@@ -289,36 +288,30 @@ def generate_documentation(
     screenshots_dir.mkdir(exist_ok=True)
 
     # Generate screenshots
-    log.info("Starting screenshot generation...", extra={"tag": "maintenance"})
+    log.info("Starting screenshot generation...")
     screenshot_gen = ScreenshotGenerator(job_id_finished, job_id_new, headless=headless)
 
     try:
         # Generate all screenshots (fails on first error)
         # Assumes dev_up.sh mock is already running
         screenshot_gen.generate_all_screenshots(screenshots_dir)
-        log.info("All screenshots captured successfully", extra={"tag": "maintenance"})
+        log.info("All screenshots captured successfully")
 
         # Generate static documentation
-        log.info(
-            "Generating static documentation files...", extra={"tag": "maintenance"}
-        )
+        log.info("Generating static documentation files...")
         doc_gen = DocumentationGenerator()
         doc_gen.write_static_documentation(
             output_file=docs_dir / "documentation.md",
             version_file=docs_dir / "doc_version.txt",
         )
 
-        log.info("Documentation generated successfully!", extra={"tag": "maintenance"})
+        log.info("Documentation generated successfully!")
         log.info(
             f"  - Markdown: {docs_dir / 'documentation.md'}",
-            extra={"tag": "maintenance"},
         )
-        log.info(
-            f"  - Version: {docs_dir / 'doc_version.txt'}", extra={"tag": "maintenance"}
-        )
+        log.info(f"  - Version: {docs_dir / 'doc_version.txt'}")
         log.info(
             f"  - Screenshots: {screenshots_dir}/ (11 files)",
-            extra={"tag": "maintenance"},
         )
 
         return 0

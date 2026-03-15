@@ -79,7 +79,6 @@ class ScreenshotGenerator:
 
         log.info(
             f"WebDriver initialized (headless={self.headless}, viewport={self.viewport_size})",  # noqa
-            extra={"tag": "maintenance"},
         )
 
         return driver
@@ -131,7 +130,6 @@ class ScreenshotGenerator:
 
         log.info(
             f"Capturing screenshot: {page_name} from {url}",
-            extra={"tag": "maintenance"},
         )
 
         # Navigate to page
@@ -144,7 +142,7 @@ class ScreenshotGenerator:
         # Capture screenshot
         self.driver.save_screenshot(str(output_path))
 
-        log.info(f"Screenshot saved: {output_path}", extra={"tag": "maintenance"})
+        log.info(f"Screenshot saved: {output_path}")
 
     def generate_all_screenshots(self, output_dir: Path) -> None:
         """Capture screenshots for all documentation pages.
@@ -159,16 +157,15 @@ class ScreenshotGenerator:
         """
         log.info(
             f"Starting screenshot generation to {output_dir}",
-            extra={"tag": "maintenance"},
         )
 
         # Setup WebDriver
         self.driver = self.setup_driver()
 
         # Verify server is accessible
-        log.info(f"Checking server at {self.base_url}...", extra={"tag": "maintenance"})
+        log.info(f"Checking server at {self.base_url}...")
         urllib.request.urlopen(self.base_url, timeout=5)
-        log.info(f"Server accessible at {self.base_url}", extra={"tag": "maintenance"})
+        log.info(f"Server accessible at {self.base_url}")
 
         # Capture all screenshots (no try/except - fail fast)
         for init_wait_time, page_name, page_url, page_title in PAGES_TO_SCREENSHOT:
@@ -180,11 +177,10 @@ class ScreenshotGenerator:
 
         log.info(
             f"All {len(PAGES_TO_SCREENSHOT)} screenshots captured successfully",
-            extra={"tag": "maintenance"},
         )
 
     def cleanup(self):
         """Clean up WebDriver."""
         if self.driver:
             self.driver.quit()
-            log.info("WebDriver closed", extra={"tag": "maintenance"})
+            log.info("WebDriver closed")

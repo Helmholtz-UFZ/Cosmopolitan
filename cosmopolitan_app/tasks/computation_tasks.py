@@ -38,8 +38,8 @@ class ComputationTask(Task):
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         """Handle task failure."""
-        log.error(f"Task {task_id} failed: {exc}", extra={"tag": "worker"})
-        log.error(f"Traceback: {einfo}", extra={"tag": "worker"})
+        log.error(f"Task {task_id} failed: {exc}")
+        log.error(f"Traceback: {einfo}")
 
 
 def start_computation_task(self, job_id):
@@ -51,17 +51,17 @@ def start_computation_task(self, job_id):
     This replaces the original start_computation function from job.py
     with a Celery-compatible version.
     """
-    log.info(f"Starting computation for job {job_id}", extra={"tag": "worker"})
+    log.info(f"Starting computation for job {job_id}")
     try:
         job = Job(job_id=job_id)
-        log.debug("Job loaded", extra={"tag": "worker"})
+        log.debug("Job loaded")
 
         dictConfig(get_logger_config_worker())
 
         try:
             send_submission_mail(job)
         except SMTPAuthenticationError:
-            log.error("Failed to send submission mail.", extra={"tag": "worker"})
+            log.error("Failed to send submission mail.")
 
         dictConfig(
             get_logger_config_compuation(os.path.join(job.working_dir, LOG_FILE_NAME))
@@ -75,17 +75,17 @@ def start_computation_task(self, job_id):
 
         flush_all_handlers()
         dictConfig(get_logger_config_worker())
-        log.info("Computation finished.", extra={"tag": "worker"})
+        log.info("Computation finished.")
 
         job.save()
         try:
             send_finished_mail(job)
         except SMTPAuthenticationError:
-            log.error("Failed to send finished mail.", extra={"tag": "worker"})
+            log.error("Failed to send finished mail.")
     except Exception as e:  # catch-all: must log, email, and mark job FAILED  # noqa
         # Log error to log file
-        log.error("An error occurred", extra={"tag": "worker"})
-        log.error(traceback.format_exc(), extra={"tag": "worker"})
+        log.error("An error occurred")
+        log.error(traceback.format_exc())
         # Ensure all log buffers are flushed before switching config
         flush_all_handlers()
         # Log error to web logs
@@ -101,7 +101,6 @@ def start_computation_task(self, job_id):
             log.error(
                 "Failed to send task failure email",
                 exc_info=True,
-                extra={"tag": "worker"},
             )
         job.status = "FAILED"
         job.save()

@@ -311,7 +311,6 @@ TIME_ERROR_DIV_LOGS_ID = "time-error-div-logs-id"
 
 # --- Dropdowns ---
 LOG_LEVELS_DROPDOWN_LOGS_ID = "log-levels-dropdown-logs-id"
-LOG_TAGS_DROPDOWN_LOGS_ID = "log-tags-dropdown-logs-id"
 
 # --- Input Groups ---
 TIME_INPUT_GROUP_LOGS_ID = "time-input-group-logs-id"

@@ -4,9 +4,6 @@ This is the home page where you start your journey. COSMOPOLITAN (COSmic ray bas
 soil MOisture PredictiOn LIve Tree ANalysis) is a web service that analyzes cosmic
 ray neutron sensor data to predict soil moisture content using machine learning models.
 
-From here, you can begin creating a new prediction job to analyze soil moisture data
-for your area of interest.
-
 NOTE: This docstring is displayed on the documentation webpage.
 """
 

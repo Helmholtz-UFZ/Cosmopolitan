@@ -368,7 +368,7 @@ def start_update(n_clicks):
             True,
         )
     except (ConnectionError, OSError, RuntimeError, KombuOperationalError) as e:
-        log.error(f"Failed to submit CRNS update task: {e}", extra={"tag": "time_io"})
+        log.error(f"Failed to submit CRNS update task: {e}")
         raise RedisConnectionError() from e
 
 
@@ -526,4 +526,4 @@ def get_logs_for_run(run: dict | None):
     if not logs:
         return "No logs found for this update run."
 
-    return format_logs_list(logs, show_tag=False, show_pid=False)
+    return format_logs_list(logs, show_pid=False)

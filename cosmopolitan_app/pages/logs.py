@@ -5,7 +5,6 @@ system activity, debug issues, and monitor operations. You can:
 
 - Filter logs by date and time range
 - Select specific log levels (Debug, Info, Warning, Error, Critical)
-- Filter by functional area using tags (job_submission, database, frontend, etc.)
 - Filter by process ID to track specific worker or server processes
 - Exclude specific modules from the output
 - Enable live mode for automatic 10-second polling (on by default)
@@ -13,9 +12,8 @@ system activity, debug issues, and monitor operations. You can:
 - Refresh logs on demand to see latest entries
 
 Logs are stored in the database and include timestamps, log levels, logger names,
-messages, and optional tags categorizing the log by system component. This is the
-primary tool for understanding system behavior, diagnosing problems, and monitoring
-background job execution.
+and messages. This is the primary tool for understanding system behavior, diagnosing
+problems, and monitoring background job execution.
 
 NOTE: This docstring is displayed on the documentation webpage.
 """
@@ -34,7 +32,6 @@ from cosmopolitan_app.constants import (
     LIVE_MODE_CHECKLIST_LOGS_ID,
     LOG_LEVELS_DROPDOWN_LOGS_ID,
     LOG_OUTPUT_DIV_LOGS_ID,
-    LOG_TAGS_DROPDOWN_LOGS_ID,
     MODULE_EXCLUDE_DROPDOWN_LOGS_ID,
     PID_INPUT_LOGS_ID,
     PID_RADIO_CHECKLIST_LOGS_ID,
@@ -45,7 +42,6 @@ from cosmopolitan_app.constants import (
     TIME_INPUT_GROUP_LOGS_ID,
 )
 from cosmopolitan_app.layouts import create_header, page_container_column_layout
-from cosmopolitan_app.logger import log_categories
 from cosmopolitan_app.logs_table import format_logs_list
 from cosmopolitan_app.postgres_manager import PostgresManager
 
@@ -150,7 +146,7 @@ def layout():
         ),
     ]
 
-    # Row 2: Log levels + Tags + PID + Module exclusion
+    # Row 2: Log levels + PID + Module exclusion
     log_levels = [
         html.Label("Log Levels"),
         dcc.Dropdown(
@@ -163,20 +159,6 @@ def layout():
                 {"label": "Critical", "value": "CRITICAL"},
             ],
             value=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-            multi=True,
-        ),
-    ]
-
-    available_tags = [tag for tags in log_categories.values() for tag in tags]
-    tag_options = [
-        {"label": tag.replace("_", " ").title(), "value": tag} for tag in available_tags
-    ]
-    tag_filter = [
-        html.Label("Tag"),
-        dcc.Dropdown(
-            id=LOG_TAGS_DROPDOWN_LOGS_ID,
-            options=tag_options,
-            value=available_tags,
             multi=True,
         ),
     ]
@@ -243,10 +225,9 @@ def layout():
                 ),
                 dbc.Row(
                     [
-                        dbc.Col(log_levels, width=3),
-                        dbc.Col(tag_filter, width=3),
-                        dbc.Col(pid_selector, width=3),
-                        dbc.Col(module_exclusion, width=3),
+                        dbc.Col(log_levels, width=4),
+                        dbc.Col(pid_selector, width=4),
+                        dbc.Col(module_exclusion, width=4),
                     ],
                     className="mb-4",
                 ),
@@ -280,7 +261,6 @@ def _query_and_format(
     levels,
     pid_checklist,
     pid,
-    tag,
     excluded_modules,
 ):
     """Validate inputs, query DB, return (content, disabled_pid, error, class)."""
@@ -315,14 +295,13 @@ def _query_and_format(
         end_minute,
         levels,
         pid,
-        tag,
         excluded_modules,
     )
 
     if not logs:
         return "No logs found for the selected criteria.", disabled_pid, "", ""
 
-    return format_logs_list(logs, show_tag=True, show_pid=True), disabled_pid, "", ""
+    return format_logs_list(logs, show_pid=True), disabled_pid, "", ""
 
 
 def _no_update_result():
@@ -370,7 +349,6 @@ def _no_update_result():
         "end_hour": State(END_HOUR_INPUT_LOGS_ID, "value"),
         "end_minute": State(END_MINUTE_INPUT_LOGS_ID, "value"),
         "levels": State(LOG_LEVELS_DROPDOWN_LOGS_ID, "value"),
-        "tag": State(LOG_TAGS_DROPDOWN_LOGS_ID, "value"),
         "pid_checklist": State(PID_RADIO_CHECKLIST_LOGS_ID, "value"),
         "pid": State(PID_INPUT_LOGS_ID, "value"),
         "excluded_modules": State(MODULE_EXCLUDE_DROPDOWN_LOGS_ID, "value"),
@@ -387,7 +365,6 @@ def log_manager(
     end_hour,
     end_minute,
     levels,
-    tag,
     pid_checklist,
     pid,
     excluded_modules,
@@ -415,7 +392,6 @@ def log_manager(
                 levels,
                 pid_checklist,
                 pid,
-                tag,
                 excluded_modules,
             )
             return {
@@ -445,7 +421,6 @@ def log_manager(
             levels,
             pid_checklist,
             pid,
-            tag,
             excluded_modules,
         )
         result = _no_update_result()
@@ -476,7 +451,6 @@ def log_manager(
             levels,
             pid_checklist,
             pid,
-            tag,
             excluded_modules,
         )
         result = _no_update_result()
@@ -502,7 +476,6 @@ def log_manager(
             levels,
             pid_checklist,
             pid,
-            tag,
             excluded_modules,
         )
         result = _no_update_result()

@@ -174,9 +174,7 @@ def layout(job_id):
 )
 def load_submission_content(job_id, header_class_name):
     """Load the main submission content triggered by job-id-store."""
-    log.info(
-        f"Loading submission content for job {job_id}", extra={"tag": "job_submission"}
-    )
+    log.info(f"Loading submission content for job {job_id}")
     job = Job(job_id)
 
     # Create the header with job information
@@ -186,9 +184,7 @@ def load_submission_content(job_id, header_class_name):
     # Generate preview
     preview_path = job.get_preview_path()
     if preview_path is None:
-        log.info(
-            "No preview path found, generating new preview.", extra={"tag": "frontend"}
-        )
+        log.info("No preview path found, generating new preview.")
         job.preview_area()
         preview_path = job.get_preview_path()
 
@@ -349,7 +345,7 @@ def submission_manager(
 ):
     """Reload the logs."""
     job_id = path_name.split("/")[-1]
-    log.info(f"Submission manager for {job_id}", extra={"tag": "job_submission"})
+    log.info(f"Submission manager for {job_id}")
     triggered_ids = {
         t["prop_id"].split(".")[0]
         for t in callback_context.triggered
@@ -357,7 +353,7 @@ def submission_manager(
     }
     num_outputs = len(dash.callback_context.outputs_list)
     input_base_path = dash.page_registry["pages.input"]["path_template"]
-    log.debug(f"Triggered ids: {triggered_ids}", extra={"tag": "frontend"})
+    log.debug(f"Triggered ids: {triggered_ids}")
     job = Job(job_id)
     if SUBMIT_JOB_BUTTON_SUBMISSION_ID in triggered_ids:
         job.delete_logs()

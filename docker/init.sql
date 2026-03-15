@@ -39,13 +39,11 @@ CREATE TABLE IF NOT EXISTS logs (
     pid INTEGER NOT NULL,
     level VARCHAR(10) NOT NULL,
     module VARCHAR(50) NOT NULL,
-    message TEXT NOT NULL,
-    tag VARCHAR(20) NOT NULL DEFAULT 'unknown'
+    message TEXT NOT NULL
 );
 
 --Create indexes to improve query performance
 CREATE INDEX IF NOT EXISTS logs_timestamp_idx ON logs (timestamp);
-CREATE INDEX IF NOT EXISTS logs_tag_idx ON logs (tag);
 
 -- Table to store update times and success status
 DROP TABLE IF EXISTS update_times_crns;
