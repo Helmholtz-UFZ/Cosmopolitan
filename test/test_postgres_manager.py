@@ -2,13 +2,11 @@
 
 import datetime
 
+from cosmopolitan_app.postgres_manager import PostgresManager
+
 
 def test_postgres_manager():
     """Test the postgres_manager class."""
-    # Set up logger inside the test function so pytest only show logs of failed tests
-    # Need to import here to assure that the .env is set up before import
-    from cosmopolitan_app.postgres_manager import PostgresManager
-
     job_id = "job123"
 
     data_to_insert = {

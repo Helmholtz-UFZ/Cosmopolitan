@@ -40,7 +40,9 @@ def test_worker_management_workflow(celery_worker, logger):
     # Step 1: Submit long running task which takes some time to execute
     logger.info("Submitting long running test task to maintenance queue...")
     result = background_job_manager.app.send_task(
-        NAME_TEST_TASK, args=[60], queue="maintenance"  # Run for 60 seconds
+        NAME_TEST_TASK,
+        args=[60],
+        queue="maintenance",  # Run for 60 seconds
     )
     task_id = result.id
     logger.info(f"Task submitted with ID: {task_id}")

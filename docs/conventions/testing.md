@@ -28,8 +28,7 @@ to preserve them across runs).
 - All tests go in `test/` (flat directory, no subdirectories)
 - Use constants from `cosmopolitan_app/constants.py` for element IDs in Playwright
   locators — never literal ID strings
-- All imports at top level — except `test_postgres_manager.py` which deliberately
-  imports inside the test function (documented exception)
+- All imports at top level (lazy-loading managers make this safe even for DB/service modules)
 - When adding a required env var, update `test_env.py`'s `additional_lines_map` for
   `env_prod`
 

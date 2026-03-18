@@ -5,7 +5,6 @@ circular import: tasks/*.py → job → this module → tasks/*.py.
 """
 
 import logging
-import time
 from logging.config import dictConfig
 
 from celery import Celery
@@ -187,12 +186,14 @@ class BackgroundJobManager:
         }
 
 
-# Module-level singleton — instantiated on first import.
-background_job_manager = BackgroundJobManager()
+_background_job_manager = None
 
-if __name__ == "__main__":
-    print("BackgroundJobManager initialized with Celery app:")
-    while True:
-        overview = background_job_manager.get_all_tasks_overview()
-        print(f"Retrieved task overview: {overview}")
-        time.sleep(2)
+
+def __getattr__(name):
+    """Lazy singleton — BackgroundJobManager is created on first access, not on import."""  # noqa
+    global _background_job_manager
+    if name == "background_job_manager":
+        if _background_job_manager is None:
+            _background_job_manager = BackgroundJobManager()
+        return _background_job_manager
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

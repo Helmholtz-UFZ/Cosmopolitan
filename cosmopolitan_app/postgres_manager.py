@@ -92,24 +92,32 @@ class SessionScope:
 class PostgresManager:
     """Class for interacting with the posgres database."""
 
-    database_url = (
-        f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@"
-        f"{POSTGRES_HOST_NAME}:{POSTGRES_PORT}/{POSTGRES_DB}"
-    )
-    engine = create_engine(
-        database_url,
-        pool_pre_ping=True,
-        pool_size=5,
-        max_overflow=10,
-        pool_timeout=30,
-        pool_recycle=1800,
-    )
-    Session = sessionmaker(bind=engine)
+    _engine = None
+    _Session = None
+
+    @classmethod
+    def _get_session(cls):
+        """Return the session factory, creating the engine on first call."""
+        if cls._Session is None:
+            database_url = (
+                f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@"
+                f"{POSTGRES_HOST_NAME}:{POSTGRES_PORT}/{POSTGRES_DB}"
+            )
+            cls._engine = create_engine(
+                database_url,
+                pool_pre_ping=True,
+                pool_size=5,
+                max_overflow=10,
+                pool_timeout=30,
+                pool_recycle=1800,
+            )
+            cls._Session = sessionmaker(bind=cls._engine)
+        return cls._Session
 
     @classmethod
     def session_scope(cls):
         """Provide a transactional scope around a series of operations."""
-        return SessionScope(session_factory=cls.Session)
+        return SessionScope(session_factory=cls._get_session())
 
     @classmethod
     def query_distinct_modules(cls) -> List[str]:
