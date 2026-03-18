@@ -39,6 +39,6 @@ def test_stream_options():
         assert stream in stream_dic, f"Missing expected stream: {stream}"
 
     for stream in stream_dic.keys():
-        assert (
-            stream in expected_streams
-        ), f"Found unexpected stream in stream_dic: {stream}"
+        assert stream in expected_streams, (
+            f"Found unexpected stream in stream_dic: {stream}"
+        )

@@ -115,9 +115,9 @@ def test_full_procedure(
 
     # Upload predictor files
     pred_field_name = "predictor_upload"
-    assert (
-        pred_field_name in ModelWebsite.model_fields
-    ), "Predictor field not found in pymodel"
+    assert pred_field_name in ModelWebsite.model_fields, (
+        "Predictor field not found in pymodel"
+    )
     pred_upload_id = active_form_factory.id_format.format(field_name=pred_field_name)
     selected_pred_id = active_form_template_factory.selected_predictors_key
     for pred_file_path in pred_file_paths:
@@ -143,9 +143,9 @@ def test_full_procedure(
 
     crns_file_name = str(crns_file_path.name)
     crns_field_name = "crns_upload"
-    assert (
-        crns_field_name in ModelWebsite.model_fields
-    ), "CRNS field not found in pymodel"
+    assert crns_field_name in ModelWebsite.model_fields, (
+        "CRNS field not found in pymodel"
+    )
     crns_upload_id = active_form_factory.id_format.format(field_name=crns_field_name)
 
     page.locator(f"#{crns_upload_id} input[type='file']").set_input_files(
@@ -200,12 +200,12 @@ def test_full_procedure(
 
     # Verify email notifications were logged by the worker
     worker_log = worker_log_path.read_text()
-    assert (
-        "Send mail about submitted job" in worker_log
-    ), "Worker log missing submission email log"
-    assert (
-        "Send mail about finished job" in worker_log
-    ), "Worker log missing finished email log"
+    assert "Send mail about submitted job" in worker_log, (
+        "Worker log missing submission email log"
+    )
+    assert "Send mail about finished job" in worker_log, (
+        "Worker log missing finished email log"
+    )
 
     # Verify notification flag in DB
     # Extract job_id from the download link (available after results page)
@@ -214,9 +214,9 @@ def test_full_procedure(
     current_url = page.url
     job_id = current_url.split("/submission/")[-1].split("/")[0].split("?")[0]
     job_data = PostgresManager.get_job_columns(job_id)
-    assert (
-        job_data["notified_end"] is True
-    ), "Expected notified_end=True in DB after job completion"
+    assert job_data["notified_end"] is True, (
+        "Expected notified_end=True in DB after job completion"
+    )
 
     page.locator(f"#{RESULT_BUTTON_SUBMISSION_ID}").scroll_into_view_if_needed()
     page.locator(f"#{RESULT_BUTTON_SUBMISSION_ID}").click()
