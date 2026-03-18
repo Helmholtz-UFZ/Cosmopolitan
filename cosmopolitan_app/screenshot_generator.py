@@ -26,7 +26,7 @@ PAGES_TO_SCREENSHOT = [
     # Admin pages (6 pages)
     (1, "job_management", "/job-management", "Job Management"),
     (3, "sensor_management", "/sensor_management", "Sensor Management"),
-    (1, "measurment_view", "/measurment-view", "Measurement Database"),
+    (1, "measurement_view", "/measurement-view", "Measurement Database"),
     (1, "crns_db_admin", "/crns-admin", "CRNS Database Administration"),
     (1, "logs", "/logs", "Application Logs"),
     (1, "worker_management", "/worker_management", "Worker Management"),

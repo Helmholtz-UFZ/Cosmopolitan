@@ -85,7 +85,7 @@ USER_WORKFLOW_PAGES = [
 ADMIN_PAGES = [
     ("job_management", "Job Management"),
     ("sensor_management", "Sensor Management"),
-    ("measurment_view", "Measurement Database"),
+    ("measurement_view", "Measurement Database"),
     ("crns_db_admin", "CRNS Database Administration"),
     ("logs", "Application Logs"),
     ("worker_management", "Worker Management"),

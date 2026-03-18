@@ -25,7 +25,7 @@ log.debug("Web application logging configured.")
 app = Dash(
     __name__,
     use_pages=True,
-    prevent_initial_callbacks="initial_duplicate",
+    prevent_initial_callbacks=True,
     suppress_callback_exceptions=True,
     on_error=handle_error,
 )

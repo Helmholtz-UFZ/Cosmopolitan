@@ -28,6 +28,11 @@ same anti-patterns/coding rules. Key differences:
 When the user references "cosmonaut" they mean this project. Patterns and fixes in one
 project often apply symmetrically to the other.
 
+## Convention Philosophy
+
+All conventions are norms, not hard rules. A convention may be violated when there is a
+good reason — but the violation must be accompanied by a comment explaining why.
+
 ## Critical Anti-Patterns
 
 **DO NOT:**

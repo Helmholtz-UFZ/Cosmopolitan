@@ -50,7 +50,7 @@ Service requirements vary by test:
 | Test file | Services needed |
 |-----------|----------------|
 | `test_postgres_manager.py` | Postgres |
-| `test_update_measurments.py` | Postgres |
+| `test_update_measurements.py` | Postgres |
 | `test_background_job_manager.py` | Redis, Celery worker |
 | `test_env.py` | None (reads env files only) |
 | `test_smp_assumptions.py` | None (checks data structures only) |

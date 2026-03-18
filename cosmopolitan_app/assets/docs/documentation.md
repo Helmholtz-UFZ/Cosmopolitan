@@ -203,7 +203,7 @@ timestamps from various sensor types (stationary, mobile rovers, and trains). Th
 tool is useful for data exploration, quality checking, and understanding sensor
 coverage patterns.
 
-<img src="/assets/docs/screenshots/measurment_view.png" alt="Measurement Database" style="max-width: 100%; height: auto;" />
+<img src="/assets/docs/screenshots/measurement_view.png" alt="Measurement Database" style="max-width: 100%; height: auto;" />
 
 ### CRNS Database Administration
 

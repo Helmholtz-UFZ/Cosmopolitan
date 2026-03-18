@@ -129,7 +129,7 @@ def create_navbar():
                                             "Measurements",
                                         ],
                                         href=dash.page_registry[
-                                            "pages.measurment_view"
+                                            "pages.measurement_view"
                                         ]["relative_path"],
                                     )
                                 ),

@@ -10,8 +10,8 @@ from celery import Task
 
 from cosmopolitan_app.config import MAINTAINER_EMAIL, WEB_WORK_DIR
 from cosmopolitan_app.constants import (
-    DAYS_DELETE_NOT_SUMBITTED,
-    DAYS_DELETE_SUMBITTED,
+    DAYS_DELETE_NOT_SUBMITTED,
+    DAYS_DELETE_SUBMITTED,
     LOG_RETENTION_DAYS,
 )
 from cosmopolitan_app.object_storage_manager import delete_directory_from_storage
@@ -23,8 +23,8 @@ log = logging.getLogger(__name__)
 
 
 def clean_up_jobs(
-    days_delete_not_submitted=DAYS_DELETE_NOT_SUMBITTED,
-    days_delete_submitted=DAYS_DELETE_SUMBITTED,
+    days_delete_not_submitted=DAYS_DELETE_NOT_SUBMITTED,
+    days_delete_submitted=DAYS_DELETE_SUBMITTED,
 ):
     """Delete jobs depending on their status and age."""
     log.info("Start cleaning up jobs.")

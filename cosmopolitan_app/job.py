@@ -32,8 +32,8 @@ from werkzeug.utils import secure_filename
 from cosmopolitan_app.background_job_manager import background_job_manager
 from cosmopolitan_app.config import JOB_WORK_DIR_TEMPLATE, MAINTAINER_EMAIL
 from cosmopolitan_app.constants import (
-    DAYS_DELETE_NOT_SUMBITTED,
-    DAYS_DELETE_SUMBITTED,
+    DAYS_DELETE_NOT_SUBMITTED,
+    DAYS_DELETE_SUBMITTED,
     LOG_FILE_NAME,
 )
 from cosmopolitan_app.error_handling import (
@@ -739,9 +739,9 @@ class Job:
         """Return the number of days after which this job will be deleted."""
         days_passed = (date.today() - self.start_date).days
         if self.submitted:
-            return DAYS_DELETE_SUMBITTED - days_passed
+            return DAYS_DELETE_SUBMITTED - days_passed
         else:
-            return DAYS_DELETE_NOT_SUMBITTED - days_passed
+            return DAYS_DELETE_NOT_SUBMITTED - days_passed
 
     def status_color(self):
         """Return the color of the job status."""
