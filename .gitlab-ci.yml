@@ -40,9 +40,8 @@ linting:
     - "pip install uv"
     - "uv sync"
   script:
-    - "uv run black --check ."
-    - "uv run isort --check --profile black ."
-    - "uv run flake8 --max-line-length 88 --ignore=E203,W503 --exclude .venv"
+    - "uv run ruff format --check ."
+    - "uv run ruff check ."
 
 test:
   stage: "test"

@@ -687,9 +687,7 @@ class Job:
                     self
                 )
 
-            except (
-                Exception
-            ) as e:  # catch-all: submission can fail for many reasons; must report all  # noqa
+            except Exception as e:  # catch-all: submission can fail for many reasons; must report all  # noqa
                 if "Error -3 connecting to redis" in str(e):
                     message = "Redis server is not running"
                     email_body = f"""

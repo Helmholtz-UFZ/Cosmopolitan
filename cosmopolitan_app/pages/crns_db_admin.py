@@ -489,9 +489,7 @@ def format_last_run_info(run: dict | None) -> list:
         "running": "primary",
         "completed": "success",
         "failed": "danger",
-    }.get(
-        status, "secondary"
-    )  # dispatch lookup: fallback for unexpected status values
+    }.get(status, "secondary")  # dispatch lookup: fallback for unexpected status values
 
     return [
         html.P([html.Strong("Start: "), start_time]),

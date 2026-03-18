@@ -247,7 +247,8 @@ dash.clientside_callback(
             HIDDEN_PREDICTOR_UPLOAD_INPUT_INPUT_ID, "value"
         ),
         active_form_template_factory.job_id_key: State(  # nocheck
-            active_form_template_factory.job_id_key, "children"  # nocheck
+            active_form_template_factory.job_id_key,
+            "children",  # nocheck
         ),
     },
     prevent_initial_call=True,
@@ -332,7 +333,8 @@ def file_upload_callback(**state):
 @callback(
     output={
         active_form_template_factory.area_preview_key: Output(  # nocheck
-            active_form_template_factory.area_preview_key, "src"  # nocheck
+            active_form_template_factory.area_preview_key,
+            "src",  # nocheck
         )
     },
     state={
@@ -344,12 +346,14 @@ def file_upload_callback(**state):
             HIDDEN_PREDICTOR_UPLOAD_INPUT_INPUT_ID, "value"
         ),
         active_form_template_factory.job_id_key: State(  # nocheck
-            active_form_template_factory.job_id_key, "children"  # nocheck
+            active_form_template_factory.job_id_key,
+            "children",  # nocheck
         ),
     },
     inputs={
         active_form_template_factory.new_area_preview_key: Input(  # nocheck
-            active_form_template_factory.new_area_preview_key, "n_clicks"  # nocheck
+            active_form_template_factory.new_area_preview_key,
+            "n_clicks",  # nocheck
         )
     },
 )
@@ -390,10 +394,12 @@ def regenerate_preview(**state):
             allow_duplicate=True,
         ),
         active_form_template_factory.selected_crns_key: Output(  # nocheck
-            active_form_template_factory.selected_crns_key, "children"  # nocheck
+            active_form_template_factory.selected_crns_key,
+            "children",  # nocheck
         ),
         active_form_template_factory.selected_predictors_key: Output(  # nocheck
-            active_form_template_factory.selected_predictors_key, "children"  # nocheck
+            active_form_template_factory.selected_predictors_key,
+            "children",  # nocheck
         ),
         "redirect": Output(URL_LOCATION_SHARED_ID, "pathname"),
         "loading_overlay": Output(
@@ -412,7 +418,8 @@ def regenerate_preview(**state):
     },
     state={
         active_form_template_factory.job_id_key: State(  # nocheck
-            active_form_template_factory.job_id_key, "children"  # nocheck
+            active_form_template_factory.job_id_key,
+            "children",  # nocheck
         ),
     },
     prevent_initial_call="initial_duplicate",

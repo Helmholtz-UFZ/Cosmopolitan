@@ -110,9 +110,7 @@ def update_db_task(self):
         """
         try:
             send_mail(MAINTAINER_EMAIL, email_subject, email_body)
-        except (
-            Exception
-        ):  # noqa - must not let email failure crash maintenance error path
+        except Exception:  # noqa - must not let email failure crash maintenance error path
             log.error(
                 "Failed to send maintenance error email",
                 exc_info=True,

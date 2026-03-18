@@ -31,9 +31,7 @@ dev = [
     "pytest-playwright>=0.6.2",
     "python-slugify>=8.0.0",
     "selenium>=4.0.0",
-    "black>=25.1.0,<26",
-    "isort>=6.0.1,<7",
-    "flake8>=7.2.0,<8",
+    "ruff>=0.7.4",
 ]
 
 [tool.pytest.ini_options]
