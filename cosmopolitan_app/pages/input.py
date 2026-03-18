@@ -246,10 +246,12 @@ dash.clientside_callback(
         HIDDEN_PREDICTOR_UPLOAD_INPUT_INPUT_ID: State(
             HIDDEN_PREDICTOR_UPLOAD_INPUT_INPUT_ID, "value"
         ),
+        # fmt: off
         active_form_template_factory.job_id_key: State(  # nocheck
             active_form_template_factory.job_id_key,
             "children",  # nocheck
         ),
+        # fmt: on
     },
     prevent_initial_call=True,
 )
@@ -332,10 +334,12 @@ def file_upload_callback(**state):
 
 @callback(
     output={
+        # fmt: off
         active_form_template_factory.area_preview_key: Output(  # nocheck
             active_form_template_factory.area_preview_key,
             "src",  # nocheck
-        )
+        ),
+        # fmt: on
     },
     state={
         **active_form_factory.produce_callback_inputs(use_state=True),
@@ -345,16 +349,20 @@ def file_upload_callback(**state):
         HIDDEN_PREDICTOR_UPLOAD_INPUT_INPUT_ID: State(
             HIDDEN_PREDICTOR_UPLOAD_INPUT_INPUT_ID, "value"
         ),
+        # fmt: off
         active_form_template_factory.job_id_key: State(  # nocheck
             active_form_template_factory.job_id_key,
             "children",  # nocheck
         ),
+        # fmt: on
     },
     inputs={
+        # fmt: off
         active_form_template_factory.new_area_preview_key: Input(  # nocheck
             active_form_template_factory.new_area_preview_key,
             "n_clicks",  # nocheck
-        )
+        ),
+        # fmt: on
     },
 )
 def regenerate_preview(**state):
@@ -393,6 +401,7 @@ def regenerate_preview(**state):
             "children",
             allow_duplicate=True,
         ),
+        # fmt: off
         active_form_template_factory.selected_crns_key: Output(  # nocheck
             active_form_template_factory.selected_crns_key,
             "children",  # nocheck
@@ -401,6 +410,7 @@ def regenerate_preview(**state):
             active_form_template_factory.selected_predictors_key,
             "children",  # nocheck
         ),
+        # fmt: on
         "redirect": Output(URL_LOCATION_SHARED_ID, "pathname"),
         "loading_overlay": Output(
             LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True
@@ -417,10 +427,12 @@ def regenerate_preview(**state):
         CHECK_INPUT_BUTTON_INPUT_ID: Input(CHECK_INPUT_BUTTON_INPUT_ID, "n_clicks"),
     },
     state={
+        # fmt: off
         active_form_template_factory.job_id_key: State(  # nocheck
             active_form_template_factory.job_id_key,
             "children",  # nocheck
         ),
+        # fmt: on
     },
     prevent_initial_call="initial_duplicate",
 )
