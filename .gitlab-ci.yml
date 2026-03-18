@@ -61,21 +61,14 @@ test:
   variables:
     MINIO_URL: "http://minio:9000"
   before_script:
-    - apt-get update && apt-get install -y postgresql-client libcairo2-dev curl unzip
-
-    # Install rclone
-    - "curl -O https://downloads.rclone.org/rclone-current-linux-amd64.zip"
-    - "unzip rclone-current-linux-amd64.zip"
-    - "cp rclone-*-linux-amd64/rclone /usr/local/bin/"
-    - "chmod +x /usr/local/bin/rclone"
-    - "rm -rf rclone-*"
+    - apt-get update && apt-get install -y postgresql-client libcairo2-dev curl rclone
     - "rclone config create minio s3 provider=Minio access_key_id=${MINIO_ACCESS_KEY} secret_access_key=${MINIO_SECRET_KEY} endpoint=http://minio:9000"
-    - "rclone mkdir minio:cosmopolitan-dev"
+    - "cp env_test .env"
+    - "source .env && rclone mkdir minio:${OBJECT_STORAGE_BUCKET}"
     - "rclone lsd minio:"
 
     - "export PGPASSWORD=${POSTGRES_PASSWORD}"
     - "psql -h ${POSTGRES_HOST_NAME} -U ${POSTGRES_USER} -d ${POSTGRES_DB} < docker/init.sql"
-    - "cp env_test .env"
     - "pip install uv"
     - "uv sync"
     - "uv run playwright install --with-deps chromium"
