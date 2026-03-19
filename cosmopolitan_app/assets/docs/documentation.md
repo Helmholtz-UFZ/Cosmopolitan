@@ -2,7 +2,7 @@
 
 ### COSmic ray based soil MOisture PredictiOn LIve Tree ANalysis
 
-*Last updated: 2026-03-19 10:13:52*
+*Last updated: 2026-03-19 10:30:25*
 
 ## Table of Contents
 1. [Introduction](#introduction)
