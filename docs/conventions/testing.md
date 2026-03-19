@@ -76,6 +76,26 @@ Playwright artifacts are stored in `test/artifacts/` and include:
 - **Server logs**: Python server-side logs (callbacks, validation errors, file operations)
 - **Worker logs**: Celery worker output
 
+**Which artifact to check first:**
+
+| Failure type | Check first |
+|---|---|
+| Element not found / timeout | `test-failed-1.png` — is the element on screen? |
+| Callback race / stuck overlay | `trace.zip` — step through the action timeline |
+| JavaScript error | `console.log` — browser-side errors |
+| Unexpected app behavior | `server.log` — Dash callback logs and exceptions |
+| Background task failure | `worker.log` — Celery worker output and task traces |
+| Layout / rendering issue | `page.html` — inspect the DOM structure |
+
+## CI Pipeline
+
+Tests run in GitLab CI. See `.gitlab-ci.yml` for configuration.
+
+All tests must pass in CI before merging.
+
+On failure, CI uploads `test/artifacts/` as a GitLab artifact (7-day retention).
+Download from the pipeline job page under "Job artifacts".
+
 ## Examples
 
 ### Do

@@ -1,80 +1,271 @@
-# Convention Keeper
+# Skill: Convention Keeper
 
-Audit the codebase for convention violations and fix them systematically.
+Systematic audit of the codebase against all project conventions. Checks each
+convention one at a time, finds violations, asks for clarification when rules are
+ambiguous, and applies fixes with user approval.
 
-## Prerequisites
+---
 
-- Read all convention files in `docs/conventions/` before auditing
+## 1. Clarification Questions
 
-## Steps
+Ask the user before starting:
 
-1. **Pick a convention to audit** — work through one convention at a time rather
-   than checking everything at once
+1. **Scope** — Audit all conventions (Critical Anti-Patterns + detailed convention docs), or only the Critical Anti-Patterns from `CLAUDE.md`?
+2. **Mode** — Audit + Fix (find violations and fix them), or audit-only (report without changing code)?
+3. **Exclusions** — Any files or directories to skip? Default scope is `cosmopolitan_app/**/*.py` (excludes `test/`, `docs/`, generated files).
 
-2. **Search for violations** — use grep/glob patterns specific to each convention:
+---
 
-   **Bootstrap Styling** (`docs/conventions/bootstrap_styling.md`):
-   - `style={` — inline CSS without justifying comment
-   - `class_name=` — should be `className=`
-   - `style={"font-weight":` — should be `className="fw-bold"`
-   - `style={"text-align":` — should be `className="text-center"` etc.
+## 2. Step-by-step Checklist
 
-   **Callbacks** (`docs/conventions/callbacks.md`):
-   - `register_.*_callbacks` — legacy pattern, should be module-level `@callback`
-   - Callbacks missing `prevent_initial_call`
+### Step 0: Find dead and unreachable code
 
-   **Logging** (`docs/conventions/logging.md`):
-   - `logging\.(debug|info|warning|error)` without `extra={"tag":` — missing tag
-   - `logging\.` instead of `log\.` — should use module-level logger
-   - Callbacks or dynamic layouts without `log.info()` entry point
+Before checking conventions, scan for dead code. Use an Explore subagent to find:
+- Unreachable code after `return` statements
+- Unused functions/classes/variables (defined but never referenced)
+- Commented-out code blocks
+- TODO placeholders that bypass real logic (e.g. early returns before actual
+  implementation)
 
-   **Error Handling** (`docs/conventions/error_handling.md`):
-   - `except Exception` without explanatory comment — bare exception catch
-   - `dict.get(` — check if defensive or legitimate dispatch
+Report findings and fix with user approval before proceeding to convention checks.
 
-   **Environment Variables** (`docs/conventions/environment_variables.md`):
-   - `os.getenv` or `os.environ` outside `config.py` — should use `config.py`
-   - New env vars missing from `env_vars` list
+### Step 1: Read all convention documents
 
-   **Layout** (`docs/conventions/layout.md`):
-   - `class_name=` — should be `className=`
-   - Custom page wrappers instead of `page_container_*_layout`
+Load the current rules by reading each convention doc:
 
-   **HTML IDs**:
-   - Literal string IDs in `Input()`, `Output()`, `State()` — should be constants
-   - IDs on components not used in callbacks or tests — unnecessary
+- `docs/conventions/testing.md`
+- `docs/conventions/error_handling.md`
+- `docs/conventions/layout.md`
+- `docs/conventions/bootstrap_styling.md`
+- `docs/conventions/logging.md`
+- `docs/conventions/callbacks.md`
+- `docs/conventions/environment_variables.md`
 
-3. **Categorize findings** — for each violation:
-   - Is it a clear violation to fix now?
-   - Is it an edge case where the convention doesn't apply? Add an inline comment
-     explaining why the deviation is necessary.
-   - Is it an edge case that needs a convention update?
+### Step 2: Create the TODO list
 
-4. **Fix clear violations** — apply fixes one convention at a time. Run tests after
-   each batch of fixes.
+Use `TaskCreate` to create one task per convention from the Convention Checklist
+(Section 3). There are 11 conventions total. Each task subject should be the
+convention name (e.g. "No dict.get()") and the description should include the
+search patterns from the checklist.
 
-5. **Comment justified exceptions** — where a violation cannot be fixed (e.g., no
-   Bootstrap class exists, circular import, external API data), add a brief inline
-   comment explaining why:
-   ```python
-   # no Bootstrap class for white-space: pre-wrap
-   style={"white-space": "pre-wrap"},
+### Step 3: Work through each convention (loop)
 
-   # catch-all: computation can fail unpredictably; must log and email
-   except Exception as e:
+For each TODO item, perform these sub-steps:
 
-   # dispatch lookup: unknown exception types fall back to generic entry
-   error_responds_dict.get(type(error), ...)
+**a. Mark in-progress**
 
-   # Import here to avoid circular imports
-   from cosmopolitan_app.job import Job
-   ```
+`TaskUpdate` status → `in_progress`.
 
-6. **Ask the user about ambiguous cases** — when it's unclear whether a pattern is
-   legitimate or a violation, present the context and ask rather than guessing.
+**b. Explore the codebase**
 
-## Verification
+Use an **Explore subagent** with the search patterns from Section 3 to find
+violations. Provide the subagent with:
+- The exact grep/glob patterns from the checklist row
+- The target file scope
+- Instructions to list every violation with file path and line number
 
-- All fixes pass: `./run_pytest.sh --no-services`
-- No new violations introduced
-- Every remaining exception has an inline comment explaining the deviation
+**c. Evaluate findings**
+
+Review each violation the subagent reports. If the convention is ambiguous or a
+finding is borderline:
+
+- Use `AskUserQuestion` to clarify with the user.
+- After the user answers, update the TODO task description with the clarification
+  note so it is captured for future reference. This makes the convention clearer
+  for next time.
+
+**d. Present fix plan**
+
+Show the user the list of violations with:
+- File path and line number
+- Current code (the violation)
+- Proposed fix
+
+Wait for approval before proceeding.
+
+**e. Apply fixes** (if mode is Audit + Fix)
+
+Make the approved changes using `Edit`.
+
+**f. Mark complete**
+
+`TaskUpdate` status → `completed`.
+
+**g. Clear context and proceed**
+
+Move to the next convention. Use a **fresh Explore subagent** for the next item
+to keep the main context window clean.
+
+### Step 4: Final verification
+
+After all conventions are done:
+
+1. Run `./run_pytest.sh` to verify no regressions.
+2. Review the task list — all items should be `completed`.
+3. Report a summary to the user: how many violations found per convention, how
+   many fixed, any clarifications recorded.
+
+---
+
+## 3. Convention Checklist
+
+### Convention 1: No `dict.get()`
+
+- **Source:** [CLAUDE.md](../../CLAUDE.md) §1
+- **Rule:** Use direct access `dict["key"]` instead of `dict.get()`.
+- **Search patterns:**
+  ```
+  Grep: \.get\(
+  ```
+- **Exclude false positives:** `.env.get`, `request.args.get`, `request.form.get`, `os.environ.get`, `session.get`, `celery_app.conf.get`. Only flag dictionary `.get()` calls in application logic.
+- **Target:** `cosmopolitan_app/**/*.py`
+
+### Convention 2: No bare `except`
+
+- **Source:** [CLAUDE.md](../../CLAUDE.md) §1
+- **Rule:** Always catch specific exceptions. No `except Exception:` or bare `except:`.
+- **Search patterns:**
+  ```
+  Grep: except Exception:
+  Grep: except\s*:
+  ```
+- **Note:** `except Exception as e:` with re-raise (`raise`) in background task error handlers is acceptable per `error_handling.md` Section 6.
+- **Target:** `cosmopolitan_app/**/*.py`
+
+### Convention 3: No inline imports
+
+- **Source:** [CLAUDE.md](../../CLAUDE.md) §2
+- **Rule:** All imports at top level only. Never import inside functions.
+- **Search patterns:**
+  ```
+  Grep (multiline): ^\s+(import |from .+ import )
+  ```
+- **How to check:** For each match, verify it is inside a function or method body (indented under `def`), not at module level.
+- **Target:** `cosmopolitan_app/**/*.py`
+
+### Convention 4: HTML ID literals
+
+- **Source:** [CLAUDE.md](../../CLAUDE.md) §3
+- **Rule:** NEVER use literal ID strings. Always use constants from `cosmopolitan_app/constants.py`.
+- **Search patterns:**
+  ```
+  Grep: id="[a-z]
+  ```
+- **Target:** `cosmopolitan_app/**/*.py`
+
+### Convention 5: No inline CSS
+
+- **Source:** [CLAUDE.md](../../CLAUDE.md) §4, [bootstrap_styling.md](../conventions/bootstrap_styling.md)
+- **Rule:** No `style={}` or `style=""`. Use Bootstrap classes only.
+- **Search patterns:**
+  ```
+  Grep: style=
+  Grep: style={
+  ```
+- **Target:** `cosmopolitan_app/**/*.py`
+
+### Convention 6: No legacy logging
+
+- **Source:** [logging.md](../conventions/logging.md)
+- **Rule:** DO NOT use `extra={"tag": "..."}`.
+- **Search patterns:**
+  ```
+  Grep: extra={"tag"
+  Grep: extra={'tag'
+  ```
+- **Target:** `cosmopolitan_app/**/*.py`
+
+### Convention 7: Proper logger setup
+
+- **Source:** [logging.md](../conventions/logging.md)
+- **Rule:** Every module that logs must use `log = logging.getLogger(__name__)`. No `print()` for application output.
+- **Search patterns:**
+  ```
+  Grep: print\(          # find print statements
+  Grep: logging\.info\(  # find direct logging module calls instead of logger instance
+  Grep: logging\.debug\(
+  Grep: logging\.warning\(
+  Grep: logging\.error\(
+  ```
+- **How to check:** For each file with log calls, verify it has `log = logging.getLogger(__name__)` at module level. Flag files using `logging.info()` directly instead of `log.info()`.
+- **Target:** `cosmopolitan_app/**/*.py`
+
+### Convention 8: Callback conventions
+
+- **Source:** [callbacks.md](../conventions/callbacks.md)
+- **Rule:**
+  - Page-specific callbacks use `@callback` in page files.
+  - User-triggered actions should have `prevent_initial_call=True`.
+- **Search patterns:**
+  ```
+  Grep: @callback       # in page files
+  Grep: n_clicks        # callbacks with n_clicks should have prevent_initial_call
+  ```
+- **How to check:** For each callback with `n_clicks` input, verify `prevent_initial_call=True` is set.
+- **Target:** `cosmopolitan_app/pages/*.py`, `cosmopolitan_app/layouts.py`
+
+### Convention 9: Error handling
+
+- **Source:** [error_handling.md](../conventions/error_handling.md)
+- **Rule:**
+  - Custom exceptions defined in `error_handling.py`.
+  - Every custom exception has an entry in `error_responds_dict`.
+  - Guard conditions use `PreventUpdate`.
+- **Search patterns:**
+  ```
+  Grep: class.*Exception    # find exception definitions
+  Grep: class.*Error        # find error class definitions
+  Grep: raise\s+\w+Error    # find custom error raises
+  Grep: raise\s+\w+Exception
+  ```
+- **How to check:** Verify all custom exception classes are in `error_handling.py` (not scattered across other files). Check that each exception has a corresponding entry in `error_responds_dict`.
+- **Target:** `cosmopolitan_app/**/*.py`
+
+### Convention 10: Environment variables
+
+- **Source:** [environment_variables.md](../conventions/environment_variables.md)
+- **Rule:**
+  - All env vars accessed through `cosmopolitan_app/config.py`.
+  - No direct `os.getenv()` or `os.environ` outside `config.py`.
+  - All vars listed in `config.env_vars`.
+- **Search patterns:**
+  ```
+  Grep: os\.getenv\(
+  Grep: os\.environ
+  ```
+- **Exclude:** `config.py` itself (where `getenv()` is defined).
+- **How to check:** Any match outside `config.py` is a violation. Verify all vars are in `config.env_vars` list.
+- **Target:** `cosmopolitan_app/**/*.py`
+
+### Convention 11: Page file structure
+
+- **Source:** [layout.md](../conventions/layout.md), [callbacks.md](../conventions/callbacks.md)
+- **Rule:** Page files must follow this order:
+  1. Module docstring
+  2. Imports (standard → third-party → application)
+  3. Page registration (`register_page()`)
+  4. Layout function
+  5. Helper functions (if needed)
+  6. Callbacks section
+- **Search patterns:**
+  ```
+  Glob: cosmopolitan_app/pages/*.py
+  ```
+- **How to check:** Read each page file and verify the section ordering. Flag files where callbacks appear before the layout function, or imports are scattered.
+- **Target:** `cosmopolitan_app/pages/*.py`
+
+---
+
+## 4. Key File References
+
+| File | Purpose |
+|------|---------|
+| `CLAUDE.md` | Critical anti-patterns summary |
+| `docs/conventions/*.md` | All detailed convention documents |
+| `cosmopolitan_app/constants.py` | HTML ID constants |
+| `cosmopolitan_app/config.py` | Environment config, `getenv()` wrapper |
+| `cosmopolitan_app/logger.py` | Logger configuration |
+| `cosmopolitan_app/error_handling.py` | Custom exceptions, `error_responds_dict` |
+| `cosmopolitan_app/layouts.py` | Shared layout components and callbacks |
+| `cosmopolitan_app/pages/*.py` | Page files (main audit targets) |
+| `test/test_env.py` | Environment variable completeness test |

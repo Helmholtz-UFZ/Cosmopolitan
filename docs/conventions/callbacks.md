@@ -151,7 +151,18 @@ def navigate(n_clicks):
     return target_path.replace("<job_id>", job_id)
 ```
 
+**Testing note:** With clientside overlay callbacks, Dash callback chains may cascade
+(e.g. a submit callback re-fires after a refresh, triggering a second refresh cycle).
+Use overlay wait timeouts of at least 20s in Playwright tests to accommodate this.
+
 ## Dict-Style Outputs
+
+When a callback has **5+ outputs**, use dict-style `output={}`, `inputs={}`, `state={}`
+instead of positional arguments. This makes return values self-documenting and eliminates
+the error-prone counting of tuple positions.
+
+**Keys must be valid Python identifiers** (underscores, not hyphens). The HTML ID string
+values are unaffected — only the dict keys need to be identifiers.
 
 For complex forms with many dynamic outputs, use dict-style callback signatures:
 
@@ -171,6 +182,22 @@ For complex forms with many dynamic outputs, use dict-style callback signatures:
 def form_manager(**state):
     ...
     return {"field_a": new_value, "field_b": True}
+```
+
+For branches that only update a subset of outputs, use a `no_update` baseline helper:
+
+```python
+def _no_update_result():
+    return {
+        "field_a": no_update,
+        "field_b": no_update,
+        # ... all outputs default to no_update
+    }
+
+# In callback branch:
+result = _no_update_result()
+result.update({"field_a": new_value})
+return result
 ```
 
 Use this only when the number of outputs makes positional returns unwieldy.

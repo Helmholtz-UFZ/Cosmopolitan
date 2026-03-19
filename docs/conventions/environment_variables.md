@@ -54,10 +54,46 @@ url = os.getenv("NEW_SERVICE_URL", "http://default")
 password = os.getenv("REDIS_PASSWORD", "")
 ```
 
+## Docker
+
+How env vars reach containers (see `docker-compose.yml`):
+
+- **App and worker containers**: `env_file: .env` passes all variables from the
+  active `.env` file.
+- **Postgres and MinIO**: `environment:` block with `${VAR}` interpolation maps
+  project variables to the service's expected names (e.g.
+  `MINIO_ROOT_USER: ${OBJECT_STORAGE_ACCESS_KEY}`).
+- **Production Dockerfiles** (`docker/prod.Dockerfile`, `docker/worker.Dockerfile`):
+  `COPY env_prod .env` bakes non-secret vars into the image; the CMD sources
+  `.env` before starting the process.
+- **`DOCKER_UID` / `DOCKER_GID`**: Used in `docker-compose.yml` via
+  `user: "${DOCKER_UID}:${DOCKER_GID}"` for file permission mapping.
+
+## Production Deployment (Kubernetes)
+
+- `deployment/ufz/prod/values.yaml` injects env vars via `environmentVariables`
+  on both frontend and worker pods.
+- Secrets (`EMAIL_PASSWORD`, `OBJECT_STORAGE_SECRET_KEY`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`)
+  are pulled from the K8s Secret `app.secrets` using `secretKeyRef`.
+- The Secret is sealed with Bitnami SealedSecrets
+  (`deployment/ufz/prod/app.sealedsecret.yaml`).
+- Non-secret vars are baked into `env_prod` at image build time (see Docker
+  section above).
+
+## Adding a New Env Var — Checklist
+
+1. Add the variable to **all tracked env files** (`env_dev_mock`, `env_dev_prod`,
+   `env_prod`, `env_test`, `env_test_local`).
+2. Add it to the `env_vars` list in `cosmopolitan_app/config.py`.
+3. Add a `getenv()` call and module-level constant in `config.py`.
+4. If it is a secret in production, add it to `values.yaml` and
+   `app.sealedsecret.yaml`.
+5. If `env_prod` will not have the value at build time, add a placeholder line
+   to `additional_lines_map` in `test/test_env.py`.
+6. Run `./run_pytest.sh` — `test_env.py` will catch any missing vars.
+
 ## Notes
 
 - `load_dotenv()` is called once at the top of `config.py`
 - `JOB_WORK_DIR_TEMPLATE` is derived from `WEB_WORK_DIR` — derived constants also
   belong in `config.py`
-- When adding a new env var, update all tracked env files (`env_dev_mock`, `env_test`,
-  `env_test_local`, `env_dev_prod`, `env_prod`)
