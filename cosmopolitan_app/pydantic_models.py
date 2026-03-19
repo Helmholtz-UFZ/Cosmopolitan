@@ -5,30 +5,14 @@ import re
 from datetime import datetime
 from typing import Annotated, ClassVar, Dict, List, Literal, Tuple
 
-from coolname import generate
 from email_validator import EmailNotValidError, validate_email
 from pydantic import AfterValidator, ConfigDict, Field, field_validator, model_validator
 from pydantic_core import PydanticCustomError
 from soil_moisture_prediction.input_data import stream_dic
 from soil_moisture_prediction.pydantic_models import InputParameters
 
-from cosmopolitan_app.postgres_manager import PostgresManager
 
 log = logging.getLogger(__name__)
-
-
-def test_model():
-    """Test the model."""
-    while True:
-        job_id = "_".join(generate(3))
-        if not PostgresManager.check_existence(job_id):
-            break
-
-    default_model = ModelWebsite()
-    default_model.job_id = job_id
-    default_values = default_model.model_dump()
-
-    ModelWebsite(**default_values)
 
 
 def validate_job_id(job_id: str) -> str:

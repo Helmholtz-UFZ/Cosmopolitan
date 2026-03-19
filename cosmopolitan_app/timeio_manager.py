@@ -584,10 +584,9 @@ def get_some_points():
 
     representative = True
 
-    results = PostgresManager.get_measurement_points(
+    PostgresManager.get_measurement_points(
         bbox, types, start_date, end_date, representative
     )
-    print(results[:10])
 
 
 def main():

@@ -276,7 +276,7 @@ class Job:
             job_id = find_unique_job_id()
         else:
             if PostgresManager.check_existence(new_job_id):
-                raise JobExists
+                raise JobExists(new_job_id)
             job_id = new_job_id
 
         self.job_id = job_id

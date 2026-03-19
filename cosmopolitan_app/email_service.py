@@ -107,7 +107,6 @@ def send_submission_mail(job):
     url = submission_url.format(job_id=job.job_id, external_url=external_url)
     content = job_submitted_template.format(
         job_id=job.job_id,
-        status=job.status,
         url=url,
     )
     send_mail(job.model.email, f'Job "{job.job_id}" submitted', content)

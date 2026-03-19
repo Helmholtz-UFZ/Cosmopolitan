@@ -364,6 +364,7 @@ def file_upload_callback(**state):
         ),
         # fmt: on
     },
+    prevent_initial_call=True,
 )
 def regenerate_preview(**state):
     """Regenerate the preview."""

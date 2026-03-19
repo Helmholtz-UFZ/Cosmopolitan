@@ -173,6 +173,10 @@ error_responds_dict = {
         "Background Service Unavailable",
         "The background job service is temporarily unavailable. Please try again later.",  # noqa
     ),
+    JobExists: (
+        "Job Already Exists",
+        "A job with ID '{job_id}' already exists. Please use a different job ID.",
+    ),
     MapTileDownloadError: (
         "Map Preview Unavailable",
         "Unable to download map tiles from the tile provider. The external map service may be temporarily unavailable. Please try again later.",  # noqa

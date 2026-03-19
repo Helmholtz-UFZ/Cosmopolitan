@@ -174,6 +174,7 @@ def create_navbar():
     Output(NAVBAR_COLLAPSE_DIV_SHARED_ID, "is_open"),
     [Input(NAVBAR_TOGGLER_BUTTON_SHARED_ID, "n_clicks")],
     [State(NAVBAR_COLLAPSE_DIV_SHARED_ID, "is_open")],
+    prevent_initial_call=True,
 )
 def toggle_navbar_collapse(n_clicks, is_open):
     """Toggle the navbar collapse state."""
