@@ -80,9 +80,9 @@ class BackgroundJobManager:
             retry=True,
             retry_policy={
                 "max_retries": 3,
-                "interval_start": 60,
-                "interval_step": 60,
-                "interval_max": 300,
+                "interval_start": 10,
+                "interval_step": 15,
+                "interval_max": 30,
             },
         )
 

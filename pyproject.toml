@@ -1,6 +1,6 @@
 [project]
 name = "cosmopolitan"
-version = "0.1.4"
+version = "0.1.5"
 description = "COSmic ray based soil MOisture PredictiOn LIve descicion Tree ANalysis"
 authors = [{ name = "John Anders", email = "john-eric.anders@ufz.de" }]
 readme = "README.md"
