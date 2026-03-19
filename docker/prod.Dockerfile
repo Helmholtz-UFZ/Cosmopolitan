@@ -53,4 +53,4 @@ RUN uv sync --no-dev --frozen
 USER appuser
 
 # Setup rclone config and start gunicorn
-CMD gunicorn -w 4 -b 0.0.0.0:$FLASK_PORT cosmopolitan_app.app:server
+CMD uv run gunicorn -w 4 -b 0.0.0.0:$FLASK_PORT cosmopolitan_app.app:server
