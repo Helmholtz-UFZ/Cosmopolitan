@@ -62,7 +62,7 @@ def send_mail(recipient, subject, content):
             server.login(EMAIL_USERNAME, EMAIL_PASSWORD)
             server.sendmail(EMAIL_SENDER, recipient, msg.as_string())
         log.info(f"Email sent to {recipient}: {subject}")
-    except smtplib.SMTPException:
+    except Exception:  # noqa — SMTP, socket, DNS, … — never let email crash the caller
         log.error(f"Failed to send email to {recipient}: {subject}", exc_info=True)
 
 
