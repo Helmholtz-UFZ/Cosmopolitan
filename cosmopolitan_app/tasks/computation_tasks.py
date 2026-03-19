@@ -16,7 +16,11 @@ from cosmopolitan_app.logger import (
     get_logger_config_compuation,
     get_logger_config_worker,
 )
-from cosmopolitan_app.utils import send_finished_mail, send_mail, send_submission_mail
+from cosmopolitan_app.email_service import (
+    send_finished_mail,
+    send_mail,
+    send_submission_mail,
+)
 
 log = logging.getLogger(__name__)
 

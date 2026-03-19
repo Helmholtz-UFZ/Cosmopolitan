@@ -12,6 +12,7 @@ from celery.exceptions import CeleryError
 from celery.result import AsyncResult
 from celery.schedules import crontab
 from celery.signals import worker_process_init
+from kombu.exceptions import OperationalError
 
 from cosmopolitan_app.celery_config import CeleryConfig
 from cosmopolitan_app.logger import get_logger_config_worker
@@ -85,6 +86,13 @@ class BackgroundJobManager:
             },
         )
 
+        # Store task name in Redis for revoked task retrieval
+        self.app.backend.client.set(
+            f"task_name:{result.id}",
+            NAME_COMPUTATION_TASK,
+            ex=86400,  # 24 hour TTL
+        )
+
         log.info(
             f"Job {job.job_id} submitted with Celery task ID: {result.id}",
         )
@@ -119,6 +127,11 @@ class BackgroundJobManager:
             result = AsyncResult(task_id, app=self.app)
             if result.name:
                 task_name = result.name.split(".")[-1]
+            else:
+                # Fallback: retrieve task name stored in Redis (survives revocation)
+                stored_name = self.app.backend.client.get(f"task_name:{task_id}")
+                if stored_name:
+                    task_name = stored_name.decode().split(".")[-1]
             if result.status:
                 status = result.status
         except CeleryError as e:
@@ -151,39 +164,45 @@ class BackgroundJobManager:
                   - 'revoked': Canceled/killed tasks
                   - 'workers': List of online worker names
         """
-        inspect = self.app.control.inspect()
+        try:
+            inspect = self.app.control.inspect()
 
-        # Get task information from workers
-        active = inspect.active() or {}
-        reserved = inspect.reserved() or {}
-        scheduled = inspect.scheduled() or {}
-        revoked = inspect.revoked() or {}
+            # Get task information from workers
+            active = inspect.active() or {}
+            reserved = inspect.reserved() or {}
+            scheduled = inspect.scheduled() or {}
+            revoked = inspect.revoked() or {}
 
-        # Get list of online workers using ping
-        ping_result = inspect.ping() or {}
-        workers = list(ping_result.keys())
+            # Get list of online workers using ping
+            ping_result = inspect.ping() or {}
+            workers = list(ping_result.keys())
 
-        # Flatten worker-keyed dicts into lists
-        def flatten_tasks(worker_dict):
-            """Flatten {worker: [tasks]} to [tasks] with worker info."""
-            result = []
-            for worker, tasks in worker_dict.items():
-                for task in tasks:
-                    if isinstance(task, dict):
-                        task["worker"] = worker
-                        result.append(task)
-                    else:
-                        # Revoked returns just task IDs
-                        result.append({"id": task, "worker": worker})
-            return result
+            # Flatten worker-keyed dicts into lists
+            def flatten_tasks(worker_dict):
+                """Flatten {worker: [tasks]} to [tasks] with worker info."""
+                result = []
+                for worker, tasks in worker_dict.items():
+                    for task in tasks:
+                        if isinstance(task, dict):
+                            task["worker"] = worker
+                            result.append(task)
+                        else:
+                            # Revoked returns just task IDs
+                            result.append({"id": task, "worker": worker})
+                return result
 
-        return {
-            "active": flatten_tasks(active),
-            "reserved": flatten_tasks(reserved),
-            "scheduled": flatten_tasks(scheduled),
-            "revoked": flatten_tasks(revoked),
-            "workers": workers,
-        }
+            return {
+                "active": flatten_tasks(active),
+                "reserved": flatten_tasks(reserved),
+                "scheduled": flatten_tasks(scheduled),
+                "revoked": flatten_tasks(revoked),
+                "workers": workers,
+            }
+        except (OperationalError, ConnectionError) as e:
+            log.warning(f"Failed to connect to Celery broker: {e}")
+            raise ConnectionError(
+                "Unable to connect to Celery broker. Ensure Redis is running and accessible."
+            ) from e
 
 
 _background_job_manager = None

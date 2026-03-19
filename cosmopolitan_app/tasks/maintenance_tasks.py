@@ -17,7 +17,7 @@ from cosmopolitan_app.constants import (
 from cosmopolitan_app.object_storage_manager import delete_directory_from_storage
 from cosmopolitan_app.postgres_manager import PostgresManager
 from cosmopolitan_app.timeio_manager import update_crns_measurments
-from cosmopolitan_app.utils import send_mail
+from cosmopolitan_app.email_service import send_mail
 
 log = logging.getLogger(__name__)
 

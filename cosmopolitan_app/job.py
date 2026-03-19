@@ -52,7 +52,7 @@ from cosmopolitan_app.object_storage_manager import (
 from cosmopolitan_app.postgres_manager import JobTable, PostgresManager
 from cosmopolitan_app.pydantic_models import ModelWebsite, validate_job_id
 from cosmopolitan_app.timeio_info import type_id_dict
-from cosmopolitan_app.utils import send_mail
+from cosmopolitan_app.email_service import send_mail
 
 log = logging.getLogger(__name__)
 

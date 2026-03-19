@@ -19,7 +19,7 @@ from cosmopolitan_app.constants import (
     ERROR_TITLE_DIV_SHARED_ID,
 )
 from cosmopolitan_app.object_storage_manager import ObjectStorageError
-from cosmopolitan_app.utils import send_mail
+from cosmopolitan_app.email_service import send_mail
 
 log = logging.getLogger(__name__)
 
@@ -198,6 +198,27 @@ error_modal = dbc.Modal(
 )
 
 
+def _truncate_string(value, max_length=200, head_length=100, tail_length=50):
+    """Truncate a string if it exceeds max_length."""
+    if not isinstance(value, str):
+        return value
+    if len(value) <= max_length:
+        return value
+    return f"{value[:head_length]}...{value[-tail_length:]}"
+
+
+def _truncate_data(data):
+    """Recursively truncate long strings in data structures."""
+    if isinstance(data, dict):
+        return {key: _truncate_data(value) for key, value in data.items()}
+    elif isinstance(data, list):
+        return [_truncate_data(item) for item in data]
+    elif isinstance(data, str):
+        return _truncate_string(data)
+    else:
+        return data
+
+
 def handle_error(error):
     """Handle the error and return a formatted message."""
     log.debug(f"Error: {error}")
@@ -214,11 +235,12 @@ def handle_error(error):
         ),
     ):
         callback_context = dash.ctx
+        truncated_triggered = _truncate_data(callback_context.triggered)
         email_subject = f"Error {str(error)}"
-        email_body = f"""
-        Traceback info: {traceback.format_exc()}\n\n
-        Input info: {json.dumps(callback_context.triggered)}
-        """
+        email_body = (
+            f"Traceback info: {traceback.format_exc()}\n\n"
+            f"Input info: {json.dumps(truncated_triggered)}"
+        )
         try:
             send_mail(MAINTAINER_EMAIL, email_subject, email_body)
         except Exception:  # noqa - must not let email failure crash the error handler
