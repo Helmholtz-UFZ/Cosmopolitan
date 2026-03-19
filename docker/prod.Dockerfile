@@ -46,10 +46,9 @@ ENV PYTHONPATH=/python_docker/cosmopolitan/
 COPY --chown=appuser:appuser . .
 COPY --chown=appuser:appuser env_prod .env
 
-# Switch to non-root user
+# Install dependencies as appuser
+RUN chown appuser:appuser /python_docker/cosmopolitan
 USER appuser
-
-# Install dependencies
 RUN uv sync --no-dev --frozen
 
 # Setup rclone config and start gunicorn
