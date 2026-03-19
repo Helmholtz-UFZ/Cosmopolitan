@@ -2,7 +2,7 @@
 
 ### COSmic ray based soil MOisture PredictiOn LIve Tree ANalysis
 
-*Last updated: 2025-12-11 15:42:11*
+*Last updated: 2026-03-19 10:13:52*
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -51,9 +51,6 @@ This is the home page where you start your journey. COSMOPOLITAN (COSmic ray bas
 soil MOisture PredictiOn LIve Tree ANalysis) is a web service that analyzes cosmic
 ray neutron sensor data to predict soil moisture content using machine learning models.
 
-From here, you can begin creating a new prediction job to analyze soil moisture data
-for your area of interest.
-
 <img src="/assets/docs/screenshots/home.png" alt="Home Page" style="max-width: 100%; height: auto;" />
 
 **Next Step**: Create New Job →
@@ -81,7 +78,7 @@ Configure your prediction job parameters and upload input data.
 This page provides a comprehensive form where you can:
 - Upload cosmic ray neutron sensor (CRNS) measurement data
 - Upload predictor variable files (environmental data)
-- Define your prediction area by drawing on a map or uploading boundaries
+- Define your prediction area by specifying geographic coordinates
 - Set time ranges and other prediction parameters
 - Preview your prediction area before submission
 
@@ -123,7 +120,7 @@ prediction job:
 
 **Interactive Maps:**
 - View soil moisture predictions overlaid on geographic maps
-- Switch between different map types (OpenStreetMap, satellite imagery)
+- Switch between different map types (predictions, distance, dispersion, predictors)
 - Navigate through prediction time steps
 - Toggle measurement point displays
 - Adjust map opacity and explore spatial patterns
@@ -132,7 +129,6 @@ prediction job:
 - Correlation heatmaps showing relationships between variables
 - Feature importance plots revealing which predictors matter most
 - Statistical summaries for each time step
-- Detailed performance metrics
 
 You can explore results across multiple time periods, examine which environmental
 factors most influence soil moisture predictions, and understand model performance
@@ -159,7 +155,7 @@ You can:
 - Access individual job pages directly from the table
 
 The table uses color coding to quickly identify job statuses: blue for completed jobs,
-green for running jobs, red for failed jobs, and grey for pending jobs. You can select
+green for running jobs, red for failed jobs, and orange for pending jobs. You can select
 rows to perform bulk operations like deletion.
 
 <img src="/assets/docs/screenshots/job_management.png" alt="Job Management" style="max-width: 100%; height: auto;" />
@@ -192,7 +188,7 @@ This page provides a powerful interface for exploring the cosmic ray neutron sen
 measurement data stored in the database. You can:
 
 - Filter measurements by date range, sensor type, and geographic area
-- Define search areas using coordinates or by drawing on a map
+- Define search areas using geographic coordinates
 - View measurement data in a detailed, sortable table
 - Generate statistical summaries of queried data
 - Export filtered results to CSV format for external analysis
@@ -243,15 +239,15 @@ system activity, debug issues, and monitor operations. You can:
 
 - Filter logs by date and time range
 - Select specific log levels (Debug, Info, Warning, Error, Critical)
-- Filter by functional area using tags (job_submission, database, frontend, etc.)
 - Filter by process ID to track specific worker or server processes
+- Exclude specific modules from the output
+- Enable live mode for automatic 10-second polling (on by default)
 - View logs in a formatted, readable table
 - Refresh logs on demand to see latest entries
 
 Logs are stored in the database and include timestamps, log levels, logger names,
-messages, and optional tags categorizing the log by system component. This is the
-primary tool for understanding system behavior, diagnosing problems, and monitoring
-background job execution.
+and messages. This is the primary tool for understanding system behavior, diagnosing
+problems, and monitoring background job execution.
 
 <img src="/assets/docs/screenshots/logs.png" alt="Application Logs" style="max-width: 100%; height: auto;" />
 
