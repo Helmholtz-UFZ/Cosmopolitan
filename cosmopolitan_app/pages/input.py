@@ -247,8 +247,8 @@ dash.clientside_callback(
             HIDDEN_PREDICTOR_UPLOAD_INPUT_INPUT_ID, "value"
         ),
         # fmt: off
-        active_form_template_factory.job_id_key: State(  # nocheck
-            active_form_template_factory.job_id_key,
+        active_form_template_factory.job_id_key: State(
+            active_form_template_factory.job_id_key,  # nocheck
             "children",  # nocheck
         ),
         # fmt: on
@@ -335,8 +335,8 @@ def file_upload_callback(**state):
 @callback(
     output={
         # fmt: off
-        active_form_template_factory.area_preview_key: Output(  # nocheck
-            active_form_template_factory.area_preview_key,
+        active_form_template_factory.area_preview_key: Output(
+            active_form_template_factory.area_preview_key,  # nocheck
             "src",  # nocheck
         ),
         # fmt: on
@@ -350,16 +350,16 @@ def file_upload_callback(**state):
             HIDDEN_PREDICTOR_UPLOAD_INPUT_INPUT_ID, "value"
         ),
         # fmt: off
-        active_form_template_factory.job_id_key: State(  # nocheck
-            active_form_template_factory.job_id_key,
+        active_form_template_factory.job_id_key: State(
+            active_form_template_factory.job_id_key,  # nocheck
             "children",  # nocheck
         ),
         # fmt: on
     },
     inputs={
         # fmt: off
-        active_form_template_factory.new_area_preview_key: Input(  # nocheck
-            active_form_template_factory.new_area_preview_key,
+        active_form_template_factory.new_area_preview_key: Input(
+            active_form_template_factory.new_area_preview_key,  # nocheck
             "n_clicks",  # nocheck
         ),
         # fmt: on
@@ -402,12 +402,12 @@ def regenerate_preview(**state):
             allow_duplicate=True,
         ),
         # fmt: off
-        active_form_template_factory.selected_crns_key: Output(  # nocheck
-            active_form_template_factory.selected_crns_key,
+        active_form_template_factory.selected_crns_key: Output(
+            active_form_template_factory.selected_crns_key,  # nocheck
             "children",  # nocheck
         ),
-        active_form_template_factory.selected_predictors_key: Output(  # nocheck
-            active_form_template_factory.selected_predictors_key,
+        active_form_template_factory.selected_predictors_key: Output(
+            active_form_template_factory.selected_predictors_key,  # nocheck
             "children",  # nocheck
         ),
         # fmt: on
@@ -428,8 +428,8 @@ def regenerate_preview(**state):
     },
     state={
         # fmt: off
-        active_form_template_factory.job_id_key: State(  # nocheck
-            active_form_template_factory.job_id_key,
+        active_form_template_factory.job_id_key: State(
+            active_form_template_factory.job_id_key,  # nocheck
             "children",  # nocheck
         ),
         # fmt: on
