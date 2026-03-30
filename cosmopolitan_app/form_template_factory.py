@@ -391,6 +391,27 @@ class FormTemplateFactory:
 
 active_form_template_factory = FormTemplateFactory(active=True)
 active_form_layout = active_form_template_factory.generate_template()
-active_form_factory = FormFactory(ModelWebsite, active_form_layout)
+
+
+def _grouped_checklist_formatter(
+    choices: tuple[str, ...], active: bool
+) -> list[dict[str, Any]]:
+    """Format checklist options with Hr dividers between prefix groups."""
+    options: list[dict[str, Any]] = []
+    prefix: str | None = None
+    for choice in choices:
+        label = choice.replace("_", " ")
+        if prefix is None or not label.startswith(prefix):
+            prefix = label.split(" ")[0]
+            if len(options) > 0:
+                previous_label = options[-1]["label"]
+                options[-1]["label"] = [html.Div(previous_label), html.Hr()]
+        options.append({"label": label, "value": choice, "disabled": not active})
+    return options
+
+
+active_form_factory = FormFactory(
+    ModelWebsite, active_form_layout, checklist_formatter=_grouped_checklist_formatter
+)
 
 muted_form_template_factory = FormTemplateFactory(active=False)

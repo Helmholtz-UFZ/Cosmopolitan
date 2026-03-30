@@ -14,9 +14,7 @@ from cosmopolitan_app.layouts import app_layout
 from cosmopolitan_app.logger import get_logger_config_web
 from cosmopolitan_app.object_storage_manager import create_bucket, setup_remote
 
-# Configure logging BEFORE Dash() and any getLogger() calls.
-# dictConfig with disable_existing_loggers=True silently disables every logger
-# that already exists, so it must run before imports/inits that create loggers.
+# Configure logging early — before Dash() triggers page-module imports.
 logging.config.dictConfig(get_logger_config_web(DEBUG))
 log = logging.getLogger(__name__)
 log.debug("Web application logging configured.")

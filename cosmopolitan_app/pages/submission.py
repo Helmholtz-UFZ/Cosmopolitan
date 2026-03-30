@@ -23,6 +23,8 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import Input, Output, State, callback, callback_context, dcc, html
 from dash_form_factory import FormFactory
+
+from cosmopolitan_app.form_template_factory import _grouped_checklist_formatter
 from flask import url_for
 
 from cosmopolitan_app.constants import (
@@ -205,7 +207,12 @@ def load_submission_content(job_id, header_class_name):
         selected_crns=selected_crns,
     )
     form_layout = template_factory.generate_template()
-    factory = FormFactory(job.model, form_layout, active=False)
+    factory = FormFactory(
+        job.model,
+        form_layout,
+        active=False,
+        checklist_formatter=_grouped_checklist_formatter,
+    )
     form = factory.process_layout(factory.layout)
 
     # Determine icon and active accordion item

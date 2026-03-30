@@ -45,6 +45,7 @@ from cosmopolitan_app.constants import (
 )
 from cosmopolitan_app.form_template_factory import (
     FormTemplateFactory,
+    _grouped_checklist_formatter,
     active_form_factory,
     active_form_template_factory,
     construct_selected_input,
@@ -183,7 +184,9 @@ def load_submission_content(job_id, header_class_name):
         model=job.model,
     )
     form_layout = template_factory.generate_template()
-    factory = FormFactory(job.model, form_layout)
+    factory = FormFactory(
+        job.model, form_layout, checklist_formatter=_grouped_checklist_formatter
+    )
     form = factory.process_layout(factory.layout)
 
     content = dbc.Row(

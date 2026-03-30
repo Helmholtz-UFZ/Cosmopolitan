@@ -2,7 +2,6 @@
 
 import datetime
 import logging
-import sys
 import time
 
 import psycopg2
@@ -266,10 +265,9 @@ def get_logger_config_web(debug):
     Returns:
         dict: Logging configuration dictionary for use with dictConfig()
     """
-    in_tests = "pytest" in sys.modules
     return _build_stream_config(
         stream="ext://sys.stderr",
-        disable_existing_loggers=not in_tests,
+        disable_existing_loggers=False,
     )
 
 

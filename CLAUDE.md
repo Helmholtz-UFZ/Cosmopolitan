@@ -41,6 +41,7 @@ good reason — but the violation must be accompanied by a comment explaining wh
 
    - NO `dict.get()` - use direct access `dict["key"]`
    - NO bare `except Exception` - always catch specific exceptions
+   - If one of these pattern are best practical solution use comment to explain reason.
 
 2. **No inline imports**
 
@@ -61,7 +62,7 @@ good reason — but the violation must be accompanied by a comment explaining wh
 4. **No inline CSS**
 
    - Use Bootstrap classes only
-   - Existing `style={}` usages are violations to clean up later
+   - If custom css are best practical solution use comment to explain reason.
 
 ## Proactive Issue Reporting
 

@@ -19,8 +19,8 @@ from cosmopolitan_app.constants import (
     ERROR_TITLE_DIV_SHARED_ID,
     LOADING_OVERLAY_MODAL_SHARED_ID,
 )
-from cosmopolitan_app.object_storage_manager import ObjectStorageError
 from cosmopolitan_app.email_service import send_mail
+from cosmopolitan_app.object_storage_manager import ObjectStorageError
 
 log = logging.getLogger(__name__)
 
