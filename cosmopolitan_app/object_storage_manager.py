@@ -257,18 +257,18 @@ def save_files(dirname: str) -> None:
 
     run_rclone_with_retry(sync_params)
 
-    # Verify upload
-    local_files = get_local_files(local_path)
+    # Verify upload — compare against pre-sync local listing, not a fresh one,
+    # because concurrent workers may create new files between sync and verification.
     remote_files_after = get_remote_files(remote_path)
 
     log.debug(
         f"Uploaded {len(remote_files_after - remote_files_before)} new files to remote",
     )
 
-    if local_files != remote_files_after:
+    if local_files_before != remote_files_after:
         error_msg = (
             f"Upload verification failed for {dirname}!\n"
-            f"Files from local: {sorted(local_files)}\n"
+            f"Files from local: {sorted(local_files_before)}\n"
             f"Files from remote: {sorted(remote_files_after)}"
         )
         log.error(error_msg)

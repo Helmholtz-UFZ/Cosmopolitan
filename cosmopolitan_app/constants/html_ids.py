@@ -167,6 +167,7 @@ TABS_RESULTS_ID = "tabs-results-id"
 
 # --- Buttons ---
 REFRESH_BUTTON_WORKER_MANAGEMENT_ID = "refresh-button-worker-management-id"
+TEST_TASK_BUTTON_WORKER_MANAGEMENT_ID = "test-task-button-worker-management-id"
 KILL_BUTTON_WORKER_MANAGEMENT_ID = "kill-button-worker-management-id"
 CANCEL_BUTTON_WORKER_MANAGEMENT_ID = "cancel-button-worker-management-id"
 KILL_MODAL_CANCEL_BUTTON_WORKER_MANAGEMENT_ID = (

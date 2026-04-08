@@ -10,7 +10,6 @@ from logging.config import dictConfig
 from celery import Celery
 from celery.exceptions import CeleryError
 from celery.result import AsyncResult
-from celery.schedules import crontab
 from celery.signals import worker_process_init
 from kombu.exceptions import OperationalError
 
@@ -42,62 +41,41 @@ class BackgroundJobManager:
             broker_connection_retry_on_startup=True,
             broker_connection_retry=True,
         )
-        self._setup_periodic_tasks()
 
-    def _setup_periodic_tasks(self):
-        """Set up periodic tasks using Celery Beat (replaces APScheduler)."""
-        self.app.conf.beat_schedule = {
-            "cleanup-at-3am": {
-                "task": NAME_CLEANUP_TASK,
-                "schedule": crontab(minute=0, hour=3),  # Every day at 3:00 AM
-                "options": {"queue": "maintenance"},
-            },
-            "update-db-at-4am": {
-                "task": NAME_UPDATE_DB_TASK,
-                "schedule": crontab(minute=0, hour=4),  # Every day at 4:00 AM
-                "options": {"queue": "maintenance"},
-            },
-        }
-
-    def submit_computation_job(self, job) -> str:
+    def submit_computation_job(self, job) -> tuple[str | None, bool]:
         """Submit a computation job to the Celery queue.
 
         Args:
             job: Job instance to process
 
         Returns:
-            str: Celery task ID
+            tuple: (celery_task_id, failed_boolean)
+                   celery_task_id is None if submission failed
         """
-        log.info(
-            f"Submitting computation job {job.job_id} to Celery",
-        )
-
-        # Submit to Celery (pass job_id, not job object)
-        result = self.app.send_task(
-            NAME_COMPUTATION_TASK,
-            args=[job.job_id],
-            queue="computation",
-            retry=True,
-            retry_policy={
-                "max_retries": 3,
-                "interval_start": 10,
-                "interval_step": 15,
-                "interval_max": 30,
-            },
-        )
-
-        # Store task name in Redis for revoked task retrieval
-        self.app.backend.client.set(
-            f"task_name:{result.id}",
-            NAME_COMPUTATION_TASK,
-            ex=86400,  # 24 hour TTL
-        )
-
-        log.info(
-            f"Job {job.job_id} submitted with Celery task ID: {result.id}",
-        )
-
-        return result.id, False
+        try:
+            result = self.app.send_task(
+                NAME_COMPUTATION_TASK,
+                args=[job.job_id],
+                queue="computation",
+                retry=True,
+                retry_policy={
+                    "max_retries": 3,
+                    "interval_start": 10,
+                    "interval_step": 15,
+                    "interval_max": 30,
+                },
+            )
+            # Store task name in Redis for revoked task retrieval
+            self.app.backend.client.set(
+                f"task_name:{result.id}",
+                NAME_COMPUTATION_TASK,
+                ex=86400,  # 24 hour TTL
+            )
+            log.info(f"Submitted computation job {job.job_id} with task_id={result.id}")
+            return result.id, False
+        except (OperationalError, CeleryError) as e:
+            log.error(f"Failed to submit computation job {job.job_id}: {e}")
+            return None, True
 
     def get_job_status(self, task_id: str) -> dict:
         """Get the status of a Celery task."""
@@ -152,6 +130,75 @@ class BackgroundJobManager:
         log.info(
             f"Task {task_id} revoked (terminate={terminate})",
         )
+
+    def submit_test_task(self) -> tuple[str | None, bool]:
+        """Submit a test sleep task to the Celery queue.
+
+        Returns:
+            tuple: (celery_task_id, failed_boolean)
+                   celery_task_id is None if submission failed
+        """
+        try:
+            result = self.app.send_task(
+                NAME_TEST_TASK,
+                queue="test",
+            )
+            self.app.backend.client.set(
+                f"task_name:{result.id}",
+                NAME_TEST_TASK,
+                ex=86400,
+            )
+            log.info(f"Submitted test task with task_id={result.id}")
+            return result.id, False
+        except (OperationalError, CeleryError) as e:
+            log.error(f"Failed to submit test task: {e}")
+            return None, True
+
+    def submit_update_db_task(self) -> tuple[str | None, bool]:
+        """Submit the update_db maintenance task to the Celery queue.
+
+        Returns:
+            tuple: (celery_task_id, failed_boolean)
+                   celery_task_id is None if submission failed
+        """
+        try:
+            result = self.app.send_task(
+                NAME_UPDATE_DB_TASK,
+                queue="maintenance",
+            )
+            self.app.backend.client.set(
+                f"task_name:{result.id}",
+                NAME_UPDATE_DB_TASK,
+                ex=86400,
+            )
+            log.info(f"Submitted update_db task with task_id={result.id}")
+            return result.id, False
+        except (OperationalError, CeleryError) as e:
+            log.error(f"Failed to submit update_db task: {e}")
+            return None, True
+
+    def submit_cleanup_task(self) -> tuple[str | None, bool]:
+        """Submit a maintenance cleanup task to the Celery queue.
+
+        Returns:
+            tuple: (celery_task_id, failed_boolean)
+                   celery_task_id is None if submission failed
+        """
+        try:
+            result = self.app.send_task(
+                NAME_CLEANUP_TASK,
+                queue="default",
+            )
+            self.app.backend.client.set(
+                f"task_name:{result.id}",
+                NAME_CLEANUP_TASK,
+                ex=86400,
+            )
+            log.info(f"Submitted cleanup task with task_id={result.id}")
+            return result.id, False
+        except (OperationalError, CeleryError) as e:
+            log.error(f"Failed to submit cleanup task: {e}")
+            return None, True
 
     def get_all_tasks_overview(self) -> dict:
         """Get comprehensive overview of all tasks using Celery inspect API.

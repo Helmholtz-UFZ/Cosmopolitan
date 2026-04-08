@@ -1,5 +1,7 @@
 """Celery configuration for COSMOPOLITAN background tasks."""
 
+from celery.schedules import crontab
+
 from cosmopolitan_app.config import REDIS_DB, REDIS_HOST, REDIS_PASSWORD, REDIS_PORT
 
 
@@ -91,6 +93,18 @@ class CeleryConfig:
     task_send_sent_event = True  # Send task sent events
 
     # Beat scheduler settings
+    beat_schedule = {
+        "cleanup-at-3am": {
+            "task": "cosmopolitan_app.tasks.maintenance_tasks.cleanup",
+            "schedule": crontab(minute=0, hour=3),
+            "options": {"queue": "maintenance"},
+        },
+        "update-db-at-4am": {
+            "task": "cosmopolitan_app.tasks.maintenance_tasks.update_db",
+            "schedule": crontab(minute=0, hour=4),
+            "options": {"queue": "maintenance"},
+        },
+    }
     beat_schedule_filename = (
         "/tmp/celerybeat-schedule"  # Use tmp directory to avoid permission issues
     )

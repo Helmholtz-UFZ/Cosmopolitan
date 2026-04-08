@@ -32,7 +32,7 @@ from datetime import datetime
 import dash
 import dash_bootstrap_components as dbc
 from dash import Input, Output, State, callback, dcc, html, register_page
-from kombu.exceptions import OperationalError as KombuOperationalError
+
 
 from cosmopolitan_app.background_job_manager import background_job_manager
 from cosmopolitan_app.constants import (
@@ -359,17 +359,15 @@ def start_update(n_clicks):
         )
 
     # Submit task to Celery
-    try:
-        result = background_job_manager.update_db_task.apply_async(queue="maintenance")
+    task_id, failed = background_job_manager.submit_update_db_task()
+    if failed:
+        raise RedisConnectionError()
 
-        return (
-            f"Update task submitted. Task ID: {result.id}",
-            "success",
-            True,
-        )
-    except (ConnectionError, OSError, RuntimeError, KombuOperationalError) as e:
-        log.error(f"Failed to submit CRNS update task: {e}")
-        raise RedisConnectionError() from e
+    return (
+        f"Update task submitted. Task ID: {task_id}",
+        "success",
+        True,
+    )
 
 
 @callback(
