@@ -7,7 +7,7 @@ frontend:
   enabled: true
   image:
     repository: registry.hzdr.de/ufz/tb5-smm/met/wg7/cosmopolitan/frontend
-    tag: "0.1.7-2026.04.13"
+    tag: "0.1.7-2026.04.15"
   imagePullSecrets:
     - name: wombat-docker-registry-codebase
   podAnnotations:
@@ -82,16 +82,16 @@ frontend:
       value: ""
   ingress:
     enabled: true
-    className: "haproxy"
+    className: "nginx"
     annotations:
       cert-manager.io/cluster-issuer: "cert-manager-acme"
       cert-manager.io/private-key-algorithm: "ECDSA"
       cert-manager.io/private-key-size: "384"
       cert-manager.io/private-key-rotation-policy: "Always"
-      haproxy-ingress.github.io/config-backend: |
-        http-response set-header 'X-Content-Type-Options' 'nosniff';
-        http-response set-header 'Content-Security-Policy' "default-src 'self'; script-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.tile.openstreetmap.org https://*.app.ufz.de; style-src 'self' 'unsafe-inline'; font-src 'self' ; frame-src 'self' *.ufz.de ; child-src 'self' *.ufz.de ; object-src 'none' ; frame-ancestors 'self' http://*.ufz.de https://*.ufz.de ;";
-
+      nginx.ingress.kubernetes.io/configuration-snippet: |
+        add_header 'X-Content-Type-Options' 'nosniff' always;
+        add_header 'Content-Security-Policy' "default-src 'self'; script-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.tile.openstreetmap.org https://*.app.ufz.de; style-src 'self' 'unsafe-inline'; font-src 'self' ; frame-src 'self' *.ufz.de ; child-src 'self' *.ufz.de ; object-src 'none' ; frame-ancestors 'self' http://*.ufz.de https://*.ufz.de ;" always;
+        add_header 'X-XSS-Protection' '1';
     hosts:
       - host: "cosmopolitan.web-intern-stage.app.ufz.de"
         paths:
@@ -120,7 +120,7 @@ worker:
   image:
     repository: registry.hzdr.de/ufz/tb5-smm/met/wg7/cosmopolitan/worker
     pullPolicy: Always
-    tag: "0.1.7-2026.04.13"
+    tag: "0.1.7-2026.04.15"
   imagePullSecrets:
     - name: wombat-docker-registry-codebase
   nameOverride: ""
@@ -224,16 +224,16 @@ tileserver:
       memory: 500Mi
   ingress:
     enabled: true
-    className: "haproxy"
+    className: "nginx"
     annotations:
       cert-manager.io/cluster-issuer: "cert-manager-acme"
       cert-manager.io/private-key-algorithm: "ECDSA"
       cert-manager.io/private-key-size: "384"
       cert-manager.io/private-key-rotation-policy: "Always"
-      haproxy-ingress.github.io/config-backend: |
-        http-response set-header 'X-Content-Type-Options' 'nosniff';
-        http-response set-header 'Content-Security-Policy' "default-src 'self'; script-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.tile.openstreetmap.org; style-src 'self' 'unsafe-inline'; font-src 'self' ; frame-src 'self' *.ufz.de ; child-src 'self' *.ufz.de ; object-src 'none' ; frame-ancestors 'self' http://*.ufz.de https://*.ufz.de ;";
-
+      nginx.ingress.kubernetes.io/configuration-snippet: |
+        add_header 'X-Content-Type-Options' 'nosniff' always;
+        add_header 'Content-Security-Policy' "default-src 'self'; script-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.tile.openstreetmap.org; style-src 'self' 'unsafe-inline'; font-src 'self' ; frame-src 'self' *.ufz.de ; child-src 'self' *.ufz.de ; object-src 'none' ; frame-ancestors 'self' http://*.ufz.de https://*.ufz.de ;" always;
+        add_header 'X-XSS-Protection' '1';
     hosts:
       - host: "cosmopolitan-ts.web-intern-stage.app.ufz.de"
         paths:
