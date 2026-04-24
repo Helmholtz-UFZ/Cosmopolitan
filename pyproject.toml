@@ -4,6 +4,7 @@ version = "0.1.7"
 description = "COSmic ray based soil MOisture PredictiOn LIve descicion Tree ANalysis"
 authors = [{ name = "John Anders", email = "john-eric.anders@ufz.de" }]
 readme = "README.md"
+license = { text = "EUPL-1.2" }
 requires-python = ">=3.13"
 dependencies = [
     "dash[ag-grid]>=3.0.4,<4",
