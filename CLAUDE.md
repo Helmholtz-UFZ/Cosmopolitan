@@ -96,6 +96,7 @@ For specific implementation details, see:
 - [Logging](docs/conventions/logging.md) - Log levels, proper logger usage
 - [Callbacks](docs/conventions/callbacks.md) - Callback organization patterns
 - [Environment Variables](docs/conventions/environment_variables.md) - Env files, config loading, secrets
+- [Deployment](docs/conventions/deployment.md) - Kubernetes/ArgoCD gotchas, values.yaml tag automation, ingress className
 
 **Important** read the convention before you make any codebase exploration or answering.
 Never sacrfice speed for accuracy.
