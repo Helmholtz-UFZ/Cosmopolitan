@@ -1,3 +1,7 @@
+> Entry point: [`AGENTS.md`](AGENTS.md) has the build/test/run commands, repo layout, and
+> links into [`docs/`](docs/README.md) (architecture, project-state, conventions). This file
+> adds the Claude-specific workflow on top.
+
 ## Project Overview
 
 COSMOPOLITAN is a web service for analyzing cosmic ray data to predict soil moisture
@@ -82,8 +86,17 @@ The options are:
 - **A new `docs/conventions/*.md`** — If no existing file fits, propose creating one.
   Do not hesitate to do this; a focused new file is better than cramming unrelated
   knowledge into an existing one.
+- **`docs/knowledge/`** — For *explanatory* knowledge (how a concept or subsystem works),
+  not binding rules. Add a page under `concepts/` or `systems/`, then update
+  [`docs/knowledge/index.md`](docs/knowledge/index.md) and add a dated entry to
+  [`docs/knowledge/log.md`](docs/knowledge/log.md). Rules and anti-patterns still go in
+  `conventions/`, not here.
 
-Always prefer the most specific home for the knowledge.
+Always prefer the most specific home for the knowledge. The distinction: `conventions/`
+says *what you must do*; `docs/knowledge/` explains *how something works*.
+
+Note: "DO NOT use the auto memory system" means no machine-managed `MEMORY.md` log — the
+`docs/knowledge/` base above is a curated, hand-maintained set of pages, which is fine.
 
 ## Detailed Conventions
 
@@ -116,6 +129,8 @@ user asks later. Keep this skill list in Mind:
 - [New Module Test](docs/skills/create_module_test.md) - Checklist for creating a new core module test
 - [Run and Fix Testing](docs/skills/run_and_fix_testing.md) - Systematic guide for running tests and diagnosing failures
 - [Convention Keeper](docs/skills/convention_keeper.md) - Audit and fix convention violations across the codebase
+- [Session Close](docs/skills/session_close.md) - Propose a `project-state.md` update at the end of a working session
+- [Structural Doc Update](docs/skills/structural_doc_update.md) - Keep the `docs/` layer accurate after a structural change
 
 ## Identity Files — Read First, No Exceptions
 

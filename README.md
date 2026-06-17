@@ -130,11 +130,10 @@ pytest -s
 
 ```bash
 # Format code
-uv run black .
-uv run isort --profile black .
+uv run ruff format .
 
-# Lint code
-uv run flake8 --max-line-length 88 --ignore=E203,W503
+# Lint code (with autofix)
+uv run ruff check --fix .
 
 # Pre-commit hooks (recommended)
 pre-commit install
