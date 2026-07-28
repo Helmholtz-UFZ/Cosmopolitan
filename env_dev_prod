@@ -8,7 +8,7 @@ DOCKER_UID=1000
 DOCKER_GID=1000
 FLASK_DEBUG=1
 GUNICORN=0
-MAINTAINER_EMAIL="john-eric.anders@ufz.de,louis-ferdinand.trinkle@ufz.de"
+MAINTAINER_EMAIL="louis-ferdinand.trinkle@ufz.de"
 
 ###  Webserver ###
 WEB_WORK_DIR="./cosmopolitan_app/work_dir"
