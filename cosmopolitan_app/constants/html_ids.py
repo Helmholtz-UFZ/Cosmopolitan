@@ -257,43 +257,6 @@ EDIT_DATASTREAMS_TEXTAREA_SENSOR_MANAGEMENT_ID = (
 )
 
 # =============================================================================
-# LOGS
-# =============================================================================
-
-# --- DatePickers ---
-DATE_RANGE_DATEPICKER_LOGS_ID = "date-range-datepicker-logs-id"
-
-# --- Divs ---
-LOG_OUTPUT_DIV_LOGS_ID = "log-output-div-logs-id"
-TIME_ERROR_DIV_LOGS_ID = "time-error-div-logs-id"
-
-# --- Dropdowns ---
-LOG_LEVELS_DROPDOWN_LOGS_ID = "log-levels-dropdown-logs-id"
-
-# --- Input Groups ---
-TIME_INPUT_GROUP_LOGS_ID = "time-input-group-logs-id"
-
-# --- Inputs ---
-START_HOUR_INPUT_LOGS_ID = "start-hour-input-logs-id"
-START_MINUTE_INPUT_LOGS_ID = "start-minute-input-logs-id"
-END_HOUR_INPUT_LOGS_ID = "end-hour-input-logs-id"
-END_MINUTE_INPUT_LOGS_ID = "end-minute-input-logs-id"
-PID_INPUT_LOGS_ID = "pid-input-logs-id"
-
-# --- Buttons ---
-REFRESH_BUTTON_LOGS_ID = "refresh-button-logs-id"
-
-# --- Checklists ---
-PID_RADIO_CHECKLIST_LOGS_ID = "pid-radio-checklist-logs-id"
-LIVE_MODE_CHECKLIST_LOGS_ID = "live-mode-checklist-logs-id"
-
-# --- Dropdowns (continued) ---
-MODULE_EXCLUDE_DROPDOWN_LOGS_ID = "module-exclude-dropdown-logs-id"
-
-# --- Intervals ---
-AUTO_POLL_INTERVAL_LOGS_ID = "auto-poll-interval-logs-id"
-
-# =============================================================================
 # MEASUREMENT_VIEW
 # =============================================================================
 
