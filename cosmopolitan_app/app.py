@@ -12,7 +12,7 @@ from cosmopolitan_app.error_handling import handle_error
 from cosmopolitan_app.files_route import serve_files
 from cosmopolitan_app.layouts import app_layout
 from cosmopolitan_app.logger import get_logger_config_web
-from cosmopolitan_app.object_storage_manager import create_bucket, setup_remote
+from cosmo_suite.object_storage_manager import create_bucket, setup_remote
 
 # Configure logging early — before Dash() triggers page-module imports.
 logging.config.dictConfig(get_logger_config_web(DEBUG))

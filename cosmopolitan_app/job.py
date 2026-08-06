@@ -43,7 +43,7 @@ from cosmopolitan_app.error_handling import (
     MapTileDownloadError,
     NoMeasurementPointsError,
 )
-from cosmopolitan_app.object_storage_manager import (
+from cosmo_suite.object_storage_manager import (
     delete_directory_from_storage,
     delete_file_from_storage,
     get_files,

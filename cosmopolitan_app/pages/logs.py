@@ -42,7 +42,7 @@ from cosmopolitan_app.constants import (
     TIME_INPUT_GROUP_LOGS_ID,
 )
 from cosmopolitan_app.layouts import create_header, page_container_column_layout
-from cosmopolitan_app.logs_table import format_logs_list
+from cosmo_suite.logs_table import format_logs_list
 from cosmopolitan_app.postgres_manager import PostgresManager
 
 dash.register_page(
