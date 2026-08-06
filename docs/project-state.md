@@ -1,13 +1,26 @@
 # Project State
 
-Last updated: 2026-06-17
+Last updated: 2026-08-06
 
 ## Current priorities
 
-TODO: No in-flight work is recorded yet — what is the current development focus? Fill this in
-(or run the session-close skill at the end of a working session to keep it current).
+- **Slice 2 of the `cosmo-suite` integration.** Slice 1 landed (see below). What is left needs
+  the framework's `db_manager`, `job` and `layouts` adopted together, because the remaining
+  candidates all import them: `files_route.py`, `pages/logs.py`, `pages/job_management.py`,
+  `pages/worker_management.py` (1652 lines). Taking any of them alone would put a second
+  SQLAlchemy engine, a second Celery client and a second `Job` class into the same process.
+- Two things Slice 2 needs from the framework itself, neither of which exists at `v0.3.0`:
+  an `on_unhandled` hook for `handle_error` (without it the mails to `MAINTAINER_EMAIL` stop
+  silently), and an `excluded_packages` parameter for `ExcludeSubmodulesFilter` (would remove
+  the shim in `logger.py`).
 
 ## Recent changes
+
+- 2026-08-06: **Slice 1 of the `cosmo-suite` integration** — the app now imports the shared
+  framework instead of duplicating it. `pyproject.toml` pins `cosmo-suite@v0.3.0`;
+  `logs_table.py`, `object_storage_manager.py` and `tasks/test_tasks.py` are deleted,
+  `config.py`, `logger.py`, `celery_config.py` and `ModelWebsite` sit on framework bases.
+  Net −710 lines. See [Framework boundary](architecture.md#framework-boundary).
 
 - 2026-06-17: Built out the `docs/` LLM-wiki layer — added `AGENTS.md`, `architecture.md`,
   this file, `decisions/`, two maintenance skills, and a [`knowledge/`](knowledge/index.md) base

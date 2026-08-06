@@ -122,4 +122,4 @@ def test_something(page, dash_app):
 
 - `check_all_errors(page)` in `test/help_functions_tests.py` is the standard post-action verification — checks console errors, JS errors, and broken images
 - Use `locator.scroll_into_view_if_needed()` before clicking elements that may be off-screen
-- `conftest.py` inline imports from `object_storage_manager` are inside `pytest_configure` (not at top level) to avoid triggering service connections during collection
+- `conftest.py` inline imports from `cosmo_suite.object_storage_manager` are inside `pytest_configure` (not at top level) to avoid triggering service connections during collection

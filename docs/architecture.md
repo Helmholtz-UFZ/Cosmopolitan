@@ -9,6 +9,11 @@ Dash (Plotly) on a Flask server, Celery + Redis for background work, PostgreSQL/
 spatial data, MinIO (S3, via rclone) for object storage. Predictions come from the external
 `soil-moisture-prediction` library; CRNS data comes from the TimeIO / STI API.
 
+Infrastructure that is not CRNS-specific comes from
+[`cosmo-suite`](https://codebase.helmholtz.cloud/ufz/tb5-smm/met/wg7/cosmo-suite), the
+framework shared with the sister app COSMONAUT, pinned to a tag in `pyproject.toml`.
+See [Framework boundary](#framework-boundary) below.
+
 ## Component map
 
 | Component | Purpose |
@@ -27,13 +32,32 @@ spatial data, MinIO (S3, via rclone) for object storage. Predictions come from t
 | `timeio_manager.py`, `timeio_info.py` | Data acquisition from the TimeIO / STI API (CRNS measurements) |
 | `map_utils.py` | Map layers (TiTiler tile layers for GeoTIFF; dash-leaflet) |
 | `error_handling.py` | Custom exceptions and the error modal |
-| `logger.py` | Logging setup, including a handler that writes log records to PostgreSQL |
-| `logs_table.py` | Logs table UI and formatting |
+| `logger.py` | Domain log exclusions on top of the framework's logging setup |
 | `email_service.py` | Notification emails (e.g. job finished) |
 | `files_route.py` | Flask route for downloading job files |
 | `doc_generator.py`, `screenshot_generator.py` | Generate in-app documentation and screenshots |
-| `config.py` | Configuration / environment loading |
+| `config.py` | The framework's infrastructure variables plus the domain's own |
 | `constants/` | `html_ids.py` (HTML ID constants — see convention) and `general.py` |
+
+## Framework boundary
+
+These modules are **not** in this repository — they are imported from `cosmo_suite`:
+
+| Framework module | Used for |
+|---|---|
+| `cosmo_suite.config` | The 18 infrastructure env vars, `getenv`, `JOB_WORK_DIR_TEMPLATE` |
+| `cosmo_suite.logger` | `PostgreSQLHandler`, log format, the three dictConfig builders |
+| `cosmo_suite.object_storage_manager` | MinIO/S3 access via rclone, `ObjectStorageError` |
+| `cosmo_suite.logs_table` | Logs table UI and formatting |
+| `cosmo_suite.celery_config` | `BaseCeleryConfig` — broker, timeouts, worker limits |
+| `cosmo_suite.pydantic_models` | `BaseJobConfig`, `validate_job_id` |
+| `cosmo_suite.tasks.test_tasks` | The long-running test task body |
+
+Still local, and deliberately so: `postgres_manager.py`, `job.py`, `layouts.py`,
+`error_handling.py`, `background_job_manager.py` and the `pages/`. The framework has
+counterparts for several of them, but adopting those means running the framework's
+`Job`/`DbManager`/Celery client alongside this app's. That consolidation is its own
+piece of work.
 
 ## How it fits together
 

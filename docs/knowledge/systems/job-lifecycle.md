@@ -11,7 +11,7 @@ core flow of the application; most pages and background machinery exist to serve
 3. Job is persisted                    → Job (job.py) → PostgreSQL (postgres_manager.py)
 4. Job is queued                       → background_job_manager.submit_computation_job() → Redis
 5. A worker runs the prediction        → tasks/computation_tasks.start_computation_task → smp_main()
-6. Results are stored                  → object storage (object_storage_manager.py, MinIO/S3)
+6. Results are stored                  → object storage (cosmo_suite.object_storage_manager, MinIO/S3)
 7. User views results / gets emailed    → pages/results, email_service.py
 ```
 
