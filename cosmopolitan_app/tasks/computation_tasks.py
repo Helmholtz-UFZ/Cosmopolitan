@@ -13,7 +13,7 @@ from cosmopolitan_app.config import MAINTAINER_EMAIL
 from cosmopolitan_app.constants import LOG_FILE_NAME
 from cosmopolitan_app.job import Job
 from cosmopolitan_app.logger import (
-    get_logger_config_compuation,
+    get_logger_config_computation,
     get_logger_config_worker,
 )
 from cosmopolitan_app.email_service import (
@@ -68,7 +68,7 @@ def start_computation_task(self, job_id):
             log.error("Failed to send submission mail.")
 
         dictConfig(
-            get_logger_config_compuation(os.path.join(job.working_dir, LOG_FILE_NAME))
+            get_logger_config_computation(os.path.join(job.working_dir, LOG_FILE_NAME))
         )
 
         rfo_model = smp_main(verbosity="debug", work_dir=job.working_dir)
