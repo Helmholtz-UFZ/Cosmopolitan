@@ -12,7 +12,10 @@ from soil_moisture_prediction.pydantic_models import InputParameters
 
 # validate_job_id is re-exported: job.py and pages/new_job.py call it from here, and
 # the rule (8-50 chars, ^\w+$) belongs to the framework's job-id contract now.
-from cosmo_suite.pydantic_models import BaseJobConfig, validate_job_id  # noqa: F401
+# UploadJobConfig, not BaseJobConfig: since v0.4.0 the base carries only job_id, and
+# upload_file_name moved to this subclass. Inheriting the base would drop that field
+# silently — no import error, no failing test.
+from cosmo_suite.pydantic_models import UploadJobConfig, validate_job_id  # noqa: F401
 
 log = logging.getLogger(__name__)
 
@@ -29,11 +32,11 @@ def check_email(email: str) -> str:
         raise ValueError(f"Invalid email: {e}")
 
 
-class ModelWebsite(InputParameters, BaseJobConfig):
+class ModelWebsite(InputParameters, UploadJobConfig):
     """Model for the website form.
 
-    BaseJobConfig contributes the framework's job-id contract (and the generic
-    upload_file_name field); InputParameters contributes the prediction
+    UploadJobConfig contributes the framework's job-id contract and the generic
+    upload_file_name field; InputParameters contributes the prediction
     parameters. The two field sets are disjoint.
     """
 

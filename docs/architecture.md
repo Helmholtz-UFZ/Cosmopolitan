@@ -31,7 +31,6 @@ See [Framework boundary](#framework-boundary) below.
 | `timeio_manager.py`, `timeio_info.py` | Data acquisition from the TimeIO / STI API (CRNS measurements) |
 | `map_utils.py` | Map layers (TiTiler tile layers for GeoTIFF; dash-leaflet) |
 | `error_handling.py` | Custom exceptions and the error modal |
-| `logger.py` | Domain log exclusions on top of the framework's logging setup |
 | `email_service.py` | Notification emails (e.g. job finished) |
 | `files_route.py` | Flask route for downloading job files |
 | `doc_generator.py`, `screenshot_generator.py` | Generate in-app documentation and screenshots |
@@ -45,7 +44,7 @@ These modules are **not** in this repository — they are imported from `cosmo_s
 | Framework module | Used for |
 |---|---|
 | `cosmo_suite.config` | The 18 infrastructure env vars, `getenv`, `JOB_WORK_DIR_TEMPLATE` |
-| `cosmo_suite.logger` | `PostgreSQLHandler`, log format, the three dictConfig builders |
+| `cosmo_suite.logger` | `PostgreSQLHandler`, log format, the dictConfig builders (domain exclusions passed in from `constants/general.py`) |
 | `cosmo_suite.object_storage_manager` | MinIO/S3 access via rclone, `ObjectStorageError` |
 | `cosmo_suite.logs_table` | Logs table UI and formatting |
 | `cosmo_suite.celery_config` | `BaseCeleryConfig` — broker, timeouts, worker limits |

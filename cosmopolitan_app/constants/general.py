@@ -8,3 +8,8 @@ DAYS_DELETE_NOT_SUBMITTED = 2
 LOG_RETENTION_DAYS = 60
 
 LOG_FILE_NAME = "logs"
+
+# Packages only this app pulls in; their DEBUG output would otherwise fill the logs
+# table. Passed to the cosmo_suite logger builders, which add them to their own
+# defaults (watchdog, selenium).
+EXCLUDED_LOG_PACKAGES = ("matplotlib", "PIL", "rasterio")

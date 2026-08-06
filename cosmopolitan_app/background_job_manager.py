@@ -20,9 +20,10 @@ from cosmo_suite.background_job_manager import (
 from cosmo_suite.background_job_manager import (
     configure_worker_logging as framework_configure_worker_logging,
 )
+from cosmo_suite.logger import get_logger_config_worker
 
 from cosmopolitan_app.celery_config import CeleryConfig
-from cosmopolitan_app.logger import get_logger_config_worker
+from cosmopolitan_app.constants.general import EXCLUDED_LOG_PACKAGES
 
 log = logging.getLogger(__name__)
 
@@ -30,14 +31,14 @@ log = logging.getLogger(__name__)
 # Both would run and the last one would win, i.e. the effective worker logging
 # config would depend on import order. Disconnect it explicitly: this app needs
 # its own excluded-packages list (matplotlib/PIL/rasterio all run inside worker
-# processes during a prediction), see logger.py.
+# processes during a prediction), see constants/general.py.
 worker_process_init.disconnect(framework_configure_worker_logging)
 
 
 @worker_process_init.connect
 def configure_worker_logging(sender=None, conf=None, **kwargs):
     """Configure database logging for Celery worker processes."""
-    dictConfig(get_logger_config_worker())
+    dictConfig(get_logger_config_worker(EXCLUDED_LOG_PACKAGES))
 
 
 NAME_COMPUTATION_TASK = "cosmopolitan_app.tasks.computation_tasks.start_computation"

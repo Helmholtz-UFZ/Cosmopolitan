@@ -7,15 +7,16 @@ from logging.config import dictConfig
 from smtplib import SMTPAuthenticationError
 
 from celery import Task
+from cosmo_suite.logger import (
+    get_logger_config_computation,
+    get_logger_config_worker,
+)
 from soil_moisture_prediction.smp_cli import main as smp_main
 
 from cosmopolitan_app.config import MAINTAINER_EMAIL
 from cosmopolitan_app.constants import LOG_FILE_NAME
+from cosmopolitan_app.constants.general import EXCLUDED_LOG_PACKAGES
 from cosmopolitan_app.job import Job
-from cosmopolitan_app.logger import (
-    get_logger_config_computation,
-    get_logger_config_worker,
-)
 from cosmopolitan_app.email_service import (
     send_finished_mail,
     send_mail,
@@ -60,7 +61,7 @@ def start_computation_task(self, job_id):
         job = Job(job_id=job_id)
         log.debug("Job loaded")
 
-        dictConfig(get_logger_config_worker())
+        dictConfig(get_logger_config_worker(EXCLUDED_LOG_PACKAGES))
 
         try:
             send_submission_mail(job)
@@ -68,7 +69,9 @@ def start_computation_task(self, job_id):
             log.error("Failed to send submission mail.")
 
         dictConfig(
-            get_logger_config_computation(os.path.join(job.working_dir, LOG_FILE_NAME))
+            get_logger_config_computation(
+                os.path.join(job.working_dir, LOG_FILE_NAME), EXCLUDED_LOG_PACKAGES
+            )
         )
 
         rfo_model = smp_main(verbosity="debug", work_dir=job.working_dir)
@@ -78,7 +81,7 @@ def start_computation_task(self, job_id):
             job.status = "COMPLETED"
 
         flush_all_handlers()
-        dictConfig(get_logger_config_worker())
+        dictConfig(get_logger_config_worker(EXCLUDED_LOG_PACKAGES))
         log.info("Computation finished.")
 
         job.save()
@@ -93,7 +96,7 @@ def start_computation_task(self, job_id):
         # Ensure all log buffers are flushed before switching config
         flush_all_handlers()
         # Log error to web logs
-        dictConfig(get_logger_config_worker())
+        dictConfig(get_logger_config_worker(EXCLUDED_LOG_PACKAGES))
         email_subject = "Computation task failed"
         email_body = f"""
         Error: {str(e)}\n\n
