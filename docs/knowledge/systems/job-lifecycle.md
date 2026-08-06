@@ -27,15 +27,15 @@ Celery config lives in [`celery_config.py`](../../../cosmopolitan_app/celery_con
 
 - **Task names** are explicit constants in
   [`background_job_manager.py`](../../../cosmopolitan_app/background_job_manager.py):
-  `start_computation` (computation), `cleanup` / `update_db` (maintenance),
-  `long_running_test` (test).
+  `start_computation` (computation), `cleanup` / `update_db` (maintenance). `NAME_TEST_TASK` is
+  re-exported from `cosmo_suite`, so the test task carries the framework's name.
 - **Registration** happens in [`celery_app.py`](../../../cosmopolitan_app/celery_app.py), the
   worker entry point — kept separate from `background_job_manager` to break a circular import
   (`tasks/*.py → job → background_job_manager → tasks/*.py`).
 - **Routing** (`task_routes`): `computation_tasks.*` → `computation` queue,
   `maintenance_tasks.*` → `maintenance` queue. Default queue is `default`.
 - **Worker** (`docker/worker.Dockerfile`):
-  `celery -A cosmopolitan_app.celery_app.celery worker --concurrency=4 --queues=default,computation,maintenance`.
+  `celery -A cosmopolitan_app.celery_app.celery worker --concurrency=4 --queues=default,computation,maintenance,test`.
 - `BackgroundJobManager` is a **lazy module-level singleton** (created on first access to
   `background_job_manager` via `module.__getattr__`), so importing the module doesn't connect to
   Redis.
@@ -71,12 +71,13 @@ log handler (see [`../../conventions/logging.md`](../../conventions/logging.md))
 
 ## Gotchas
 
-- **`test` queue is not consumed.** `submit_test_task` sends to `queue="test"`, but the worker
-  only listens on `default,computation,maintenance`. The test task won't run unless a worker is
-  started with `-Q test`.
 - **Manual cleanup vs scheduled cleanup use different queues.** `submit_cleanup_task` sends to
   `default`, while the Beat-scheduled `cleanup` uses `maintenance`. Both are consumed by the
   worker, so both run — but the inconsistency is easy to trip over when reasoning about routing.
+- **`test_background_job_manager.py` does not exercise `submit_test_task()`.** It calls
+  `app.send_task(NAME_TEST_TASK, queue="maintenance")` directly, so it never touches the queue
+  the real submit path uses. That is why the unconsumed `test` queue (fixed 2026-08-06 by adding
+  `test` to the worker's queue list) stayed invisible to the suite.
 
 ## Related
 

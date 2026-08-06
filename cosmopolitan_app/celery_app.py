@@ -26,8 +26,9 @@ app = background_job_manager.app
 app.task(bind=True, name=NAME_COMPUTATION_TASK)(start_computation_task)
 app.task(bind=True, name=NAME_CLEANUP_TASK)(cleanup_task)
 app.task(bind=True, name=NAME_UPDATE_DB_TASK)(update_db_task)
-# The test task's body comes from the framework, but it is registered under this
-# app's own name so the worker, the routes and the beat schedule stay consistent.
+# Body and name both come from the framework: NAME_TEST_TASK is re-exported from
+# cosmo_suite, so what the inherited submit_test_task() sends is what the worker
+# has registered. Submitted to the "test" queue, which the worker must consume.
 app.task(bind=True, name=NAME_TEST_TASK)(long_running_test_task)
 
 # Expose for: celery -A cosmopolitan_app.celery_app.celery worker ...

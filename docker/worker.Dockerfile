@@ -62,7 +62,7 @@ CMD echo "Starting Celery worker in PRODUCTION mode..."; \
     exec celery -A cosmopolitan_app.celery_app.celery worker \
         --loglevel=debug \
         --concurrency=4 \
-        --queues=default,computation,maintenance \
+        --queues=default,computation,maintenance,test \
         --hostname=worker@%h \
         --without-gossip \
         --without-mingle;

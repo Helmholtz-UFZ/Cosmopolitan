@@ -356,7 +356,7 @@ def celery_worker(request):
             "--loglevel=debug",
             "--concurrency=1",
             "--pool=prefork",
-            "--queues=computation,maintenance,celery",
+            "--queues=computation,maintenance,celery,test",
             "--hostname=worker@test",
             "-E",
         ],
