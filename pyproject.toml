@@ -10,11 +10,14 @@ readme = "README.md"
 license = { text = "EUPL-1.2" }
 requires-python = ">=3.13"
 dependencies = [
+    "cosmo-suite @ git+https://codebase.helmholtz.cloud/ufz/tb5-smm/met/wg7/cosmo-suite@v0.3.0",
     "dash[ag-grid]>=3.0.4,<4",
     "soil-moisture-prediction>=0.1.0,<0.2",
     "dash-bootstrap-components>=2.0.3,<3",
     "celery[redis]>=5.3.0,<6",
-    "dotenv>=0.9.9,<0.10",
+    # python-dotenv, not the `dotenv` shim package: both ship a `dotenv` module and
+    # cosmo-suite depends on python-dotenv directly.
+    "python-dotenv>=1,<2",
     "psycopg2>=2.9.10,<3",
     "sqlalchemy>=2.0.41,<3",
     "geoalchemy2>=0.17.1,<0.18",
@@ -45,6 +48,11 @@ testpaths = ["test"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+# cosmo-suite is pinned by git URL (no PyPI release); hatchling rejects direct
+# references in project.dependencies unless this is set.
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["cosmopolitan_app"]
