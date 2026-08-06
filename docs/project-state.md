@@ -4,17 +4,32 @@ Last updated: 2026-08-06
 
 ## Current priorities
 
-- **Slice 2 of the `cosmo-suite` integration.** Slice 1 landed (see below). What is left needs
-  the framework's `db_manager`, `job` and `layouts` adopted together, because the remaining
-  candidates all import them: `files_route.py`, `pages/logs.py`, `pages/job_management.py`,
-  `pages/worker_management.py` (1652 lines). Taking any of them alone would put a second
-  SQLAlchemy engine, a second Celery client and a second `Job` class into the same process.
-- Two things Slice 2 needs from the framework itself, neither of which exists at `v0.3.0`:
-  an `on_unhandled` hook for `handle_error` (without it the mails to `MAINTAINER_EMAIL` stop
-  silently), and an `excluded_packages` parameter for `ExcludeSubmodulesFilter` (would remove
-  the shim in `logger.py`).
+- **Re-pin to `cosmo-suite@v0.4.0`** (tagged and pushed). Two decisions must be made *before*
+  the suite runs, because neither fails loudly — see
+  `docs/plan/cosmo-suite-v0.4.0-consumer-notes.md`:
+  1. `ModelWebsite` must move from `BaseJobConfig` to `UploadJobConfig` or it silently loses
+     `upload_file_name`.
+  2. `BaseCeleryConfig`'s time limits become `None`; this app inherited 3600/3900 s unnoticed
+     and loses them unless it sets them itself. **Open question: what is a realistic runtime
+     for a large regionalisation?**
+  3. `get_files()` defaults to `overwrite=False`. Decided: pass `overwrite=True` at
+     `job.py:249` — job ids are user-chosen and reusable, and the worker container keeps its
+     `work_dir` across jobs, so `--ignore-existing` could compute on a previous job's files.
+  4. Bonus: the `logger.py` shim can go, the framework now takes `excluded_packages`.
+- **Slice 2**: `postgres_manager.py` onto the framework `Base` (`PostgresManager(DbManager)`),
+  which collapses the two-engine state. Then `job.py`, `error_handling.py` (needs an
+  `on_unhandled` hook in the framework, else maintainer mails stop silently).
 
 ## Recent changes
+
+- 2026-08-06: **Slice 1b** — `background_job_manager` onto the framework base (265 → 105) and
+  the Logs and Worker Management pages served from `cosmo_suite` via docstring-carrying shims
+  (490 → 39, 866 → 53). `pages/job_management.py` and `files_route.py` deliberately stay local;
+  each names its reason in its docstring. Fixed a pre-existing bug on the way: the Worker
+  Management test task went to a queue no worker consumed and sat in PENDING forever.
+  Slice 1b alone: −1471 lines of app code. See
+  [cosmo-suite-boundary.md](knowledge/systems/cosmo-suite-boundary.md) and
+  [framework_integration.md](conventions/framework_integration.md).
 
 - 2026-08-06: **Slice 1 of the `cosmo-suite` integration** — the app now imports the shared
   framework instead of duplicating it. `pyproject.toml` pins `cosmo-suite@v0.3.0`;
