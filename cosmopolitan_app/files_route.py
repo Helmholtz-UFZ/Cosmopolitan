@@ -1,4 +1,17 @@
-"""Serve files from a directory."""
+"""Serve files from a directory.
+
+Stays local, and the reason is the `Job` seam rather than the routes. The route set
+here is identical to `cosmo_suite.files_route`'s (`/pictures/<job_id>/<path:filename>`
+and the work-dir zip), and this app needs no domain-specific download route — the only
+measured difference is that the framework tags its button with
+`DOWNLOAD_BUTTON_SHARED_ID`.
+
+What blocks adoption is that `cosmo_suite.files_route` calls `cosmo_suite.job.Job`,
+and this app keeps its own 802-line `Job`. Both derive `working_dir` from
+`JOB_WORK_DIR_TEMPLATE` identically, so the download path itself would work — but
+serving files would then validate jobs through a second `Job` class with different
+lifecycle semantics. This module becomes a two-line shim once `job.py` is unified.
+"""
 
 import io
 import logging

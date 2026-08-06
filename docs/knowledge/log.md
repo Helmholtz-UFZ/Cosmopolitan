@@ -13,6 +13,16 @@ model. Newest entries go at the top.
 - Updated `path/to/file.md` — short note on what changed.
 ```
 
+## 2026-08-06
+
+- Added `knowledge/systems/cosmo-suite-boundary.md` — the split between this app and the
+  shared framework after Slice 1/1b: what is imported, what deliberately stays local, the
+  two-engines-one-Postgres transitional state and why it is safe, and the framework
+  callbacks that register on import.
+- Updated `knowledge/systems/job-lifecycle.md` — the unconsumed `test` queue is fixed
+  (worker now listens on it); noted that `test_background_job_manager.py` bypasses
+  `submit_test_task()`, which is why the suite never caught it.
+
 ## 2026-06-17
 
 - Created `knowledge/index.md` and `knowledge/log.md` — established the knowledge layer.

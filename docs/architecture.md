@@ -20,15 +20,14 @@ See [Framework boundary](#framework-boundary) below.
 |-----------|---------|
 | `app.py` | Dash/Flask app initialization and entry point; starts the Celery Beat scheduler in the Gunicorn master (`--preload`) |
 | `layouts.py` | Shared page shell (navbar + content) |
-| `pages/` | The multi-page UI — one module per page (home, new_job, job_management, results, logs, sensor/CRNS admin, measurement_view, documentation, …) |
+| `pages/` | The multi-page UI — one module per page (home, new_job, job_management, results, sensor/CRNS admin, measurement_view, documentation, …). `logs.py` and `worker_management.py` are shims over the framework pages |
 | `pydantic_models.py` | Pydantic models for job-input validation |
 | `form_template_factory.py` | Builds form views from selected inputs (predictors + CRNS); pairs with the `dash-form-factory` dependency |
 | `job.py` | The Cosmopolitan Job model and its workflow |
-| `background_job_manager.py` | Celery task orchestration / job queueing |
+| `background_job_manager.py` | The domain job submissions on top of the framework's `BackgroundJobManager` |
 | `celery_app.py`, `celery_config.py` | Celery app and broker (Redis) configuration |
 | `tasks/` | Celery task definitions — computation jobs and periodic maintenance |
 | `postgres_manager.py` | SQLAlchemy ORM models and DB operations (PostGIS) |
-| `object_storage_manager.py` | MinIO/S3 access via rclone |
 | `timeio_manager.py`, `timeio_info.py` | Data acquisition from the TimeIO / STI API (CRNS measurements) |
 | `map_utils.py` | Map layers (TiTiler tile layers for GeoTIFF; dash-leaflet) |
 | `error_handling.py` | Custom exceptions and the error modal |
@@ -50,14 +49,21 @@ These modules are **not** in this repository — they are imported from `cosmo_s
 | `cosmo_suite.object_storage_manager` | MinIO/S3 access via rclone, `ObjectStorageError` |
 | `cosmo_suite.logs_table` | Logs table UI and formatting |
 | `cosmo_suite.celery_config` | `BaseCeleryConfig` — broker, timeouts, worker limits |
+| `cosmo_suite.background_job_manager` | `BackgroundJobManager` submission/inspection plumbing |
 | `cosmo_suite.pydantic_models` | `BaseJobConfig`, `validate_job_id` |
+| `cosmo_suite.pages.logs`, `…worker_management` | Two admin pages, mounted by shims in `pages/` |
+| `cosmo_suite.layouts` | The navbar-collapse callback |
 | `cosmo_suite.tasks.test_tasks` | The long-running test task body |
 
-Still local, and deliberately so: `postgres_manager.py`, `job.py`, `layouts.py`,
-`error_handling.py`, `background_job_manager.py` and the `pages/`. The framework has
-counterparts for several of them, but adopting those means running the framework's
-`Job`/`DbManager`/Celery client alongside this app's. That consolidation is its own
-piece of work.
+Still local, and deliberately so: `postgres_manager.py`, `job.py`, `error_handling.py`,
+`layouts.py` (rendering), `pages/job_management.py` and `files_route.py`. Each of those
+modules names its own reason in its docstring.
+
+Two consequences of this split are easy to trip over — the second engine against the same
+Postgres, and the callbacks `cosmo_suite.layouts` registers at import time. Both are
+explained in [`knowledge/systems/cosmo-suite-boundary.md`](knowledge/systems/cosmo-suite-boundary.md);
+the rules for working across the boundary are in
+[`conventions/framework_integration.md`](conventions/framework_integration.md).
 
 ## How it fits together
 
@@ -66,7 +72,7 @@ piece of work.
 2. Job is validated (pydantic_models) and stored in PostgreSQL (postgres_manager)
 3. Job is queued to Celery workers via Redis (background_job_manager / tasks)
 4. The soil-moisture-prediction library processes the data on a worker
-5. Results land in MinIO (object_storage_manager) and are displayed in the UI (pages/results)
+5. Results land in MinIO (cosmo_suite.object_storage_manager) and are displayed in the UI (pages/results)
 ```
 
 Background work runs on dedicated Celery worker containers. A single Beat scheduler (pinned to
@@ -81,6 +87,7 @@ updates at 4 AM.
 - **Layout & flex** — reusable components. See [`conventions/layout.md`](conventions/layout.md).
 - **Bootstrap-only styling** — no inline CSS. See [`conventions/bootstrap_styling.md`](conventions/bootstrap_styling.md).
 - **Logging** — levels and logger usage. See [`conventions/logging.md`](conventions/logging.md).
+- **Working across the framework boundary** — freeze rule, adoption rule, ID ownership. See [`conventions/framework_integration.md`](conventions/framework_integration.md).
 
 ## Entry points
 
