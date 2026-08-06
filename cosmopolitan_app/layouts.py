@@ -1,8 +1,20 @@
-"""Collection of layout components for the web application."""
+"""Collection of layout components for the web application.
 
+The navbar-collapse callback is NOT defined here. `cosmo_suite.layouts` registers an
+identical one at import time on the same shared ID, and two callbacks writing one
+Output without allow_duplicate is a hard Dash error that takes the whole callback
+registry down — not just the navbar. This app's IDs match the framework's by value,
+so the framework's callback drives the navbar rendered below. The import is explicit
+so that stays true no matter which framework page happens to be imported.
+
+Framework MR on the list: register cosmo_suite.layouts' global callbacks behind an
+opt-in function instead of at import time, so a consumer can own its own navbar.
+"""
+
+import cosmo_suite.layouts  # noqa: F401 — registers the navbar-collapse callback
 import dash
 import dash_bootstrap_components as dbc
-from dash import Input, Output, State, callback, dcc, html
+from dash import dcc, html
 
 from cosmopolitan_app.constants import (
     LOADING_OVERLAY_MODAL_SHARED_ID,
@@ -168,19 +180,6 @@ def create_navbar():
             )
         ],
     )
-
-
-@callback(
-    Output(NAVBAR_COLLAPSE_DIV_SHARED_ID, "is_open"),
-    [Input(NAVBAR_TOGGLER_BUTTON_SHARED_ID, "n_clicks")],
-    [State(NAVBAR_COLLAPSE_DIV_SHARED_ID, "is_open")],
-    prevent_initial_call=True,
-)
-def toggle_navbar_collapse(n_clicks, is_open):
-    """Toggle the navbar collapse state."""
-    if n_clicks:
-        return not is_open
-    return is_open
 
 
 def create_header(title, subtitle, bg_color="bg-info", id="", rounded=True):

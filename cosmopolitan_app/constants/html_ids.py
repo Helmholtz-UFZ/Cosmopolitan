@@ -29,10 +29,12 @@ ERROR_MESSAGE_DIV_SHARED_ID = (
 )
 
 # --- Buttons ---
-NAVBAR_TOGGLER_BUTTON_SHARED_ID = "navbar-toggler-button-shared-id"
+# Driven by cosmo_suite.layouts' navbar callback, not one in this tree.
+NAVBAR_TOGGLER_BUTTON_SHARED_ID = "navbar-toggler-button-shared-id"  # nocheck
 
 # --- Collapses ---
-NAVBAR_COLLAPSE_DIV_SHARED_ID = "navbar-collapse-div-shared-id"
+# Driven by cosmo_suite.layouts' navbar callback, not one in this tree.
+NAVBAR_COLLAPSE_DIV_SHARED_ID = "navbar-collapse-div-shared-id"  # nocheck
 
 # --- Links ---
 NEW_JOB_LINK_SHARED_ID = "new-job-link-shared-id"  # nocheck - testing only
@@ -160,51 +162,6 @@ MEASUREMENTS_SWITCH_RESULTS_ID = "measurements-switch-results-id"
 
 # --- Tabs ---
 TABS_RESULTS_ID = "tabs-results-id"
-
-# =============================================================================
-# WORKER_MANAGEMENT
-# =============================================================================
-
-# --- Buttons ---
-REFRESH_BUTTON_WORKER_MANAGEMENT_ID = "refresh-button-worker-management-id"
-TEST_TASK_BUTTON_WORKER_MANAGEMENT_ID = "test-task-button-worker-management-id"
-KILL_BUTTON_WORKER_MANAGEMENT_ID = "kill-button-worker-management-id"
-CANCEL_BUTTON_WORKER_MANAGEMENT_ID = "cancel-button-worker-management-id"
-KILL_MODAL_CANCEL_BUTTON_WORKER_MANAGEMENT_ID = (
-    "kill-modal-cancel-button-worker-management-id"
-)
-KILL_MODAL_CONFIRM_BUTTON_WORKER_MANAGEMENT_ID = (
-    "kill-modal-confirm-button-worker-management-id"
-)
-CANCEL_MODAL_CANCEL_BUTTON_WORKER_MANAGEMENT_ID = (
-    "cancel-modal-cancel-button-worker-management-id"
-)
-CANCEL_MODAL_CONFIRM_BUTTON_WORKER_MANAGEMENT_ID = (
-    "cancel-modal-confirm-button-worker-management-id"
-)
-
-# --- Divs ---
-DUMMY_DIV_WORKER_MANAGEMENT_ID = "dummy-div-worker-management-id"
-STATS_CARD_DIV_WORKER_MANAGEMENT_ID = "stats-card-div-worker-management-id"
-LAST_REFRESH_DIV_WORKER_MANAGEMENT_ID = "last-refresh-div-worker-management-id"
-KILL_MODAL_TASK_INFO_DIV_WORKER_MANAGEMENT_ID = (
-    "kill-modal-task-info-div-worker-management-id"
-)
-CANCEL_MODAL_TASK_INFO_DIV_WORKER_MANAGEMENT_ID = (
-    "cancel-modal-task-info-div-worker-management-id"
-)
-
-# --- Modals ---
-KILL_MODAL_WORKER_MANAGEMENT_ID = "kill-modal-worker-management-id"
-CANCEL_MODAL_WORKER_MANAGEMENT_ID = "cancel-modal-worker-management-id"
-
-# --- Tables ---
-ACTIVE_TASKS_TABLE_WORKER_MANAGEMENT_ID = "active-tasks-table-worker-management-id"
-RESERVED_TASKS_TABLE_WORKER_MANAGEMENT_ID = "reserved-tasks-table-worker-management-id"
-SCHEDULED_TASKS_TABLE_WORKER_MANAGEMENT_ID = (
-    "scheduled-tasks-table-worker-management-id"
-)
-REVOKED_TASKS_TABLE_WORKER_MANAGEMENT_ID = "revoked-tasks-table-worker-management-id"
 
 # =============================================================================
 # CRNS_ADMIN

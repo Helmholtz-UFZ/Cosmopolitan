@@ -6,7 +6,7 @@ This test ensures:
 
 # nocheck Comment Usage:
 The `# nocheck` comment allows constants to bypass test_no_unused_id_constants.
-**ONLY USE # nocheck FOR THESE TWO SPECIFIC CASES:**
+**ONLY USE # nocheck FOR THESE THREE SPECIFIC CASES:**
 
 1. IDs accessed via set_props() in error handling (not standard callbacks)
    Example: ERROR_MODAL_MESSAGE_SHARED_ID = "error-message"  # nocheck
@@ -14,8 +14,17 @@ The `# nocheck` comment allows constants to bypass test_no_unused_id_constants.
 2. IDs used exclusively for testing/automation (not in callbacks)
    Example: NEW_JOB_LINK_SHARED_ID = "new-job-link-shared-id"  # nocheck
 
+3. IDs rendered here whose callback lives in `cosmo_suite`. The framework and this
+   app share ID *values*, so a framework callback can drive a component this app
+   renders. The constant is genuinely used — just not by a callback in this tree.
+   Example: NAVBAR_COLLAPSE_DIV_SHARED_ID  # nocheck
+   Note: if this app also declared that callback, Dash would fail with "Duplicate
+   callback outputs" and take the whole callback registry down. See layouts.py.
+
 **DO NOT USE # nocheck TO BYPASS THE TEST FOR OTHER REASONS!**
-If a constant has # nocheck, it should match one of the two cases above.
+If a constant has # nocheck, it should match one of the three cases above.
+The marker must sit on the assignment line itself — a comment on the line above is
+not detected.
 When reviewing code, double-check all # nocheck comments to ensure they are justified.
 
 If you find a # nocheck that doesn't fit these cases:
