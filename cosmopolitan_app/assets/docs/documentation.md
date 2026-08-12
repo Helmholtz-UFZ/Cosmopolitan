@@ -2,7 +2,7 @@
 
 ### COSmic ray based soil MOisture PredictiOn LIve Tree ANalysis
 
-*Last updated: 2026-03-19 10:30:25*
+*Last updated: 2026-08-12 14:40:38*
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -234,6 +234,7 @@ when needed.
 
 View and filter application logs for debugging and monitoring.
 
+
 This page provides access to the application's logging system, allowing you to track
 system activity, debug issues, and monitor operations. You can:
 
@@ -252,6 +253,9 @@ problems, and monitoring background job execution.
 <img src="/assets/docs/screenshots/logs.png" alt="Application Logs" style="max-width: 100%; height: auto;" />
 
 ### Worker Management
+
+Worker Management Page.
+
 
 Monitor and manage background workers and tasks.
 
