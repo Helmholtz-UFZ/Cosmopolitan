@@ -43,7 +43,7 @@ from cosmopolitan_app.error_handling import (
     MapTileDownloadError,
     NoMeasurementPointsError,
 )
-from cosmopolitan_app.object_storage_manager import (
+from cosmo_suite.object_storage_manager import (
     delete_directory_from_storage,
     delete_file_from_storage,
     get_files,
@@ -246,7 +246,12 @@ class Job:
 
         self.working_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=self.job_id)
         os.makedirs(self.working_dir, exist_ok=True)
-        get_files(self.job_id)
+        # overwrite=True keeps the pre-v0.4.0 behaviour, deliberately: job ids are
+        # user-chosen and can be reused after a delete, and the worker container keeps
+        # its work_dir across jobs. With the new --ignore-existing default, a previous
+        # job's leftover file would shadow the fresh remote one and the prediction
+        # would silently run on the wrong input.
+        get_files(self.job_id, overwrite=True)
         log.debug(
             f"Job {self.job_id} files downloaded from object storage",
         )

@@ -92,7 +92,7 @@ def pytest_configure(config):
         pytest.exit("rclone command not available")
 
     try:
-        from cosmopolitan_app.object_storage_manager import (
+        from cosmo_suite.object_storage_manager import (
             ObjectStorageError,
             create_bucket,
             setup_remote,
@@ -356,7 +356,7 @@ def celery_worker(request):
             "--loglevel=debug",
             "--concurrency=1",
             "--pool=prefork",
-            "--queues=computation,maintenance,celery",
+            "--queues=computation,maintenance,celery,test",
             "--hostname=worker@test",
             "-E",
         ],

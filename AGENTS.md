@@ -23,6 +23,11 @@ it. (Claude-specific workflow lives in [`CLAUDE.md`](CLAUDE.md).)
 
 Python ≥3.13, managed with `uv`. Add a dependency with `uv add <package>`.
 
+Part of the app's infrastructure comes from the shared framework
+[`cosmo-suite`](https://codebase.helmholtz.cloud/ufz/tb5-smm/met/wg7/cosmo-suite), pinned to a
+tag in `pyproject.toml`. Do not edit the framework from here — change it in its own repo, tag
+it, then re-pin. See [Framework boundary](docs/architecture.md#framework-boundary).
+
 ## Layout
 
 ```text

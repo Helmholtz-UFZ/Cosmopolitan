@@ -19,12 +19,14 @@ The web service is built as a Dash web application with the following key compon
 - **Object Storage**: MinIO for file storage with rclone integration
 - **Background Tasks**: Celery with Redis broker for distributed task processing
 - **External Services**: TimeIO API for CRNS data
+- **Shared Framework**: [`cosmo-suite`](https://codebase.helmholtz.cloud/ufz/tb5-smm/met/wg7/cosmo-suite),
+  pinned to a tag — supplies object storage, logging, Celery base config, the
+  logs table and the job-config contract, shared with the sister app COSMONAUT
 
 ### Core Modules
 
 - `app.py` - Main application entry point with Dash app initialization
 - `postgres_manager.py` - Database ORM models and operations using SQLAlchemy
-- `object_storage_manager.py` - Object storage management via rclone
 - `timeio_manager.py` - Integration with TimeIO API for CRNS measurements
 - `pages/` - Individual page components for the multi-page application
 - `job.py` - Job processing and workflow management

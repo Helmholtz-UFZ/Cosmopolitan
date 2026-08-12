@@ -264,7 +264,6 @@ After all conventions are done:
 | `docs/conventions/*.md` | All detailed convention documents |
 | `cosmopolitan_app/constants.py` | HTML ID constants |
 | `cosmopolitan_app/config.py` | Environment config, `getenv()` wrapper |
-| `cosmopolitan_app/logger.py` | Logger configuration |
 | `cosmopolitan_app/error_handling.py` | Custom exceptions, `error_responds_dict` |
 | `cosmopolitan_app/layouts.py` | Shared layout components and callbacks |
 | `cosmopolitan_app/pages/*.py` | Page files (main audit targets) |

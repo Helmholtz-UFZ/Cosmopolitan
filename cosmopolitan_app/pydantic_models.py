@@ -1,7 +1,6 @@
 """Dash form for the cosmopolitan job."""
 
 import logging
-import re
 from datetime import datetime
 from typing import Annotated, ClassVar, Dict, List, Literal, Tuple
 
@@ -11,31 +10,14 @@ from pydantic_core import PydanticCustomError
 from soil_moisture_prediction.input_data import stream_dic
 from soil_moisture_prediction.pydantic_models import InputParameters
 
+# validate_job_id is re-exported: job.py and pages/new_job.py call it from here, and
+# the rule (8-50 chars, ^\w+$) belongs to the framework's job-id contract now.
+# UploadJobConfig, not BaseJobConfig: since v0.4.0 the base carries only job_id, and
+# upload_file_name moved to this subclass. Inheriting the base would drop that field
+# silently — no import error, no failing test.
+from cosmo_suite.pydantic_models import UploadJobConfig, validate_job_id  # noqa: F401
 
 log = logging.getLogger(__name__)
-
-
-def validate_job_id(job_id: str) -> str:
-    """Validate job id.
-
-    The function further creates input dir for the job. If the job id was
-    changed the function and moves all previously uploaded files into the
-    new input dir.
-    """
-    log.debug(f"Check job id {job_id}")
-
-    job_id_regex = r"^\w+$"
-    if not re.match(job_id_regex, job_id):
-        raise ValueError("Job id must contain only letters numbers or underscore")
-
-    min_job_id_length = 8
-    max_job_id_length = 50
-
-    if len(job_id) < min_job_id_length or len(job_id) > max_job_id_length:
-        raise ValueError(
-            f"Job id must be between {min_job_id_length} and {max_job_id_length} characters"  # noqa
-        )
-    return job_id
 
 
 def check_email(email: str) -> str:
@@ -50,8 +32,13 @@ def check_email(email: str) -> str:
         raise ValueError(f"Invalid email: {e}")
 
 
-class ModelWebsite(InputParameters):
-    """Model for the website form."""
+class ModelWebsite(InputParameters, UploadJobConfig):
+    """Model for the website form.
+
+    UploadJobConfig contributes the framework's job-id contract and the generic
+    upload_file_name field; InputParameters contributes the prediction
+    parameters. The two field sets are disjoint.
+    """
 
     email: Annotated[
         str,
@@ -62,17 +49,6 @@ class ModelWebsite(InputParameters):
             json_schema_extra={"type": "email"},
         ),
         AfterValidator(check_email),
-    ]
-
-    job_id: Annotated[
-        str,
-        Field(
-            "poised_python_of_wonder",
-            description='Identifier for your submission. Only letters, numbers and "_".',  # noqa
-            title="Job ID",
-            json_schema_extra={"type": "text"},
-        ),
-        AfterValidator(validate_job_id),
     ]
 
     date_range: Annotated[

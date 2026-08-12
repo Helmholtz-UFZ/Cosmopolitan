@@ -6,16 +6,18 @@ from threading import Thread
 
 from dash import Dash
 
+from cosmo_suite.logger import get_logger_config_web
+
 from cosmopolitan_app.background_job_manager import background_job_manager
 from cosmopolitan_app.config import DEBUG, PORT
+from cosmopolitan_app.constants.general import EXCLUDED_LOG_PACKAGES
 from cosmopolitan_app.error_handling import handle_error
 from cosmopolitan_app.files_route import serve_files
 from cosmopolitan_app.layouts import app_layout
-from cosmopolitan_app.logger import get_logger_config_web
-from cosmopolitan_app.object_storage_manager import create_bucket, setup_remote
+from cosmo_suite.object_storage_manager import create_bucket, setup_remote
 
 # Configure logging early — before Dash() triggers page-module imports.
-logging.config.dictConfig(get_logger_config_web(DEBUG))
+logging.config.dictConfig(get_logger_config_web(DEBUG, EXCLUDED_LOG_PACKAGES))
 log = logging.getLogger(__name__)
 log.debug("Web application logging configured.")
 

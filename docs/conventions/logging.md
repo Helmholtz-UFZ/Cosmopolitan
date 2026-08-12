@@ -80,7 +80,9 @@ the database, and the `/logs` page shows nothing.
 
 ## Notes
 
-- The `PostgreSQLHandler` in `cosmopolitan_app/logger.py` writes logs to a `logs`
+- The `PostgreSQLHandler` in `cosmo_suite.logger` writes logs to a `logs`
   table with columns: timestamp, pid, level, module, message
-- `ExcludeSubmodulesFilter` suppresses noisy third-party loggers (matplotlib, PIL,
-  rasterio, etc.)
+- `ExcludeSubmodulesFilter` suppresses noisy third-party loggers. The framework
+  excludes `watchdog` and `selenium`; this app adds `matplotlib`, `PIL` and
+  `rasterio` via `EXCLUDED_LOG_PACKAGES` in `constants/general.py`, which is passed
+  to the `get_logger_config_*` builders

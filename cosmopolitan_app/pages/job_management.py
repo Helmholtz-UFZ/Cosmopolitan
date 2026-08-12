@@ -13,6 +13,26 @@ green for running jobs, red for failed jobs, and orange for pending jobs. You ca
 rows to perform bulk operations like deletion.
 
 NOTE: This docstring is displayed on the documentation webpage.
+
+# Notes (This section is for developer notes and will not appear in the user documentation.)
+
+Unlike Logs and Worker Management, this page is NOT served from
+`cosmo_suite.pages.job_management`. Measured reasons, not size — the framework page
+is 207 lines against this one's 212:
+
+1. It hardcodes the job link as `/job-submission/{job_id}`. This app's submission
+   page is registered at `/submission/<job_id>`, so every row would link nowhere.
+   Here the path is resolved from `dash.page_registry["pages.submission"]`.
+2. Deleting a job runs `Job(job_id).delete()`. The framework page would use the
+   framework `Job`, whose cleanup knows nothing about this app's CRNS inputs — and
+   its `clean_up_jobs` prunes through `cosmo_suite.db_manager`, which this app does
+   not use.
+3. Its loading-overlay callback is server-side. `docs/conventions/callbacks.md`
+   requires clientside here, for a race that was actually hit: a server-side opener
+   can land after the processing callback returns and leave the overlay stuck open.
+
+Framework MR to make this adoptable: take the submission path from the page
+registry instead of hardcoding it, and use the clientside overlay pattern.
 """
 
 import logging

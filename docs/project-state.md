@@ -1,13 +1,43 @@
 # Project State
 
-Last updated: 2026-06-17
+Last updated: 2026-08-06
 
 ## Current priorities
 
-TODO: No in-flight work is recorded yet — what is the current development focus? Fill this in
-(or run the session-close skill at the end of a working session to keep it current).
+- **Slice 2**: `postgres_manager.py` onto the framework `Base` (`PostgresManager(DbManager)`),
+  which collapses the two-engine state. Then `job.py`, `error_handling.py` (needs an
+  `on_unhandled` hook in the framework, else maintainer mails stop silently).
+- **Measure the real Celery runtimes** rather than inheriting them. The re-pin kept
+  `task_soft_time_limit`/`task_time_limit` at 3600/3900 s because production has run under
+  those bounds for a long time without regionalisation jobs being cut off — that is evidence,
+  but it was never gathered deliberately. The actual runtimes are already in the database:
+  `jobs.start_date` against the last log entry per `job_id`. One query, not a project.
 
 ## Recent changes
+
+- 2026-08-06: **Slice 1b** — `background_job_manager` onto the framework base (265 → 105) and
+  the Logs and Worker Management pages served from `cosmo_suite` via docstring-carrying shims
+  (490 → 39, 866 → 53). `pages/job_management.py` and `files_route.py` deliberately stay local;
+  each names its reason in its docstring. Fixed a pre-existing bug on the way: the Worker
+  Management test task went to a queue no worker consumed and sat in PENDING forever.
+  Slice 1b alone: −1471 lines of app code. See
+  [cosmo-suite-boundary.md](knowledge/systems/cosmo-suite-boundary.md) and
+  [framework_integration.md](conventions/framework_integration.md).
+
+- 2026-08-06: **Re-pinned to `cosmo-suite@v0.4.0`**, which brings both apps onto the same tag.
+  Three of its changes are silent for a consumer and were handled deliberately:
+  `ModelWebsite` moved to `UploadJobConfig` (the base no longer carries
+  `upload_file_name`); `task_soft_time_limit`/`task_time_limit` are now declared here at
+  3600/3900 s instead of inherited, since the framework dropped them to `None`; and
+  `get_files()` at `job.py:249` passes `overwrite=True` to keep the old semantics. The local
+  `logger.py` shim is gone — the framework builders now take `excluded_packages`, so the
+  domain list lives in `constants/general.py`.
+
+- 2026-08-06: **Slice 1 of the `cosmo-suite` integration** — the app now imports the shared
+  framework instead of duplicating it. `pyproject.toml` pinned `cosmo-suite@v0.3.0` (now v0.4.0);
+  `logs_table.py`, `object_storage_manager.py` and `tasks/test_tasks.py` are deleted,
+  `config.py`, `celery_config.py` and `ModelWebsite` sit on framework bases.
+  Net −710 lines. See [Framework boundary](architecture.md#framework-boundary).
 
 - 2026-06-17: Built out the `docs/` LLM-wiki layer — added `AGENTS.md`, `architecture.md`,
   this file, `decisions/`, two maintenance skills, and a [`knowledge/`](knowledge/index.md) base

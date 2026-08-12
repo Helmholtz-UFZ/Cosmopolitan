@@ -93,6 +93,30 @@ ADMIN_PAGES = [
 
 EXCLUDED_PAGES = ["documentation", "__init__"]
 
+# Section markers some page docstrings use to separate user-facing prose from
+# developer notes (see pages/worker_management.py).
+USER_DOC_MARKER = "# User documentation"
+DEVELOPER_NOTES_MARKER = "# Notes"
+
+
+def clean_docstring(docstring: str) -> str:
+    """Strip everything from a page docstring that is not user documentation.
+
+    Drops NOTE: lines, the section markers themselves, and every line after the
+    developer-notes marker — the marker's own text promises that section will not
+    appear in the user documentation.
+    """
+    lines = []
+    for line in docstring.split("\n"):
+        stripped = line.strip()
+        if stripped.startswith(DEVELOPER_NOTES_MARKER):
+            break
+        if stripped.startswith("NOTE:") or stripped.startswith(USER_DOC_MARKER):
+            continue
+        lines.append(line)
+
+    return "\n".join(lines).strip()
+
 
 def get_app_version() -> str:
     """Read application version from pyproject.toml using tomllib.
@@ -164,12 +188,8 @@ class DocumentationGenerator:
             # Create section header
             workflow += f"### {i}. {page_title}\n\n"
 
-            # Add docstring content (remove the NOTE line for cleaner display)
-            doc_lines = docstring.split("\n")
-            filtered_lines = [
-                line for line in doc_lines if not line.strip().startswith("NOTE:")
-            ]
-            workflow += "\n".join(filtered_lines).strip() + "\n\n"
+            # Add docstring content, user-facing part only
+            workflow += clean_docstring(docstring) + "\n\n"
 
             # Add screenshot image with max-width styling
             workflow += (
@@ -199,12 +219,8 @@ class DocumentationGenerator:
             # Create section header
             admin += f"### {page_title}\n\n"
 
-            # Add docstring content (remove the NOTE line)
-            doc_lines = docstring.split("\n")
-            filtered_lines = [
-                line for line in doc_lines if not line.strip().startswith("NOTE:")
-            ]
-            admin += "\n".join(filtered_lines).strip() + "\n\n"
+            # Add docstring content, user-facing part only
+            admin += clean_docstring(docstring) + "\n\n"
 
             # Add screenshot image with max-width styling
             admin += (
