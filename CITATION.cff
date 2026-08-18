@@ -1,0 +1,45 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using these metadata."
+title: "COSMOPOLITAN"
+abstract: >-
+  A browser-based application for uncertainty-aware spatial regionalization of sparse
+  geodata. Random Forest regression with Monte Carlo uncertainty propagation turns point
+  observations and predictor layers into continuous maps with associated uncertainty.
+  Developed for, and used operationally in, soil moisture mapping from mobile cosmic-ray
+  neutron sensing surveys. Part of the COSMO Suite and built on its reusable framework.
+type: software
+authors:
+  - family-names: Anders
+    given-names: John
+    email: john-eric.anders@ufz.de
+    affiliation: "Helmholtz Centre for Environmental Research – UFZ"
+  - family-names: Trinkle
+    given-names: Louis
+    email: louis-ferdinand.trinkle@ufz.de
+    affiliation: "Helmholtz Centre for Environmental Research – UFZ"
+  - family-names: Bohring
+    given-names: Hannes
+    email: hannes.bohring@ufz.de
+    affiliation: "Helmholtz Centre for Environmental Research – UFZ"
+  - family-names: Dega
+    given-names: Ségolène
+    email: segolene.dega@ufz.de
+    affiliation: "Helmholtz Centre for Environmental Research – UFZ"
+  - family-names: Schrön
+    given-names: Martin
+    email: martin.schroen@ufz.de
+    affiliation: "Helmholtz Centre for Environmental Research – UFZ"
+  - family-names: Paasche
+    given-names: Hendrik
+    email: hendrik.paasche@ufz.de
+    affiliation: "Helmholtz Centre for Environmental Research – UFZ"
+version: "0.2.3"
+date-released: "2026-08-12"
+license: EUPL-1.2
+repository-code: "https://github.com/Helmholtz-UFZ/Cosmopolitan"
+keywords:
+  - "spatial regionalization"
+  - "uncertainty quantification"
+  - "Random Forest"
+  - "soil moisture"
+  - "cosmic-ray neutron sensing"
