@@ -37,8 +37,8 @@ authors:
     given-names: Hendrik
     email: hendrik.paasche@ufz.de
     affiliation: "Helmholtz Centre for Environmental Research – UFZ"
-version: "0.2.3"
-date-released: "2026-08-12"
+version: "0.2.4"
+date-released: "2026-08-18"
 license: EUPL-1.2
 repository-code: "https://github.com/Helmholtz-UFZ/Cosmopolitan"
 keywords:
