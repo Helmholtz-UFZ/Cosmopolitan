@@ -19,7 +19,7 @@ TILESERVER_URL="http://127.0.0.1:8001"
 ### Email ###
 EMAIL_SERVER="test"
 EMAIL_PORT="1025"
-EMAIL_USERNAME="soncosmo"
+EMAIL_USERNAME="testuser"
 EMAIL_PASSWORD="test"
 EMAIL_SENDER="cosmopolitan_test@ufz.de"
 

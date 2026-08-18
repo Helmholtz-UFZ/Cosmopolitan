@@ -164,7 +164,13 @@ bump_version_for_cluster:
     BRANCH: "main"
   script:
     - *prepare
-    - "git add deployments/ufz/stage/values.yaml"
+    # Keep pyproject.toml's version in step with the tag. Without this nobody owns the
+    # file: a human tags, CI hands the tag to the deployment, and the version stays put
+    # — it sat at 0.1.7 while the latest tag was 0.2.3.
+    # Guarded because this job also runs for schedule/web pipelines, where
+    # CI_COMMIT_TAG is empty and an unguarded sed would blank the version.
+    - 'if [ -n "${CI_COMMIT_TAG}" ]; then sed -i "s/^version = .*/version = \"${CI_COMMIT_TAG}\"/" pyproject.toml; fi'
+    - "git add deployments/ufz/stage/values.yaml pyproject.toml"
     - "git commit -m 'automatically increased tag-version for cluster-deployment'"
     - "git pull origin ${BRANCH} --strategy-option=ours"
     - "git push origin HEAD:$BRANCH -o ci.skip"
