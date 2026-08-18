@@ -13,14 +13,17 @@ authors:
     given-names: John
     email: john-eric.anders@ufz.de
     affiliation: "Helmholtz Centre for Environmental Research – UFZ"
+    orcid: "https://orcid.org/0000-0002-3582-2157"
   - family-names: Trinkle
     given-names: Louis
     email: louis-ferdinand.trinkle@ufz.de
     affiliation: "Helmholtz Centre for Environmental Research – UFZ"
+    orcid: "https://orcid.org/0009-0003-0434-939X"
   - family-names: Bohring
     given-names: Hannes
     email: hannes.bohring@ufz.de
     affiliation: "Helmholtz Centre for Environmental Research – UFZ"
+    orcid: "https://orcid.org/0009-0007-5103-5886"
   - family-names: Dega
     given-names: Ségolène
     email: segolene.dega@ufz.de
@@ -29,6 +32,7 @@ authors:
     given-names: Martin
     email: martin.schroen@ufz.de
     affiliation: "Helmholtz Centre for Environmental Research – UFZ"
+    orcid: "https://orcid.org/0000-0002-0220-0677"
   - family-names: Paasche
     given-names: Hendrik
     email: hendrik.paasche@ufz.de

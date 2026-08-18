@@ -170,7 +170,9 @@ bump_version_for_cluster:
     # Guarded because this job also runs for schedule/web pipelines, where
     # CI_COMMIT_TAG is empty and an unguarded sed would blank the version.
     - 'if [ -n "${CI_COMMIT_TAG}" ]; then sed -i "s/^version = .*/version = \"${CI_COMMIT_TAG}\"/" pyproject.toml; fi'
-    - "git add deployments/ufz/stage/values.yaml pyproject.toml"
+    # CITATION.cff feeds the Zenodo record at release time, so it must not lag behind.
+    - 'if [ -n "${CI_COMMIT_TAG}" ]; then sed -i "s/^version: .*/version: \"${CI_COMMIT_TAG}\"/; s/^date-released: .*/date-released: \"$(date -I)\"/" CITATION.cff; fi'
+    - "git add deployments/ufz/stage/values.yaml pyproject.toml CITATION.cff"
     - "git commit -m 'automatically increased tag-version for cluster-deployment'"
     - "git pull origin ${BRANCH} --strategy-option=ours"
     - "git push origin HEAD:$BRANCH -o ci.skip"
