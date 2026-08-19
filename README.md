@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/1338232445.svg)](https://doi.org/10.5281/zenodo.22011178)
+
 <div>
 <h1 align="center">COSMOPOLITAN</h1>
 <h2 align="center"><strong>COS</strong><small>mic ray based soil </small><strong>MO</strong><small>isture </small><strong>P</strong><small>redicti</small><strong>O</strong><small>n </small><strong>LI</strong><small>ve </small><strong>T</strong><small>ree </small><strong>AN</strong><small>alysis</small></h2>
