@@ -8,6 +8,12 @@
 </p>
 </div>
 
+> **This is a read-only mirror.** Development happens at
+> [codebase.helmholtz.cloud/…/cosmopolitan](https://codebase.helmholtz.cloud/ufz/tb5-smm/met/wg7/cosmopolitan) — issues and merge
+> requests belong there. This copy exists so the software has a citable public
+> home (Zenodo DOI, SoftwareX metadata); anything pushed here is overwritten by
+> the next mirror sync.
+
 This is a web service for analyzing cosmic ray data to predict soil moisture content. The prediction is based on a random forest model and aims to provide a live soil moisture map of Germany.
 
 The model was developed by Ségolène Dega and the scripts are available in this [repository](https://git.ufz.de/dega/sm_prediction).

@@ -40,7 +40,8 @@ authors:
 version: "0.2.4"
 date-released: "2026-08-18"
 license: EUPL-1.2
-repository-code: "https://github.com/Helmholtz-UFZ/Cosmopolitan"
+repository-code: "https://codebase.helmholtz.cloud/ufz/tb5-smm/met/wg7/cosmopolitan"
+url: "https://github.com/Helmholtz-UFZ/Cosmopolitan"
 keywords:
   - "spatial regionalization"
   - "uncertainty quantification"
