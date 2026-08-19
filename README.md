@@ -9,10 +9,9 @@
 </div>
 
 > **This is a read-only mirror.** Development happens at
-> [codebase.helmholtz.cloud/…/cosmopolitan](https://codebase.helmholtz.cloud/ufz/tb5-smm/met/wg7/cosmopolitan) — issues and merge
-> requests belong there. This copy exists so the software has a citable public
-> home (Zenodo DOI, SoftwareX metadata); anything pushed here is overwritten by
-> the next mirror sync.
+> [codebase.helmholtz.cloud/…/cosmopolitan](https://codebase.helmholtz.cloud/ufz/tb5-smm/met/wg7/cosmopolitan). Issues and merge requests
+> belong there. This copy exists so the software has a citable public home,
+> anything pushed here is overwritten by the next mirror sync.
 
 This is a web service for analyzing cosmic ray data to predict soil moisture content. The prediction is based on a random forest model and aims to provide a live soil moisture map of Germany.
 
@@ -28,7 +27,7 @@ The web service is built as a Dash web application with the following key compon
 - **Background Tasks**: Celery with Redis broker for distributed task processing
 - **External Services**: TimeIO API for CRNS data
 - **Shared Framework**: [`cosmo-suite`](https://codebase.helmholtz.cloud/ufz/tb5-smm/met/wg7/cosmo-suite),
-  pinned to a tag — supplies object storage, logging, Celery base config, the
+  pinned to a tag, supplies object storage, logging, Celery base config, the
   logs table and the job-config contract, shared with the sister app COSMONAUT
 
 ### Core Modules
