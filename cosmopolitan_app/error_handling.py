@@ -12,14 +12,31 @@ from soil_moisture_prediction.input_file_parser import FileValidationError
 from sqlalchemy.exc import DatabaseError, OperationalError
 from werkzeug.exceptions import NotFound
 
-from cosmopolitan_app.config import MAINTAINER_EMAIL
 from cosmopolitan_app.constants import (
     ERROR_MESSAGE_DIV_SHARED_ID,
     ERROR_MODAL_SHARED_ID,
     ERROR_TITLE_DIV_SHARED_ID,
     LOADING_OVERLAY_MODAL_SHARED_ID,
 )
-from cosmopolitan_app.email_service import send_mail
+
+# The infrastructure exceptions come from the framework, they are NOT redefined
+# here. Two classes under one name is the silent failure described in
+# ../cosmo-suite/docs/conventions/framework_page_imports.md: since the logs and
+# worker-management pages became framework shims, cosmo_suite.db_manager raises the
+# framework's JobNotFound while this module's isinstance check and
+# error_responds_dict keyed the local one — so a routine "job not found" was
+# treated as unexpected, mailed the maintainer, and showed a generic modal.
+# Verified before the switch that all seven are structurally identical (same
+# constructor, same bases).
+from cosmo_suite.error_handling import (  # noqa: F401 — re-exported for call sites
+    InvalidJobID,
+    JobExists,
+    JobNotFound,
+    RedisConnectionError,
+    TaskNotFoundError,
+    WorkerManagementError,
+    WorkerNotAvailableError,
+)
 from cosmo_suite.object_storage_manager import ObjectStorageError
 
 log = logging.getLogger(__name__)
@@ -31,24 +48,6 @@ class NoMeasurementPointsError(Exception):
     """Raised when no measurement points are found for the given parameters."""
 
     ...
-
-
-class InvalidJobID(Exception):
-    """Raised by CosmopolitanJob if init with invalid job id."""
-
-    def __init__(self, job_id):
-        """Add job id as attribute and format error message."""
-        self.job_id = job_id
-        super().__init__(f"{job_id} is not a valid job_id.")
-
-
-class JobExists(Exception):
-    """Raised by Job if a new job is created with an existing job id."""
-
-    def __init__(self, job_id):
-        """Add job id as attribute and format error message."""
-        self.job_id = job_id
-        super().__init__(f"{job_id} already exists.")
 
 
 class SubmittedException(Exception):
@@ -76,39 +75,6 @@ class NotFinishedException(Exception):
         """Add job id as attribute and format error message."""
         self.job_id = job_id
         super().__init__(f"The job {job_id} is not yet finished.")
-
-
-class JobNotFound(Exception):
-    """Custom exception for when a job is not found."""
-
-    def __init__(self, job_id):
-        """Add job id as attribute and format error message."""
-        self.job_id = job_id
-        super().__init__(f"Job with ID '{job_id}' not found")
-
-
-class WorkerManagementError(Exception):
-    """Base exception for worker management operations."""
-
-    ...
-
-
-class TaskNotFoundError(WorkerManagementError):
-    """Raised when task cannot be found."""
-
-    ...
-
-
-class WorkerNotAvailableError(WorkerManagementError):
-    """Raised when no workers are available."""
-
-    ...
-
-
-class RedisConnectionError(WorkerManagementError):
-    """Raised when Redis/Celery broker is unavailable."""
-
-    ...
 
 
 class MapTileDownloadError(Exception):
@@ -224,8 +190,32 @@ def _truncate_data(data):
         return data
 
 
-def handle_error(error):
-    """Handle the error and return a formatted message."""
+def handle_error(error, *, on_unhandled=None):
+    """Handle the error, show it in the modal, and optionally report it.
+
+    Args:
+        error: The exception Dash caught.
+        on_unhandled: Called with the exception for errors outside the expected
+            set — the same ones that get a full traceback logged. This app mails
+            its maintainer from here. Keyword-only, so ``handle_error(e)`` and a
+            bare ``Dash(on_error=handle_error)`` keep working; the hook is wired
+            with a partial in app.py.
+
+            This module deliberately does not import the mail service any more:
+            that import edge ran error_handling -> email_service -> config and
+            put a notification concern inside the error path. Mirrors
+            ``cosmo_suite.error_handling.handle_error``'s seam.
+
+    Note: this app keeps its own handler rather than adopting the framework's.
+    Measured against cosmo-suite v0.6.1, the framework version treats only
+    (NotFound, JobNotFound, InvalidJobID) as expected, where this app also
+    expects NotFinishedException, SubmittedException and MapTileDownloadError —
+    all three normal user-facing conditions that would otherwise mail the
+    maintainer and log a traceback. It also has no USE_ERROR_MESSAGE sentinel,
+    and its FileValidationError entry reads "Ups this should not happen" where
+    this app shows the user what is actually wrong with the uploaded file.
+    Framework MRs: an expected-errors parameter, and sentinel support.
+    """
     log.debug(f"Error: {error}")
 
     if not isinstance(
@@ -249,10 +239,15 @@ def handle_error(error):
         # Log to DB first — email may block or fail
         log.error(f"Unhandled error: {error}")
         log.error(email_body)
-        try:
-            send_mail(MAINTAINER_EMAIL, email_subject, email_body)
-        except Exception:  # noqa — must not let email failure crash the error handler
-            log.error("Failed to send maintainer error email", exc_info=True)
+        if on_unhandled is not None:
+            # Convention deviation (CLAUDE.md: no bare `except Exception`). The hook
+            # is a notification, typically an SMTP send; it must not be able to take
+            # the error modal down with it. A notification failing is no reason to
+            # hide the error it was reporting from the user.
+            try:
+                on_unhandled(error, email_subject, email_body)
+            except Exception:  # noqa — see above
+                log.error("on_unhandled hook failed", exc_info=True)
 
     # dispatch lookup: unknown exception types fall back to the generic Exception entry
     error_title = error_responds_dict.get(type(error), error_responds_dict[Exception])[
