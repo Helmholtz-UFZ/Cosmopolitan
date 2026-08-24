@@ -45,7 +45,7 @@ from cosmopolitan_app.constants import (
     TIME_TO_LIFE_DIV_SUBMISSION_ID,
     URL_LOCATION_SHARED_ID,
 )
-from cosmopolitan_app.files_route import create_download_button
+from cosmo_suite.files_route import create_download_button
 from cosmopolitan_app.form_template_factory import (
     FormTemplateFactory,
     construct_selected_input,
