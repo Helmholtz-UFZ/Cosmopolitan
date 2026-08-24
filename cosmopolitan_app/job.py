@@ -43,6 +43,7 @@ from cosmopolitan_app.error_handling import (
     MapTileDownloadError,
     NoMeasurementPointsError,
 )
+from cosmo_suite.base_job import BaseJob
 from cosmo_suite.object_storage_manager import (
     delete_directory_from_storage,
     delete_file_from_storage,
@@ -184,14 +185,19 @@ def draw_preview(
                 ) from e
 
 
-class Job:
+class Job(BaseJob):
     """This class represents a job submission by the user.
 
     It handles input from a Flask application, performs input integrity checks, submits
     jobs, and formats the output for the user.
+
+    Implements ``cosmo_suite.base_job.BaseJob``, the five-member contract framework
+    code relies on when it is handed a job it did not build (``serve_files``, a
+    ``submit_handler``): ``job_id``, ``save``, ``delete``, ``submit`` and
+    ``time_to_live``. Everything else here — construction, the working directory,
+    log refresh and the whole CRNS domain — stays app-side and is untouched.
     """
 
-    job_id: str
     model: ModelWebsite
     start_date: date
     submitted: bool
@@ -220,6 +226,21 @@ class Job:
             self._init_from_model(model)
         else:
             self._blank_job(new_job_id)
+
+    @property
+    def job_id(self) -> str:
+        """Return the job's unique id.
+
+        A property because ``BaseJob`` declares it as one: the apps store the id in
+        different places, and exposing it under one name is what lets generic
+        framework code take an id without touching the job. The setter keeps this
+        app's plain ``self.job_id = ...`` assignments working unchanged.
+        """
+        return self._job_id
+
+    @job_id.setter
+    def job_id(self, value: str) -> None:
+        self._job_id = value
 
     def __str__(self):
         """Represent class as string."""
@@ -738,13 +759,22 @@ class Job:
 
         self.save()
 
-    def time_to_life(self):
+    def time_to_live(self):
         """Return the number of days after which this job will be deleted."""
         days_passed = (date.today() - self.start_date).days
         if self.submitted:
             return DAYS_DELETE_SUBMITTED - days_passed
         else:
             return DAYS_DELETE_NOT_SUBMITTED - days_passed
+
+    def time_to_life(self):
+        """Return the number of days after which this job will be deleted.
+
+        Misspelled alias for ``time_to_live``, kept so the five call sites in
+        pages/submission.py keep working. Renaming them is a separate commit, so
+        that a contract change and a spelling fix stay apart in the history.
+        """
+        return self.time_to_live()
 
     def status_color(self):
         """Return the color of the job status."""
