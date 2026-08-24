@@ -48,7 +48,9 @@ def test_unexpected_error_calls_hook(captured_props, empty_ctx):
     assert "boom" in subject
 
 
-@pytest.mark.parametrize("expected_error", [JobNotFound("x"), NotFinishedException("some_job")])
+@pytest.mark.parametrize(
+    "expected_error", [JobNotFound("x"), NotFinishedException("some_job")]
+)
 def test_expected_errors_do_not_call_hook(expected_error, captured_props, empty_ctx):
     """Expected conditions must not mail the maintainer.
 
