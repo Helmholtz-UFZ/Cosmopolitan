@@ -767,15 +767,6 @@ class Job(BaseJob):
         else:
             return DAYS_DELETE_NOT_SUBMITTED - days_passed
 
-    def time_to_life(self):
-        """Return the number of days after which this job will be deleted.
-
-        Misspelled alias for ``time_to_live``, kept so the five call sites in
-        pages/submission.py keep working. Renaming them is a separate commit, so
-        that a contract change and a spelling fix stay apart in the history.
-        """
-        return self.time_to_live()
-
     def status_color(self):
         """Return the color of the job status."""
         if self.status == "PENDING":
