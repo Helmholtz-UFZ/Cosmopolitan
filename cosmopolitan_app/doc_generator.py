@@ -2,11 +2,21 @@
 
 This module dynamically generates user-facing documentation by extracting docstrings
 from page modules and formatting them as markdown.
+
+The generated documentation.md is checked in, and test_documentation.py asserts that
+it still matches the docstrings it was generated from. So an edit to a page docstring
+or to a template here must be followed by
+
+    uv run python -m cosmopolitan_app.doc_generator --markdown-only
+
+which rewrites the markdown without touching the screenshots — no browser, no dev
+stack, no job IDs.
 """
 
 import argparse
 import ast
 import logging
+import re
 import sys
 import tomllib
 from datetime import datetime
@@ -73,6 +83,16 @@ Administrative pages for system management, monitoring, and configuration.
 
 FOOTER_TEMPLATE = "*Generated automatically from module docstrings*"
 
+DOCS_DIR = Path(__file__).parent / "assets" / "docs"
+DOCUMENTATION_FILE = DOCS_DIR / "documentation.md"
+SCREENSHOTS_DIR = DOCS_DIR / "screenshots"
+
+# The generated markdown is a pure function of the page docstrings and the templates
+# above — except for this one line. Anything asking "is the checked-in file still
+# current?" has to neutralise it first; see without_timestamp.
+TIMESTAMP_LINE_PATTERN = re.compile(r"^\*Last updated: .*\*$", re.MULTILINE)
+TIMESTAMP_PLACEHOLDER = "*Last updated: <generated>*"
+
 # Page organization
 USER_WORKFLOW_PAGES = [
     ("home", "Home Page"),
@@ -97,6 +117,19 @@ EXCLUDED_PAGES = ["documentation", "__init__"]
 # developer notes (see pages/worker_management.py).
 USER_DOC_MARKER = "# User documentation"
 DEVELOPER_NOTES_MARKER = "# Notes"
+
+
+def without_timestamp(markdown: str) -> str:
+    """Replace the generation timestamp with a fixed placeholder.
+
+    Args:
+        markdown: Generated or checked-in documentation markdown
+
+    Returns:
+        The markdown with its timestamp line neutralised, so two generations of the
+        same sources compare equal.
+    """
+    return TIMESTAMP_LINE_PATTERN.sub(TIMESTAMP_PLACEHOLDER, markdown)
 
 
 def clean_docstring(docstring: str) -> str:
@@ -250,27 +283,16 @@ class DocumentationGenerator:
         log.info("Documentation generated successfully")
         return full_doc
 
-    def write_static_documentation(self, output_file: Path, version_file: Path) -> None:
-        """Generate and write static documentation files.
+    def write_static_documentation(self, output_file: Path) -> None:
+        """Generate and write the static documentation file.
 
         Args:
             output_file: Path to write documentation.md
-            version_file: Path to write doc_version.txt
 
         Returns:
             None
         """
-        # Generate markdown
-        markdown = self.generate_full_documentation()
-
-        # Get current version
-        version = get_app_version()
-
-        # Write documentation.md
-        output_file.write_text(markdown, encoding="utf-8")
-
-        # Write doc_version.txt (single line with version)
-        version_file.write_text(version, encoding="utf-8")
+        output_file.write_text(self.generate_full_documentation(), encoding="utf-8")
 
 
 def setup_logging():
@@ -279,61 +301,56 @@ def setup_logging():
 
 
 def generate_documentation(
-    job_id_finished: str, job_id_new: str, headless: bool = True
+    job_id_finished: str,
+    job_id_new: str,
+    headless: bool = True,
+    markdown_only: bool = False,
 ) -> int:
-    """Generate main documentation generation workflow.
+    """Run the documentation generation workflow.
 
     Args:
+        job_id_finished: Finished job ID to use for screenshot generation
+        job_id_new: Unfinished job ID to use for screenshot generation
         headless: Run browser in headless mode (default: True)
+        markdown_only: Rewrite documentation.md only, skipping screenshot capture.
+            A docstring or template edit changes the markdown and nothing else, and
+            that path needs no browser, no dev stack and no job IDs.
 
     Returns:
         Exit code (0 for success, 1 for failure)
     """
     setup_logging()
 
-    log.info(
-        f"Generating documentation for version {get_app_version()}",
-    )
+    log.info(f"Generating documentation for version {get_app_version()}")
 
-    # Define output paths
-    docs_dir = Path(__file__).parent / "assets" / "docs"
-    screenshots_dir = docs_dir / "screenshots"
+    DOCS_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Create directories
-    docs_dir.mkdir(parents=True, exist_ok=True)
-    screenshots_dir.mkdir(exist_ok=True)
+    if markdown_only:
+        log.info("Skipping screenshot generation (--markdown-only)")
+    else:
+        SCREENSHOTS_DIR.mkdir(exist_ok=True)
 
-    # Generate screenshots
-    log.info("Starting screenshot generation...")
-    screenshot_gen = ScreenshotGenerator(job_id_finished, job_id_new, headless=headless)
-
-    try:
-        # Generate all screenshots (fails on first error)
-        # Assumes dev_up.sh mock is already running
-        screenshot_gen.generate_all_screenshots(screenshots_dir)
-        log.info("All screenshots captured successfully")
-
-        # Generate static documentation
-        log.info("Generating static documentation files...")
-        doc_gen = DocumentationGenerator()
-        doc_gen.write_static_documentation(
-            output_file=docs_dir / "documentation.md",
-            version_file=docs_dir / "doc_version.txt",
+        log.info("Starting screenshot generation...")
+        screenshot_gen = ScreenshotGenerator(
+            job_id_finished, job_id_new, headless=headless
         )
+        try:
+            # Generate all screenshots (fails on first error)
+            # Assumes dev_up.sh mock is already running
+            screenshot_gen.generate_all_screenshots(SCREENSHOTS_DIR)
+            log.info("All screenshots captured successfully")
+        finally:
+            screenshot_gen.cleanup()
 
-        log.info("Documentation generated successfully!")
-        log.info(
-            f"  - Markdown: {docs_dir / 'documentation.md'}",
-        )
-        log.info(f"  - Version: {docs_dir / 'doc_version.txt'}")
-        log.info(
-            f"  - Screenshots: {screenshots_dir}/ (11 files)",
-        )
+    log.info("Generating static documentation files...")
+    DocumentationGenerator().write_static_documentation(DOCUMENTATION_FILE)
 
-        return 0
+    log.info("Documentation generated successfully!")
+    log.info(f"  - Markdown: {DOCUMENTATION_FILE}")
+    if not markdown_only:
+        log.info(f"  - Screenshots: {SCREENSHOTS_DIR}/")
 
-    finally:
-        screenshot_gen.cleanup()
+    return 0
 
 
 def main():
@@ -344,11 +361,13 @@ def main():
     parser.add_argument(
         "job_id_new",
         type=str,
+        nargs="?",
         help="Unfinished Job ID to use for screenshot generation",
     )
     parser.add_argument(
         "job_id_finished",
         type=str,
+        nargs="?",
         help="Finished Job ID to use for screenshot generation",
     )
     parser.add_argument(
@@ -356,12 +375,28 @@ def main():
         action="store_true",
         help="Show browser window during screenshot capture (for debugging)",
     )
+    parser.add_argument(
+        "--markdown-only",
+        action="store_true",
+        help="Rewrite documentation.md from the page docstrings and leave the "
+        "screenshots alone (needs no job IDs and no running dev stack)",
+    )
 
     args = parser.parse_args()
 
+    # The job IDs only feed the screenshots, so they are required exactly when
+    # screenshots are being captured.
+    if not args.markdown_only and not (args.job_id_new and args.job_id_finished):
+        parser.error(
+            "job_id_new and job_id_finished are required unless --markdown-only is set"
+        )
+
     sys.exit(
         generate_documentation(
-            args.job_id_finished, args.job_id_new, headless=not args.no_headless
+            args.job_id_finished,
+            args.job_id_new,
+            headless=not args.no_headless,
+            markdown_only=args.markdown_only,
         )
     )
 

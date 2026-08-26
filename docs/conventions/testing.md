@@ -15,7 +15,7 @@ pytest directly will use the wrong `.env`, skip service setup, and leave stale s
 **`--no-services` SKIPS most tests.** It passes `--no-services` to pytest, which
 causes `dash_app` and `celery_worker` fixtures to call `pytest.skip()`. All e2e
 tests and most module tests will be skipped. Only use it for tests that truly need
-no services (`test_env`, `test_smp_assumptions`, `test_documentation_version`).
+no services (`test_env`, `test_smp_assumptions`, `test_documentation`).
 
 **Check artifacts before rerunning.** On failure, `test/artifacts/<test-name>/`
 contains screenshots, traces, HTML snapshots, server logs, and worker logs. Read
@@ -54,7 +54,7 @@ Service requirements vary by test:
 | `test_background_job_manager.py` | Redis, Celery worker |
 | `test_env.py` | None (reads env files only) |
 | `test_smp_assumptions.py` | None (checks data structures only) |
-| `test_documentation_version.py` | None (reads files only) |
+| `test_documentation.py` | None (reads files only) |
 
 ## Fixtures (`conftest.py`)
 

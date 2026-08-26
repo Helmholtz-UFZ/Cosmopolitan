@@ -100,7 +100,7 @@ Check the test function signature for fixture dependencies:
 |---|---|
 | `test_e2e.py` | `test_env.py` |
 | `test_postgres_manager.py` | `test_smp_assumptions.py` |
-| `test_update_measurements.py` | `test_documentation_version.py` |
+| `test_update_measurements.py` | `test_documentation.py` |
 | `test_background_job_manager.py` | |
 
 Running a service-dependent test with `--no-services` produces connection
