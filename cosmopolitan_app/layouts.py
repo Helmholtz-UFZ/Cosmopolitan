@@ -1,22 +1,27 @@
 """Collection of layout components for the web application.
 
-The navbar-collapse callback is NOT defined here. `cosmo_suite.layouts` registers an
-identical one at import time on the same shared ID, and two callbacks writing one
-Output without allow_duplicate is a hard Dash error that takes the whole callback
-registry down — not just the navbar. This app's IDs match the framework's by value,
-so the framework's callback drives the navbar rendered below. The import is explicit
-so that stays true no matter which framework page happens to be imported.
-
-Framework MR on the list: register cosmo_suite.layouts' global callbacks behind an
-opt-in function instead of at import time, so a consumer can own its own navbar.
+The navbar-collapse callback is NOT defined here. This app's IDs match the
+framework's by value, so `cosmo_suite.layouts.register_navbar_callbacks()` drives
+the navbar rendered below via `create_navbar` calling it directly. Until v0.6.2 the
+callback sat behind the mere `import cosmo_suite.layouts` that every framework page
+performs, which made a toggle that worked only as a side effect of importing a
+framework page — and would have broken silently the day this app stopped importing
+one. v0.7.0 moved it behind an explicit, idempotent registration function, which
+`app_layout()` calls for a consumer that also calls it; this app never calls
+`app_layout()`, so it calls `register_navbar_callbacks()` itself instead. See
+`register_navbar_callbacks`'s own docstring in the framework.
 """
-
-import cosmo_suite.layouts  # noqa: F401 — registers the navbar-collapse callback
 
 # The column container comes from the framework: its version is a strict superset,
 # and with wrapper_class left at None (this app's shell has no second panel to
 # select against) the rendered DOM is identical to the copy that used to live here.
 from cosmo_suite.layouts import page_container_column_layout  # noqa: F401
+
+# No local id default, unlike the copy this app used to carry: an id of "" is a
+# duplicate id shared by every header rendered without one, not "no id". Callers
+# that need hydration (input/submission/results) already pass id=header_id via
+# landing_page_layout_column/_fullscreen below; the rest render with no id at all.
+from cosmo_suite.layouts import create_header, register_navbar_callbacks  # noqa: F401
 import dash
 import dash_bootstrap_components as dbc
 from dash import dcc, html
@@ -59,7 +64,12 @@ def app_layout():
 
 
 def create_navbar():
-    """Create a navbar layout."""
+    """Create a navbar layout.
+
+    Registers the navbar-collapse callback, because this mounts the navbar —
+    co-location, not a side effect. See the module docstring.
+    """
+    register_navbar_callbacks()
     return html.Nav(
         className="navbar navbar-expand-lg sticky-top navbar-dark bg-primary",
         children=[
@@ -185,29 +195,6 @@ def create_navbar():
             )
         ],
     )
-
-
-def create_header(title, subtitle, bg_color="bg-info", id="", rounded=True):
-    """Create a header layout."""
-    className = f"{bg_color} rounded-top py-2" if rounded else f"{bg_color} py-2"
-    layout = html.Div(
-        className=className,
-        children=[
-            html.H2(title, className="text-center", id=f"{id}-title"),  # nocheck
-            (
-                html.H3(
-                    subtitle,
-                    className="text-center",
-                    id=f"{id}-subtitle",  # nocheck
-                )
-                if subtitle != ""
-                else None
-            ),
-        ],
-        id=id,
-    )
-
-    return layout
 
 
 def landing_page_layout_column(

@@ -2,6 +2,7 @@
 
 import logging
 import logging.config
+import traceback
 from functools import partial
 from threading import Thread
 
@@ -25,13 +26,19 @@ log = logging.getLogger(__name__)
 log.debug("Web application logging configured.")
 
 
-def notify_maintainer(error, subject, body):
+def notify_maintainer(error):
     """Mail the maintainer about an unhandled callback error.
 
     Wired into `handle_error` as its `on_unhandled` hook rather than imported by
     error_handling, so the error path carries no mail dependency. The handler
     guards this call: if the send fails, the user still gets the error modal.
+
+    cosmo-suite v0.7.0's handle_error calls this hook with only the exception —
+    it logs the traceback and triggered inputs itself but no longer hands them
+    to the hook — so the mail's subject and body are built here instead.
     """
+    subject = f"Error {error}"
+    body = f"Traceback info: {traceback.format_exc()}"
     log.error(f"Reporting unhandled error to {MAINTAINER_EMAIL}: {error}")
     send_mail(MAINTAINER_EMAIL, subject, body)
 

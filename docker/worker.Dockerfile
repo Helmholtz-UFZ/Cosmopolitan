@@ -56,9 +56,13 @@ RUN uv sync --no-dev --frozen
 # Switch to non-root user
 USER appuser
 
-# Worker-specific command with conditional debug mode
-CMD echo "Starting Celery worker in PRODUCTION mode..."; \
-    python3 -m cosmo_suite.object_storage_manager setup_remote; \
+# `&&`, not `;`. With `;` a failing storage setup — a moved module, a bad path —
+# still let Celery start, just without a configured rclone remote, and the first
+# symptom was a job failing three layers away from the cause. The `exec celery`
+# marker is what lets a build job run the setup step on its own; see
+# docs/conventions/worker_image.md in the framework.
+CMD echo "Starting Celery worker in PRODUCTION mode..." && \
+    python3 -m cosmo_suite.object_storage_manager setup_remote && \
     exec celery -A cosmopolitan_app.celery_app.celery worker \
         --loglevel=debug \
         --concurrency=4 \

@@ -8,8 +8,8 @@ the maintainer simply stops being told. Hence this test.
 
 import dash
 import pytest
+from cosmo_suite import error_handling as framework_error_handling
 
-from cosmopolitan_app import error_handling
 from cosmopolitan_app.error_handling import (
     JobNotFound,
     NotFinishedException,
@@ -19,8 +19,14 @@ from cosmopolitan_app.error_handling import (
 
 @pytest.fixture
 def captured_props(monkeypatch):
-    """Silence the modal writes; handle_error is called outside a callback here."""
-    monkeypatch.setattr(error_handling, "set_props", lambda *args, **kwargs: None)
+    """Silence the modal writes; handle_error is called outside a callback here.
+
+    cosmopolitan_app.error_handling delegates to the framework's handle_error,
+    which is where set_props is actually called now.
+    """
+    monkeypatch.setattr(
+        framework_error_handling, "set_props", lambda *args, **kwargs: None
+    )
 
 
 @pytest.fixture
@@ -39,13 +45,11 @@ def test_unexpected_error_calls_hook(captured_props, empty_ctx):
 
     handle_error(
         RuntimeError("boom"),
-        on_unhandled=lambda error, subject, body: reported.append((error, subject)),
+        on_unhandled=lambda error: reported.append(error),
     )
 
     assert len(reported) == 1, "on_unhandled was not called for an unexpected error"
-    error, subject = reported[0]
-    assert isinstance(error, RuntimeError)
-    assert "boom" in subject
+    assert isinstance(reported[0], RuntimeError)
 
 
 @pytest.mark.parametrize(
@@ -60,7 +64,7 @@ def test_expected_errors_do_not_call_hook(expected_error, captured_props, empty_
     """
     reported = []
 
-    handle_error(expected_error, on_unhandled=lambda *args: reported.append(args))
+    handle_error(expected_error, on_unhandled=lambda error: reported.append(error))
 
     assert reported == [], f"{type(expected_error).__name__} should not be reported"
 
@@ -68,7 +72,7 @@ def test_expected_errors_do_not_call_hook(expected_error, captured_props, empty_
 def test_hook_failure_does_not_break_the_error_modal(captured_props, empty_ctx):
     """A failing notification must not hide the error it was reporting."""
 
-    def exploding_hook(error, subject, body):
+    def exploding_hook(error):
         raise ConnectionRefusedError("smtp down")
 
     handle_error(RuntimeError("boom"), on_unhandled=exploding_hook)
