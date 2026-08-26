@@ -81,7 +81,7 @@ from cosmopolitan_app.constants import (
     URL_LOCATION_SHARED_ID,
 )
 from cosmopolitan_app.error_handling import NotFinishedException
-from cosmopolitan_app.files_route import create_download_button
+from cosmo_suite.files_route import create_download_button
 from cosmopolitan_app.job import Job
 from cosmopolitan_app.layouts import landing_page_layout_fullscreen
 from cosmopolitan_app.utils import swap_classes

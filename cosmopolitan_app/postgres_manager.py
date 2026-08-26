@@ -1,7 +1,6 @@
 """Module for interaction between webservice and data base."""
 
 import logging
-import time
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional, Union
 
@@ -19,105 +18,35 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
-    create_engine,
     text,
 )
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.exc import OperationalError, SQLAlchemyError
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.sql import func
 
-from cosmopolitan_app.config import (
-    POSTGRES_DB,
-    POSTGRES_HOST_NAME,
-    POSTGRES_PASSWORD,
-    POSTGRES_PORT,
-    POSTGRES_USER,
-)
+# One Base per process: the framework's registry is the documented export point,
+# and LogTable is the framework's table rather than a copy of it. See
+# ../cosmo-suite/docs/conventions/database_schema.md.
+from cosmo_suite.db_manager import Base, DbManager, LogTable
+
 from cosmopolitan_app.error_handling import JobNotFound
 
 log = logging.getLogger(__name__)
 
 
-class Base(DeclarativeBase):
-    """Base class for declarative base."""
+class PostgresManager(DbManager):
+    """Class for interacting with the posgres database.
 
-    pass
+    Subclasses the framework's ``DbManager`` so this process has one engine, one
+    session factory and one declarative registry instead of two against the same
+    database. The domain methods below stay here; the shared plumbing
+    (``_get_session``, ``session_scope``, ``SessionScope``) is inherited, and the
+    class name is kept so every call site — including
+    ``PostgresManager.check_existence("test")`` in the test setup — is unchanged.
 
-
-class SessionScope:
-    """Context manager for managing database sessions with retry logic."""
-
-    def __init__(self, session_factory):
-        """Initialize the session scope with a session factory."""
-        self.session_factory = session_factory
-        self.max_retries = 3
-        self.retry_delay = 1
-        self.session = None
-
-    def __enter__(self):
-        """Create a new session and handle retries for database operations."""
-        for attempt in range(self.max_retries + 1):
-            try:
-                self.session = self.session_factory()
-                return self.session  # success
-            except OperationalError as e:
-                if attempt < self.max_retries:
-                    log.warning(f"Database OperationalError: {e}")
-                    log.warning(
-                        f"Retrying operation (attempt {attempt + 1}/{self.max_retries + 1})"  # noqa
-                    )
-                    time.sleep(self.retry_delay)
-                else:
-                    log.error(f"Max retries ({self.max_retries}) exceeded")
-                    raise
-            except SQLAlchemyError as e:
-                log.error(f"Database error: {e}")
-                raise
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Commit or rollback the session based on exception type."""
-        try:
-            if exc_type is None:
-                self.session.commit()
-            else:
-                self.session.rollback()
-        finally:
-            self.session.close()
-
-        # False means exceptions are re-raised outside the `with`
-        return False
-
-
-class PostgresManager:
-    """Class for interacting with the posgres database."""
-
-    _engine = None
-    _Session = None
-
-    @classmethod
-    def _get_session(cls):
-        """Return the session factory, creating the engine on first call."""
-        if cls._Session is None:
-            database_url = (
-                f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@"
-                f"{POSTGRES_HOST_NAME}:{POSTGRES_PORT}/{POSTGRES_DB}"
-            )
-            cls._engine = create_engine(
-                database_url,
-                pool_pre_ping=True,
-                pool_size=5,
-                max_overflow=10,
-                pool_timeout=30,
-                pool_recycle=1800,
-            )
-            cls._Session = sessionmaker(bind=cls._engine)
-        return cls._Session
-
-    @classmethod
-    def session_scope(cls):
-        """Provide a transactional scope around a series of operations."""
-        return SessionScope(session_factory=cls._get_session())
+    ``job_table`` is assigned at the bottom of this module, once ``JobTable`` is
+    defined: it is the seam framework code uses to reach a job row without knowing
+    which app it runs in.
+    """
 
     @classmethod
     def query_distinct_modules(cls) -> List[str]:
@@ -1147,29 +1076,6 @@ class JobTable(Base):
     version = Column("version", String)
 
 
-class LogTable(Base):
-    """SQLAlchemy model for the logs table."""
-
-    __tablename__ = "logs"
-
-    id = Column(Integer, primary_key=True)
-    timestamp = Column(DateTime(timezone=False), nullable=False)
-    pid = Column(Integer, nullable=False)
-    level = Column(String(10), nullable=False)
-    module = Column(String(50), nullable=False)
-    message = Column(Text, nullable=False)
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert log record to dictionary format."""
-        return {
-            "timestamp": self.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
-            "pid": self.pid,
-            "level": self.level,
-            "message": self.message,
-            "module": self.module,
-        }
-
-
 class UpdateTimesCRNS(Base):
     """Represents the 'update_times_crns' table in the database."""
 
@@ -1239,3 +1145,9 @@ class UpdateDbRuns(Base):
 
 if __name__ == "__main__":
     PostgresManager.check_existence("test_job")
+
+
+# The seam framework code uses to reach a job row. Assigned here rather than in the
+# class body because JobTable is defined further down this module. DbManager raises
+# JobTableNotConfigured if it is ever left unset, so this cannot fail quietly.
+PostgresManager.job_table = JobTable

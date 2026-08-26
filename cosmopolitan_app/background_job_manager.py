@@ -1,9 +1,15 @@
 """Background job manager for COSMOPOLITAN.
 
 Extends ``cosmo_suite.background_job_manager.BackgroundJobManager``: the generic
-plumbing (``submit_named_job``, ``get_job_status``, ``get_task_result_info``,
-``get_all_tasks_overview``, ``revoke_job``, ``submit_test_task``) comes from the
-framework; only the domain submissions are added here.
+plumbing (``submit_job``, ``submit_named_job``, ``get_job_status``,
+``get_task_result_info``, ``get_all_tasks_overview``, ``revoke_job``,
+``submit_test_task``) comes from the framework; only the domain submissions are
+added here.
+
+``submit_job`` takes a plain job id and never touches a job object, so the
+computation wrapper pulls the id out and passes it. The other two submissions
+carry no job id at all and stay on ``submit_named_job``, which is what its own
+docstring prescribes.
 
 Task registration lives in celery_app.py (the worker entry point) to avoid a
 circular import: tasks/*.py → job → this module → tasks/*.py.
@@ -68,10 +74,16 @@ class BackgroundJobManager(BaseBackgroundJobManager):
             tuple: (celery_task_id, failed_boolean)
                    celery_task_id is None if submission failed
         """
-        return self.submit_named_job(
+        # track_task_name=True, not the framework default: this app has always
+        # registered the task name (the pre-Slice-1b code wrote task_name:<id> to
+        # Redis itself, and submit_named_job does it unconditionally). Without it a
+        # revoked computation task shows up as "Unknown" on the worker page, and a
+        # revoked long-running prediction is exactly the case that page exists for.
+        return self.submit_job(
             NAME_COMPUTATION_TASK,
-            args=[job.job_id],
+            job.job_id,
             queue="computation",
+            track_task_name=True,
         )
 
     def submit_update_db_task(self) -> tuple[str | None, bool]:

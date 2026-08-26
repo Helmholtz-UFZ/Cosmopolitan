@@ -45,7 +45,7 @@ from cosmopolitan_app.constants import (
     TIME_TO_LIFE_DIV_SUBMISSION_ID,
     URL_LOCATION_SHARED_ID,
 )
-from cosmopolitan_app.files_route import create_download_button
+from cosmo_suite.files_route import create_download_button
 from cosmopolitan_app.form_template_factory import (
     FormTemplateFactory,
     construct_selected_input,
@@ -149,7 +149,7 @@ def create_button_set(status, job_id):
     ]
 
 
-deletion_information_template = "The job will be deleted after {time_to_life} days."
+deletion_information_template = "The job will be deleted after {time_to_live} days."
 status_information_template = "Status:\n {status}"
 
 
@@ -279,7 +279,7 @@ def load_submission_content(job_id, header_class_name):
                 style={"white-space": "pre-line"},
             ),
             html.Div(
-                deletion_information_template.format(time_to_life=job.time_to_life()),
+                deletion_information_template.format(time_to_live=job.time_to_live()),
                 className="text-center fs-5 mb-2",
                 id=TIME_TO_LIFE_DIV_SUBMISSION_ID,
             ),
@@ -389,8 +389,8 @@ def submission_manager(
     disabled_spawn = status_button_config[job.status]["disabled_spawn"]
     disabled_result = status_button_config[job.status]["disabled_result"]
     status_info = status_information_template.format(status=job.status)
-    time_to_life_info = deletion_information_template.format(
-        time_to_life=job.time_to_life()
+    time_to_live_info = deletion_information_template.format(
+        time_to_live=job.time_to_live()
     )
     active_item = "input_accordion" if job.status == "PENDING" else "logs_accordion"
 
@@ -406,6 +406,6 @@ def submission_manager(
         disabled_spawn,
         disabled_result,
         status_info,
-        time_to_life_info,
+        time_to_live_info,
         active_item,
     )

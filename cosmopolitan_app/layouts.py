@@ -12,6 +12,11 @@ opt-in function instead of at import time, so a consumer can own its own navbar.
 """
 
 import cosmo_suite.layouts  # noqa: F401 — registers the navbar-collapse callback
+
+# The column container comes from the framework: its version is a strict superset,
+# and with wrapper_class left at None (this app's shell has no second panel to
+# select against) the rendered DOM is identical to the copy that used to live here.
+from cosmo_suite.layouts import page_container_column_layout  # noqa: F401
 import dash
 import dash_bootstrap_components as dbc
 from dash import dcc, html
@@ -231,21 +236,6 @@ def landing_page_layout_column(
         ),
     ]
     return page_container_column_layout(content)
-
-
-def page_container_column_layout(content, main_content_id="main-content-container"):
-    """Create a page container with a single column layout."""
-    # Content layout
-    class_names_content = "col-md-11 col-lg-10 col-xl-9 bg-white border border-dark rounded p-0 mb-4 mt-2 d-flex flex-column"  # noqa
-    page = dbc.Row(
-        dbc.Col(
-            className=class_names_content,
-            children=content,
-            id=main_content_id,  # nocheck
-        ),
-        className="flex-grow-1 d-flex justify-content-center g-0",
-    )
-    return page
 
 
 def landing_page_layout_fullscreen(
