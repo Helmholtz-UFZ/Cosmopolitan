@@ -70,6 +70,18 @@ class MapTileDownloadError(Exception):
     ...
 
 
+# Deliberately NOT in error_responds_dict: this is raised inside the nightly
+# Celery maintenance task, never inside a callback, so it can never reach the
+# error modal. maintenance_tasks.update_db_task handles it instead.
+class TimeIOUnavailableError(Exception):
+    """Raised when the TimeIO STA API stays unreachable after every retry."""
+
+    def __init__(self, query):
+        """Add the failing query as attribute and format error message."""
+        self.query = query
+        super().__init__(f"TimeIO STA API unreachable after all retries: {query}")
+
+
 # Laid over cosmo_suite.error_handling.error_responds_dict for this app's calls
 # only (see handle_error below). Entries identical to the framework's default —
 # the database errors, JobExists, WorkerNotAvailableError, ... — are left out;

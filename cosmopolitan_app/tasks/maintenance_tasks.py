@@ -10,6 +10,7 @@ from celery import Task
 
 from cosmopolitan_app.config import MAINTAINER_EMAIL, WEB_WORK_DIR
 from cosmopolitan_app.constants import (
+    CONSECUTIVE_FAILURES_BEFORE_MAIL,
     DAYS_DELETE_NOT_SUBMITTED,
     DAYS_DELETE_SUBMITTED,
     LOG_RETENTION_DAYS,
@@ -108,6 +109,22 @@ def update_db_task(self):
         email_body = f"""
         Traceback info: {traceback.format_exc()}\n\n
         """
+        log.error(email_subject)
+        log.error(email_body)
+
+        # Always logged, but only mailed once the failure has persisted. The
+        # upstream STA goes away for a few minutes during its own maintenance,
+        # which is exactly when the nightly run hits it — one mail per night for
+        # a self-healing outage trains the maintainer to ignore the mails.
+        failures = PostgresManager.count_consecutive_failed_update_runs()
+        if failures < CONSECUTIVE_FAILURES_BEFORE_MAIL:
+            log.warning(
+                f"Update run {run_id} failed ({failures} in a row). Not mailing "
+                f"until {CONSECUTIVE_FAILURES_BEFORE_MAIL} consecutive failures.",
+            )
+            return
+
+        email_subject = f"{email_subject} ({failures} nights in a row)"
         try:
             send_mail(MAINTAINER_EMAIL, email_subject, email_body)
         except Exception:  # noqa - must not let email failure crash maintenance error path
@@ -115,5 +132,3 @@ def update_db_task(self):
                 "Failed to send maintenance error email",
                 exc_info=True,
             )
-        log.error(email_subject)
-        log.error(email_body)

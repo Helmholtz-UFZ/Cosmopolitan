@@ -3,7 +3,6 @@
 import hashlib
 import logging
 import traceback
-from asyncio.exceptions import TimeoutError
 from datetime import date, datetime, time, timedelta
 from math import atan2, cos, radians, sin, sqrt
 from pprint import pformat
@@ -13,8 +12,9 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 import requests
-from requests.exceptions import HTTPError, RequestException
+from requests.exceptions import RequestException
 
+from cosmopolitan_app.error_handling import TimeIOUnavailableError
 from cosmopolitan_app.postgres_manager import PostgresManager
 
 log = logging.getLogger(__name__)
@@ -29,10 +29,18 @@ class TimeIOManager:
 
     date_format = "%Y-%m-%dT%H:%M:%SZ"
 
+    # One sleep in seconds per retry. Widened from 10/120/300: the upstream is a
+    # FROST webapp behind Tomcat, and while its context is unavailable it answers
+    # 404 only after ~120 s, so the old ladder gave up after ~15 min of wall clock
+    # and cost a whole night of data. Worst case now is ~19 min of sleeping plus
+    # 6 x 120 s of request timeout = ~31 min, which still leaves the day loop room
+    # inside task_time_limit (65 min).
+    retry_delays = (10, 60, 180, 300, 600)
+
     @classmethod
     def request_data(cls, query: str):
         """Request data from the STI API and yield results synchronously."""
-        max_retries = 3
+        attempt = 0
         original_query = query
         while query:
             try:
@@ -42,30 +50,32 @@ class TimeIOManager:
                 for item in data["value"]:
                     yield query, item
                 query = data.get("@iot.nextLink")  # key absent when no more pages
-                max_retries = 3
-            except (
-                RequestException,
-                TimeoutError,
-                HTTPError,
-            ) as error:
+                attempt = 0
+            # HTTPError and every Timeout variant requests raises are
+            # RequestException subclasses, so this one clause covers them all.
+            except RequestException as error:
                 log.info(f"Error: {error}")
                 log.info(f"Query: {query}")
                 log.info(
                     f"Hash of query: {hashlib.md5(query.encode()).hexdigest()}",
                 )
                 log.info(f"Time of error: {datetime.now()}")
-                if max_retries == 0:
+                # Status and body separate an upstream outage (Tomcat's "resource
+                # is not available" 404 page) from a rejected query (FROST answers
+                # 400 with a JSON message). Without them the nightly failure could
+                # not be diagnosed from the logs at all. `is not None`, not
+                # truthiness: Response.__bool__ is False for every error status.
+                if error.response is not None:
+                    log.info(f"Status code: {error.response.status_code}")
+                    log.info(f"Response body: {error.response.text[:500]}")
+                if attempt >= len(cls.retry_delays):
                     log.error("Max retries reached. Exiting.")
                     log.error(f"Original query: {original_query}")
-                    raise error
-                log.info("Retrying request.")
-                if max_retries == 3:
-                    sleep(10)
-                elif max_retries == 2:
-                    sleep(120)
-                elif max_retries == 1:
-                    sleep(300)
-                max_retries -= 1
+                    raise TimeIOUnavailableError(original_query) from error
+                delay = cls.retry_delays[attempt]
+                log.info(f"Retrying request in {delay} s.")
+                sleep(delay)
+                attempt += 1
 
     @classmethod
     def collect_data(cls, query: str) -> Tuple[list, list]:

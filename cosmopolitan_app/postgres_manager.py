@@ -28,6 +28,7 @@ from sqlalchemy.sql import func
 # ../cosmo-suite/docs/conventions/database_schema.md.
 from cosmo_suite.db_manager import Base, DbManager, LogTable
 
+from cosmopolitan_app.constants.general import CONSECUTIVE_FAILURES_BEFORE_MAIL
 from cosmopolitan_app.error_handling import JobNotFound
 
 log = logging.getLogger(__name__)
@@ -1024,6 +1025,36 @@ class PostgresManager(DbManager):
             if run:
                 run.end_time = datetime.now()
                 run.status = status
+
+    @classmethod
+    def count_consecutive_failed_update_runs(cls) -> int:
+        """Count how many of the most recent update runs failed in a row.
+
+        Counts back from the newest finished run and stops at the first one that
+        did not fail. Runs still marked 'running' are skipped, so the currently
+        executing run does not have to be finished before it is counted.
+
+        Returns:
+            Number of consecutive failed runs, newest first.
+        """
+        with cls.session_scope() as session:
+            statuses = [
+                run.status
+                for run in session.query(UpdateDbRuns)
+                .filter(UpdateDbRuns.status != "running")
+                .order_by(UpdateDbRuns.start_time.desc())
+                .limit(CONSECUTIVE_FAILURES_BEFORE_MAIL)
+                .all()
+            ]
+
+        consecutive = 0
+        for status in statuses:
+            if status != "failed":
+                break
+            consecutive += 1
+
+        log.debug(f"Consecutive failed update runs: {consecutive}")
+        return consecutive
 
     @classmethod
     def get_latest_update_run(cls) -> Optional[Dict[str, Any]]:

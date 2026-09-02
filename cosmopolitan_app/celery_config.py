@@ -37,6 +37,13 @@ class CeleryConfig(BaseCeleryConfig):
     task_soft_time_limit = 3600  # 1 hour
     task_time_limit = 3900  # 65 minutes
 
+    # BaseCeleryConfig leaves this at UTC, so crontab(hour=4) fired at 06:00 Berlin
+    # in summer — the entry names below were simply wrong, and the pods' own
+    # TZ=Europe/Berlin does not reach Beat (Celery schedules in conf.timezone, not
+    # in the process timezone). Set here rather than in the framework: the run time
+    # of these two jobs is a domain decision, and cosmo-suite has other consumers.
+    timezone = "Europe/Berlin"
+
     # Replaces (not extends) the framework schedule — see module docstring.
     beat_schedule = {
         "cleanup-at-3am": {
