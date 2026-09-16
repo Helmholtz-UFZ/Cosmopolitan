@@ -49,7 +49,9 @@ test:
   services:
     - name: postgis/postgis:latest
       alias: postgres
-    - name: "minio/minio:latest"
+    # minio/minio is gone from Docker Hub. MinIO stopped publishing images, so
+    # quay's :latest is frozen at this release anyway — pin it explicitly.
+    - name: "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z"
       alias: minio
       command: ["server", "/data", "--console-address", ":9001"]
       variables:
@@ -140,7 +142,9 @@ build-latest-tag:
     - *docker_login
     - "apk update && apk add --no-cache jq yq git"
     - "git fetch --tags --force"
-    - "GIT_LATEST_TAG=$(git tag --sort=-v:refname | head -n 1)"
+    # No `git tag | head -n 1`: head exits early, git dies of SIGPIPE, and the
+    # runner's pipefail turns that into a random "exit code 141".
+    - "GIT_LATEST_TAG=$(git for-each-ref --sort=-v:refname --count=1 --format='%(refname:lstrip=2)' refs/tags)"
     - "git fetch origin ${GIT_LATEST_TAG}"
     - "git checkout ${GIT_LATEST_TAG}"
   script:
