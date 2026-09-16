@@ -23,7 +23,7 @@ Create a new test file for a module in `cosmopolitan_app/`.
 3. **Determine service dependencies** — does the module need:
    - Postgres? (uses `PostgresManager` or SQLAlchemy)
    - Redis? (uses Celery or `BackgroundJobManager`)
-   - MinIO? (uses `ObjectStorageManager`)
+   - Object storage? (uses `cosmo_suite.object_storage_manager`)
    - If none, the test can run without services
    - Note: `send_mail` logs instead of sending when `EMAIL_SERVER="test"` — no service needed
 

@@ -30,7 +30,7 @@ POSTGRES_DB="somweb_stage"
 POSTGRES_USER="somweb_stage_rw"
 POSTGRES_PASSWORD="test"
 
-### Minio ###
+### Object storage ###
 OBJECT_STORAGE_ACCESS_KEY="accesskey"
 OBJECT_STORAGE_BUCKET="cosmopolitan-dev"
 OBJECT_STORAGE_HOST="http://localhost:9000"

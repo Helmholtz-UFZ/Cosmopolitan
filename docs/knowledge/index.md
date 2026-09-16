@@ -26,7 +26,7 @@ Durable concepts used across the codebase.
 
 ### Systems — `systems/`
 Major subsystems and how they interact.
-- [job-lifecycle.md](systems/job-lifecycle.md) — end-to-end flow of a prediction job (form → Postgres → Celery → SMP → MinIO → results) and the Celery/Beat setup.
+- [job-lifecycle.md](systems/job-lifecycle.md) — end-to-end flow of a prediction job (form → Postgres → Celery → SMP → object storage → results) and the Celery/Beat setup.
 - [soil-moisture-prediction.md](systems/soil-moisture-prediction.md) — the external `soil-moisture-prediction` library, its inputs, and the assumptions the app pins to it.
 - [timeio-integration.md](systems/timeio-integration.md) — CRNS measurement acquisition from the TimeIO / STA (SensorThings) API.
 - [cosmo-suite-boundary.md](systems/cosmo-suite-boundary.md) — what comes from the shared framework, what stays local, and the two-engine transitional state.

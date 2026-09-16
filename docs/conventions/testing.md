@@ -38,7 +38,7 @@ to preserve them across runs).
 
 - Use Playwright via `pytest-playwright` (`page` fixture)
 - App served by `dash_app` fixture (werkzeug make_server in background thread)
-- Require all services: Postgres, Redis, MinIO, Celery worker
+- Require all services: Postgres, Redis, object storage, Celery worker
 - Test full user workflows through the browser
 - Reusable helpers in `test/help_functions_tests.py` (3 layers: atomic form actions,
   page navigation, complete setups)

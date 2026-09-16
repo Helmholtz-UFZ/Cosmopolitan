@@ -6,7 +6,7 @@ code lives under [`cosmopolitan_app/`](../cosmopolitan_app/).
 ## Stack
 
 Dash (Plotly) on a Flask server, Celery + Redis for background work, PostgreSQL/PostGIS for
-spatial data, MinIO (S3, via rclone) for object storage. Predictions come from the external
+spatial data, S3 object storage via rclone (UFZ S3 in prod, RustFS locally and in CI). Predictions come from the external
 `soil-moisture-prediction` library; CRNS data comes from the TimeIO / STI API.
 
 Infrastructure that is not CRNS-specific comes from
@@ -45,7 +45,7 @@ These modules are **not** in this repository — they are imported from `cosmo_s
 |---|---|
 | `cosmo_suite.config` | The 18 infrastructure env vars, `getenv`, `JOB_WORK_DIR_TEMPLATE` |
 | `cosmo_suite.logger` | `PostgreSQLHandler`, log format, the dictConfig builders (domain exclusions passed in from `constants/general.py`) |
-| `cosmo_suite.object_storage_manager` | MinIO/S3 access via rclone, `ObjectStorageError` |
+| `cosmo_suite.object_storage_manager` | S3 access via rclone, presigned URLs via boto3, `ObjectStorageError` |
 | `cosmo_suite.logs_table` | Logs table UI and formatting |
 | `cosmo_suite.celery_config` | `BaseCeleryConfig` — broker, timeouts, worker limits |
 | `cosmo_suite.background_job_manager` | `BackgroundJobManager` submission/inspection plumbing |
@@ -71,7 +71,7 @@ the rules for working across the boundary are in
 2. Job is validated (pydantic_models) and stored in PostgreSQL (postgres_manager)
 3. Job is queued to Celery workers via Redis (background_job_manager / tasks)
 4. The soil-moisture-prediction library processes the data on a worker
-5. Results land in MinIO (cosmo_suite.object_storage_manager) and are displayed in the UI (pages/results)
+5. Results land in object storage (cosmo_suite.object_storage_manager) and are displayed in the UI (pages/results)
 ```
 
 Background work runs on dedicated Celery worker containers. A single Beat scheduler (pinned to

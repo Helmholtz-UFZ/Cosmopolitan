@@ -18,7 +18,7 @@ Ask the user before starting:
 ## 2. Step-by-step Diagnostic Checklist
 
 **Services are required for meaningful results.** Most tests depend on PostgreSQL,
-MinIO, and Redis. Always run `./run_pytest.sh` (which starts services automatically).
+object storage, and Redis. Always run `./run_pytest.sh` (which starts services automatically).
 Never use `--no-services` unless you are certain the test has no service fixtures.
 
 ### Step 1: Reproduce locally
@@ -82,7 +82,7 @@ open test/artifacts/<test-dir>/page.html
 | Error | Cause | Fix |
 |-------|-------|-----|
 | `PostgreSQL not available` | DB container failed health check | `docker logs postgres_cosmopolitan` |
-| `MinIO not available` | Object storage failed health check | `docker logs minio_cosmopolitan` |
+| `Object storage did not start` / `Object storage (S3) connectivity check failed` | S3 server unhealthy or unreachable | `docker logs object_storage_cosmopolitan` |
 | `Redis not available` | Redis failed health check | `docker logs redis_cosmopolitan` |
 | Port already in use | Leftover Docker containers or another process | 1. `docker compose down` in the current project first. 2. If persists, tell the user which port is blocked — a sibling project (cosmonaut, etc.) may be running in parallel and only the user knows which is safe to stop. |
 | Docker not running | Docker daemon not started | `sudo systemctl start docker` |
@@ -154,12 +154,12 @@ docker logs postgres_cosmopolitan
 docker exec postgres_cosmopolitan pg_isready -U cosmopolitan
 ```
 
-**MinIO:**
+**Object storage (RustFS):**
 
 ```bash
-docker ps | grep minio_cosmopolitan
-docker logs minio_cosmopolitan
-curl -sf http://localhost:9010/minio/health/ready
+docker ps | grep object_storage_cosmopolitan
+docker logs object_storage_cosmopolitan
+curl -sf http://localhost:9000/health/ready
 ```
 
 **Redis:**
@@ -197,9 +197,9 @@ docker compose down --remove-orphans
 
 | Aspect | Local (`env_test_local`) | CI (`env_test`) |
 |--------|--------------------------|------------------|
-| PostgreSQL | `localhost:5433` | `postgres:5432` |
-| MinIO | `localhost:9010` | `minio:9000` |
-| Redis | `localhost:6380` | `redis:6379` |
+| PostgreSQL | `localhost:5432` | `postgres:5432` |
+| Object storage | `localhost:9000` | `object-storage:9000` |
+| Redis | `localhost:6379` | `redis:6379` |
 | Browser | `--headed` option available | headless only |
 | Services | Docker Compose containers | GitLab service containers |
 

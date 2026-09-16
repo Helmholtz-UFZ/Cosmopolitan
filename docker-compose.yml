@@ -14,8 +14,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      minio:
-        condition: service_started
+      object-storage:
+        condition: service_healthy
       redis:
         condition: service_started
     volumes:
@@ -35,8 +35,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      minio:
-        condition: service_started
+      object-storage:
+        condition: service_healthy
       redis:
         condition: service_started
 
@@ -85,16 +85,23 @@ services:
       VSI_CACHE: TRUE
       VSI_CACHE_SIZE: 5000000
 
-  minio:
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
-    container_name: minio_cosmopolitan
+  # S3 server for local runs, copied from cosmo-suite's
+  # docs/conventions/object_storage.md (CI takes the same image from the
+  # framework's ci/object-storage.gitlab-ci.yml).
+  object-storage:
+    image: rustfs/rustfs:1.0.0
+    container_name: object_storage_cosmopolitan
     ports:
-      - "9000:9000"
-      - "9001:9001" # Web-based admin console
+      - "${OBJECT_STORAGE_HOST_PORT:-9000}:9000"
+      - "${OBJECT_STORAGE_CONSOLE_HOST_PORT:-9001}:9001" # Web console at /rustfs/console/
     environment:
-      MINIO_ROOT_USER: accesskey
-      MINIO_ROOT_PASSWORD: secretkey
-    command: server /data --console-address ":9001"
+      RUSTFS_ACCESS_KEY: ${OBJECT_STORAGE_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${OBJECT_STORAGE_SECRET_KEY}
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9000/health/ready"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
 
 volumes:
   redis_data:

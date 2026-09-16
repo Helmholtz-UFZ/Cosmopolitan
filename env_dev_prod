@@ -32,7 +32,7 @@ POSTGRES_PORT="5432"
 POSTGRES_USER="somweb_stage_rw"
 POSTGRES_PASSWORD=""
 
-### Minio ###
+### Object storage ###
 OBJECT_STORAGE_ACCESS_KEY=""
 OBJECT_STORAGE_BUCKET="cosmopolitan-prod"
 OBJECT_STORAGE_HOST="https://vip.s3.ufz.de"

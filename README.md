@@ -23,7 +23,7 @@ The web service is built as a Dash web application with the following key compon
 
 - **Web Framework**: Dash (plotly) with Flask server backend
 - **Database**: PostgreSQL with PostGIS extension for spatial data
-- **Object Storage**: MinIO for file storage with rclone integration
+- **Object Storage**: S3 (UFZ S3 in prod, RustFS locally and in CI) via rclone
 - **Background Tasks**: Celery with Redis broker for distributed task processing
 - **External Services**: TimeIO API for CRNS data
 - **Shared Framework**: [`cosmo-suite`](https://codebase.helmholtz.cloud/ufz/tb5-smm/met/wg7/cosmo-suite),
@@ -87,7 +87,7 @@ The application runs in multiple containers:
 - **webserver**: Dash web application (job submission interface)
 - **worker**: Celery worker for background task processing
 - **postgres**: Database with PostGIS and Celery broker tables
-- **minio**: Object storage for job files
+- **object-storage**: S3 server (RustFS) for job files
 
 ```bash
 # Start all services (uses PyPI soil-moisture-prediction)
@@ -178,7 +178,7 @@ Key environment variables:
 - `FLASK_DEBUG=1` - Enable debug mode with auto-reload
 - `GUNICORN=0` - Use Flask dev server instead of Gunicorn
 - `WEB_WORK_DIR` - Working directory for job files
-- `OBJECT_STORAGE_*` - MinIO/S3 configuration variables
+- `OBJECT_STORAGE_*` - S3 configuration variables
 - `POSTGRES_*` - Database connection settings
 
 ## External Services
@@ -186,7 +186,7 @@ Key environment variables:
 The web service relies on external services:
 
 1. **PostgreSQL Database**: PostGIS-enabled database for spatial data storage
-2. **MinIO**: Object storage for job files and results
+2. **S3 object storage**: Job files and results (UFZ S3 in production)
 3. **TimeIO API**: Source for cosmic ray neutron sensor data
 
 ## Deployment

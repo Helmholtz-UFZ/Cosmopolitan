@@ -32,10 +32,10 @@ POSTGRES_PORT="5432"
 POSTGRES_USER="somweb_stage_rw"
 POSTGRES_PASSWORD="test"
 
-### Minio ###
+### Object storage ###
 OBJECT_STORAGE_ACCESS_KEY="accesskey"
 OBJECT_STORAGE_BUCKET="cosmopolitan-dev"
-OBJECT_STORAGE_HOST="http://minio:9000"
+OBJECT_STORAGE_HOST="http://object-storage:9000"
 OBJECT_STORAGE_REMOTE_NAME="cosmopolitan-remote"
 OBJECT_STORAGE_SECRET_KEY="secretkey"
 

@@ -60,9 +60,9 @@ How env vars reach containers (see `docker-compose.yml`):
 
 - **App and worker containers**: `env_file: .env` passes all variables from the
   active `.env` file.
-- **Postgres and MinIO**: `environment:` block with `${VAR}` interpolation maps
-  project variables to the service's expected names (e.g.
-  `MINIO_ROOT_USER: ${OBJECT_STORAGE_ACCESS_KEY}`).
+- **Postgres and object storage**: `environment:` block with `${VAR}` interpolation
+  maps project variables to the service's expected names (e.g.
+  `RUSTFS_ACCESS_KEY: ${OBJECT_STORAGE_ACCESS_KEY}`).
 - **Production Dockerfiles** (`docker/prod.Dockerfile`, `docker/worker.Dockerfile`):
   `COPY env_prod .env` bakes non-secret vars into the image; the CMD sources
   `.env` before starting the process.

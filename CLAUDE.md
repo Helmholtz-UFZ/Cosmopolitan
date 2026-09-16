@@ -14,14 +14,14 @@ The application is built as a Dash web application with the following key compon
 
 - **Web Framework**: Dash (plotly) with Flask server backend
 - **Database**: PostgreSQL with PostGIS extension for spatial data
-- **Object Storage**: MinIO for file storage with rclone integration
+- **Object Storage**: S3 (UFZ S3 in prod, RustFS locally and in CI) via rclone
 - **Background Tasks**: Celery with Redis broker for distributed task processing
 - **External Services**: TimeIO API for CRNS data
 
 ## Sister Project: COSMONAUT
 
 COSMOPOLITAN has a sister project **COSMONAUT** (`../ufz-cosmonaut`). Both share the
-same architecture (Dash + Celery + PostgreSQL + MinIO), the same conventions, and the
+same architecture (Dash + Celery + PostgreSQL + S3), the same conventions, and the
 same anti-patterns/coding rules. Key differences:
 
 - **COSMONAUT** optimizes navigation routes for surveys.

@@ -31,7 +31,7 @@ The application uses a distributed architecture to handle prediction jobs effici
   searches and spatial analysis.
 
 - **Object Storage**: Large result files, including prediction maps and analysis data,
-  are stored in MinIO object storage for efficient retrieval and long-term archival.
+  are stored in S3 object storage for efficient retrieval and long-term archival.
 
 - **Web Interface**: Built with the Dash framework for interactive data visualization,
   providing real-time updates, interactive maps, and responsive charts.

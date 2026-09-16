@@ -12,8 +12,8 @@ cleaning_up() {
     fi
 
     # Stop and remove containers
-    docker stop postgres_cosmopolitan minio_cosmopolitan redis_cosmopolitan >/dev/null 2>&1 || true
-    docker rm postgres_cosmopolitan minio_cosmopolitan redis_cosmopolitan >/dev/null 2>&1 || true
+    docker stop postgres_cosmopolitan object_storage_cosmopolitan redis_cosmopolitan >/dev/null 2>&1 || true
+    docker rm postgres_cosmopolitan object_storage_cosmopolitan redis_cosmopolitan >/dev/null 2>&1 || true
     docker compose down >/dev/null 2>&1 || true
 }
 
@@ -156,12 +156,13 @@ if [ "$START_SERVICES" -eq 1 ]; then
     docker compose down 2>/dev/null || true
 
     # Start services (quiet output)
-    echo "Starting services: postgres, minio, redis"
-    docker compose up postgres minio redis -d --quiet-pull
+    echo "Starting services: postgres, object-storage, redis"
+    docker compose up postgres object-storage redis -d --quiet-pull
 
     # Wait for services with retry logic
     check_service "docker exec postgres_cosmopolitan pg_isready -q 2>/dev/null" "PostgreSQL"
-    check_service "docker exec minio_cosmopolitan curl -sf http://localhost:9000/minio/health/ready >/dev/null 2>&1" "MinIO"
+    # The compose healthcheck owns the server-specific probe; this only reads its verdict.
+    check_service "docker inspect -f '{{.State.Health.Status}}' object_storage_cosmopolitan 2>/dev/null | grep -qx healthy" "Object storage"
     check_service "docker exec redis_cosmopolitan redis-cli ping 2>/dev/null | grep -q PONG" "Redis"
 else
     echo "Skipping service management (assuming services already running)"

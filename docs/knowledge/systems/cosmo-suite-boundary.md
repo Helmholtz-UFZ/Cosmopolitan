@@ -13,7 +13,7 @@ repo — see [`../../conventions/framework_integration.md`](../../conventions/fr
 |---|---|
 | `cosmo_suite.config` | The 18 infrastructure env vars, `getenv`, `JOB_WORK_DIR_TEMPLATE` |
 | `cosmo_suite.logger` | `PostgreSQLHandler`, log format, the dictConfig builders |
-| `cosmo_suite.object_storage_manager` | MinIO/S3 access via rclone, `ObjectStorageError` |
+| `cosmo_suite.object_storage_manager` | S3 access via rclone, presigned URLs via boto3, `ObjectStorageError` |
 | `cosmo_suite.logs_table` | Log list rendering (`format_logs_list`, `level_badge`) |
 | `cosmo_suite.celery_config` | `BaseCeleryConfig` |
 | `cosmo_suite.background_job_manager` | `BackgroundJobManager` plumbing |
