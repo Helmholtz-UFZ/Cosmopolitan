@@ -4,14 +4,12 @@ import logging
 import logging.config
 import traceback
 from functools import partial
-from threading import Thread
 
 from dash import Dash
 
 from cosmo_suite.files_route import serve_files
 from cosmo_suite.logger import get_logger_config_web
 
-from cosmopolitan_app.background_job_manager import background_job_manager
 from cosmopolitan_app.constants.general import EXCLUDED_LOG_PACKAGES
 from cosmopolitan_app.config import DEBUG, MAINTAINER_EMAIL, PORT
 from cosmopolitan_app.email_service import send_mail
@@ -52,22 +50,15 @@ app = Dash(
     on_error=partial(handle_error, on_unhandled=notify_maintainer),
 )
 server = app.server
-# Start Celery Beat scheduler for periodic maintenance tasks
 setup_remote()
 create_bucket()
 
-
-def start_beat_scheduler():
-    """Start Celery Beat scheduler with thread-specific logging."""
-    # The loglevel sets the level globally for the entire app.
-    beat = background_job_manager.app.Beat(loglevel="DEBUG")
-    beat.run()
-
-
-# Start Beat scheduler as daemon thread
-beat_thread = Thread(target=start_beat_scheduler, daemon=True)
-beat_thread.start()
-log.info("Celery Beat scheduler started in background thread")
+# No Celery Beat here: it runs embedded in the worker (docker/worker.Dockerfile).
+# Gunicorn with --preload imports this module once and then forks its workers; a
+# thread started at import can hold one of Celery's internal locks at that moment,
+# and the forked worker then blocks forever on its first task submission. Without
+# --preload every worker would start its own Beat instead, and every scheduled task
+# would run once per worker. See docs/conventions/celery_beat.md in cosmo-suite.
 
 # Serve files
 # job_class is this app's Job, not the framework's: serve_files needs a class

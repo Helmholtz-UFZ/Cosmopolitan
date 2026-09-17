@@ -61,12 +61,16 @@ USER appuser
 # symptom was a job failing three layers away from the cause. The `exec celery`
 # marker is what lets a build job run the setup step on its own; see
 # docs/conventions/worker_image.md in the framework.
+# --beat embeds the Celery Beat scheduler. It belongs here and not in the web
+# process (see app.py), and it relies on there being exactly one worker pod:
+# a second replica would run every scheduled task twice.
 CMD echo "Starting Celery worker in PRODUCTION mode..." && \
     python3 -m cosmo_suite.object_storage_manager setup_remote && \
     exec celery -A cosmopolitan_app.celery_app.celery worker \
         --loglevel=debug \
         --concurrency=4 \
         --queues=default,computation,maintenance,test \
+        --beat \
         --hostname=worker@%h \
         --without-gossip \
         --without-mingle;

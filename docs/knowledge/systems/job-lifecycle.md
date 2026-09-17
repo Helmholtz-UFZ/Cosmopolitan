@@ -51,15 +51,16 @@ Two scheduled tasks, defined in `CeleryConfig.beat_schedule`:
 - `update-db-at-4am` — `crontab(minute=0, hour=4)` → `update_db` (refreshes CRNS measurements;
   see [`timeio-integration.md`](timeio-integration.md)).
 
-**How Beat actually runs (non-obvious):** [`app.py`](../../../cosmopolitan_app/app.py) starts Beat
-in a **daemon `Thread`** at import time (`start_beat_scheduler` → `...app.Beat(...).run()`), not as
-a separate process. In production the web app is launched by Gunicorn with `--preload`, so `app.py`
-is imported **once** in the master before workers fork — which is what guarantees a single Beat
-thread. Without `--preload`, each Gunicorn worker would import `app.py` and start its own Beat
-thread, producing duplicate scheduled runs. The schedule state file is `/tmp/celerybeat-schedule`.
+**How Beat runs:** embedded in the Celery worker (`celery worker --beat`,
+[`docker/worker.Dockerfile`](../../../docker/worker.Dockerfile)), as its own process. That relies
+on exactly one worker pod — a second one would schedule everything twice. The schedule state file
+is `/tmp/celerybeat-schedule`.
 
-> Note: the README/CLAUDE wording ("runs in the Gunicorn master process") describes the effect;
-> the mechanism is the daemon thread above.
+Until 2026-09 `app.py` started Beat in a daemon thread at import time, which was wrong both ways:
+production ran Gunicorn *without* `--preload`, so each of the four workers started its own Beat and
+every scheduled task ran four times; and with `--preload` (the dev image with `GUNICORN=1`) a
+worker forked while that thread held one of Celery's locks blocks forever on its first task
+submission. See `docs/conventions/celery_beat.md` in cosmo-suite.
 
 ## Worker tuning
 

@@ -83,7 +83,7 @@ def test_app_wires_the_hook():
 
     Guards the wiring itself, since a missing `on_unhandled=` is exactly the
     silent failure this file exists for. Reads the source rather than importing
-    app.py, which would connect to Postgres and start Celery Beat.
+    app.py, which would connect to Postgres and object storage.
     """
     import pathlib
 

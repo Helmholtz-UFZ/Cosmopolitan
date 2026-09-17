@@ -18,7 +18,7 @@ See [Framework boundary](#framework-boundary) below.
 
 | Component | Purpose |
 |-----------|---------|
-| `app.py` | Dash/Flask app initialization and entry point; starts the Celery Beat scheduler in the Gunicorn master (`--preload`) |
+| `app.py` | Dash/Flask app initialization and entry point (starts no threads — Celery Beat runs in the worker) |
 | `layouts.py` | Shared page shell (navbar + content) |
 | `pages/` | The multi-page UI — one module per page (home, new_job, job_management, results, sensor/CRNS admin, measurement_view, documentation, …). `logs.py` and `worker_management.py` are shims over the framework pages |
 | `pydantic_models.py` | Pydantic models for job-input validation |
@@ -74,9 +74,8 @@ the rules for working across the boundary are in
 5. Results land in object storage (cosmo_suite.object_storage_manager) and are displayed in the UI (pages/results)
 ```
 
-Background work runs on dedicated Celery worker containers. A single Beat scheduler (pinned to
-the Gunicorn master via `--preload`) runs periodic maintenance — cleanup at 3 AM, CRNS data
-updates at 4 AM.
+Background work runs on dedicated Celery worker containers. A single Beat scheduler, embedded
+in the worker (`--beat`), runs periodic maintenance — cleanup at 3 AM, CRNS data updates at 4 AM.
 
 ## Key patterns (and where the rules live)
 
@@ -92,7 +91,7 @@ updates at 4 AM.
 
 - **Web app:** `cosmopolitan_app/app.py` (Dash + Flask) — Gunicorn in prod, `./dev_up.sh` / `docker compose up` locally.
 - **Workers:** Celery workers from `docker/worker.Dockerfile`, executing `tasks/`.
-- **Scheduler:** Celery Beat, embedded in the Gunicorn master process.
+- **Scheduler:** Celery Beat, embedded in the Celery worker (`docker/worker.Dockerfile`, `--beat`).
 
 ## Related
 

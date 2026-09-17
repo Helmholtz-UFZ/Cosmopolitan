@@ -59,7 +59,7 @@ The application uses **Celery** for distributed background task processing:
 - **Monitoring**: All worker activity logged to PostgreSQL database
 - **Scheduling**: Periodic tasks for cleanup and data updates using Celery Beat
 
-**Note:** The Celery Beat scheduler runs in the Gunicorn master process using the `--preload` flag, ensuring only one scheduler instance exists. This means maintenance tasks (cleanup at 3 AM, database updates at 4 AM) run exactly once per schedule. The Beat scheduler stops and restarts with the webserver container.
+**Note:** The Celery Beat scheduler runs embedded in the Celery worker (`celery worker --beat`), not in the web process. With exactly one worker pod, maintenance tasks (cleanup at 3 AM, database updates at 4 AM) run exactly once per schedule. See `docs/conventions/celery_beat.md` in cosmo-suite for why it must not run inside Gunicorn.
 
 #### Task Types
 
