@@ -27,7 +27,7 @@ same anti-patterns/coding rules. Key differences:
 - **COSMONAUT** optimizes navigation routes for surveys.
 - App module: `cosmonaut_app/` (vs `cosmopolitan_app/`)
 - Backend package: `sensor-routing` (COSMOPOLITAN uses `soil-moisture-prediction`)
-- Has Dash Leaflet map conventions (`docs/conventions/dash_leaflet.md`)
+- Has more Dash Leaflet map conventions (`docs/conventions/dash_leaflet.md`); the tile-layer section is shared
 
 When the user references "cosmonaut" they mean this project. Patterns and fixes in one
 project often apply symmetrically to the other.
@@ -110,6 +110,7 @@ For specific implementation details, see:
 - [Callbacks](docs/conventions/callbacks.md) - Callback organization patterns
 - [Environment Variables](docs/conventions/environment_variables.md) - Env files, config loading, secrets
 - [Deployment](docs/conventions/deployment.md) - Kubernetes/ArgoCD gotchas, values.yaml tag automation, ingress className
+- [Dash Leaflet](docs/conventions/dash_leaflet.md) - Tile layers: Referer for OpenStreetMap, CSP `img-src` per tile host
 - [Framework Integration](docs/conventions/framework_integration.md) - the `cosmo-ecosystem` boundary: freeze rule, adoption rule, ID ownership, page shims
 
 **Important** read the convention before you make any codebase exploration or answering.
