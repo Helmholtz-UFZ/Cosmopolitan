@@ -25,8 +25,8 @@ from sqlalchemy.sql import func
 
 # One Base per process: the framework's registry is the documented export point,
 # and LogTable is the framework's table rather than a copy of it. See
-# ../cosmo-suite/docs/conventions/database_schema.md.
-from cosmo_suite.db_manager import Base, DbManager, LogTable
+# ../cosmo-ecosystem/docs/conventions/database_schema.md.
+from cosmo_ecosystem.db_manager import Base, DbManager, LogTable
 
 from cosmopolitan_app.constants.general import CONSECUTIVE_FAILURES_BEFORE_MAIL
 from cosmopolitan_app.error_handling import JobNotFound

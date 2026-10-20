@@ -43,8 +43,8 @@ from cosmopolitan_app.error_handling import (
     MapTileDownloadError,
     NoMeasurementPointsError,
 )
-from cosmo_suite.base_job import BaseJob
-from cosmo_suite.object_storage_manager import (
+from cosmo_ecosystem.base_job import BaseJob
+from cosmo_ecosystem.object_storage_manager import (
     delete_directory_from_storage,
     delete_file_from_storage,
     get_files,
@@ -191,7 +191,7 @@ class Job(BaseJob):
     It handles input from a Flask application, performs input integrity checks, submits
     jobs, and formats the output for the user.
 
-    Implements ``cosmo_suite.base_job.BaseJob``, the five-member contract framework
+    Implements ``cosmo_ecosystem.base_job.BaseJob``, the five-member contract framework
     code relies on when it is handed a job it did not build (``serve_files``, a
     ``submit_handler``): ``job_id``, ``save``, ``delete``, ``submit`` and
     ``time_to_live``. Everything else here — construction, the working directory,

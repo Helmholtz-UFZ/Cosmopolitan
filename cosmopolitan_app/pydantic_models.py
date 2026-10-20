@@ -15,7 +15,7 @@ from soil_moisture_prediction.pydantic_models import InputParameters
 # UploadJobConfig, not BaseJobConfig: since v0.4.0 the base carries only job_id, and
 # upload_file_name moved to this subclass. Inheriting the base would drop that field
 # silently — no import error, no failing test.
-from cosmo_suite.pydantic_models import UploadJobConfig, validate_job_id  # noqa: F401
+from cosmo_ecosystem.pydantic_models import UploadJobConfig, validate_job_id  # noqa: F401
 
 log = logging.getLogger(__name__)
 

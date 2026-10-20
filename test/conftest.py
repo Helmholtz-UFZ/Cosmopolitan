@@ -15,7 +15,7 @@ import urllib.request
 
 import pytest
 import redis
-from cosmo_suite.object_storage_manager import (
+from cosmo_ecosystem.object_storage_manager import (
     ObjectStorageError,
     create_bucket,
     setup_remote,

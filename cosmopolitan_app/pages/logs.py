@@ -19,13 +19,13 @@ problems, and monitoring background job execution.
 
 # Notes (This section is for developer notes and will not appear in the user documentation.)
 
-The page implementation is `cosmo_suite.pages.logs`, which registers itself under the
+The page implementation is `cosmo_ecosystem.pages.logs`, which registers itself under the
 page key `pages.logs` on import. This module exists so Dash's `pages_folder` discovery
 imports it after `Dash(...)` is instantiated (`register_page` must run after app
 instantiation), and so the user documentation above stays app-owned — `doc_generator`
 parses the docstring of *this* file.
 
-The framework page reads through `cosmo_suite.db_manager`, i.e. a second SQLAlchemy
+The framework page reads through `cosmo_ecosystem.db_manager`, i.e. a second SQLAlchemy
 engine against the same Postgres. That is safe here and only here: the framework's
 `LogTable` is byte-identical to this app's, and nothing calls `create_all` in either
 tree (the schema comes from `docker/init.sql`), so the two declarative registries
@@ -36,4 +36,4 @@ where this app's contained `postgres_manager`, so this app's DB-layer log lines 
 no longer excluded by default. They are still excludable from the dropdown.
 """
 
-import cosmo_suite.pages.logs  # noqa: F401
+import cosmo_ecosystem.pages.logs  # noqa: F401

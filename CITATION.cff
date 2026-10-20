@@ -6,7 +6,7 @@ abstract: >-
   geodata. Random Forest regression with Monte Carlo uncertainty propagation turns point
   observations and predictor layers into continuous maps with associated uncertainty.
   Developed for, and used operationally in, soil moisture mapping from mobile cosmic-ray
-  neutron sensing surveys. Part of the COSMO Suite and built on its reusable framework.
+  neutron sensing surveys. Part of the Cosmo Ecosystem and built on its reusable framework.
 type: software
 authors:
   - family-names: Anders

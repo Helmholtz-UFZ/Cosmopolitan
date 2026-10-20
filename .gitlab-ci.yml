@@ -11,8 +11,8 @@ stages:
 
 include:
   # The S3 server for the test job. Keep ref on the tag pyproject.toml pins.
-  - project: "ufz/tb5-smm/met/wg7/cosmo-suite"
-    ref: "v0.8.0"
+  - project: "ufz/tb5-smm/met/wg7/cosmo-ecosystem"
+    ref: "v0.9.0"
     file: "/ci/object-storage.gitlab-ci.yml"
 
 variables:
@@ -55,13 +55,13 @@ test:
   services:
     - name: postgis/postgis:latest
       alias: postgres
-    - !reference [.cosmo-suite-object-storage, services]
+    - !reference [.cosmo-ecosystem-object-storage, services]
     - name: "redis:7-alpine"
       alias: redis
   variables:
   before_script:
     - apt-get update && apt-get install -y postgresql-client libcairo2-dev curl rclone
-    - !reference [.cosmo-suite-object-storage, before_script]
+    - !reference [.cosmo-ecosystem-object-storage, before_script]
     - "cp env_test .env"
     # No rclone setup here: conftest runs setup_remote() and create_bucket().
     - "export PGPASSWORD=${POSTGRES_PASSWORD}"
@@ -109,7 +109,7 @@ build-release:
     # and run it before pushing. Never copy the command out of the Dockerfile —
     # a copy stays green even when the path it names no longer resolves, which
     # is the exact failure this guards against. See
-    # docs/conventions/worker_image.md in cosmo-suite.
+    # docs/conventions/worker_image.md in cosmo-ecosystem.
     - "tr -d '\"' < env_test > /tmp/smoke.env"
     - |
       CMD_STR=$(docker inspect --format '{{index .Config.Cmd 2}}' ${CI_REGISTRY_IMAGE}/worker:${CI_COMMIT_TAG})

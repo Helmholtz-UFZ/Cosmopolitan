@@ -1,7 +1,7 @@
 # Host-published ports read ${<SERVICE>_HOST_PORT:-<default>}: host side variable,
 # container side fixed. cosmopolitan keeps the defaults; the other two stacks shift
 # theirs so all three can run at once — see
-# ../cosmo-suite/docs/plan/local-port-allocation.md.
+# ../cosmo-ecosystem/docs/plan/local-port-allocation.md.
 # FLASK_PORT keeps its double role (container port and Dash test-server port), so
 # the webserver falls back to it rather than to a literal.
 services:
@@ -91,7 +91,7 @@ services:
       VSI_CACHE: TRUE
       VSI_CACHE_SIZE: 5000000
 
-  # S3 server for local runs, copied from cosmo-suite's
+  # S3 server for local runs, copied from cosmo-ecosystem's
   # docs/conventions/object_storage.md (CI takes the same image from the
   # framework's ci/object-storage.gitlab-ci.yml).
   object-storage:

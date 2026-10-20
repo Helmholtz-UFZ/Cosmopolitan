@@ -14,7 +14,7 @@ The `# nocheck` comment allows constants to bypass test_no_unused_id_constants.
 2. IDs used exclusively for testing/automation (not in callbacks)
    Example: NEW_JOB_LINK_SHARED_ID = "new-job-link-shared-id"  # nocheck
 
-3. IDs rendered here whose callback lives in `cosmo_suite`. The framework and this
+3. IDs rendered here whose callback lives in `cosmo_ecosystem`. The framework and this
    app share ID *values*, so a framework callback can drive a component this app
    renders. The constant is genuinely used — just not by a callback in this tree.
    Example: NAVBAR_COLLAPSE_DIV_SHARED_ID  # nocheck

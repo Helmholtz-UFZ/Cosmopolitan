@@ -29,11 +29,11 @@ ERROR_MESSAGE_DIV_SHARED_ID = (
 )
 
 # --- Buttons ---
-# Driven by cosmo_suite.layouts' navbar callback, not one in this tree.
+# Driven by cosmo_ecosystem.layouts' navbar callback, not one in this tree.
 NAVBAR_TOGGLER_BUTTON_SHARED_ID = "navbar-toggler-button-shared-id"  # nocheck
 
 # --- Collapses ---
-# Driven by cosmo_suite.layouts' navbar callback, not one in this tree.
+# Driven by cosmo_ecosystem.layouts' navbar callback, not one in this tree.
 NAVBAR_COLLAPSE_DIV_SHARED_ID = "navbar-collapse-div-shared-id"  # nocheck
 
 # --- Links ---

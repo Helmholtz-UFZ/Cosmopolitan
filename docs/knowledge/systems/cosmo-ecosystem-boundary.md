@@ -1,7 +1,7 @@
-# The cosmo-suite Boundary
+# The cosmo-ecosystem Boundary
 
 How this app and the shared framework
-[`cosmo-suite`](https://codebase.helmholtz.cloud/ufz/tb5-smm/met/wg7/cosmo-suite) divide the
+[`cosmo-ecosystem`](https://codebase.helmholtz.cloud/ufz/tb5-smm/met/wg7/cosmo-ecosystem) divide the
 work, what runs twice as a result, and why that was accepted.
 
 The framework is a pinned dependency in `pyproject.toml`. It is **not** edited from this
@@ -11,16 +11,16 @@ repo — see [`../../conventions/framework_integration.md`](../../conventions/fr
 
 | Imported | Provides |
 |---|---|
-| `cosmo_suite.config` | The 18 infrastructure env vars, `getenv`, `JOB_WORK_DIR_TEMPLATE` |
-| `cosmo_suite.logger` | `PostgreSQLHandler`, log format, the dictConfig builders |
-| `cosmo_suite.object_storage_manager` | S3 access via rclone, presigned URLs via boto3, `ObjectStorageError` |
-| `cosmo_suite.logs_table` | Log list rendering (`format_logs_list`, `level_badge`) |
-| `cosmo_suite.celery_config` | `BaseCeleryConfig` |
-| `cosmo_suite.background_job_manager` | `BackgroundJobManager` plumbing |
-| `cosmo_suite.pydantic_models` | `BaseJobConfig`, `validate_job_id` |
-| `cosmo_suite.pages.logs`, `…worker_management` | Two admin pages (via shims in `pages/`) |
-| `cosmo_suite.layouts` | The navbar-collapse callback (see below) |
-| `cosmo_suite.tasks.test_tasks` | The test task body |
+| `cosmo_ecosystem.config` | The 18 infrastructure env vars, `getenv`, `JOB_WORK_DIR_TEMPLATE` |
+| `cosmo_ecosystem.logger` | `PostgreSQLHandler`, log format, the dictConfig builders |
+| `cosmo_ecosystem.object_storage_manager` | S3 access via rclone, presigned URLs via boto3, `ObjectStorageError` |
+| `cosmo_ecosystem.logs_table` | Log list rendering (`format_logs_list`, `level_badge`) |
+| `cosmo_ecosystem.celery_config` | `BaseCeleryConfig` |
+| `cosmo_ecosystem.background_job_manager` | `BackgroundJobManager` plumbing |
+| `cosmo_ecosystem.pydantic_models` | `BaseJobConfig`, `validate_job_id` |
+| `cosmo_ecosystem.pages.logs`, `…worker_management` | Two admin pages (via shims in `pages/`) |
+| `cosmo_ecosystem.layouts` | The navbar-collapse callback (see below) |
+| `cosmo_ecosystem.tasks.test_tasks` | The test task body |
 
 ## What stays here, and why
 
@@ -45,7 +45,7 @@ setups against the same database:
 
 - `cosmopolitan_app/postgres_manager.py` — its own `create_engine` / `sessionmaker` / `Base`,
   used by everything domain-related.
-- `cosmo_suite/db_manager.py` — its own, used **only** for the Logs page's two queries
+- `cosmo_ecosystem/db_manager.py` — its own, used **only** for the Logs page's two queries
   (`query_distinct_modules`, `query_logs`).
 
 **Why it is safe here:**
@@ -66,7 +66,7 @@ without first unifying the mappings would be a bug.
 
 ## Callbacks the framework registers on import
 
-Importing any framework page pulls in `cosmo_suite.layouts`, which registers three callbacks
+Importing any framework page pulls in `cosmo_ecosystem.layouts`, which registers three callbacks
 at import time. This matters more here than in the sister app, because this app's HTML ID
 constants match the framework's **by value**.
 
@@ -74,7 +74,7 @@ constants match the framework's **by value**.
   therefore **not** declare its own: two callbacks on one Output without `allow_duplicate` is
   a hard Dash error that takes the whole callback registry down, not just the navbar. The
   symptom is misleading — every page breaks, including ones far from the framework page that
-  triggered the import. `layouts.py` imports `cosmo_suite.layouts` explicitly so this does
+  triggered the import. `layouts.py` imports `cosmo_ecosystem.layouts` explicitly so this does
   not depend on which page happens to be imported.
 - **two reset-modal callbacks** — inert. Their `RESET_*` components are not in this app's
   layout and nothing writes the store that triggers them. They cost two dead entries in the

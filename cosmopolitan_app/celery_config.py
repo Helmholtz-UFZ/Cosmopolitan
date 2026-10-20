@@ -3,13 +3,13 @@
 Broker, timeouts, serialization and worker limits come from the framework's
 `BaseCeleryConfig`. This app adds its computation queue and the nightly CRNS
 database update, and replaces the cleanup schedule: the framework's entry points
-at `cosmo_suite.tasks.maintenance_tasks.cleanup`, which this app's worker does
+at `cosmo_ecosystem.tasks.maintenance_tasks.cleanup`, which this app's worker does
 not register — its cleanup task lives in `cosmopolitan_app.tasks`.
 """
 
 from celery.schedules import crontab
 
-from cosmo_suite.celery_config import BaseCeleryConfig
+from cosmo_ecosystem.celery_config import BaseCeleryConfig
 
 
 class CeleryConfig(BaseCeleryConfig):
@@ -41,7 +41,7 @@ class CeleryConfig(BaseCeleryConfig):
     # in summer — the entry names below were simply wrong, and the pods' own
     # TZ=Europe/Berlin does not reach Beat (Celery schedules in conf.timezone, not
     # in the process timezone). Set here rather than in the framework: the run time
-    # of these two jobs is a domain decision, and cosmo-suite has other consumers.
+    # of these two jobs is a domain decision, and cosmo-ecosystem has other consumers.
     timezone = "Europe/Berlin"
 
     # Replaces (not extends) the framework schedule — see module docstring.

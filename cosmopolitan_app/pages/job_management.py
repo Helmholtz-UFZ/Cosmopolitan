@@ -17,7 +17,7 @@ NOTE: This docstring is displayed on the documentation webpage.
 # Notes (This section is for developer notes and will not appear in the user documentation.)
 
 Unlike Logs and Worker Management, this page is NOT served from
-`cosmo_suite.pages.job_management`. Measured reasons, not size — the framework page
+`cosmo_ecosystem.pages.job_management`. Measured reasons, not size — the framework page
 is 207 lines against this one's 212:
 
 1. It hardcodes the job link as `/job-submission/{job_id}`. This app's submission
@@ -25,7 +25,7 @@ is 207 lines against this one's 212:
    Here the path is resolved from `dash.page_registry["pages.submission"]`.
 2. Deleting a job runs `Job(job_id).delete()`. The framework page would use the
    framework `Job`, whose cleanup knows nothing about this app's CRNS inputs — and
-   its `clean_up_jobs` prunes through `cosmo_suite.db_manager`, which this app does
+   its `clean_up_jobs` prunes through `cosmo_ecosystem.db_manager`, which this app does
    not use.
 3. Its loading-overlay callback is server-side. `docs/conventions/callbacks.md`
    requires clientside here, for a race that was actually hit: a server-side opener
