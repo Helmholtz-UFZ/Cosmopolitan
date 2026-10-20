@@ -237,7 +237,12 @@ release:
     - 'sed -i "s/^version = .*/version = \"${VERSION}\"/" pyproject.toml'
     - 'sed -i "s/^version: .*/version: \"${VERSION}\"/; s/^date-released: .*/date-released: \"$(date -I)\"/" CITATION.cff'
     - 'git diff --quiet && { echo "Nothing changed — is VERSION already the current one?"; exit 1; } || true'
-    - "git add pyproject.toml CITATION.cff"
+    # uv.lock records the project's own version as well. Without this the
+    # release leaves it one version behind, and every local `uv run` afterwards
+    # rewrites that line. With unchanged dependencies, uv lock touches nothing else.
+    - "pip install --quiet uv"
+    - "uv lock"
+    - "git add pyproject.toml CITATION.cff uv.lock"
     - 'git commit -m "Release ${VERSION}"'
     - 'git tag -a "$VERSION" -m "Release ${VERSION}"'
     # Branch first, with ci.skip: the release commit itself needs no pipeline.
