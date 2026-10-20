@@ -11,7 +11,7 @@ core flow of the application; most pages and background machinery exist to serve
 3. Job is persisted                    → Job (job.py) → PostgreSQL (postgres_manager.py)
 4. Job is queued                       → background_job_manager.submit_computation_job() → Redis
 5. A worker runs the prediction        → tasks/computation_tasks.start_computation_task → smp_main()
-6. Results are stored                  → object storage (cosmo_suite.object_storage_manager, S3)
+6. Results are stored                  → object storage (cosmo_ecosystem.object_storage_manager, S3)
 7. User views results / gets emailed    → pages/results, email_service.py
 ```
 
@@ -28,7 +28,7 @@ Celery config lives in [`celery_config.py`](../../../cosmopolitan_app/celery_con
 - **Task names** are explicit constants in
   [`background_job_manager.py`](../../../cosmopolitan_app/background_job_manager.py):
   `start_computation` (computation), `cleanup` / `update_db` (maintenance). `NAME_TEST_TASK` is
-  re-exported from `cosmo_suite`, so the test task carries the framework's name.
+  re-exported from `cosmo_ecosystem`, so the test task carries the framework's name.
 - **Registration** happens in [`celery_app.py`](../../../cosmopolitan_app/celery_app.py), the
   worker entry point — kept separate from `background_job_manager` to break a circular import
   (`tasks/*.py → job → background_job_manager → tasks/*.py`).
@@ -60,7 +60,7 @@ Until 2026-09 `app.py` started Beat in a daemon thread at import time, which was
 production ran Gunicorn *without* `--preload`, so each of the four workers started its own Beat and
 every scheduled task ran four times; and with `--preload` (the dev image with `GUNICORN=1`) a
 worker forked while that thread held one of Celery's locks blocks forever on its first task
-submission. See `docs/conventions/celery_beat.md` in cosmo-suite.
+submission. See `docs/conventions/celery_beat.md` in cosmo-ecosystem.
 
 ## Worker tuning
 

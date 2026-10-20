@@ -1,14 +1,14 @@
 """Configuration: the framework's infrastructure variables plus COSMOPOLITAN's own.
 
 The infrastructure variables (Postgres, Redis, object storage, Flask) are read and
-validated by :mod:`cosmo_suite.config` and re-exported here, so domain modules keep a
+validated by :mod:`cosmo_ecosystem.config` and re-exported here, so domain modules keep a
 single config import. Only the CRNS/notification variables below are read here — the
 framework has no use for them.
 """
 
 # Re-exported so `from cosmopolitan_app.config import POSTGRES_DB` keeps working:
 # these belong to the framework, this module only forwards them.
-from cosmo_suite.config import (  # noqa: F401
+from cosmo_ecosystem.config import (  # noqa: F401
     DEBUG,
     JOB_WORK_DIR_TEMPLATE,
     OBJECT_STORAGE_ACCESS_KEY,
@@ -30,7 +30,7 @@ from cosmo_suite.config import (  # noqa: F401
     WEB_WORK_DIR,
     getenv,
 )
-from cosmo_suite.config import env_vars as framework_env_vars
+from cosmo_ecosystem.config import env_vars as framework_env_vars
 
 # Variables the framework does not know about. Needed for test_env.py. Update!
 domain_env_vars = [

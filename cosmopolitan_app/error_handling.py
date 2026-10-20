@@ -3,8 +3,8 @@
 import logging
 
 import dash_bootstrap_components as dbc
-from cosmo_suite.error_handling import USE_ERROR_MESSAGE  # noqa: F401 — re-exported
-from cosmo_suite.error_handling import handle_error as _framework_handle_error
+from cosmo_ecosystem.error_handling import USE_ERROR_MESSAGE  # noqa: F401 — re-exported
+from cosmo_ecosystem.error_handling import handle_error as _framework_handle_error
 from soil_moisture_prediction.input_file_parser import FileValidationError
 from werkzeug.exceptions import NotFound
 
@@ -16,12 +16,12 @@ from cosmopolitan_app.constants import (
 
 # The infrastructure exceptions come from the framework, they are NOT redefined
 # here. Two classes under one name is the silent failure described in
-# ../cosmo-suite/docs/conventions/framework_page_imports.md: since the logs and
-# worker-management pages became framework shims, cosmo_suite.db_manager raises the
+# ../cosmo-ecosystem/docs/conventions/framework_page_imports.md: since the logs and
+# worker-management pages became framework shims, cosmo_ecosystem.db_manager raises the
 # framework's JobNotFound while this module's isinstance check and
 # error_responds_dict keyed the local one — so a routine "job not found" was
 # treated as unexpected, mailed the maintainer, and showed a generic modal.
-from cosmo_suite.error_handling import (  # noqa: F401 — re-exported for call sites
+from cosmo_ecosystem.error_handling import (  # noqa: F401 — re-exported for call sites
     InvalidJobID,
     JobExists,
     JobNotFound,
@@ -82,7 +82,7 @@ class TimeIOUnavailableError(Exception):
         super().__init__(f"TimeIO STA API unreachable after all retries: {query}")
 
 
-# Laid over cosmo_suite.error_handling.error_responds_dict for this app's calls
+# Laid over cosmo_ecosystem.error_handling.error_responds_dict for this app's calls
 # only (see handle_error below). Entries identical to the framework's default —
 # the database errors, JobExists, WorkerNotAvailableError, ... — are left out;
 # the framework already covers them.
@@ -119,7 +119,7 @@ error_responses = {
         "Map Preview Unavailable",
         "Unable to download map tiles from the tile provider. The external map service may be temporarily unavailable. Please try again later.",  # noqa
     ),
-    # A different class from cosmo_suite.error_handling.FileValidationError:
+    # A different class from cosmo_ecosystem.error_handling.FileValidationError:
     # this one comes from soil_moisture_prediction.input_file_parser and keeps
     # its own entry, since the framework's table can't match a class it has
     # never imported.
@@ -162,7 +162,7 @@ error_modal = dbc.Modal(
 def handle_error(error, *, on_unhandled=None):
     """Handle the error, show it in the modal, and optionally report it.
 
-    Delegates to ``cosmo_suite.error_handling.handle_error``, laying this app's
+    Delegates to ``cosmo_ecosystem.error_handling.handle_error``, laying this app's
     own response table and expected-error set over the framework's defaults —
     see ``error_responses`` and ``EXPECTED_ERRORS`` above for why they differ.
 

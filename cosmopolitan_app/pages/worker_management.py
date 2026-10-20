@@ -33,7 +33,7 @@ resource usage during peak periods.
 
 # Notes (This section is for developer notes and will not appear in the user documentation.)
 
-The page implementation is `cosmo_suite.pages.worker_management`, which registers
+The page implementation is `cosmo_ecosystem.pages.worker_management`, which registers
 itself under the page key `pages.worker_management` on import. This module exists so
 Dash's `pages_folder` discovery imports it after `Dash(...)` is instantiated
 (`register_page` must run after app instantiation), and so the user documentation
@@ -42,12 +42,12 @@ above stays app-owned — `doc_generator` parses the docstring of *this* file.
 The framework page derives a task's job_id generically from the presence of
 positional args instead of matching a domain task name, so no cosmopolitan-specific
 wiring is needed: `start_computation_task(self, job_id)` takes job_id first. Its HTML
-ids come from `cosmo_suite.constants`.
+ids come from `cosmo_ecosystem.constants`.
 
 Known deviation: the framework's `register_page` hardcodes
-`title="Cosmo Suite - Worker Management"`, so the browser tab reads "Cosmo Suite"
+`title="Cosmo Ecosystem - Worker Management"`, so the browser tab reads "Cosmo Ecosystem"
 instead of "COSMOPOLITAN" here. Not worth keeping 866 lines local for — the fix is
 an app-supplied title in the framework, and it is on the framework MR list.
 """
 
-import cosmo_suite.pages.worker_management  # noqa: F401
+import cosmo_ecosystem.pages.worker_management  # noqa: F401

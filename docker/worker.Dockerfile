@@ -65,7 +65,7 @@ USER appuser
 # process (see app.py), and it relies on there being exactly one worker pod:
 # a second replica would run every scheduled task twice.
 CMD echo "Starting Celery worker in PRODUCTION mode..." && \
-    python3 -m cosmo_suite.object_storage_manager setup_remote && \
+    python3 -m cosmo_ecosystem.object_storage_manager setup_remote && \
     exec celery -A cosmopolitan_app.celery_app.celery worker \
         --loglevel=debug \
         --concurrency=4 \

@@ -15,6 +15,6 @@ CONSECUTIVE_FAILURES_BEFORE_MAIL = 3
 LOG_FILE_NAME = "logs"
 
 # Packages only this app pulls in; their DEBUG output would otherwise fill the logs
-# table. Passed to the cosmo_suite logger builders, which add them to their own
+# table. Passed to the cosmo_ecosystem logger builders, which add them to their own
 # defaults (watchdog, selenium).
 EXCLUDED_LOG_PACKAGES = ("matplotlib", "PIL", "rasterio")

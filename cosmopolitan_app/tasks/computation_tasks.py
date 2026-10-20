@@ -7,7 +7,7 @@ from logging.config import dictConfig
 from smtplib import SMTPAuthenticationError
 
 from celery import Task
-from cosmo_suite.logger import (
+from cosmo_ecosystem.logger import (
     get_logger_config_computation,
     get_logger_config_worker,
 )

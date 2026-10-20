@@ -8,7 +8,7 @@ the maintainer simply stops being told. Hence this test.
 
 import dash
 import pytest
-from cosmo_suite import error_handling as framework_error_handling
+from cosmo_ecosystem import error_handling as framework_error_handling
 
 from cosmopolitan_app.error_handling import (
     JobNotFound,

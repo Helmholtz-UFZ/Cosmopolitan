@@ -9,7 +9,7 @@ Separated from background_job_manager to break a circular import:
     tasks/*.py → job → background_job_manager → tasks/*.py
 """
 
-from cosmo_suite.tasks.test_tasks import long_running_test_task
+from cosmo_ecosystem.tasks.test_tasks import long_running_test_task
 
 from cosmopolitan_app.background_job_manager import (
     NAME_CLEANUP_TASK,
@@ -27,7 +27,7 @@ app.task(bind=True, name=NAME_COMPUTATION_TASK)(start_computation_task)
 app.task(bind=True, name=NAME_CLEANUP_TASK)(cleanup_task)
 app.task(bind=True, name=NAME_UPDATE_DB_TASK)(update_db_task)
 # Body and name both come from the framework: NAME_TEST_TASK is re-exported from
-# cosmo_suite, so what the inherited submit_test_task() sends is what the worker
+# cosmo_ecosystem, so what the inherited submit_test_task() sends is what the worker
 # has registered. Submitted to the "test" queue, which the worker must consume.
 app.task(bind=True, name=NAME_TEST_TASK)(long_running_test_task)
 

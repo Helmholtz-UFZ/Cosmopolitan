@@ -80,7 +80,7 @@ the database, and the `/logs` page shows nothing.
 
 ## Notes
 
-- The `PostgreSQLHandler` in `cosmo_suite.logger` writes logs to a `logs`
+- The `PostgreSQLHandler` in `cosmo_ecosystem.logger` writes logs to a `logs`
   table with columns: timestamp, pid, level, module, message
 - `ExcludeSubmodulesFilter` suppresses noisy third-party loggers. The framework
   excludes `watchdog` and `selenium`; this app adds `matplotlib`, `PIL` and

@@ -16,15 +16,15 @@ Last updated: 2026-08-06
 ## Recent changes
 
 - 2026-08-06: **Slice 1b** — `background_job_manager` onto the framework base (265 → 105) and
-  the Logs and Worker Management pages served from `cosmo_suite` via docstring-carrying shims
+  the Logs and Worker Management pages served from `cosmo_ecosystem` via docstring-carrying shims
   (490 → 39, 866 → 53). `pages/job_management.py` and `files_route.py` deliberately stay local;
   each names its reason in its docstring. Fixed a pre-existing bug on the way: the Worker
   Management test task went to a queue no worker consumed and sat in PENDING forever.
   Slice 1b alone: −1471 lines of app code. See
-  [cosmo-suite-boundary.md](knowledge/systems/cosmo-suite-boundary.md) and
+  [cosmo-ecosystem-boundary.md](knowledge/systems/cosmo-ecosystem-boundary.md) and
   [framework_integration.md](conventions/framework_integration.md).
 
-- 2026-08-06: **Re-pinned to `cosmo-suite@v0.4.0`**, which brings both apps onto the same tag.
+- 2026-08-06: **Re-pinned to `cosmo-ecosystem@v0.4.0`**, which brings both apps onto the same tag.
   Three of its changes are silent for a consumer and were handled deliberately:
   `ModelWebsite` moved to `UploadJobConfig` (the base no longer carries
   `upload_file_name`); `task_soft_time_limit`/`task_time_limit` are now declared here at
@@ -33,8 +33,8 @@ Last updated: 2026-08-06
   `logger.py` shim is gone — the framework builders now take `excluded_packages`, so the
   domain list lives in `constants/general.py`.
 
-- 2026-08-06: **Slice 1 of the `cosmo-suite` integration** — the app now imports the shared
-  framework instead of duplicating it. `pyproject.toml` pinned `cosmo-suite@v0.3.0` (now v0.4.0);
+- 2026-08-06: **Slice 1 of the `cosmo-ecosystem` integration** — the app now imports the shared
+  framework instead of duplicating it. `pyproject.toml` pinned `cosmo-ecosystem@v0.3.0` (now v0.4.0);
   `logs_table.py`, `object_storage_manager.py` and `tasks/test_tasks.py` are deleted,
   `config.py`, `celery_config.py` and `ModelWebsite` sit on framework bases.
   Net −710 lines. See [Framework boundary](architecture.md#framework-boundary).

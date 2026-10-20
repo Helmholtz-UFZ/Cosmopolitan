@@ -1,17 +1,17 @@
-# Framework Integration (`cosmo-suite`)
+# Framework Integration (`cosmo-ecosystem`)
 
 Binding rules for working across the boundary to the shared framework
-[`cosmo-suite`](https://codebase.helmholtz.cloud/ufz/tb5-smm/met/wg7/cosmo-suite), which this
+[`cosmo-ecosystem`](https://codebase.helmholtz.cloud/ufz/tb5-smm/met/wg7/cosmo-ecosystem), which this
 app shares with its sister app COSMONAUT.
 
 For *how* the boundary currently runs — what is imported, what runs twice — see
-[`../knowledge/systems/cosmo-suite-boundary.md`](../knowledge/systems/cosmo-suite-boundary.md).
+[`../knowledge/systems/cosmo-ecosystem-boundary.md`](../knowledge/systems/cosmo-ecosystem-boundary.md).
 This file says what you must do.
 
 ## Freeze rule
 
 The framework is pinned to a **tag** in `pyproject.toml`. Never edit the installed package,
-and never patch `../cosmo-suite` to unblock work here.
+and never patch `../cosmo-ecosystem` to unblock work here.
 
 Need a framework change? It is a merge request in the framework repo, a new tag, and a
 re-pin in **both** apps. A moving framework underneath two apps means debugging them against
@@ -55,12 +55,12 @@ drive a component this app renders. Two consequences:
    `test/test_html_id_enforcement.py`; the marker only counts **on the assignment line**.
 
 When a page moves to the framework, delete the ID constants it took with it, and point any
-Playwright locators at `cosmo_suite.constants` rather than re-declaring the values.
+Playwright locators at `cosmo_ecosystem.constants` rather than re-declaring the values.
 
 ## Framework pages
 
 A framework page is mounted by a **shim** in `pages/`: a module whose only statement is
-`import cosmo_suite.pages.<name>`. The shim exists for two reasons, both load-bearing:
+`import cosmo_ecosystem.pages.<name>`. The shim exists for two reasons, both load-bearing:
 
 1. `register_page` must run after `Dash(...)` is instantiated, which Dash's `pages_folder`
    discovery guarantees.

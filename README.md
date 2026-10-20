@@ -26,7 +26,7 @@ The web service is built as a Dash web application with the following key compon
 - **Object Storage**: S3 (UFZ S3 in prod, RustFS locally and in CI) via rclone
 - **Background Tasks**: Celery with Redis broker for distributed task processing
 - **External Services**: TimeIO API for CRNS data
-- **Shared Framework**: [`cosmo-suite`](https://codebase.helmholtz.cloud/ufz/tb5-smm/met/wg7/cosmo-suite),
+- **Shared Framework**: [`cosmo-ecosystem`](https://codebase.helmholtz.cloud/ufz/tb5-smm/met/wg7/cosmo-ecosystem),
   pinned to a tag, supplies object storage, logging, Celery base config, the
   logs table and the job-config contract, shared with the sister app COSMONAUT
 
@@ -59,7 +59,7 @@ The application uses **Celery** for distributed background task processing:
 - **Monitoring**: All worker activity logged to PostgreSQL database
 - **Scheduling**: Periodic tasks for cleanup and data updates using Celery Beat
 
-**Note:** The Celery Beat scheduler runs embedded in the Celery worker (`celery worker --beat`), not in the web process. With exactly one worker pod, maintenance tasks (cleanup at 3 AM, database updates at 4 AM) run exactly once per schedule. See `docs/conventions/celery_beat.md` in cosmo-suite for why it must not run inside Gunicorn.
+**Note:** The Celery Beat scheduler runs embedded in the Celery worker (`celery worker --beat`), not in the web process. With exactly one worker pod, maintenance tasks (cleanup at 3 AM, database updates at 4 AM) run exactly once per schedule. See `docs/conventions/celery_beat.md` in cosmo-ecosystem for why it must not run inside Gunicorn.
 
 #### Task Types
 
