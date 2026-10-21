@@ -18,6 +18,7 @@ repo — see [`../../conventions/framework_integration.md`](../../conventions/fr
 | `cosmo_ecosystem.celery_config` | `BaseCeleryConfig` |
 | `cosmo_ecosystem.background_job_manager` | `BackgroundJobManager` plumbing |
 | `cosmo_ecosystem.pydantic_models` | `BaseJobConfig`, `validate_job_id` |
+| `cosmo_ecosystem.job_retention` | Job expiry (`days_to_live`), full deletion (`delete_job`) and the nightly `clean_up_jobs`, used by `Job`, the cleanup task and the job-management page |
 | `cosmo_ecosystem.pages.logs`, `…worker_management` | Two admin pages (via shims in `pages/`) |
 | `cosmo_ecosystem.layouts` | The navbar-collapse callback (see below) |
 | `cosmo_ecosystem.tasks.test_tasks` | The test task body |
@@ -29,8 +30,9 @@ repo — see [`../../conventions/framework_integration.md`](../../conventions/fr
 The short version:
 
 - **`pages/job_management.py`** — the framework page hardcodes a submission path this app
-  does not use, deletes through the framework `Job`, and uses a server-side loading-overlay
-  callback that `../../conventions/callbacks.md` forbids.
+  does not use, and uses a server-side loading-overlay callback that
+  `../../conventions/callbacks.md` forbids. Its "Delete" and "Clean" are no reason any
+  more: both pages call `cosmo_ecosystem.job_retention`.
 - **`files_route.py`** — blocked on the `Job` seam, not on the routes; the route set is
   already identical.
 - **`error_handling.py`** — the framework has no `on_unhandled` hook, so adopting it would
