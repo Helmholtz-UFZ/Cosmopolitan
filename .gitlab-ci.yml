@@ -41,13 +41,16 @@ variables:
 
 linting:
   stage: "lint"
-  image: "python:3.13"
-  before_script:
-    - "pip install uv"
-    - "uv sync"
+  image: "python:3.13-slim"
+  needs: []  # start immediately
+  # Only ruff is installed, not the project: a full `uv sync` pulls the whole
+  # dependency tree just to lint. The version is pinned to what uv.lock resolves
+  # (a bare `pip install ruff` would drift and break unchanged code), so local
+  # `uv run ruff` and CI agree. Bump it together with uv.lock.
   script:
-    - "uv run ruff format --check ."
-    - "uv run ruff check ."
+    - "pip install --quiet ruff==0.15.6"
+    - "ruff format --check ."
+    - "ruff check ."
 
 test:
   stage: "test"
@@ -59,6 +62,14 @@ test:
     - name: "redis:7-alpine"
       alias: redis
   variables:
+    # Inside the project dir: GitLab caches only paths below it.
+    UV_CACHE_DIR: "${CI_PROJECT_DIR}/.uv-cache"
+  cache:
+    key:
+      files:
+        - uv.lock
+    paths:
+      - .uv-cache/
   before_script:
     - apt-get update && apt-get install -y postgresql-client libcairo2-dev curl rclone
     - !reference [.cosmo-ecosystem-object-storage, before_script]
@@ -78,16 +89,20 @@ test:
     paths:
       - test/artifacts/
 
-# "latest" image will be built on every push to the main-branch
+# "latest" image will be built on every push to the main-branch.
+# Layer cache comes from the previous :latest (inline cache); security updates
+# of the base layers land through the release and nightly builds, which are fresh.
 build-latest:
   stage: "build"
   extends: ".base_before_build_script"
   before_script:
     - *docker_login
   script:
-    - "docker build -t ${CI_REGISTRY_IMAGE}/frontend:latest -f docker/prod.Dockerfile ."
+    - "docker pull ${CI_REGISTRY_IMAGE}/frontend:latest || true"
+    - "docker build --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from ${CI_REGISTRY_IMAGE}/frontend:latest -t ${CI_REGISTRY_IMAGE}/frontend:latest -f docker/prod.Dockerfile ."
     - "docker push --all-tags ${CI_REGISTRY_IMAGE}/frontend"
-    - "docker build -t ${CI_REGISTRY_IMAGE}/worker:latest -f docker/worker.Dockerfile ."
+    - "docker pull ${CI_REGISTRY_IMAGE}/worker:latest || true"
+    - "docker build --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from ${CI_REGISTRY_IMAGE}/worker:latest -t ${CI_REGISTRY_IMAGE}/worker:latest -f docker/worker.Dockerfile ."
     - "docker push --all-tags ${CI_REGISTRY_IMAGE}/worker"
   rules:
     - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
@@ -102,9 +117,10 @@ build-release:
     - *docker_login
     - "apk update && apk add --no-cache jq yq"
   script:
-    - "docker build -t ${CI_REGISTRY_IMAGE}/frontend:${CI_COMMIT_TAG} -f docker/prod.Dockerfile ."
+    # --pull --no-cache: a release is always built fresh, so base-image security updates land.
+    - "docker build --pull --no-cache -t ${CI_REGISTRY_IMAGE}/frontend:${CI_COMMIT_TAG} -f docker/prod.Dockerfile ."
     - "docker push --all-tags ${CI_REGISTRY_IMAGE}/frontend"
-    - "docker build -t ${CI_REGISTRY_IMAGE}/worker:${CI_COMMIT_TAG} -f docker/worker.Dockerfile ."
+    - "docker build --pull --no-cache -t ${CI_REGISTRY_IMAGE}/worker:${CI_COMMIT_TAG} -f docker/worker.Dockerfile ."
     # Worker-image smoke check: derive the setup step from the image's own CMD
     # and run it before pushing. Never copy the command out of the Dockerfile —
     # a copy stays green even when the path it names no longer resolves, which
@@ -146,9 +162,10 @@ build-latest-tag:
     - "git checkout ${GIT_LATEST_TAG}"
   script:
     - "calver=$(date +'%Y.%m.%d')"
-    - 'docker build -t "${CI_REGISTRY_IMAGE}/frontend:${GIT_LATEST_TAG}-${calver}" -f docker/prod.Dockerfile .'
+    # --pull --no-cache: the nightly build is always fresh, so security updates land every night.
+    - 'docker build --pull --no-cache -t "${CI_REGISTRY_IMAGE}/frontend:${GIT_LATEST_TAG}-${calver}" -f docker/prod.Dockerfile .'
     - 'docker push --all-tags "${CI_REGISTRY_IMAGE}/frontend"'
-    - 'docker build -t "${CI_REGISTRY_IMAGE}/worker:${GIT_LATEST_TAG}-${calver}" -f docker/worker.Dockerfile .'
+    - 'docker build --pull --no-cache -t "${CI_REGISTRY_IMAGE}/worker:${GIT_LATEST_TAG}-${calver}" -f docker/worker.Dockerfile .'
     - 'docker push --all-tags "${CI_REGISTRY_IMAGE}/worker"'
     - yq -i ".frontend.image.tag = \"${GIT_LATEST_TAG}-${calver}\"" deployments/ufz/stage/values.yaml
     - yq -i ".worker.image.tag = \"${GIT_LATEST_TAG}-${calver}\"" deployments/ufz/stage/values.yaml
