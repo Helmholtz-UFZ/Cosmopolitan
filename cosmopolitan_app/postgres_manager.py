@@ -44,9 +44,10 @@ class PostgresManager(DbManager):
     class name is kept so every call site — including
     ``PostgresManager.check_existence("test")`` in the test setup — is unchanged.
 
-    ``job_table`` is assigned at the bottom of this module, once ``JobTable`` is
-    defined: it is the seam framework code uses to reach a job row without knowing
-    which app it runs in.
+    ``job_table`` is assigned on ``DbManager`` itself at the bottom of this module,
+    once ``JobTable`` is defined: it is the seam framework code uses to reach a job
+    row without knowing which app it runs in. ``list_jobs`` and ``delete_job`` are
+    inherited from ``DbManager`` unchanged.
     """
 
     @classmethod
@@ -281,66 +282,6 @@ class PostgresManager(DbManager):
             }
 
         return job_columns
-
-    @classmethod
-    def delete_job(cls, job_id):
-        """Delete a job entry from the database based on its job ID.
-
-        This method deletes a job entry from the 'jobs' table in the database
-        based on the provided job ID.
-
-        Parameters:
-        job_id (str): The unique identifier for the job to be deleted.
-
-        Raises:
-        JobNotFound: If the job with the provided job ID does not exist.
-        """
-        log.debug(f"Delete job: {job_id}")
-        with cls.session_scope() as session:
-            job = session.query(JobTable).filter_by(job_id=job_id).first()
-
-            if job is None:
-                raise JobNotFound(job_id)
-
-            session.delete(job)
-
-    @classmethod
-    def list_jobs(cls):
-        """List all jobs in the database with their submission date and status.
-
-        This method retrieves all job entries from the 'jobs' table in the
-        database and returns a dictionary where the keys are 'job_id', and the
-        values are dictionaries containing all columns of the job entry.
-
-        Returns:
-        dict: A dictionary where keys are 'job_id' and values are dictionaries of
-        all columns of the job entry.
-
-        Example:
-        {
-        'job1': ('2023-09-01', True),
-        'job2': ('2023-09-02', False),
-        # ...
-        }
-
-        """
-        log.debug("List all jobs.")
-
-        with cls.session_scope() as session:
-            job_rows = session.query(JobTable).all()
-
-            job_info = {}
-            for job_row in job_rows:
-                job_info[job_row.job_id] = {
-                    "start_date": job_row.start_date,
-                    "input_data": job_row.input_data,
-                    "status": job_row.status,
-                    "submitted": job_row.submitted,
-                    "notified_end": job_row.notified_end,
-                    "logs": job_row.logs,
-                    "version": job_row.version,
-                }
-        return job_info
 
     @classmethod
     def _extract_date(cls, date_input: Union[date, datetime]) -> date:
@@ -1179,6 +1120,9 @@ if __name__ == "__main__":
 
 
 # The seam framework code uses to reach a job row. Assigned here rather than in the
-# class body because JobTable is defined further down this module. DbManager raises
-# JobTableNotConfigured if it is ever left unset, so this cannot fail quietly.
-PostgresManager.job_table = JobTable
+# class body because JobTable is defined further down this module. Assigned on
+# DbManager, not PostgresManager: framework code such as job_retention calls
+# DbManager.list_jobs() directly, so a subclass assignment would leave it
+# unconfigured (the assignment trap in cosmo-ecosystem's
+# docs/conventions/database_schema.md). PostgresManager inherits it.
+DbManager.job_table = JobTable

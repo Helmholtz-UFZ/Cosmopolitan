@@ -13,6 +13,12 @@ model. Newest entries go at the top.
 - Updated `path/to/file.md` — short note on what changed.
 ```
 
+## 2026-10-21
+
+- Updated `knowledge/systems/cosmo-ecosystem-boundary.md` — job retention and deletion now
+  come from `cosmo_ecosystem.job_retention`; "Delete"/"Clean" no longer keep the
+  job-management page local.
+
 ## 2026-08-06
 
 - Added `knowledge/systems/cosmo-suite-boundary.md` — the split between this app and the

@@ -59,6 +59,15 @@ show_help() {
     echo "  -v, --verbose     Show full pytest output (default: minimal, logs go to artifacts)"
     echo "  -h, --help        Show this help message"
     echo ""
+    echo "Environment:"
+    echo "  COSMO_ECOSYSTEM_PATH  Path to a local cosmo-ecosystem checkout. When set, the"
+    echo "                    script runs 'uv sync --frozen' (the pinned tag), then"
+    echo "                    'uv pip install --editable \$COSMO_ECOSYSTEM_PATH' over it,"
+    echo "                    and runs pytest with 'uv run --no-sync' (UV_NO_SYNC=1 for"
+    echo "                    nested uv runs such as the test worker) so the overlay stays."
+    echo "                    Unset: the pinned framework from uv.lock is used as is."
+    echo "                    See cosmo-ecosystem docs/conventions/cross_repo_development.md."
+    echo ""
     echo "Test Selection:"
     echo "  [TEST_PATH]       Specific test file, directory, or pytest node ID (optional)."
     echo "                    Passed directly to pytest as the last argument."
@@ -76,6 +85,7 @@ show_help() {
     echo "  ./run_pytest.sh --keep-artifacts test/test_e2e.py      # Keep old artifacts"
     echo "  ./run_pytest.sh --local-smp test/test_e2e.py           # Local smp repo"
     echo "  ./run_pytest.sh --no-services test/test_env.py         # No-service tests only"
+    echo "  COSMO_ECOSYSTEM_PATH=../cosmo-ecosystem ./run_pytest.sh # Local framework"
     echo ""
     echo "Artifacts (on failure): screenshots, traces, HTML in test/artifacts/"
     echo "Full pytest output: test/artifacts/pytest_output.log"
@@ -140,6 +150,26 @@ if [ "$LOCAL_SMP" = true ]; then
     echo "Using local soil-moisture-prediction from ${SMP_PATH}"
 fi
 
+# Overlay a local framework checkout (see --help). The variable lives only in the
+# caller's shell, so nothing committed knows where the checkout is.
+UV_RUN="uv run"
+if [ -n "${COSMO_ECOSYSTEM_PATH:-}" ]; then
+    if [ ! -d "$COSMO_ECOSYSTEM_PATH" ]; then
+        echo "Error: COSMO_ECOSYSTEM_PATH=$COSMO_ECOSYSTEM_PATH is not a directory."
+        exit 1
+    fi
+    echo "Overlaying cosmo-ecosystem from ${COSMO_ECOSYSTEM_PATH}"
+    uv sync --frozen --quiet
+    # --python: `uv pip` would otherwise install into an activated $VIRTUAL_ENV
+    # instead of the project environment that `uv sync` and `uv run` use.
+    uv pip install --quiet --python "${UV_PROJECT_ENVIRONMENT:-.venv}" \
+        --editable "$COSMO_ECOSYSTEM_PATH"
+    # A plain `uv run` re-syncs to uv.lock and silently puts the pinned tag back.
+    UV_RUN="uv run --no-sync"
+    # The same for every nested `uv run`, such as the Celery worker conftest starts.
+    export UV_NO_SYNC=1
+fi
+
 # Backup existing .env
 if [ -f .env ]; then
     mv .env .env.bak
@@ -175,7 +205,7 @@ fi
 mkdir -p test/artifacts
 
 # Build pytest command dynamically based on flags
-PYTEST_CMD="uv run pytest"
+PYTEST_CMD="$UV_RUN pytest"
 
 # Add artifact flags (enabled by default)
 if [ "$ARTIFACTS" = true ]; then

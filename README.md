@@ -166,12 +166,12 @@ uv sync --upgrade
 
 The application uses different environment files:
 
-- `env_dev_mock` - Enviroment for docker setup where all services are run locally.
-- `env_dev_prod_priv` - Enviroment for docker setup where the production services are
+- `env_dev_mock` - Environment for docker setup where all services are run locally.
+- `env_dev_prod_priv` - Environment for docker setup where the production services are
   used. An can be found `env_dev_prod`.
-- `env_test` - Testing enviroment for ci pipeline
-- `env_test_local` - Testing enviroment for lokal testing
-- `env_prod` - Enviroment for production deployment
+- `env_test` - Testing environment for ci pipeline
+- `env_test_local` - Testing environment for local testing
+- `env_prod` - Environment for production deployment
 
 Key environment variables:
 

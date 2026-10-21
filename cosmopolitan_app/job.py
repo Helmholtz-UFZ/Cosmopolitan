@@ -31,11 +31,7 @@ from werkzeug.utils import secure_filename
 
 from cosmopolitan_app.background_job_manager import background_job_manager
 from cosmopolitan_app.config import JOB_WORK_DIR_TEMPLATE, MAINTAINER_EMAIL
-from cosmopolitan_app.constants import (
-    DAYS_DELETE_NOT_SUBMITTED,
-    DAYS_DELETE_SUBMITTED,
-    LOG_FILE_NAME,
-)
+from cosmopolitan_app.constants import LOG_FILE_NAME
 from cosmopolitan_app.error_handling import (
     InvalidJobID,
     JobExists,
@@ -44,6 +40,7 @@ from cosmopolitan_app.error_handling import (
     NoMeasurementPointsError,
 )
 from cosmo_ecosystem.base_job import BaseJob
+from cosmo_ecosystem.job_retention import days_to_live, delete_job
 from cosmo_ecosystem.object_storage_manager import (
     delete_directory_from_storage,
     delete_file_from_storage,
@@ -678,19 +675,13 @@ class Job(BaseJob):
                 ModelWebsite(**json.loads(value))
         PostgresManager.add_entry(data_to_insert)
 
-    def delete(self, delete_work_dir=True, delete_db=True):
-        """
-        Delete the job in the data base.
+    def delete(self):
+        """Delete the job everywhere: its remote prefix, local work dir and row.
 
-        This method uses a PostgresManager instance to delete the job entry from
-        the database based on the job's unique identifier ('job_id').
+        Delegates to the framework, so the dashboard "Delete", the nightly
+        cleanup and this method share one definition of deleting a job.
         """
-        log.debug(f"Delete job {self.job_id}")
-        if delete_work_dir:
-            shutil.rmtree(self.working_dir)
-        if delete_db:
-            PostgresManager.delete_job(self.job_id)
-            delete_directory_from_storage(self.job_id)
+        delete_job(self.job_id)
 
     def _log_to_file(self, message):
         """Write message directly to job log file.
@@ -760,12 +751,12 @@ class Job(BaseJob):
         self.save()
 
     def time_to_live(self):
-        """Return the number of days after which this job will be deleted."""
-        days_passed = (date.today() - self.start_date).days
-        if self.submitted:
-            return DAYS_DELETE_SUBMITTED - days_passed
-        else:
-            return DAYS_DELETE_NOT_SUBMITTED - days_passed
+        """Return the number of days after which this job will be deleted.
+
+        The framework rule the nightly cleanup applies, so the page's promise
+        and the actual deletion cannot drift apart.
+        """
+        return days_to_live(self.start_date, self.submitted)
 
     def status_color(self):
         """Return the color of the job status."""

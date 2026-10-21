@@ -98,9 +98,12 @@ class BackgroundJobManager(BaseBackgroundJobManager):
     def submit_cleanup_task(self) -> tuple[str | None, bool]:
         """Submit this app's maintenance cleanup task.
 
-        Overrides the framework method, which submits
-        ``cosmo_ecosystem.tasks.maintenance_tasks.cleanup`` — that task cleans up via
-        cosmo_ecosystem.db_manager, which this app does not use.
+        Overrides the framework method only for the task name: the framework
+        submits ``cosmo_ecosystem.tasks.maintenance_tasks.cleanup``, which this
+        app's worker does not register. Both tasks clean up jobs the same way,
+        through ``cosmo_ecosystem.job_retention.clean_up_jobs``; this app's name and
+        its beat entry stay as they are until Celery assembly moves to the
+        framework.
         """
         return self.submit_named_job(NAME_CLEANUP_TASK, queue="default")
 

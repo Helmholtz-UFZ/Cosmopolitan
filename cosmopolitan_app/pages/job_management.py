@@ -17,19 +17,21 @@ NOTE: This docstring is displayed on the documentation webpage.
 # Notes (This section is for developer notes and will not appear in the user documentation.)
 
 Unlike Logs and Worker Management, this page is NOT served from
-`cosmo_ecosystem.pages.job_management`. Measured reasons, not size — the framework page
-is 207 lines against this one's 212:
+`cosmo_ecosystem.pages.job_management`. Measured reasons, not size:
 
 1. It hardcodes the job link as `/job-submission/{job_id}`. This app's submission
    page is registered at `/submission/<job_id>`, so every row would link nowhere.
    Here the path is resolved from `dash.page_registry["pages.submission"]`.
-2. Deleting a job runs `Job(job_id).delete()`. The framework page would use the
-   framework `Job`, whose cleanup knows nothing about this app's CRNS inputs — and
-   its `clean_up_jobs` prunes through `cosmo_ecosystem.db_manager`, which this app does
-   not use.
-3. Its loading-overlay callback is server-side. `docs/conventions/callbacks.md`
+2. Its loading-overlay callback is server-side. `docs/conventions/callbacks.md`
    requires clientside here, for a race that was actually hit: a server-side opener
    can land after the processing callback returns and leave the overlay stuck open.
+
+"Delete" and "Clean" are not a reason any more: they go through
+`cosmo_ecosystem.job_retention` (`delete_jobs` / `clean_up_jobs`), the same deletion the
+nightly cleanup and `Job.delete` use, and those find this app's rows because
+`DbManager.job_table` is configured in `postgres_manager`. Both delete every job they
+can and then raise naming the failed ones (`JobDeletionFailed` / `JobCleanupFailed`);
+the global error handler shows it, and the table is not refreshed in that case.
 
 Framework MR to make this adoptable: take the submission path from the page
 registry instead of hardcoding it, and use the clientside overlay pattern.
@@ -42,6 +44,7 @@ from datetime import datetime
 import dash
 import dash_ag_grid as dag
 import dash_bootstrap_components as dbc
+from cosmo_ecosystem.job_retention import clean_up_jobs, delete_jobs
 from dash import Input, Output, State, callback, dcc, html
 
 from cosmopolitan_app.constants import (
@@ -52,10 +55,8 @@ from cosmopolitan_app.constants import (
     LOADING_OVERLAY_MODAL_SHARED_ID,
     REFRESH_BUTTON_JOB_MANAGEMENT_ID,
 )
-from cosmopolitan_app.job import Job
 from cosmopolitan_app.layouts import create_header, page_container_column_layout
 from cosmopolitan_app.postgres_manager import PostgresManager
-from cosmopolitan_app.tasks.maintenance_tasks import clean_up_jobs
 
 log = logging.getLogger(__name__)
 
@@ -194,11 +195,9 @@ def job_management_dashboard(
 
     if button_id == DELETE_BUTTON_JOB_MANAGEMENT_ID and selected_rows:
         log.info("Deleting selected jobs")
-        for row in selected_rows:
-            job_id = re.findall(r"\[(.*?)\]", row["job_id"])[0]
-            log.debug(f"Deleting job with ID: {job_id}")
-            job = Job(job_id)
-            job.delete()
+        delete_jobs(
+            [re.findall(r"\[(.*?)\]", row["job_id"])[0] for row in selected_rows]
+        )
     elif button_id == CLEAN_BUTTON_JOB_MANAGEMENT_ID:
         log.info("Cleaning unsubmitted jobs")
         clean_up_jobs(days_delete_not_submitted=0)
