@@ -613,7 +613,10 @@ class Job(BaseJob):
             # Catch error log file can be deleted by other process (change input from
             # submission page)
             except FileNotFoundError:
-                return ""
+                # The worker may run on another disk: its log then only exists
+                # as the row's value, which this job loaded. Returning "" here
+                # would let a web-side save overwrite that value.
+                return self.logs
 
         if name == "input_data":
             return self.model.model_dump_json(
@@ -626,7 +629,7 @@ class Job(BaseJob):
         return getattr(self, name)
 
     def reload_logs(self):
-        """Reload the logs from the log file."""
+        """Reload the logs from the local log file, else keep the row's value."""
         self.logs = self._get_column_data("logs")
 
     def save_attributes(self, attribute_list):
@@ -817,3 +820,4 @@ class Job(BaseJob):
         """Delete the logs."""
         log.info(f"Delete logs of job {self.job_id}")
         self.delete_item(LOG_FILE_NAME)
+        self.logs = ""
