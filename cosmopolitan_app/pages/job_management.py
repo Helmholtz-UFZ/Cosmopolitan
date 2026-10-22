@@ -44,7 +44,8 @@ from datetime import datetime
 import dash
 import dash_ag_grid as dag
 import dash_bootstrap_components as dbc
-from cosmo_ecosystem.job_retention import clean_up_jobs, delete_jobs
+from cosmo_ecosystem.job_persistence import delete_jobs
+from cosmo_ecosystem.job_retention import clean_up_jobs
 from dash import Input, Output, State, callback, dcc, html
 
 from cosmopolitan_app.constants import (

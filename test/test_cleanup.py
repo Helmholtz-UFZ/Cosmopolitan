@@ -5,6 +5,7 @@ import os
 import shutil
 
 from cosmo_ecosystem.constants import DAYS_DELETE_SUBMITTED
+from cosmo_ecosystem.db_manager import DbManager
 from cosmo_ecosystem.object_storage_manager import (
     delete_directory_from_storage,
     get_remote_files,
@@ -41,7 +42,7 @@ def _seed(job_id, *, days_old=0):
     The local work dir is left in place; a test that wants a pod without it
     removes it.
     """
-    PostgresManager.add_entry(
+    DbManager.add_entry(
         {
             "job_id": job_id,
             "start_date": datetime.date.today() - datetime.timedelta(days=days_old),

@@ -2,6 +2,8 @@
 
 import datetime
 
+from cosmo_ecosystem.db_manager import DbManager
+
 from cosmopolitan_app.postgres_manager import PostgresManager
 
 
@@ -19,5 +21,5 @@ def test_postgres_manager():
         "status": "completed",
         "version": "1.0.0",
     }
-    PostgresManager.add_entry(data_to_insert)
+    DbManager.add_entry(data_to_insert)
     assert PostgresManager.check_existence(job_id)

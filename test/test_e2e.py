@@ -20,6 +20,7 @@ from test.help_functions_tests import (
 )
 from unittest.mock import patch
 
+from cosmo_ecosystem.db_manager import DbManager
 from playwright.sync_api import expect
 
 from cosmopolitan_app.config import PORT
@@ -40,7 +41,7 @@ from cosmopolitan_app.form_template_factory import (
     active_form_factory,
     active_form_template_factory,
 )
-from cosmopolitan_app.postgres_manager import PostgresManager
+
 from cosmopolitan_app.pydantic_models import ModelWebsite
 
 
@@ -213,7 +214,7 @@ def test_full_procedure(
     # use the URL on the current submission page
     current_url = page.url
     job_id = current_url.split("/submission/")[-1].split("/")[0].split("?")[0]
-    job_data = PostgresManager.get_job_columns(job_id)
+    job_data = DbManager.get_job_columns(job_id)
     assert job_data["notified_end"] is True, (
         "Expected notified_end=True in DB after job completion"
     )

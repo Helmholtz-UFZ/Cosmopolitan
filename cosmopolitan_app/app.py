@@ -61,9 +61,9 @@ create_bucket()
 # would run once per worker. See docs/conventions/celery_beat.md in cosmo-ecosystem.
 
 # Serve files
-# job_class is this app's Job, not the framework's: serve_files needs a class
-# it can construct as Job(job_id) and that exposes working_dir, both of which
-# the BaseJob contract plus that one extra member now guarantee.
+# job_class is this app's Job, not the framework's: serve_files needs a class it can
+# construct as Job(job_id), which raises for an unknown or malformed id and reads
+# the row only. The routes fetch the files themselves through job_persistence.
 serve_files(app, job_class=Job)
 
 # Main app layout
