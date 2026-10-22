@@ -159,64 +159,6 @@ class PostgresManager(DbManager):
         return job_row is not None
 
     @classmethod
-    def add_entry(cls, data_to_insert):
-        """Add or update a job entry in the database.
-
-        This method takes a dictionary containing job information and
-
-        Parameters:
-        data_to_insert (dict): A dictionary containing job information with keys
-        equivalent to the columns in JobTable.
-        """
-        log.debug(
-            f"Add entry to database: {data_to_insert['job_id']}",
-        )
-        with cls.session_scope() as session:
-            # Check existence within this session
-            job_row = (
-                session.query(JobTable.job_id)
-                .filter_by(job_id=data_to_insert["job_id"])
-                .first()
-            )
-
-            if job_row is not None:
-                # Update existing entry
-                log.debug("Update entry.")
-                job = (
-                    session.query(JobTable)
-                    .filter_by(job_id=data_to_insert["job_id"])
-                    .first()
-                )
-                for column_name, column_value in data_to_insert.items():
-                    setattr(job, column_name, column_value)
-            else:
-                # Create new entry
-                log.debug("New entry.")
-                job_row = JobTable(**data_to_insert)
-                session.add(job_row)
-
-    @classmethod
-    def update_column(cls, job_id, column_dic):
-        """Update specific columns in the 'JobTable' for a given job ID.
-
-        Parameters:
-        job_id (str): The unique identifier for the job.
-        column_dic (dict): Dictionary of column names and values to update.
-
-        Raises:
-        JobNotFound: If the job with the provided job ID does not exist.
-        """
-        log.debug(f"Update columns for job: {job_id}")
-
-        with cls.session_scope() as session:
-            job = session.query(JobTable).filter_by(job_id=job_id).first()
-            if job is None:
-                raise JobNotFound(job_id)
-
-            for column_name, column_value in column_dic.items():
-                setattr(job, column_name, column_value)
-
-    @classmethod
     def set_submitted(cls, job_id):
         """Update the 'submitted' column in the 'JobTable' for a given job ID.
 
@@ -249,39 +191,6 @@ class PostgresManager(DbManager):
             else:
                 job.submitted = True
                 return True
-
-    @classmethod
-    def get_job_columns(cls, job_id):
-        """Retrieve all columns of a specific job entry based on its job ID.
-
-        This method queries the 'jobs' table in the database to retrieve all
-        columns of the job entry associated with the provided job ID.
-
-        Parameters:
-        job_id (str): The unique identifier for the job.
-
-        Returns:
-        dict: A dictionary containing all columns and their values for the
-        specified job.
-
-        Raises:
-        JobNotFound: If the job with the provided job ID does not exist.
-        """
-        log.debug(f"Get columns for job: {job_id}")
-
-        with cls.session_scope() as session:
-            job_row = session.query(JobTable).filter_by(job_id=job_id).first()
-
-            if job_row is None:
-                raise JobNotFound(job_id)
-
-            # Convert all columns to a dictionary
-            job_columns = {
-                column.name: getattr(job_row, column.name)
-                for column in JobTable.__table__.columns
-            }
-
-        return job_columns
 
     @classmethod
     def _extract_date(cls, date_input: Union[date, datetime]) -> date:
