@@ -51,12 +51,19 @@ linting:
     - "pip install --quiet ruff==0.15.6"
     - "ruff format --check ."
     - "ruff check ."
+    # A moving tag changes the stack without a commit (titiler:latest moved to 2.x).
+    # The two image names without a tag are built from this repo.
+    - |
+      if grep -nE '^\s*image:\s*\S+:latest\s*$|^\s*image:\s*[^:[:space:]]+\s*$' docker-compose*.yml | grep -vE 'image:\s*cosmopolitan-(webserver|worker)\s*$'; then
+        echo "Pin every image in docker-compose*.yml to a version, never :latest or no tag."
+        exit 1
+      fi
 
 test:
   stage: "test"
   image: "python:3.13"
   services:
-    - name: postgis/postgis:latest
+    - name: postgis/postgis:17-3.5  # same pin as docker-compose.yml
       alias: postgres
     - !reference [.cosmo-ecosystem-object-storage, services]
     - name: "redis:7-alpine"

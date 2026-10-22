@@ -57,7 +57,9 @@ services:
       - redis_data:/data
 
   postgres:
-    image: postgis/postgis:latest
+    # Pinned to the version the local image had on 2026-10-22 (PG 17, PostGIS 3.5.2);
+    # latest drifts silently, as titiler:latest did.
+    image: postgis/postgis:17-3.5
     ports:
       - "${POSTGRES_HOST_PORT:-5432}:5432"
     environment:
