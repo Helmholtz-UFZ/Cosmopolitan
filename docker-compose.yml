@@ -48,7 +48,8 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: redis_cosmopolitan
+    # run_pytest.sh overrides the name so a test run never touches the dev container.
+    container_name: ${REDIS_CONTAINER_NAME:-redis_cosmopolitan}
     ports:
       - "${REDIS_HOST_PORT:-6379}:6379"
     command: redis-server --appendonly yes
@@ -56,14 +57,17 @@ services:
       - redis_data:/data
 
   postgres:
-    image: postgis/postgis:latest
+    # Pinned to the version the local image had on 2026-10-22 (PG 17, PostGIS 3.5.2);
+    # latest drifts silently, as titiler:latest did.
+    image: postgis/postgis:17-3.5
     ports:
       - "${POSTGRES_HOST_PORT:-5432}:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    container_name: postgres_cosmopolitan
+    # run_pytest.sh overrides the name so a test run never touches the dev container.
+    container_name: ${POSTGRES_CONTAINER_NAME:-postgres_cosmopolitan}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 2s
@@ -98,7 +102,8 @@ services:
   # framework's ci/object-storage.gitlab-ci.yml).
   object-storage:
     image: rustfs/rustfs:1.0.0
-    container_name: object_storage_cosmopolitan
+    # run_pytest.sh overrides the name so a test run never touches the dev container.
+    container_name: ${OBJECT_STORAGE_CONTAINER_NAME:-object_storage_cosmopolitan}
     ports:
       - "${OBJECT_STORAGE_HOST_PORT:-9000}:9000"
       - "${OBJECT_STORAGE_CONSOLE_HOST_PORT:-9001}:9001" # Web console at /rustfs/console/

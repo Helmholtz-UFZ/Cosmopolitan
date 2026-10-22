@@ -4,26 +4,13 @@ import io
 import logging
 import os
 import zipfile
-from test.help_functions_tests import (
-    check_all_errors,
-    check_crns_checkbox,
-    check_input_and_submit,
-    check_pred_stream,
-    click_delete_button,
-    fill_email,
-    navigate_to_input_page,
-    uncheck_all_crns_checkboxes,
-    uncheck_all_pred_streams,
-    upload_crns_file,
-    upload_predictor_files,
-    wait_for_job_completion,
-)
 from unittest.mock import patch
+from urllib.parse import urlparse
 
 from cosmo_ecosystem.db_manager import DbManager
 from playwright.sync_api import expect
 
-from cosmopolitan_app.config import PORT
+from cosmopolitan_app.config import JOB_WORK_DIR_TEMPLATE, PORT
 from cosmopolitan_app.constants import (
     CHANGE_INPUT_BUTTON_SUBMISSION_ID,
     CHECK_INPUT_BUTTON_INPUT_ID,
@@ -41,8 +28,23 @@ from cosmopolitan_app.form_template_factory import (
     active_form_factory,
     active_form_template_factory,
 )
-
+from cosmopolitan_app.job import LOG_FILE_NAME
 from cosmopolitan_app.pydantic_models import ModelWebsite
+from test.help_functions_tests import (
+    check_all_errors,
+    check_crns_checkbox,
+    check_input_and_submit,
+    check_pred_stream,
+    click_delete_button,
+    fill_email,
+    navigate_to_input_page,
+    submit_default_job,
+    uncheck_all_crns_checkboxes,
+    uncheck_all_pred_streams,
+    upload_crns_file,
+    upload_predictor_files,
+    wait_for_job_completion,
+)
 
 
 @patch("cosmopolitan_app.map_utils.create_tile_layer_component")
@@ -316,6 +318,35 @@ def test_full_procedure(
                 f"Unexpected files in work_dir zip.\n"
                 f"Zip: {sorted(zip_file_names)}\nExpected: {sorted(expected_files)}"
             )
+
+
+@patch("cosmopolitan_app.map_utils.create_tile_layer_component")
+def test_the_page_shows_the_logs_of_a_worker_on_another_disk(
+    mock_tile_layer,
+    page,
+    dash_app,
+    crns_file_path,
+    pred_file_paths,
+    celery_worker,
+):
+    """The worker has its own work dir (conftest), so its log only exists in the row.
+
+    The finished job's page must show that log: the web side has no log file.
+    """
+    mock_tile_layer.return_value = None
+
+    submit_default_job(page, pred_file_paths, crns_file_path)
+
+    job_id = urlparse(page.url).path.split("/")[-1]
+    wait_for_job_completion(page)
+    expect(page.locator(f"#{STATUS_DIV_SUBMISSION_ID}")).to_contain_text("COMPLETED")
+    expect(page.locator(f"#{JOB_LOGS_DIV_SUBMISSION_ID}")).to_contain_text(
+        "Random Forest Mean Absolute Error", timeout=10000
+    )
+    # The worker is done and still wrote no log here: this is what proves the disks differ.
+    assert not os.path.exists(
+        os.path.join(JOB_WORK_DIR_TEMPLATE.format(job_id=job_id), LOG_FILE_NAME)
+    )
 
 
 @patch("cosmopolitan_app.map_utils.create_tile_layer_component")

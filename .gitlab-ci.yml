@@ -51,12 +51,42 @@ linting:
     - "pip install --quiet ruff==0.15.6"
     - "ruff format --check ."
     - "ruff check ."
+    # A moving tag changes the stack without a commit (titiler:latest moved to 2.x).
+    # Same check as in COSMONAUT. Services with a build: key are built here, not pulled.
+    - |
+      python3 - <<'PY'
+      import glob, re, sys
+      bad = []
+      for path in sorted(glob.glob("docker-compose*.yml")):
+          # Services with a build: key produce a local image; compose does not pull it.
+          # Indentation-aware: a service is a key at indent 2 under services:.
+          blocks, cur = [], None
+          for n, line in enumerate(open(path), 1):
+              if re.match(r"  [\w.-]+:\s*$", line):
+                  cur = {"has_build": False, "images": []}
+                  blocks.append(cur)
+              elif cur is not None:
+                  if re.match(r"    build:", line):
+                      cur["has_build"] = True
+                  m = re.match(r'\s*image:\s*["\']?([^"\'\s#]+)', line)
+                  if m:
+                      cur["images"].append((n, m.group(1)))
+          for blk in blocks:
+              if blk["has_build"]:
+                  continue
+              for n, ref in blk["images"]:
+                  name = ref.split("@")[0].rsplit("/", 1)[-1]
+                  if "@" not in ref and (":" not in name or name.endswith(":latest")):
+                      bad.append(f"{path}:{n}: {ref}")
+      print("\n".join(bad) or "all compose images pinned")
+      sys.exit(1 if bad else 0)
+      PY
 
 test:
   stage: "test"
   image: "python:3.13"
   services:
-    - name: postgis/postgis:latest
+    - name: postgis/postgis:17-3.5  # same pin as docker-compose.yml
       alias: postgres
     - !reference [.cosmo-ecosystem-object-storage, services]
     - name: "redis:7-alpine"

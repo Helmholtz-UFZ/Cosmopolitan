@@ -81,9 +81,9 @@ open test/artifacts/<test-dir>/page.html
 
 | Error | Cause | Fix |
 |-------|-------|-----|
-| `PostgreSQL not available` | DB container failed health check | `docker logs postgres_cosmopolitan` |
-| `Object storage did not start` / `Object storage (S3) connectivity check failed` | S3 server unhealthy or unreachable | `docker logs object_storage_cosmopolitan` |
-| `Redis not available` | Redis failed health check | `docker logs redis_cosmopolitan` |
+| `PostgreSQL not available` | DB container failed health check | `docker logs postgres_cosmopolitan_test` |
+| `Object storage did not start` / `Object storage (S3) connectivity check failed` | S3 server unhealthy or unreachable | `docker logs object_storage_cosmopolitan_test` |
+| `Redis not available` | Redis failed health check | `docker logs redis_cosmopolitan_test` |
 | Port already in use | Leftover Docker containers or another process | 1. `docker compose down` in the current project first. 2. If persists, tell the user which port is blocked — a sibling project (cosmonaut, etc.) may be running in parallel and only the user knows which is safe to stop. |
 | Docker not running | Docker daemon not started | `sudo systemctl start docker` |
 
@@ -149,25 +149,25 @@ If tests require services and startup errors occur, verify each service manually
 **PostgreSQL:**
 
 ```bash
-docker ps | grep postgres_cosmopolitan
-docker logs postgres_cosmopolitan
-docker exec postgres_cosmopolitan pg_isready -U cosmopolitan
+docker ps | grep postgres_cosmopolitan_test
+docker logs postgres_cosmopolitan_test
+docker exec postgres_cosmopolitan_test pg_isready -U cosmopolitan
 ```
 
 **Object storage (RustFS):**
 
 ```bash
-docker ps | grep object_storage_cosmopolitan
-docker logs object_storage_cosmopolitan
+docker ps | grep object_storage_cosmopolitan_test
+docker logs object_storage_cosmopolitan_test
 curl -sf http://localhost:9000/health/ready
 ```
 
 **Redis:**
 
 ```bash
-docker ps | grep redis_cosmopolitan
-docker logs redis_cosmopolitan
-docker exec redis_cosmopolitan redis-cli ping
+docker ps | grep redis_cosmopolitan_test
+docker logs redis_cosmopolitan_test
+docker exec redis_cosmopolitan_test redis-cli ping
 ```
 
 **Clean up and restart:**

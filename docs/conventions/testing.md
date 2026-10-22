@@ -12,6 +12,11 @@ guess flags or invent arguments — only use what `--help` shows.
 The script manages `.env` backup/restore, Docker services, and cleanup. Running
 pytest directly will use the wrong `.env`, skip service setup, and leave stale state.
 
+**Test containers have their own names.** `run_pytest.sh` runs Postgres, Redis and
+object storage as `*_cosmopolitan_test` in the compose project `cosmopolitan_test`, and
+its cleanup removes only those. The dev stack (`postgres_cosmopolitan` & co.) is never
+stopped. Host ports are shared, so stop the dev stack before a run or the start fails.
+
 **`--no-services` SKIPS most tests.** It passes `--no-services` to pytest, which
 causes `dash_app` and `celery_worker` fixtures to call `pytest.skip()`. All e2e
 tests and most module tests will be skipped. Only use it for tests that truly need
