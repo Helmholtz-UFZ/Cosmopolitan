@@ -318,7 +318,7 @@ def dash_app(request):
 
 
 @pytest.fixture(scope="session")
-def celery_worker(request):
+def celery_worker(request, tmp_path_factory):
     """Start a Celery worker for testing job processing.
 
     Spawns a Celery worker subprocess that:
@@ -326,6 +326,9 @@ def celery_worker(request):
     - Uses concurrency=1 for deterministic testing
     - Uses prefork pool for proper task termination
     - Enables task events for inspect() API functionality
+    - Gets its own WEB_WORK_DIR, so web and worker share no disk (as in prod, where
+      only the object storage connects them; see the framework's ADR 0001). Code that
+      relies on a shared work dir fails here instead of in a manual test.
 
     This fixture is skipped if --no-services flag is set.
     """
@@ -343,7 +346,11 @@ def celery_worker(request):
     )
     _worker_log_path = pathlib.Path(worker_log_file.name)
 
-    worker_env = {**os.environ, "PYTHONUNBUFFERED": "1"}
+    worker_env = {
+        **os.environ,
+        "PYTHONUNBUFFERED": "1",
+        "WEB_WORK_DIR": str(tmp_path_factory.mktemp("worker_work_dir")),
+    }
     worker_process = subprocess.Popen(
         [
             "uv",
