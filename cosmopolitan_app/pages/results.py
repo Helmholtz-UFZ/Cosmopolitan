@@ -528,11 +528,13 @@ def load_stats_data(job_id):
 
     # Load correlation matrix
     corr_file = os.path.join(job_work_dir, "correlation_matrix.csv")
-    corr_df = pd.read_csv(corr_file)
+    # time_step stays text: dates like 20220327 would parse as int64 and never
+    # equal the selected date string.
+    corr_df = pd.read_csv(corr_file, dtype={"time_step": str})
 
     # Load predictor importance
     importance_file = os.path.join(job_work_dir, "predictor_importance.csv")
-    timeseries_df = pd.read_csv(importance_file)
+    timeseries_df = pd.read_csv(importance_file, dtype={"time_step": str})
 
     return {
         "correlation": corr_df.to_dict("records"),
@@ -549,7 +551,7 @@ def create_correlation_heatmap(corr_data, timestep):
     if any(corr_df["time_step"] == CONSTANT_TIME_STEP):
         timestep_df = corr_df[corr_df["time_step"] == CONSTANT_TIME_STEP]
     else:
-        # timestep is a string (date like "2025-11-19")
+        # timestep is a string (date like "2025-11-19" or "20220327")
         timestep_df = corr_df[corr_df["time_step"] == timestep]
 
     # Set feature as index and drop time_step column
@@ -571,7 +573,7 @@ def create_correlation_heatmap(corr_data, timestep):
 def create_importance_by_timestep(timeseries_data, timestep):
     """Create bar chart for single timestep importance."""
     timeseries_df = pd.DataFrame(timeseries_data)
-    # timestep is a string (date like "2025-11-19")
+    # timestep is a string (date like "2025-11-19" or "20220327")
     timestep_df = timeseries_df[timeseries_df["time_step"] == timestep][
         ["predictor", "importance", "5th_percentile", "95th_percentile"]
     ]
