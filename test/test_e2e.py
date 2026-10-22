@@ -4,21 +4,6 @@ import io
 import logging
 import os
 import zipfile
-from test.help_functions_tests import (
-    check_all_errors,
-    check_crns_checkbox,
-    check_input_and_submit,
-    check_pred_stream,
-    click_delete_button,
-    fill_email,
-    navigate_to_input_page,
-    submit_default_job,
-    uncheck_all_crns_checkboxes,
-    uncheck_all_pred_streams,
-    upload_crns_file,
-    upload_predictor_files,
-    wait_for_job_completion,
-)
 from unittest.mock import patch
 from urllib.parse import urlparse
 
@@ -39,13 +24,27 @@ from cosmopolitan_app.constants import (
     STATUS_DIV_SUBMISSION_ID,
     SUBMIT_JOB_BUTTON_SUBMISSION_ID,
 )
-from cosmopolitan_app.job import LOG_FILE_NAME
 from cosmopolitan_app.form_template_factory import (
     active_form_factory,
     active_form_template_factory,
 )
-
+from cosmopolitan_app.job import LOG_FILE_NAME
 from cosmopolitan_app.pydantic_models import ModelWebsite
+from test.help_functions_tests import (
+    check_all_errors,
+    check_crns_checkbox,
+    check_input_and_submit,
+    check_pred_stream,
+    click_delete_button,
+    fill_email,
+    navigate_to_input_page,
+    submit_default_job,
+    uncheck_all_crns_checkboxes,
+    uncheck_all_pred_streams,
+    upload_crns_file,
+    upload_predictor_files,
+    wait_for_job_completion,
+)
 
 
 @patch("cosmopolitan_app.map_utils.create_tile_layer_component")
