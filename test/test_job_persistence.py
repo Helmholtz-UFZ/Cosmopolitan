@@ -22,7 +22,7 @@ from cosmopolitan_app.config import (
     OBJECT_STORAGE_BUCKET,
     OBJECT_STORAGE_REMOTE_NAME,
 )
-from cosmopolitan_app.job import Job
+from cosmopolitan_app.job import LOG_FILE_NAME, Job
 from cosmopolitan_app.app import app  # noqa: F401 - registers the pages first
 from cosmopolitan_app.postgres_manager import PostgresManager
 
@@ -249,3 +249,28 @@ def test_submit_syncs_nothing_after_the_enqueue(job_id, rclone_calls, monkeypatc
     assert len(rclone_calls) == calls_at_enqueue[0]
     assert _read(job_id) == FRESH
     assert DbManager.get_job_columns(job_id)["status"] == "RUNNING"
+
+
+def test_logs_come_from_the_row_when_the_web_has_no_log_file(job_id, rclone_calls):
+    """A worker on another disk stored its log in the row; the poll shows it.
+
+    The web work dir has no log file then. Neither the poll nor a later
+    web-side save may replace the row's logs with an empty string.
+    """
+    Job(new_job_id=job_id)
+    worker_log = "worker log\nERROR: boom\n"
+    job_persistence.update_columns(job_id, {"logs": worker_log})
+    log_path = os.path.join(JOB_WORK_DIR_TEMPLATE.format(job_id=job_id), LOG_FILE_NAME)
+    assert not os.path.exists(log_path)
+
+    job = Job(job_id)
+    rclone_calls.clear()
+    job.reload_logs()
+
+    assert job.logs == worker_log
+    assert rclone_calls == []
+
+    job.save()
+    job.save_attributes(["logs"])
+
+    assert Job(job_id).logs == worker_log
