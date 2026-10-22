@@ -3,6 +3,10 @@
 Stage/prod run on Kubernetes (UFZ cluster, ArgoCD). This doc covers non-obvious
 gotchas that don't surface in local docker-compose development.
 
+Helm charts and their defaults (tileserver image, TiTiler appVersion) live in the
+separate repo `cosmohelm` (`git@codebase.helmholtz.cloud:ufz/tb5-smm/met/wg7/cosmohelm.git`,
+local clone `~/git/cosmohelm`, chart `helm/charts/tileserver`), not here.
+
 ## values.yaml is partly automated — re-tag after infra changes
 
 The image tag in `deployments/ufz/stage/values.yaml` is **not** hand-maintained.
