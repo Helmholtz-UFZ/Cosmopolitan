@@ -73,7 +73,9 @@ services:
       - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
 
   tileserver:
-    image: ghcr.io/developmentseed/titiler:latest
+    # Pinned to prod's version (cosmohelm tileserver chart appVersion). latest
+    # moved to 2.x, which rejects the old @1x tile suffix.
+    image: ghcr.io/developmentseed/titiler:0.25.0
     container_name: cosmopolitan-tileserver
     platform: linux/amd64
     ports:
