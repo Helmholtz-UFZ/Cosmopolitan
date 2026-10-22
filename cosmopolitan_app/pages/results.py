@@ -177,6 +177,15 @@ def get_rdbu_colorscale(n_colors=10):
     ]
 
 
+# Map types with one GeoTIFF per date; a date may lack any of them
+DATE_BOUND_MAP_TYPES = (
+    "prediction",
+    "measurements",
+    "prediction_distance",
+    "dispersion_coefficient",
+)
+
+
 def get_available_dates(job_id):
     """Get available dates for the job based on actual files and model date range.
 
@@ -657,6 +666,18 @@ def create_importance_all_timesteps(timeseries_data):
     return fig
 
 
+def has_map_for_date(job_id, map_type, date):
+    """Return whether the job has a GeoTIFF for this map type on this date.
+
+    Only the date-bound map types can lack one; a predictor falls back to its
+    constant file (see ``_get_tile_params``).
+    """
+    if map_type not in DATE_BOUND_MAP_TYPES:
+        return True
+    job_work_dir = job_persistence.local_dir(job_id)
+    return os.path.exists(os.path.join(job_work_dir, f"{map_type}_{date}.tif"))
+
+
 def _get_tile_params(job_id, map_type, date, color_bar_info):
     """Get parameters for tile layer and legend creation.
 
@@ -996,6 +1017,17 @@ def update_map(
     log.info(
         f"Updating map for {job_id}, type {map_type}, date {selected_date} (page {page_index}), measurements: {show_measurements}, opacity: {opacity}",  # noqa
     )
+
+    # A date can lack a map type (e.g. no prediction distance for the first date)
+    if not has_map_for_date(job_id, map_type, selected_date):
+        date_text = f"{selected_date} (no {map_type.replace('_', ' ')} map)"
+        if show_measurements:
+            # Overlay and its own colorbar: there is no base map colorbar to keep
+            measurements_layers = create_geojson_layer(
+                job_id, "measurements-geojson", selected_date
+            )
+            return default_map_layers + measurements_layers, date_text, False
+        return default_map_layers, date_text, False
 
     # Create base map layers (returns [tile_layer, colorbar])
     new_map_layers = create_tile_layer(

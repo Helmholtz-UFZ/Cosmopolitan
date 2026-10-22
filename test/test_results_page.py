@@ -81,3 +81,38 @@ def test_stats_plots_hold_data_for_a_date_without_dashes(results, work_dir):
 
     assert heatmap.data[0].z.shape == (2, 2)
     assert list(importance.data[0].x) == ["pred_4", "pred_3"]
+
+
+def test_the_map_has_no_tile_layer_for_a_date_without_the_map_type(results, work_dir):
+    """prediction_distance has no GeoTIFF for the first date; the page must not raise."""
+    color_bar_info = results.load_color_bar_info(JOB_ID)
+
+    layers, date_text, loading = results.update_map(
+        1,
+        "prediction_distance",
+        False,
+        0.9,
+        JOB_ID,
+        [],
+        color_bar_info,
+        [FIRST_DATE, SECOND_DATE],
+    )
+
+    assert layers == results.default_map_layers
+    assert FIRST_DATE in date_text
+    assert not loading
+
+
+@pytest.mark.parametrize("map_type", ["prediction", "dispersion_coefficient"])
+def test_the_map_keeps_its_layers_for_a_date_with_the_map_type(
+    results, work_dir, map_type
+):
+    """The other date-dependent map types still render on a date that has them."""
+    color_bar_info = results.load_color_bar_info(JOB_ID)
+
+    layers, date_text, _ = results.update_map(
+        1, map_type, False, 0.9, JOB_ID, [], color_bar_info, [FIRST_DATE]
+    )
+
+    assert len(layers) > len(results.default_map_layers)
+    assert date_text == FIRST_DATE
