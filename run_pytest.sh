@@ -2,6 +2,13 @@
 
 set -e
 
+# Test containers get their own names and compose project, so a test run never stops,
+# removes or reuses a dev-stack container (postgres_cosmopolitan & co.).
+export COMPOSE_PROJECT_NAME=cosmopolitan_test
+export POSTGRES_CONTAINER_NAME=postgres_cosmopolitan_test
+export OBJECT_STORAGE_CONTAINER_NAME=object_storage_cosmopolitan_test
+export REDIS_CONTAINER_NAME=redis_cosmopolitan_test
+
 trap cleaning_up EXIT
 
 # Cleanup function - restores environment and stops services
@@ -11,9 +18,9 @@ cleaning_up() {
         mv .env.bak .env
     fi
 
-    # Stop and remove containers
-    docker stop postgres_cosmopolitan object_storage_cosmopolitan redis_cosmopolitan >/dev/null 2>&1 || true
-    docker rm postgres_cosmopolitan object_storage_cosmopolitan redis_cosmopolitan >/dev/null 2>&1 || true
+    # Stop and remove only the containers of this test project (the _test names)
+    docker stop "$POSTGRES_CONTAINER_NAME" "$OBJECT_STORAGE_CONTAINER_NAME" "$REDIS_CONTAINER_NAME" >/dev/null 2>&1 || true
+    docker rm "$POSTGRES_CONTAINER_NAME" "$OBJECT_STORAGE_CONTAINER_NAME" "$REDIS_CONTAINER_NAME" >/dev/null 2>&1 || true
     docker compose down >/dev/null 2>&1 || true
 }
 
@@ -58,6 +65,11 @@ show_help() {
     echo "  --keep-artifacts  Keep artifacts from previous runs (default: clear on each run)"
     echo "  -v, --verbose     Show full pytest output (default: minimal, logs go to artifacts)"
     echo "  -h, --help        Show this help message"
+    echo ""
+    echo "Containers: test services run as postgres_cosmopolitan_test, redis_cosmopolitan_test"
+    echo "  and object_storage_cosmopolitan_test (compose project cosmopolitan_test). Cleanup"
+    echo "  touches only these; the dev stack (postgres_cosmopolitan & co.) is never stopped."
+    echo "  Host ports are shared with the dev stack: stop it first or the start fails."
     echo ""
     echo "Environment:"
     echo "  COSMO_ECOSYSTEM_PATH  Path to a local cosmo-ecosystem checkout. When set, the"
@@ -190,10 +202,10 @@ if [ "$START_SERVICES" -eq 1 ]; then
     docker compose up postgres object-storage redis -d --quiet-pull
 
     # Wait for services with retry logic
-    check_service "docker exec postgres_cosmopolitan pg_isready -q 2>/dev/null" "PostgreSQL"
+    check_service "docker exec $POSTGRES_CONTAINER_NAME pg_isready -q 2>/dev/null" "PostgreSQL"
     # The compose healthcheck owns the server-specific probe; this only reads its verdict.
-    check_service "docker inspect -f '{{.State.Health.Status}}' object_storage_cosmopolitan 2>/dev/null | grep -qx healthy" "Object storage"
-    check_service "docker exec redis_cosmopolitan redis-cli ping 2>/dev/null | grep -q PONG" "Redis"
+    check_service "docker inspect -f '{{.State.Health.Status}}' $OBJECT_STORAGE_CONTAINER_NAME 2>/dev/null | grep -qx healthy" "Object storage"
+    check_service "docker exec $REDIS_CONTAINER_NAME redis-cli ping 2>/dev/null | grep -q PONG" "Redis"
 else
     echo "Skipping service management (assuming services already running)"
 fi
