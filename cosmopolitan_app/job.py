@@ -30,7 +30,7 @@ from soil_moisture_prediction.input_file_parser import (
 from werkzeug.utils import secure_filename
 
 from cosmopolitan_app.background_job_manager import background_job_manager
-from cosmopolitan_app.config import JOB_WORK_DIR_TEMPLATE, MAINTAINER_EMAIL
+from cosmopolitan_app.config import MAINTAINER_EMAIL
 from cosmopolitan_app.constants import LOG_FILE_NAME
 from cosmopolitan_app.error_handling import (
     InvalidJobID,
@@ -200,6 +200,9 @@ class Job(BaseJob):
     status: Literal["PENDING", "RUNNING", "COMPLETED", "FAILED"]
     version: str
     celery_task_id: str
+    # The local work dir path. Plain path: it is set without any rclone call, and
+    # code needing fresh files assigns ``job_persistence.work_dir(job_id)`` to it.
+    working_dir: str
     preview_area_filename_template: str = "preview_area_{position}.png"
     original_file_prefix: str = "orginal"
 
@@ -233,36 +236,6 @@ class Job(BaseJob):
     def job_id(self, value: str) -> None:
         self._job_id = value
 
-    @property
-    def working_dir(self) -> str:
-        """Return the job's work dir, current with its remote prefix.
-
-        The first access pulls the job's files through
-        ``job_persistence.work_dir`` and the result is kept for this instance, so
-        the cost of rclone is paid where files are first needed and never by a job
-        that only reads its row, such as the 2 s status poll. The remote prefix
-        wins over stale local copies, which matters because job ids are reused
-        after a delete and a worker keeps its work dir across jobs.
-        """
-        if self._working_dir is None:
-            self._working_dir = job_persistence.work_dir(self.job_id)
-        return self._working_dir
-
-    @working_dir.setter
-    def working_dir(self, value: str) -> None:
-        self._working_dir = value
-
-    @property
-    def _log_file_path(self) -> str:
-        """Return the local log file path without fetching any files.
-
-        Live logs are read from local disk (see ``job_persistence``), so the poll
-        reads them without going through ``working_dir``.
-        """
-        return os.path.join(
-            JOB_WORK_DIR_TEMPLATE.format(job_id=self.job_id), LOG_FILE_NAME
-        )
-
     def __str__(self):
         """Represent class as string."""
         return self.job_id
@@ -286,8 +259,7 @@ class Job(BaseJob):
 
         log.debug(f"Job {self.job_id} loaded from database")
 
-        # Files are fetched on first use of working_dir, not here.
-        self._working_dir = None
+        self.working_dir = job_persistence.local_dir(self.job_id)
 
     def _init_from_model(self, model):
         """Initialize job from model."""
@@ -301,7 +273,8 @@ class Job(BaseJob):
         self.status = "PENDING"
         self.version = smp_version
         self.celery_task_id = None
-        self._working_dir = None
+        self.working_dir = job_persistence.local_dir(self.job_id)
+        os.makedirs(self.working_dir, exist_ok=True)
         self.dump_parameters()
         self.save()
 
@@ -328,7 +301,7 @@ class Job(BaseJob):
         self.version = smp_version
         self.celery_task_id = None
         # A new id has nothing remote to pull, so the dir is made here directly.
-        self.working_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=self.job_id)
+        self.working_dir = job_persistence.local_dir(self.job_id)
         shutil.rmtree(self.working_dir, ignore_errors=True)
         os.makedirs(self.working_dir, exist_ok=True)
         self.dump_parameters()
@@ -364,6 +337,9 @@ class Job(BaseJob):
     def preview_area(self, draw_empty: bool = True):
         """Draw a preview of the area and add measurement points."""
         log.debug("Draw preview")
+        # The save below uploads the whole work dir, so it must not hold
+        # anything staler than the remote prefix.
+        self.working_dir = job_persistence.work_dir(self.job_id)
 
         preview_area_wildcard = os.path.join(
             self.working_dir, self.preview_area_filename_template.format(position="*")
@@ -413,7 +389,8 @@ class Job(BaseJob):
         return filename
 
     def get_preview_path(self):
-        """Get the path to the preview image."""
+        """Get the path to the preview image; pulls the job's files first."""
+        self.working_dir = job_persistence.work_dir(self.job_id)
         preview_area_wildcard = os.path.join(
             self.working_dir, self.preview_area_filename_template.format(position="*")
         )
@@ -428,6 +405,7 @@ class Job(BaseJob):
         input type.
         """
         log.debug(f"Delete input files of type {input_type}")
+        self.working_dir = job_persistence.work_dir(self.job_id)
         for file_name in os.listdir(self.working_dir):
             if file_name.startswith(input_type):
                 self.delete_item(file_name)
@@ -439,6 +417,7 @@ class Job(BaseJob):
         model.
         """
         log.debug("Prepare input files")
+        self.working_dir = job_persistence.work_dir(self.job_id)
         crns_upload = {}
         predictors_upload = {}
         for file_name in os.listdir(self.working_dir):
@@ -582,6 +561,9 @@ class Job(BaseJob):
         base_file_name = f"{input_type}_{base_file_name}"
 
         if upload:
+            # The save below uploads the whole work dir, so it must not hold
+            # anything staler than the remote prefix.
+            self.working_dir = job_persistence.work_dir(self.job_id)
             new_filename = f"{self.original_file_prefix}_{base_file_name}"
         else:
             new_filename = base_file_name
@@ -622,7 +604,9 @@ class Job(BaseJob):
     def _get_column_data(self, name):
         if name == "logs":
             try:
-                with open(self._log_file_path, "r") as f_handle:
+                with open(
+                    os.path.join(self.working_dir, LOG_FILE_NAME), "r"
+                ) as f_handle:
                     content = f_handle.read()
                     # PostgreSQL text fields cannot contain NUL (0x00) bytes
                     return content.replace("\x00", "")
@@ -670,9 +654,6 @@ class Job(BaseJob):
         data as a new entry in the database.
         """
         log.debug(f"Save job {self.job_id}")
-        # Touching working_dir makes the local dir current before it is uploaded, so
-        # a job loaded for its row only never uploads a stale copy over a newer file.
-        self.working_dir  # noqa: B018 - the access is the point
         column_names = JobTable.__table__.columns.keys()
         data_to_insert = {name: self._get_column_data(name) for name in column_names}
         for key, value in data_to_insert.items():
@@ -705,6 +686,12 @@ class Job(BaseJob):
 
         if PostgresManager.set_submitted(self.job_id):
             self.submitted = True
+            # Save BEFORE enqueuing: pull first so the dir exists and holds nothing
+            # stale, then upload and write the submitted row. Nothing is synced
+            # after the enqueue, because a worker on a shared disk may already be
+            # writing files; only columns are written then.
+            self.working_dir = job_persistence.work_dir(self.job_id)
+            self.save()
             try:
                 celery_task_id, failed = background_job_manager.submit_computation_job(
                     self
@@ -749,12 +736,17 @@ class Job(BaseJob):
 
         if failed:
             self.celery_task_id = celery_task_id
-        if failed:
             self.status = "FAILED"
+            # The failure line went to the local log file after the save above.
+            columns = {
+                "status": self.status,
+                "logs": self._get_column_data("logs"),
+            }
         else:
             self.status = "RUNNING"
+            columns = {"status": self.status}
 
-        self.save()
+        job_persistence.update_columns(self.job_id, columns)
 
     def time_to_live(self):
         """Return the number of days after which this job will be deleted.
@@ -791,6 +783,7 @@ class Job(BaseJob):
     def spawn(self) -> Self:
         """Clone the job."""
         log.info(f"Spawn job {self.job_id}.")
+        self.working_dir = job_persistence.work_dir(self.job_id)
         new_model = deepcopy(self.model)
         i = 1
         while True:
@@ -806,6 +799,7 @@ class Job(BaseJob):
 
     def clean_work_dir(self):
         """Clean the working directory."""
+        self.working_dir = job_persistence.work_dir(self.job_id)
         log.info(f"Clean work dir {self.working_dir}")
 
         for file in os.listdir(self.working_dir):

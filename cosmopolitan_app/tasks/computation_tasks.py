@@ -7,6 +7,7 @@ from logging.config import dictConfig
 from smtplib import SMTPAuthenticationError
 
 from celery import Task
+from cosmo_ecosystem import job_persistence
 from cosmo_ecosystem.logger import (
     get_logger_config_computation,
     get_logger_config_worker,
@@ -59,9 +60,9 @@ def start_computation_task(self, job_id):
     log.info(f"Starting computation for job {job_id}")
     try:
         job = Job(job_id=job_id)
-        # Loading reads the row only; the first use of working_dir pulls the job's
-        # files from storage, so the worker computes on the current inputs.
-        work_dir = job.working_dir
+        # Loading reads the row only; the explicit pull makes the worker compute
+        # on the current inputs.
+        work_dir = job_persistence.work_dir(job_id)
         log.debug("Job loaded")
 
         dictConfig(get_logger_config_worker(EXCLUDED_LOG_PACKAGES))
