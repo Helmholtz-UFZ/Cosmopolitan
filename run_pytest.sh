@@ -18,9 +18,7 @@ cleaning_up() {
         mv .env.bak .env
     fi
 
-    # Stop and remove only the containers of this test project (the _test names)
-    docker stop "$POSTGRES_CONTAINER_NAME" "$OBJECT_STORAGE_CONTAINER_NAME" "$REDIS_CONTAINER_NAME" >/dev/null 2>&1 || true
-    docker rm "$POSTGRES_CONTAINER_NAME" "$OBJECT_STORAGE_CONTAINER_NAME" "$REDIS_CONTAINER_NAME" >/dev/null 2>&1 || true
+    # COMPOSE_PROJECT_NAME scopes this to the test project; the dev stack is untouched
     docker compose down >/dev/null 2>&1 || true
 }
 
