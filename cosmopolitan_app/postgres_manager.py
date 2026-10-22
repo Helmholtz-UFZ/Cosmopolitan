@@ -26,7 +26,7 @@ from sqlalchemy.sql import func
 # One Base per process: the framework's registry is the documented export point,
 # and LogTable is the framework's table rather than a copy of it. See
 # ../cosmo-ecosystem/docs/conventions/database_schema.md.
-from cosmo_ecosystem.db_manager import Base, DbManager, LogTable
+from cosmo_ecosystem.db_manager import Base, DbManager, JobColumns, LogTable
 
 from cosmopolitan_app.constants.general import CONSECUTIVE_FAILURES_BEFORE_MAIL
 from cosmopolitan_app.error_handling import JobNotFound
@@ -1032,20 +1032,18 @@ class TaskLockTable(Base):
     is_locked = Column("is_locked", Boolean)
 
 
-class JobTable(Base):
-    """Represents the 'jobs' table in the database."""
+class JobTable(JobColumns, Base):
+    """Represents the 'jobs' table in the database.
+
+    The six columns every app's job table has come from the framework's
+    ``JobColumns`` mixin; only this app's own columns are declared here.
+    """
 
     __tablename__ = "jobs"
 
-    job_id = Column(String, primary_key=True)
-    start_date = Column("start_date", Date)
     input_data = Column("input_data", JSON)
-    submitted = Column("submitted", Boolean)
     prepared_input = Column("prepared_input", Boolean)
-    notified_end = Column("notified_end", Boolean)
     logs = Column("logs", String)
-    status = Column("status", String)
-    version = Column("version", String)
 
 
 class UpdateTimesCRNS(Base):
