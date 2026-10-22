@@ -177,6 +177,15 @@ def get_rdbu_colorscale(n_colors=10):
     ]
 
 
+# Map types with one GeoTIFF per date; a date may lack any of them
+DATE_BOUND_MAP_TYPES = (
+    "prediction",
+    "measurements",
+    "prediction_distance",
+    "dispersion_coefficient",
+)
+
+
 def get_available_dates(job_id):
     """Get available dates for the job based on actual files and model date range.
 
@@ -528,11 +537,13 @@ def load_stats_data(job_id):
 
     # Load correlation matrix
     corr_file = os.path.join(job_work_dir, "correlation_matrix.csv")
-    corr_df = pd.read_csv(corr_file)
+    # time_step stays text: dates like 20220327 would parse as int64 and never
+    # equal the selected date string.
+    corr_df = pd.read_csv(corr_file, dtype={"time_step": str})
 
     # Load predictor importance
     importance_file = os.path.join(job_work_dir, "predictor_importance.csv")
-    timeseries_df = pd.read_csv(importance_file)
+    timeseries_df = pd.read_csv(importance_file, dtype={"time_step": str})
 
     return {
         "correlation": corr_df.to_dict("records"),
@@ -549,7 +560,7 @@ def create_correlation_heatmap(corr_data, timestep):
     if any(corr_df["time_step"] == CONSTANT_TIME_STEP):
         timestep_df = corr_df[corr_df["time_step"] == CONSTANT_TIME_STEP]
     else:
-        # timestep is a string (date like "2025-11-19")
+        # timestep is a string (date like "2025-11-19" or "20220327")
         timestep_df = corr_df[corr_df["time_step"] == timestep]
 
     # Set feature as index and drop time_step column
@@ -571,7 +582,7 @@ def create_correlation_heatmap(corr_data, timestep):
 def create_importance_by_timestep(timeseries_data, timestep):
     """Create bar chart for single timestep importance."""
     timeseries_df = pd.DataFrame(timeseries_data)
-    # timestep is a string (date like "2025-11-19")
+    # timestep is a string (date like "2025-11-19" or "20220327")
     timestep_df = timeseries_df[timeseries_df["time_step"] == timestep][
         ["predictor", "importance", "5th_percentile", "95th_percentile"]
     ]
@@ -653,6 +664,18 @@ def create_importance_all_timesteps(timeseries_data):
     fig.update_xaxes(title_text="Time Steps", row=len(predictors), col=1)
 
     return fig
+
+
+def has_map_for_date(job_id, map_type, date):
+    """Return whether the job has a GeoTIFF for this map type on this date.
+
+    Only the date-bound map types can lack one; a predictor falls back to its
+    constant file (see ``_get_tile_params``).
+    """
+    if map_type not in DATE_BOUND_MAP_TYPES:
+        return True
+    job_work_dir = job_persistence.local_dir(job_id)
+    return os.path.exists(os.path.join(job_work_dir, f"{map_type}_{date}.tif"))
 
 
 def _get_tile_params(job_id, map_type, date, color_bar_info):
@@ -994,6 +1017,17 @@ def update_map(
     log.info(
         f"Updating map for {job_id}, type {map_type}, date {selected_date} (page {page_index}), measurements: {show_measurements}, opacity: {opacity}",  # noqa
     )
+
+    # A date can lack a map type (e.g. no prediction distance for the first date)
+    if not has_map_for_date(job_id, map_type, selected_date):
+        date_text = f"{selected_date} (no {map_type.replace('_', ' ')} map)"
+        if show_measurements:
+            # Overlay and its own colorbar: there is no base map colorbar to keep
+            measurements_layers = create_geojson_layer(
+                job_id, "measurements-geojson", selected_date
+            )
+            return default_map_layers + measurements_layers, date_text, False
+        return default_map_layers, date_text, False
 
     # Create base map layers (returns [tile_layer, colorbar])
     new_map_layers = create_tile_layer(
