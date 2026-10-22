@@ -46,8 +46,9 @@ from soil_moisture_prediction.plot_functions import (
     SOIL_MOISTURE_VMIN,
 )
 
+from cosmo_ecosystem import job_persistence
+
 from cosmopolitan_app import map_utils
-from cosmopolitan_app.config import JOB_WORK_DIR_TEMPLATE
 from cosmopolitan_app.constants import (
     COLOR_BAR_INFO_STORE_RESULTS_ID,
     CORRELATION_FIGURE_GRAPH_RESULTS_ID,
@@ -178,7 +179,7 @@ def get_rdbu_colorscale(n_colors=10):
 
 def get_available_dates(job_id):
     """Get available dates for the job based on actual files and model date range."""
-    job_work_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=job_id)
+    job_work_dir = job_persistence.work_dir(job_id)
     dates = []
 
     for file in os.listdir(job_work_dir):
@@ -191,7 +192,7 @@ def get_available_dates(job_id):
 
 def get_available_map_types(job_id):
     """Get available map types based on job model configuration."""
-    job_work_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=job_id)
+    job_work_dir = job_persistence.work_dir(job_id)
     map_types = [
         {
             "value": "prediction",
@@ -511,7 +512,7 @@ def create_colorbar_legend(min, max, unit, colorscale, tick_values):
 
 def load_color_bar_info(job_id):
     """Load predictor scale from metadata file."""
-    job_work_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=job_id)
+    job_work_dir = job_persistence.work_dir(job_id)
     scale_file = os.path.join(job_work_dir, SCALE_FILE_NAME)
 
     with open(scale_file, "r") as f:
@@ -520,7 +521,7 @@ def load_color_bar_info(job_id):
 
 def load_stats_data(job_id):
     """Load statistics data from CSV files."""
-    job_work_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=job_id)
+    job_work_dir = job_persistence.work_dir(job_id)
 
     # Load correlation matrix
     corr_file = os.path.join(job_work_dir, "correlation_matrix.csv")
@@ -668,7 +669,7 @@ def _get_tile_params(job_id, map_type, date, color_bar_info):
         tiff_filename = f"dispersion_coefficient_{date}.tif"
     else:
         map_is_predictor = True
-        job_work_dir = JOB_WORK_DIR_TEMPLATE.format(job_id=job_id)
+        job_work_dir = job_persistence.work_dir(job_id)
         time_dependent_file = f"predictor_{map_type}_{date}.tif"
         time_independent_file = f"predictor_{map_type}_constant.tif"
 

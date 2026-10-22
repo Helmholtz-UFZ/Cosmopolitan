@@ -59,6 +59,9 @@ def start_computation_task(self, job_id):
     log.info(f"Starting computation for job {job_id}")
     try:
         job = Job(job_id=job_id)
+        # Loading reads the row only; the first use of working_dir pulls the job's
+        # files from storage, so the worker computes on the current inputs.
+        work_dir = job.working_dir
         log.debug("Job loaded")
 
         dictConfig(get_logger_config_worker(EXCLUDED_LOG_PACKAGES))
@@ -70,11 +73,11 @@ def start_computation_task(self, job_id):
 
         dictConfig(
             get_logger_config_computation(
-                os.path.join(job.working_dir, LOG_FILE_NAME), EXCLUDED_LOG_PACKAGES
+                os.path.join(work_dir, LOG_FILE_NAME), EXCLUDED_LOG_PACKAGES
             )
         )
 
-        rfo_model = smp_main(verbosity="debug", work_dir=job.working_dir)
+        rfo_model = smp_main(verbosity="debug", work_dir=work_dir)
         if rfo_model is None:
             job.status = "FAILED"
         else:
