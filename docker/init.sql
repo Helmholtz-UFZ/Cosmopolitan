@@ -25,6 +25,8 @@ CREATE TABLE jobs (
     email VARCHAR,
     prepared_input BOOL,
     notified_end BOOL,
+    -- Legacy: no longer read or written since the job log moved to job_logs.
+    -- Dropped after the deploy (job-run-lifecycle ticket 08).
     logs VARCHAR,
     status VARCHAR,
     version VARCHAR,
@@ -44,6 +46,22 @@ CREATE TABLE IF NOT EXISTS logs (
 
 --Create indexes to improve query performance
 CREATE INDEX IF NOT EXISTS logs_timestamp_idx ON logs (timestamp);
+
+-- Job log: the log records of a job's latest job run, one row per record
+-- (cosmo_ecosystem.job_log; matches the framework ORM JobLogTable). Separate
+-- from logs, so the log purge does not cut a job log short.
+DROP TABLE IF EXISTS job_logs;
+
+CREATE TABLE job_logs (
+    id BIGSERIAL PRIMARY KEY,
+    job_id VARCHAR NOT NULL,
+    timestamp TIMESTAMP NOT NULL,
+    level VARCHAR(10) NOT NULL,
+    module VARCHAR NOT NULL,
+    message TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS job_logs_job_id_idx ON job_logs (job_id);
 
 -- Table to store update times and success status
 DROP TABLE IF EXISTS update_times_crns;

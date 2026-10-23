@@ -952,7 +952,9 @@ class JobTable(JobColumns, Base):
 
     input_data = Column("input_data", JSON)
     prepared_input = Column("prepared_input", Boolean)
-    logs = Column("logs", String)
+    # The legacy ``logs`` column is not mapped: the job log lives in job_logs
+    # (cosmo_ecosystem.job_log). The column stays in the database until ticket 08
+    # of job-run-lifecycle drops it after the deploy.
 
 
 class UpdateTimesCRNS(Base):

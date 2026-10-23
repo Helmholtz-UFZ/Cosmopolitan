@@ -178,6 +178,7 @@ def load_submission_content(job_id, header_class_name):
     """Load the main submission content triggered by job-id-store."""
     log.info(f"Loading submission content for job {job_id}")
     job = Job(job_id)
+    job.reload_logs()
 
     # Create the header with job information
     header_class_name = swap_classes(job.status_color(), header_class_name)

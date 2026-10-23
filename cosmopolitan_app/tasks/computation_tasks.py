@@ -1,117 +1,66 @@
-"""Computation tasks for soil moisture prediction jobs."""
+"""Computation tasks for soil moisture prediction jobs.
+
+The prediction runs through the framework's job run (``cosmo_ecosystem.job_run.run``),
+which captures the job log, fetches and uploads the work dir and writes the final
+status to the job row. The job row is the only source of the job's status
+(cosmo-ecosystem ADR 0002): a failed run ends as FAILED in the row and as a
+successful Celery task.
+"""
 
 import logging
-import os
-import traceback
-from logging.config import dictConfig
-from smtplib import SMTPAuthenticationError
 
-from celery import Task
-from cosmo_ecosystem import job_persistence
-from cosmo_ecosystem.logger import (
-    get_logger_config_computation,
-    get_logger_config_worker,
-)
+from cosmo_ecosystem import job_log, job_run
 from soil_moisture_prediction.smp_cli import main as smp_main
 
 from cosmopolitan_app.config import MAINTAINER_EMAIL
-from cosmopolitan_app.constants import LOG_FILE_NAME
 from cosmopolitan_app.constants.general import EXCLUDED_LOG_PACKAGES
-from cosmopolitan_app.job import Job
 from cosmopolitan_app.email_service import (
     send_finished_mail,
     send_mail,
     send_submission_mail,
 )
+from cosmopolitan_app.error_handling import PredictionAborted
+from cosmopolitan_app.job import Job
 
 log = logging.getLogger(__name__)
 
 
-def flush_all_handlers():
-    """Flush all logging handlers."""
-    logger = logging.getLogger()
-    for handler in logger.handlers:
-        try:
-            handler.flush()
-        except (
-            Exception
-        ):  # flush can fail on any handler (file, DB, network); must not disrupt caller
-            pass
-
-
-class ComputationTask(Task):
-    """Base class for computation tasks with custom error handling."""
-
-    def on_failure(self, exc, task_id, args, kwargs, einfo):
-        """Handle task failure."""
-        log.error(f"Task {task_id} failed: {exc}")
-        log.error(f"Traceback: {einfo}")
-
-
 def start_computation_task(self, job_id):
-    """Celery task version of start_computation function.
+    """Celery task: run the soil moisture prediction of a job.
+
+    Sends the submission mail, runs the prediction as a job run, then sends the
+    finished mail for either outcome, and the maintainer mail for a failed run,
+    from the job's row as the run left it.
 
     Args:
         job_id: ID of the job to process
-
-    This replaces the original start_computation function from job.py
-    with a Celery-compatible version.
     """
     log.info(f"Starting computation for job {job_id}")
-    try:
-        job = Job(job_id=job_id)
-        # Loading reads the row only; the explicit pull makes the worker compute
-        # on the current inputs.
-        work_dir = job_persistence.work_dir(job_id)
-        log.debug("Job loaded")
+    send_submission_mail(Job(job_id=job_id))
 
-        dictConfig(get_logger_config_worker(EXCLUDED_LOG_PACKAGES))
+    status = job_run.run(job_id, predict, EXCLUDED_LOG_PACKAGES)
+    log.info(f"Computation of job {job_id} finished with status {status}")
 
-        try:
-            send_submission_mail(job)
-        except SMTPAuthenticationError:
-            log.error("Failed to send submission mail.")
-
-        dictConfig(
-            get_logger_config_computation(
-                os.path.join(work_dir, LOG_FILE_NAME), EXCLUDED_LOG_PACKAGES
-            )
+    send_finished_mail(Job(job_id=job_id))
+    if status == "FAILED":
+        send_mail(
+            MAINTAINER_EMAIL,
+            "Computation task failed",
+            f"The job run of job {job_id} failed. Its job log:\n\n"
+            f"{job_log.read(job_id)}",
         )
 
-        rfo_model = smp_main(verbosity="debug", work_dir=work_dir)
-        if rfo_model is None:
-            job.status = "FAILED"
-        else:
-            job.status = "COMPLETED"
 
-        flush_all_handlers()
-        dictConfig(get_logger_config_worker(EXCLUDED_LOG_PACKAGES))
-        log.info("Computation finished.")
+def predict(job_id, work_dir):
+    """Run the soil moisture prediction on the job's work dir.
 
-        job.save()
-        try:
-            send_finished_mail(job)
-        except SMTPAuthenticationError:
-            log.error("Failed to send finished mail.")
-    except Exception as e:  # catch-all: must log, email, and mark job FAILED  # noqa
-        # Log error to log file
-        log.error("An error occurred")
-        log.error(traceback.format_exc())
-        # Ensure all log buffers are flushed before switching config
-        flush_all_handlers()
-        # Log error to web logs
-        dictConfig(get_logger_config_worker(EXCLUDED_LOG_PACKAGES))
-        email_subject = "Computation task failed"
-        email_body = f"""
-        Error: {str(e)}\n\n
-        Traceback info: {traceback.format_exc()}\n\n
-        """
-        try:
-            send_mail(MAINTAINER_EMAIL, email_subject, email_body)
-        except Exception:  # noqa - must not let email failure crash task error path
-            log.error(
-                "Failed to send task failure email",
-                exc_info=True,
-            )
-        job.status = "FAILED"
-        job.save()
+    The ``compute`` of the job run: it signals failure only by raising and writes
+    no status; the run uploads the work dir and writes the status.
+
+    Raises:
+        PredictionAborted: If the prediction returns no model.
+    """
+    rfo_model = smp_main(verbosity="debug", work_dir=work_dir)
+    if rfo_model is None:
+        raise PredictionAborted(job_id)
+    log.info("Computation finished.")
