@@ -40,7 +40,6 @@ from cosmopolitan_app.error_handling import (
     NoMeasurementPointsError,
 )
 from cosmo_ecosystem import job_log, job_persistence
-from cosmo_ecosystem.job_log import JobLogHandler
 from cosmo_ecosystem.base_job import BaseJob
 from cosmo_ecosystem.job_retention import days_to_live
 from cosmopolitan_app.postgres_manager import JobTable, PostgresManager
@@ -660,20 +659,6 @@ class Job(BaseJob):
         """
         job_persistence.delete_job(self.job_id)
 
-    def _log_to_job_log(self, level, message):
-        """Write one record to the job's job log, for errors before a job run starts.
-
-        Handed to the handler directly, not through a logger: another thread of
-        this web process logging meanwhile must not land in this job log.
-        """
-        handler = JobLogHandler(self.job_id)
-        try:
-            handler.handle(
-                log.makeRecord(log.name, level, __file__, 0, message, (), None)
-            )
-        finally:
-            handler.close()
-
     def submit(self):
         """Submit job to Celery queue for background processing."""
         log.info(f"Submit job {self.job_id}.")
@@ -714,9 +699,6 @@ class Job(BaseJob):
                     f"Job {self.job_id} failed to start.\n{message}",
                 )
 
-                # The user sees the job log, not the worker log.
-                self._log_to_job_log(logging.ERROR, "Cannot start job")
-
                 email_subject = f"Failed to start job {self.job_id}"
                 email_body = f"""
                 Error: {str(e)}\n\n
@@ -733,6 +715,11 @@ class Job(BaseJob):
             return
 
         if failed:
+            # The user sees the job log, not the worker log; an enqueue reporting
+            # failure without raising says why nowhere else.
+            message = f"Cannot start job {self.job_id}."
+            log.error(message)
+            job_log.append(self.job_id, message, level=logging.ERROR)
             self.celery_task_id = celery_task_id
             self.status = "FAILED"
             job_persistence.update_columns(self.job_id, {"status": self.status})

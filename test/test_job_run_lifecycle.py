@@ -7,6 +7,7 @@ prediction itself (``smp_main``) is replaced, and only where a test needs a
 prediction outcome; mails are observed through the test-mode mail log.
 """
 
+import json
 import logging
 import os
 
@@ -34,9 +35,10 @@ MAIL_LOG_PREFIX = "Test mode — email not sent."
 
 
 def _delete_everywhere(job_id):
-    """Delete the job if it exists; Job.delete leaves nothing behind."""
+    """Delete the job if it exists, job log included, even if its row cannot load."""
     if PostgresManager.check_existence(job_id):
-        Job(job_id).delete()
+        job_persistence.delete_job(job_id)
+    job_log.clear(job_id)
 
 
 @pytest.fixture
@@ -160,6 +162,70 @@ def test_the_users_mail_on_a_failed_run_says_it_failed(
     assert "finished" not in mail
 
 
+def test_a_job_that_cannot_be_loaded_ends_failed_with_the_reason_in_the_job_log(
+    submitted_job_id,
+):
+    """The submission mail loads the job too: its failure must not leave RUNNING."""
+    job_persistence.update_columns(submitted_job_id, {"input_data": "not json"})
+
+    # The finished mail after the run needs the job as well; that failure is the
+    # task's (worker log), the row and the job log already tell the user.
+    with pytest.raises(json.JSONDecodeError):
+        computation_tasks.start_computation_task(None, submitted_job_id)
+
+    assert DbManager.get_job_columns(submitted_job_id)["status"] == "FAILED"
+    assert "JSONDecodeError" in job_log.read(submitted_job_id)
+
+
+def _prediction_deleting_the_job(verbosity, work_dir):
+    """Stand in for smp_main while the user deletes the job."""
+    job_persistence.delete_job(JOB_ID)
+    return "model"
+
+
+def test_a_job_deleted_during_its_run_ends_the_task_without_mails(
+    submitted_job_id, monkeypatch, caplog
+):
+    """ADR 0002: the task does not fail for its job's outcome; a deleted job has none."""
+    caplog.set_level(logging.INFO)
+    monkeypatch.setattr(computation_tasks, "smp_main", _prediction_deleting_the_job)
+
+    computation_tasks.start_computation_task(None, submitted_job_id)
+
+    mails = _mails(caplog)
+    assert [m for m in mails if "submitted" not in m] == []
+    assert any(
+        record.levelno == logging.INFO
+        and submitted_job_id in record.getMessage()
+        and "deleted" in record.getMessage()
+        for record in caplog.records
+    )
+
+
+def _prediction_logging_then_raising(verbosity, work_dir):
+    """Stand in for smp_main: a long DEBUG log, then a crash."""
+    logger = logging.getLogger("test.prediction")
+    for number in range(500):
+        logger.debug(f"record {number:04d}")
+    raise ValueError("covariate raster missing")
+
+
+def test_the_maintainer_mail_holds_only_the_tail_of_the_job_log(
+    submitted_job_id, monkeypatch, caplog
+):
+    """A DEBUG job log can run to megabytes; the end holds the error."""
+    caplog.set_level(logging.INFO)
+    monkeypatch.setattr(computation_tasks, "smp_main", _prediction_logging_then_raising)
+
+    computation_tasks.start_computation_task(None, submitted_job_id)
+
+    (mail,) = [m for m in _mails(caplog) if f"To: {MAINTAINER_EMAIL}" in m]
+    assert "covariate raster missing" in mail
+    assert "record 0499" in mail
+    assert "record 0000" not in mail
+    assert "truncated" in mail
+
+
 def test_a_successful_run_stores_its_outputs_and_mails_after_the_run(
     submitted_job_id, monkeypatch, caplog
 ):
@@ -226,4 +292,20 @@ def test_a_failed_enqueue_ends_failed_with_the_reason_in_the_job_log(
     Job(job_id).submit()
 
     assert DbManager.get_job_columns(job_id)["status"] == "FAILED"
-    assert "Cannot start job" in job_log.read(job_id)
+    assert f"Cannot start job {job_id}." in job_log.read(job_id)
+
+
+def test_an_enqueue_reporting_failure_ends_failed_with_the_reason_in_the_job_log(
+    job_id, monkeypatch
+):
+    """The enqueue can also report failure without raising."""
+
+    def enqueue(submitted_job):
+        return None, True
+
+    monkeypatch.setattr(background_job_manager, "submit_computation_job", enqueue)
+
+    Job(job_id).submit()
+
+    assert DbManager.get_job_columns(job_id)["status"] == "FAILED"
+    assert f"Cannot start job {job_id}." in job_log.read(job_id)
