@@ -96,7 +96,53 @@ def test_a_prediction_without_a_model_ends_failed_with_the_reason_in_the_job_log
     assert "returned no model" in job_log.read(submitted_job_id)
 
 
-def test_a_failed_run_mails_user_and_maintainer_after_the_run(
+def _prediction_raising(error):
+    """Return a stand-in for smp_main that raises error."""
+
+    def prediction(verbosity, work_dir):
+        raise error
+
+    return prediction
+
+
+def test_a_crashed_run_mails_user_and_maintainer_after_the_run(
+    submitted_job_id, monkeypatch, caplog
+):
+    caplog.set_level(logging.INFO)
+    monkeypatch.setattr(
+        computation_tasks,
+        "smp_main",
+        _prediction_raising(ValueError("covariate raster missing")),
+    )
+
+    computation_tasks.start_computation_task(None, submitted_job_id)
+
+    messages = _messages(caplog)
+    run_end = _index_of(messages, f"Job run of job {submitted_job_id} failed")
+    finished = _index_of(messages, f'Subject: Job "{submitted_job_id}" failed')
+    maintainer = _index_of(messages, f"To: {MAINTAINER_EMAIL}")
+    assert run_end < finished
+    assert run_end < maintainer
+    assert "covariate raster missing" in messages[maintainer]
+    assert Job(submitted_job_id).notified_end is True
+
+
+def test_an_aborted_prediction_mails_only_the_user(
+    submitted_job_id, monkeypatch, caplog
+):
+    """smp_main returning no model usually means bad input: not the maintainer's."""
+    caplog.set_level(logging.INFO)
+    monkeypatch.setattr(computation_tasks, "smp_main", _prediction_returning(None))
+
+    computation_tasks.start_computation_task(None, submitted_job_id)
+
+    mails = _mails(caplog)
+    assert [m for m in mails if f"To: {MAINTAINER_EMAIL}" in m] == []
+    assert len([m for m in mails if f"To: {USER_EMAIL}" in m]) == 2
+    assert Job(submitted_job_id).notified_end is True
+
+
+def test_the_users_mail_on_a_failed_run_says_it_failed(
     submitted_job_id, monkeypatch, caplog
 ):
     caplog.set_level(logging.INFO)
@@ -104,15 +150,14 @@ def test_a_failed_run_mails_user_and_maintainer_after_the_run(
 
     computation_tasks.start_computation_task(None, submitted_job_id)
 
-    messages = _messages(caplog)
-    run_end = _index_of(messages, f"Job run of job {submitted_job_id} failed")
-    finished = _index_of(messages, f'Subject: Job "{submitted_job_id}" finished')
-    maintainer = _index_of(messages, f"To: {MAINTAINER_EMAIL}")
-    assert run_end < finished
-    assert run_end < maintainer
-    assert "The exit status was FAILED" in messages[finished]
-    assert "returned no model" in messages[maintainer]
-    assert Job(submitted_job_id).notified_end is True
+    (mail,) = [
+        m
+        for m in _mails(caplog)
+        if f'Subject: Job "{submitted_job_id}" ' in m and "submitted" not in m
+    ]
+    assert f'Subject: Job "{submitted_job_id}" failed' in mail
+    assert f"The job {submitted_job_id} failed." in mail
+    assert "finished" not in mail
 
 
 def test_a_successful_run_stores_its_outputs_and_mails_after_the_run(

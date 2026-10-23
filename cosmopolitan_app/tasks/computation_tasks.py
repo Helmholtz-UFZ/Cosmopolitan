@@ -29,8 +29,8 @@ def start_computation_task(self, job_id):
     """Celery task: run the soil moisture prediction of a job.
 
     Sends the submission mail, runs the prediction as a job run, then sends the
-    finished mail for either outcome, and the maintainer mail for a failed run,
-    from the job's row as the run left it.
+    finished mail for either outcome, from the job's row as the run left it, and
+    the maintainer mail for a failed run that was not an aborted prediction.
 
     Args:
         job_id: ID of the job to process
@@ -38,11 +38,24 @@ def start_computation_task(self, job_id):
     log.info(f"Starting computation for job {job_id}")
     send_submission_mail(Job(job_id=job_id))
 
-    status = job_run.run(job_id, predict, EXCLUDED_LOG_PACKAGES)
+    # run swallows the compute's exception and returns only the status, so the
+    # compute records an abort in this flag; an abort (smp_main returned no
+    # model, usually bad input) is the user's to fix and mails no maintainer.
+    aborted = False
+
+    def compute(job_id, work_dir):
+        nonlocal aborted
+        try:
+            predict(job_id, work_dir)
+        except PredictionAborted:
+            aborted = True
+            raise
+
+    status = job_run.run(job_id, compute, EXCLUDED_LOG_PACKAGES)
     log.info(f"Computation of job {job_id} finished with status {status}")
 
     send_finished_mail(Job(job_id=job_id))
-    if status == "FAILED":
+    if status == "FAILED" and not aborted:
         send_mail(
             MAINTAINER_EMAIL,
             "Computation task failed",
