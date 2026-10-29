@@ -49,7 +49,6 @@ def _seed(job_id, *, days_old=0):
             "input_data": {},
             "submitted": True,
             "notified_end": True,
-            "logs": "",
             "status": "COMPLETED",
             "version": "0.0.0",
         }

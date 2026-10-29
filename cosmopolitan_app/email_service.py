@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 
 submission_url = "{external_url}/submission/{job_id}"
 
-job_finished_template = """The job {job_id} finished.
+job_finished_template = """The job {job_id} {outcome}.
 The exit status was {status}.
 To see further results visit:
 {url}"""
@@ -67,7 +67,7 @@ def send_mail(recipient, subject, content):
 
 
 def send_finished_mail(job):
-    """Send a notification email to the user that the job finished."""
+    """Send a notification email to the user that the job finished or failed."""
     if job.model.email == "" or job.notified_end:
         return
     log.info("Send mail about finished job.")
@@ -80,13 +80,15 @@ def send_finished_mail(job):
         external_url = WEB_OUTSIDE_URL
 
     url = submission_url.format(job_id=job.job_id, external_url=external_url)
+    outcome = "failed" if job.status == "FAILED" else "finished"
     content = job_finished_template.format(
         job_id=job.job_id,
+        outcome=outcome,
         status=job.status,
         url=url,
     )
 
-    send_mail(job.model.email, f'Job "{job.job_id}" finished', content)
+    send_mail(job.model.email, f'Job "{job.job_id}" {outcome}', content)
     job.notified_end = True
     job.save_attributes(["notified_end"])
 

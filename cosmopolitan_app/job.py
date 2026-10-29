@@ -13,7 +13,7 @@ import shutil
 import time
 import traceback
 from copy import deepcopy
-from datetime import date, datetime
+from datetime import date
 from typing import Literal, Self
 
 import coolname
@@ -39,7 +39,7 @@ from cosmopolitan_app.error_handling import (
     MapTileDownloadError,
     NoMeasurementPointsError,
 )
-from cosmo_ecosystem import job_persistence
+from cosmo_ecosystem import job_log, job_persistence
 from cosmo_ecosystem.base_job import BaseJob
 from cosmo_ecosystem.job_retention import days_to_live
 from cosmopolitan_app.postgres_manager import JobTable, PostgresManager
@@ -196,6 +196,7 @@ class Job(BaseJob):
     email: str
     notified_end: bool
     prepared_input: bool
+    # The job log of the latest run, as reload_logs last read it; not a column.
     logs: str
     status: Literal["PENDING", "RUNNING", "COMPLETED", "FAILED"]
     version: str
@@ -259,6 +260,7 @@ class Job(BaseJob):
 
         log.debug(f"Job {self.job_id} loaded from database")
 
+        self.logs = ""
         self.working_dir = job_persistence.local_dir(self.job_id)
 
     def _init_from_model(self, model):
@@ -602,22 +604,6 @@ class Job(BaseJob):
         return base_file_name, file_information
 
     def _get_column_data(self, name):
-        if name == "logs":
-            try:
-                with open(
-                    os.path.join(self.working_dir, LOG_FILE_NAME), "r"
-                ) as f_handle:
-                    content = f_handle.read()
-                    # PostgreSQL text fields cannot contain NUL (0x00) bytes
-                    return content.replace("\x00", "")
-            # Catch error log file can be deleted by other process (change input from
-            # submission page)
-            except FileNotFoundError:
-                # The worker may run on another disk: its log then only exists
-                # as the row's value, which this job loaded. Returning "" here
-                # would let a web-side save overwrite that value.
-                return self.logs
-
         if name == "input_data":
             return self.model.model_dump_json(
                 indent=4,
@@ -629,8 +615,8 @@ class Job(BaseJob):
         return getattr(self, name)
 
     def reload_logs(self):
-        """Reload the logs from the local log file, else keep the row's value."""
-        self.logs = self._get_column_data("logs")
+        """Read the job log into ``logs``; any pod sees a running job's records."""
+        self.logs = job_log.read(self.job_id)
 
     def save_attributes(self, attribute_list):
         """Save specicif job information to the database.
@@ -673,26 +659,20 @@ class Job(BaseJob):
         """
         job_persistence.delete_job(self.job_id)
 
-    def _log_to_file(self, message):
-        """Write message directly to job log file.
-
-        Used for logging errors that occur before background worker starts.
-        """
-        log_file = os.path.join(self.working_dir, LOG_FILE_NAME)
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with open(log_file, "a") as f:
-            f.write(f"[{timestamp}] {message}\n")
-
     def submit(self):
         """Submit job to Celery queue for background processing."""
         log.info(f"Submit job {self.job_id}.")
 
         if PostgresManager.set_submitted(self.job_id):
             self.submitted = True
-            # Save BEFORE enqueuing: pull first so the dir exists and holds nothing
-            # stale, then upload and write the submitted row. Nothing is synced
-            # after the enqueue, because a worker on a shared disk may already be
-            # writing files; only columns are written then.
+            # Save BEFORE enqueuing, RUNNING included: pull first so the dir exists
+            # and holds nothing stale, then upload and write the submitted row. A
+            # fast worker may write COMPLETED or FAILED before the enqueue returns,
+            # and a RUNNING written after it would overwrite that (ADR 0002 of
+            # cosmo-ecosystem). Nothing is synced after the enqueue, because a
+            # worker on a shared disk may already be writing files; only a
+            # failure is written then.
+            self.status = "RUNNING"
             self.working_dir = job_persistence.work_dir(self.job_id)
             self.save()
             try:
@@ -719,9 +699,6 @@ class Job(BaseJob):
                     f"Job {self.job_id} failed to start.\n{message}",
                 )
 
-                # Write generic error message to job log file
-                self._log_to_file("ERROR: Cannot start job")
-
                 email_subject = f"Failed to start job {self.job_id}"
                 email_body = f"""
                 Error: {str(e)}\n\n
@@ -738,18 +715,14 @@ class Job(BaseJob):
             return
 
         if failed:
+            # The user sees the job log, not the worker log; an enqueue reporting
+            # failure without raising says why nowhere else.
+            message = f"Cannot start job {self.job_id}."
+            log.error(message)
+            job_log.append(self.job_id, message, level=logging.ERROR)
             self.celery_task_id = celery_task_id
             self.status = "FAILED"
-            # The failure line went to the local log file after the save above.
-            columns = {
-                "status": self.status,
-                "logs": self._get_column_data("logs"),
-            }
-        else:
-            self.status = "RUNNING"
-            columns = {"status": self.status}
-
-        job_persistence.update_columns(self.job_id, columns)
+            job_persistence.update_columns(self.job_id, {"status": self.status})
 
     def time_to_live(self):
         """Return the number of days after which this job will be deleted.
@@ -817,7 +790,11 @@ class Job(BaseJob):
         self.save()
 
     def delete_logs(self):
-        """Delete the logs."""
+        """Clear the job log."""
         log.info(f"Delete logs of job {self.job_id}")
-        self.delete_item(LOG_FILE_NAME)
+        job_log.clear(self.job_id)
         self.logs = ""
+        # A work dir from before the job log moved into the database may still
+        # hold the old log file. Removing it stays for one release, and with it
+        # LOG_FILE_NAME, as in the framework Job.
+        self.delete_item(LOG_FILE_NAME)

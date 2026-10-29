@@ -17,7 +17,6 @@ def test_postgres_manager():
         "input_data": {"param1": 10, "param2": "value"},
         "submitted": True,
         "notified_end": False,
-        "logs": "Some log information",
         "status": "completed",
         "version": "1.0.0",
     }

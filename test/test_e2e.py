@@ -5,12 +5,11 @@ import logging
 import os
 import zipfile
 from unittest.mock import patch
-from urllib.parse import urlparse
 
 from cosmo_ecosystem.db_manager import DbManager
 from playwright.sync_api import expect
 
-from cosmopolitan_app.config import JOB_WORK_DIR_TEMPLATE, PORT
+from cosmopolitan_app.config import PORT
 from cosmopolitan_app.constants import (
     CHANGE_INPUT_BUTTON_SUBMISSION_ID,
     CHECK_INPUT_BUTTON_INPUT_ID,
@@ -28,7 +27,6 @@ from cosmopolitan_app.form_template_factory import (
     active_form_factory,
     active_form_template_factory,
 )
-from cosmopolitan_app.job import LOG_FILE_NAME
 from cosmopolitan_app.pydantic_models import ModelWebsite
 from test.help_functions_tests import (
     check_all_errors,
@@ -277,7 +275,6 @@ def test_full_procedure(
                 "data_dump/rfm_dump.npz",
                 "data_dump/variable_predictor.npz",
                 "geotiff_scale.json",
-                "logs",
                 "measurements_20220326.geojson",
                 "measurements_20220326.png",
                 "measurements_20220327.geojson",
@@ -329,23 +326,19 @@ def test_the_page_shows_the_logs_of_a_worker_on_another_disk(
     pred_file_paths,
     celery_worker,
 ):
-    """The worker has its own work dir (conftest), so its log only exists in the row.
+    """The worker has its own work dir (conftest); the page shows its job log.
 
-    The finished job's page must show that log: the web side has no log file.
+    The job log lives in the database, so the web side needs none of the
+    worker's files to show it.
     """
     mock_tile_layer.return_value = None
 
     submit_default_job(page, pred_file_paths, crns_file_path)
 
-    job_id = urlparse(page.url).path.split("/")[-1]
     wait_for_job_completion(page)
     expect(page.locator(f"#{STATUS_DIV_SUBMISSION_ID}")).to_contain_text("COMPLETED")
     expect(page.locator(f"#{JOB_LOGS_DIV_SUBMISSION_ID}")).to_contain_text(
         "Random Forest Mean Absolute Error", timeout=10000
-    )
-    # The worker is done and still wrote no log here: this is what proves the disks differ.
-    assert not os.path.exists(
-        os.path.join(JOB_WORK_DIR_TEMPLATE.format(job_id=job_id), LOG_FILE_NAME)
     )
 
 

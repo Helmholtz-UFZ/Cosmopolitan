@@ -82,6 +82,25 @@ class TimeIOUnavailableError(Exception):
         super().__init__(f"TimeIO STA API unreachable after all retries: {query}")
 
 
+# Deliberately NOT in error_responds_dict: raised inside the computation task's
+# job run, never inside a callback; the job run turns it into FAILED.
+class PredictionAborted(Exception):
+    """Raised when the soil moisture prediction returns no model.
+
+    ``smp_main`` logs the reason at ERROR and returns ``None`` instead of
+    raising. The job run signals failure only by an exception, so the
+    computation raises this one.
+    """
+
+    def __init__(self, job_id):
+        """Add job id as attribute and format error message."""
+        self.job_id = job_id
+        super().__init__(
+            f"The prediction of job {job_id} returned no model; "
+            "see the errors logged before."
+        )
+
+
 # Laid over cosmo_ecosystem.error_handling.error_responds_dict for this app's calls
 # only (see handle_error below). Entries identical to the framework's default —
 # the database errors, JobExists, WorkerNotAvailableError, ... — are left out;
