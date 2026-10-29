@@ -19,20 +19,16 @@ repo — see [`../../conventions/framework_integration.md`](../../conventions/fr
 | `cosmo_ecosystem.background_job_manager` | `BackgroundJobManager` plumbing |
 | `cosmo_ecosystem.pydantic_models` | `BaseJobConfig`, `validate_job_id` |
 | `cosmo_ecosystem.job_retention` | Job expiry (`days_to_live`), full deletion (`delete_job`) and the nightly `clean_up_jobs`, used by `Job`, the cleanup task and the job-management page |
-| `cosmo_ecosystem.pages.logs`, `…worker_management` | Two admin pages (via shims in `pages/`) |
+| `cosmo_ecosystem.pages.logs`, `…worker_management`, `…job_management` | Three admin pages (via shims in `pages/`); the job management shim sets the row link `cosmo_ecosystem.pages.job_link` first |
 | `cosmo_ecosystem.layouts` | The navbar-collapse callback (see below) |
 | `cosmo_ecosystem.tasks.test_tasks` | The test task body |
 
 ## What stays here, and why
 
 `postgres_manager.py`, `job.py`, `error_handling.py`, `layouts.py` (rendering),
-`pages/job_management.py`, `files_route.py`. Each module's docstring names its own reason.
+`files_route.py`. Each module's docstring names its own reason.
 The short version:
 
-- **`pages/job_management.py`** — the framework page hardcodes a submission path this app
-  does not use, and uses a server-side loading-overlay callback that
-  `../../conventions/callbacks.md` forbids. Its "Delete" and "Clean" are no reason any
-  more: both pages call `cosmo_ecosystem.job_retention`.
 - **`files_route.py`** — blocked on the `Job` seam, not on the routes; the route set is
   already identical.
 - **`error_handling.py`** — the framework has no `on_unhandled` hook, so adopting it would

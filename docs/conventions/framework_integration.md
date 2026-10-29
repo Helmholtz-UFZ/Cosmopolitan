@@ -27,9 +27,11 @@ Diff size does **not** predict which case you are in — read the code, do not c
 Both directions have been measured here:
 
 - `logs_table.py` and `object_storage_manager.py` were byte-identical → deleted outright.
-- `pages/job_management.py` is 212 lines against the framework's 207 — and the framework
-  version links to a path this app does not serve, deletes through the wrong `Job`, and
-  breaks a callback convention. It stays local.
+- `pages/job_management.py` was 212 lines against the framework's 207 — and the framework
+  version linked to a path this app does not serve, deleted through the wrong `Job`, and
+  broke a callback convention. It stayed local until the framework fixed all three (the
+  `cosmo_ecosystem.pages.job_link` seam, `job_persistence`, a clientside overlay opener);
+  it is now a shim.
 
 ## Env and startup
 
@@ -66,6 +68,11 @@ A framework page is mounted by a **shim** in `pages/`: a module whose only state
    discovery guarantees.
 2. `doc_generator` reads page docstrings **from the file path** in `pages/`. Keeping the
    user documentation in the shim keeps it app-owned and keeps generated docs working.
+
+A shim may set a framework seam before its import, and must when the page requires one:
+`pages/job_management.py` assigns `cosmo_ecosystem.pages.job_link` first, because the
+framework page raises at import while it is unset. Dash only discovers a file in `pages/`
+whose text contains `register_page`; the shims carry the word in their docstring.
 
 Put developer notes under the `# Notes` marker so `clean_docstring` keeps them out of the
 user documentation.
