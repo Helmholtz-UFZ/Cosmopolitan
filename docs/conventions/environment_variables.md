@@ -71,12 +71,22 @@ How env vars reach containers (see `docker-compose.yml`):
 
 ## Production Deployment (Kubernetes)
 
-- `deployment/ufz/prod/values.yaml` injects env vars via `environmentVariables`
-  on both frontend and worker pods.
-- Secrets (`EMAIL_PASSWORD`, `OBJECT_STORAGE_SECRET_KEY`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`)
-  are pulled from the K8s Secret `app.secrets` using `secretKeyRef`.
-- The Secret is sealed with Bitnami SealedSecrets
-  (`deployment/ufz/prod/app.sealedsecret.yaml`).
+- `deployments/ufz/{prod,stage}/values.yaml` inject env vars via
+  `environmentVariables` on both frontend and worker pods. The DB settings
+  (`POSTGRES_DB`, `POSTGRES_USER`, ...) are set there, not only in `env_prod`.
+- Secrets are pulled from the K8s Secret `custom-met-cosmopolitan.secrets` using
+  `secretKeyRef`. Env var → key:
+
+  | Env var | Secret key |
+  |---|---|
+  | `POSTGRES_PASSWORD` | `DB_PW` |
+  | `EMAIL_PASSWORD` | `EMAIL_PASSWORD` |
+  | `OBJECT_STORAGE_SECRET_KEY` | `OBJECT_STORAGE_SECRET_KEY` |
+  | `CLUSTER_TOKEN` | `CLUSTER_TOKEN` |
+
+- The Secret is **not** in the repo (no SealedSecret); it is managed in the
+  cluster. ArgoCD masks Secret values; read a value via Rancher
+  (Storage → Secrets) or `printenv` in a pod terminal.
 - Non-secret vars are baked into `env_prod` at image build time (see Docker
   section above).
 
@@ -86,8 +96,9 @@ How env vars reach containers (see `docker-compose.yml`):
    `env_prod`, `env_test`, `env_test_local`).
 2. Add it to the `env_vars` list in `cosmopolitan_app/config.py`.
 3. Add a `getenv()` call and module-level constant in `config.py`.
-4. If it is a secret in production, add it to `values.yaml` and
-   `app.sealedsecret.yaml`.
+4. If it is a secret in production, add a `secretKeyRef` to both `values.yaml`
+   files and have the key added to the cluster Secret
+   `custom-met-cosmopolitan.secrets`.
 5. If `env_prod` will not have the value at build time, add a placeholder line
    to `additional_lines_map` in `test/test_env.py`.
 6. Run `./run_pytest.sh` — `test_env.py` will catch any missing vars.
