@@ -25,9 +25,6 @@ CREATE TABLE jobs (
     email VARCHAR,
     prepared_input BOOL,
     notified_end BOOL,
-    -- Legacy: no longer read or written since the job log moved to job_logs.
-    -- Dropped after the deploy (job-run-lifecycle ticket 08).
-    logs VARCHAR,
     status VARCHAR,
     version VARCHAR,
     celery_task_id VARCHAR
