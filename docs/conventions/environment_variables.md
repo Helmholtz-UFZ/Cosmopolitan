@@ -74,6 +74,11 @@ How env vars reach containers (see `docker-compose.yml`):
 - `deployments/ufz/{prod,stage}/values.yaml` inject env vars via
   `environmentVariables` on both frontend and worker pods. The DB settings
   (`POSTGRES_DB`, `POSTGRES_USER`, ...) are set there, not only in `env_prod`.
+- **Stage and prod both use `somweb_prod`** on `postgres.intranet.ufz.de` as
+  `somweb_prod_rw`. `somweb_stage` on `postgres-dev` is used by no deployment and
+  lags behind `init.sql` (missing tables and columns). A schema change that the
+  deployed app needs must land on `somweb_prod` before the deploy; check with
+  `./schema_diff.sh postgres.intranet.ufz.de somweb_prod somweb_prod_rw`.
 - Secrets are pulled from the K8s Secret `custom-met-cosmopolitan.secrets` using
   `secretKeyRef`. Env var → key:
 

@@ -17,6 +17,7 @@ it. (Claude-specific workflow lives in [`CLAUDE.md`](CLAUDE.md).)
 | Run via Docker | `docker compose up --build` |
 | Test (spins up temporary services) | `./run_pytest.sh` |
 | Test (services already running) | `pytest -s` |
+| Compare a UFZ database with `docker/init.sql` (read-only) | `./schema_diff.sh <host> <db> <user>` |
 | Lint | `uv run ruff check .` |
 | Format | `uv run ruff format .` |
 | Pre-commit (all hooks) | `pre-commit run --all-files` |
