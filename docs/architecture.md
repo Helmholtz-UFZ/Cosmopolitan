@@ -45,7 +45,7 @@ These modules are **not** in this repository — they are imported from `cosmo_e
 |---|---|
 | `cosmo_ecosystem.config` | The 18 infrastructure env vars, `getenv`, `JOB_WORK_DIR_TEMPLATE` |
 | `cosmo_ecosystem.logger` | `PostgreSQLHandler`, log format, the dictConfig builders (domain exclusions passed in from `constants/general.py`) |
-| `cosmo_ecosystem.db_manager` | `Base`, `DbManager`, `LogTable` — `PostgresManager` subclasses `DbManager`, one engine per process |
+| `cosmo_ecosystem.db_manager` | `Base`, `DbManager`, `JobColumns`, `LogTable` — `PostgresManager` subclasses `DbManager`, one engine per process |
 | `cosmo_ecosystem.object_storage_manager` | S3 access via rclone, presigned URLs via boto3, `ObjectStorageError` |
 | `cosmo_ecosystem.logs_table` | Logs table UI and formatting |
 | `cosmo_ecosystem.celery_config` | `BaseCeleryConfig` — broker, timeouts, worker limits |

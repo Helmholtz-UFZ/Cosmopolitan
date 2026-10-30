@@ -61,8 +61,9 @@ Playwright locators at `cosmo_ecosystem.constants` rather than re-declaring the 
 
 ## Framework pages
 
-A framework page is mounted by a **shim** in `pages/`: a module whose only statement is
-`import cosmo_ecosystem.pages.<name>`. The shim exists for two reasons, both load-bearing:
+A framework page is mounted by a **shim** in `pages/`: a module whose job is
+`import cosmo_ecosystem.pages.<name>` (plus, where the page needs one, a seam set
+before that import; see below). The shim exists for two reasons, both load-bearing:
 
 1. `register_page` must run after `Dash(...)` is instantiated, which Dash's `pages_folder`
    discovery guarantees.

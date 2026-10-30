@@ -18,7 +18,8 @@ model. Newest entries go at the top.
 - Updated `knowledge/systems/cosmo-ecosystem-boundary.md` — the two-engine section is
   replaced by the current state (`PostgresManager(DbManager)`, one engine; two Celery
   clients remain); `files_route.py` is gone and `error_handling.py` delegates to the
-  framework; the import table and the navbar-callback section match v0.12.0.
+  framework; the import table and the navbar-callback section match the framework `job-pages`
+  branch, to be released as v0.13.0.
 
 ## 2026-10-21
 

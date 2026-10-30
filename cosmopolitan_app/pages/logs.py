@@ -25,11 +25,10 @@ imports it after `Dash(...)` is instantiated (`register_page` must run after app
 instantiation), and so the user documentation above stays app-owned — `doc_generator`
 parses the docstring of *this* file.
 
-The framework page reads through `cosmo_ecosystem.db_manager`, i.e. a second SQLAlchemy
-engine against the same Postgres. That is safe here and only here: the framework's
-`LogTable` is byte-identical to this app's, and nothing calls `create_all` in either
-tree (the schema comes from `docker/init.sql`), so the two declarative registries
-never collide. See the decision record in `docs/knowledge/`.
+The framework page reads through `cosmo_ecosystem.db_manager`. This app's
+`PostgresManager` subclasses that `DbManager` and declares its tables on the framework
+`Base`, so there is one engine and one declarative registry per process. See
+`docs/knowledge/systems/cosmo-ecosystem-boundary.md`.
 
 Known deviation: the framework's default module-exclusion list contains `db_manager`
 where this app's contained `postgres_manager`, so this app's DB-layer log lines are
