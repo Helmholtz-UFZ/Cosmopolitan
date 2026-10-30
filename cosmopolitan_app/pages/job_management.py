@@ -16,217 +16,42 @@ NOTE: This docstring is displayed on the documentation webpage.
 
 # Notes (This section is for developer notes and will not appear in the user documentation.)
 
-Unlike Logs and Worker Management, this page is NOT served from
-`cosmo_ecosystem.pages.job_management`. Measured reasons, not size:
+The page implementation is `cosmo_ecosystem.pages.job_management`, which registers
+itself under the page key `pages.job_management` (path `/job-management`) on import.
+This module exists so Dash's `pages_folder` discovery imports it after `Dash(...)` is
+instantiated (`register_page` must run after app instantiation; Dash also skips any
+file in `pages/` whose text does not contain that word), and so the user
+documentation above stays app-owned: `doc_generator` parses the docstring of *this*
+file.
 
-1. It hardcodes the job link as `/job-submission/{job_id}`. This app's submission
-   page is registered at `/submission/<job_id>`, so every row would link nowhere.
-   Here the path is resolved from `dash.page_registry["pages.submission"]`.
-2. Its loading-overlay callback is server-side. `docs/conventions/callbacks.md`
-   requires clientside here, for a race that was actually hit: a server-side opener
-   can land after the processing callback returns and leave the overlay stuck open.
+The two blockers that kept a local copy here are gone in the framework page: the row
+link is the seam `cosmo_ecosystem.pages.job_link`, and the loading-overlay opener is
+clientside, as `docs/conventions/callbacks.md` requires. The seam must be set before
+the framework page is imported (it raises `JobLinkNotConfigured` otherwise), and on
+the package attribute: a `from ... import job_link` would bind a copy.
 
-"Delete" and "Clean" are not a reason any more: they go through
-`cosmo_ecosystem.job_retention` (`delete_jobs` / `clean_up_jobs`), the same deletion the
-nightly cleanup and `Job.delete` use, and those find this app's rows because
-`DbManager.job_table` is configured in `postgres_manager`. Both delete every job they
-can and then raise naming the failed ones (`JobDeletionFailed` / `JobCleanupFailed`);
-the global error handler shows it, and the table is not refreshed in that case.
+`job_link` resolves the submission page from `dash.page_registry` at call time, not
+here: `pages/submission.py` is discovered after this module, so its entry does not
+exist yet when this module runs.
 
-Framework MR to make this adoptable: take the submission path from the page
-registry instead of hardcoding it, and use the clientside overlay pattern.
+Delete and Clean go through `cosmo_ecosystem.job_persistence.delete_jobs` and
+`cosmo_ecosystem.job_retention.clean_up_jobs`, which find this app's rows because
+`DbManager.job_table` is configured in `postgres_manager`. The page's HTML ids come
+from `cosmo_ecosystem.constants`.
 """
 
-import logging
-import re
-from datetime import datetime
-
 import dash
-import dash_ag_grid as dag
-import dash_bootstrap_components as dbc
-from cosmo_ecosystem.job_persistence import delete_jobs
-from cosmo_ecosystem.job_retention import clean_up_jobs
-from dash import Input, Output, State, callback, dcc, html
 
-from cosmopolitan_app.constants import (
-    CLEAN_BUTTON_JOB_MANAGEMENT_ID,
-    DELETE_BUTTON_JOB_MANAGEMENT_ID,
-    DUMMY_STORE_JOB_MANAGEMENT_ID,
-    JOBS_TABLE_JOB_MANAGEMENT_ID,
-    LOADING_OVERLAY_MODAL_SHARED_ID,
-    REFRESH_BUTTON_JOB_MANAGEMENT_ID,
-)
-from cosmopolitan_app.layouts import create_header, page_container_column_layout
-from cosmopolitan_app.postgres_manager import PostgresManager
-
-log = logging.getLogger(__name__)
-
-dash.register_page(__name__)
+import cosmo_ecosystem.pages
 
 
-table = dag.AgGrid(
-    id=JOBS_TABLE_JOB_MANAGEMENT_ID,
-    columnDefs=[
-        {
-            "field": "job_id",
-            "headerName": "Job ID",
-            "cellRenderer": "markdown",
-            "cellStyle": {"textAlign": "left", "fontFamily": "monospace"},
-        },
-        {
-            "field": "status",
-            "headerName": "Status",
-            "cellStyle": {
-                "styleConditions": [
-                    {
-                        "condition": "params.value === 'COMPLETED'",
-                        "style": {"backgroundColor": "#3498db"},
-                    },
-                    {
-                        "condition": "params.value === 'RUNNING'",
-                        "style": {"backgroundColor": "#2ecc71"},
-                    },
-                    {
-                        "condition": "params.value === 'FAILED'",
-                        "style": {"backgroundColor": "#e74c3c"},
-                    },
-                    {
-                        "condition": "params.value === 'PENDING'",
-                        "style": {"backgroundColor": "#f39c12"},
-                    },
-                ],
-            },
-        },
-        {"field": "start_date", "headerName": "Start Date"},
-        {"field": "submitted", "headerName": "Submitted"},
-    ],
-    rowData=[],
-    defaultColDef={"cellStyle": {"textAlign": "center"}},
-    dashGridOptions={
-        "rowSelection": {"mode": "multiRow"},
-        "suppressCellFocus": True,
-    },
-    columnSize="responsiveSizeToFit",
-)
-
-button_group = [
-    dbc.Button(
-        [html.I(className="bi bi-arrow-clockwise me-1"), "Refresh Jobs"],
-        id=REFRESH_BUTTON_JOB_MANAGEMENT_ID,
-        color="primary",
-        className="ms-2 float-end",
-    ),
-    dbc.Button(
-        [html.I(className="bi bi-trash me-1"), "Delete Selection"],
-        id=DELETE_BUTTON_JOB_MANAGEMENT_ID,
-        color="danger",
-        className="ms-2 float-end",
-    ),
-    dbc.Button(
-        [html.I(className="bi bi-recycle me-1"), "Clean"],
-        id=CLEAN_BUTTON_JOB_MANAGEMENT_ID,
-        color="warning",
-        className="ms-2 float-end",
-    ),
-]
-
-layout = page_container_column_layout(
-    [
-        create_header(
-            "Job Management",
-            "Overview and management of jobs in the Cosmopolitan App",
-            bg_color="bg-info",
-        ),
-        # Needed to get a different set inputs for the loading overlay
-        dcc.Store(id=DUMMY_STORE_JOB_MANAGEMENT_ID, data=None),
-        dbc.Row(
-            dbc.Col(
-                button_group,
-            ),
-            className="m-2",
-        ),
-        dbc.Row(
-            dbc.Col(
-                table,
-            ),
-            className="m-2",
-        ),
-    ]
-)
+def job_link(job_id, row):
+    """Link a job management row to this app's submission page, whatever its status."""
+    return dash.page_registry["pages.submission"]["path_template"].replace(
+        "<job_id>", job_id
+    )
 
 
-# Clientside callback: open loading overlay instantly in the browser.
-# A server-side callback here would race with the processing callback
-# (due to allow_duplicate), potentially leaving the overlay stuck open.
-# Only listens to button clicks — not DUMMY_STORE (which should not show overlay).
-dash.clientside_callback(
-    """
-    function() {
-        for (var i = 0; i < arguments.length; i++) {
-            if (arguments[i] != null) return true;
-        }
-        return false;
-    }
-    """,
-    Output(LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True),
-    Input(DELETE_BUTTON_JOB_MANAGEMENT_ID, "n_clicks"),
-    Input(CLEAN_BUTTON_JOB_MANAGEMENT_ID, "n_clicks"),
-    Input(REFRESH_BUTTON_JOB_MANAGEMENT_ID, "n_clicks"),
-    prevent_initial_call=True,
-)
+cosmo_ecosystem.pages.job_link = job_link
 
-
-@callback(
-    Output(JOBS_TABLE_JOB_MANAGEMENT_ID, "rowData"),
-    Output(JOBS_TABLE_JOB_MANAGEMENT_ID, "selectedRows"),
-    Output(LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True),
-    Input(DELETE_BUTTON_JOB_MANAGEMENT_ID, "n_clicks"),
-    Input(CLEAN_BUTTON_JOB_MANAGEMENT_ID, "n_clicks"),
-    Input(REFRESH_BUTTON_JOB_MANAGEMENT_ID, "n_clicks"),
-    Input(DUMMY_STORE_JOB_MANAGEMENT_ID, "data"),
-    State(JOBS_TABLE_JOB_MANAGEMENT_ID, "selectedRows"),
-    prevent_initial_call=True,
-)
-def job_management_dashboard(
-    delete_clicks, clean_clicks, refresh_clicks, _dummy, selected_rows
-):
-    """Manage job actions in the dashboard."""
-    log.info("Job management dashboard callback triggered.")
-    button_id = dash.callback_context.triggered[0]["prop_id"].split(".")[0]
-
-    if button_id == DELETE_BUTTON_JOB_MANAGEMENT_ID and selected_rows:
-        log.info("Deleting selected jobs")
-        delete_jobs(
-            [re.findall(r"\[(.*?)\]", row["job_id"])[0] for row in selected_rows]
-        )
-    elif button_id == CLEAN_BUTTON_JOB_MANAGEMENT_ID:
-        log.info("Cleaning unsubmitted jobs")
-        clean_up_jobs(days_delete_not_submitted=0)
-
-    jobs_dict = PostgresManager.list_jobs()
-
-    rows = []
-    submission_base_path = dash.page_registry["pages.submission"]["path_template"]
-    for job_id, job_data in jobs_dict.items():
-        start_date = (
-            job_data["start_date"].strftime("%Y-%m-%d %H:%M:%S")
-            if isinstance(job_data["start_date"], datetime)
-            else job_data["start_date"]
-        )
-
-        job_id_link = submission_base_path.replace("<job_id>", job_id)
-        job_id_markdown = f"[{job_id}]({job_id_link})"
-
-        rows.append(
-            {
-                "job_id": job_id_markdown,
-                "status": job_data["status"],
-                "start_date": start_date,
-                "submitted": "Yes" if job_data["submitted"] else "No",
-            }
-        )
-
-    # Reset selected_rows after delete or clean, hide loading overlay
-    if button_id in [DELETE_BUTTON_JOB_MANAGEMENT_ID, CLEAN_BUTTON_JOB_MANAGEMENT_ID]:
-        return rows, [], False
-    return rows, dash.no_update, False
+import cosmo_ecosystem.pages.job_management  # noqa: E402, F401 - job_link is set first

@@ -1,6 +1,5 @@
 en.utf-8.add.spl
 __pycache__
-.python-version
 .env
 ./cosmopolitan_app/work_dir/*
 ./backend_env

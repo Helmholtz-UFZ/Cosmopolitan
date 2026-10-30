@@ -194,21 +194,6 @@ PURGE_MODAL_CRNS_ADMIN_ID = "purge-modal-crns-admin-id"
 LOGS_TABLE_CRNS_ADMIN_ID = "logs-table-crns-admin-id"
 
 # =============================================================================
-# JOB_MANAGEMENT
-# =============================================================================
-
-# --- Buttons ---
-DELETE_BUTTON_JOB_MANAGEMENT_ID = "delete-button-job-management-id"
-CLEAN_BUTTON_JOB_MANAGEMENT_ID = "clean-button-job-management-id"
-REFRESH_BUTTON_JOB_MANAGEMENT_ID = "refresh-button-job-management-id"
-
-# --- Stores ---
-DUMMY_STORE_JOB_MANAGEMENT_ID = "dummy-store-job-management-id"
-
-# --- Tables ---
-JOBS_TABLE_JOB_MANAGEMENT_ID = "jobs-table-job-management-id"
-
-# =============================================================================
 # SENSOR_MANAGEMENT
 # =============================================================================
 

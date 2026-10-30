@@ -27,9 +27,11 @@ Diff size does **not** predict which case you are in — read the code, do not c
 Both directions have been measured here:
 
 - `logs_table.py` and `object_storage_manager.py` were byte-identical → deleted outright.
-- `pages/job_management.py` is 212 lines against the framework's 207 — and the framework
-  version links to a path this app does not serve, deletes through the wrong `Job`, and
-  breaks a callback convention. It stays local.
+- `pages/job_management.py` was 212 lines against the framework's 207 — and the framework
+  version linked to a path this app does not serve, deleted through the wrong `Job`, and
+  broke a callback convention. It stayed local until the framework fixed all three (the
+  `cosmo_ecosystem.pages.job_link` seam, `job_persistence`, a clientside overlay opener);
+  it is now a shim.
 
 ## Env and startup
 
@@ -59,22 +61,30 @@ Playwright locators at `cosmo_ecosystem.constants` rather than re-declaring the 
 
 ## Framework pages
 
-A framework page is mounted by a **shim** in `pages/`: a module whose only statement is
-`import cosmo_ecosystem.pages.<name>`. The shim exists for two reasons, both load-bearing:
+A framework page is mounted by a **shim** in `pages/`: a module whose job is
+`import cosmo_ecosystem.pages.<name>` (plus, where the page needs one, a seam set
+before that import; see below). The shim exists for two reasons, both load-bearing:
 
 1. `register_page` must run after `Dash(...)` is instantiated, which Dash's `pages_folder`
    discovery guarantees.
 2. `doc_generator` reads page docstrings **from the file path** in `pages/`. Keeping the
    user documentation in the shim keeps it app-owned and keeps generated docs working.
 
+A shim may set a framework seam before its import, and must when the page requires one:
+`pages/job_management.py` assigns `cosmo_ecosystem.pages.job_link` first, because the
+framework page raises at import while it is unset. Dash only discovers a file in `pages/`
+whose text contains `register_page`; the shims carry the word in their docstring.
+
 Put developer notes under the `# Notes` marker so `clean_docstring` keeps them out of the
 user documentation.
 
-## Two Celery clients / two engines
+## One engine, two Celery clients
 
-Anything the framework provides that builds its own client — `DbManager`, the framework
-`BackgroundJobManager` — must not be widened beyond its current use without first unifying
-the mappings. The current, deliberate scope is recorded in the knowledge page above.
+Database access goes through `PostgresManager(DbManager)` on the framework `Base`: never
+build a second engine or declarative registry. The framework's `BackgroundJobManager`
+singleton is still a second Celery client (the worker-management page uses it); do not widen
+its use without first unifying it with this app's. The current scope is recorded in the
+knowledge page above.
 
 Also: the framework connects its own `worker_process_init` logging handler at import. This
 app connects its own with a different exclusion list, so it **disconnects the framework's

@@ -20,7 +20,7 @@ See [Framework boundary](#framework-boundary) below.
 |-----------|---------|
 | `app.py` | Dash/Flask app initialization and entry point (starts no threads — Celery Beat runs in the worker) |
 | `layouts.py` | Shared page shell (navbar + content) |
-| `pages/` | The multi-page UI — one module per page (home, new_job, job_management, results, sensor/CRNS admin, measurement_view, documentation, …). `logs.py` and `worker_management.py` are shims over the framework pages |
+| `pages/` | The multi-page UI — one module per page (home, new_job, job_management, results, sensor/CRNS admin, measurement_view, documentation, …). `logs.py`, `worker_management.py` and `job_management.py` are shims over the framework pages |
 | `pydantic_models.py` | Pydantic models for job-input validation |
 | `form_template_factory.py` | Builds form views from selected inputs (predictors + CRNS); pairs with the `dash-form-factory` dependency |
 | `job.py` | The Cosmopolitan Job model and its workflow |
@@ -45,21 +45,25 @@ These modules are **not** in this repository — they are imported from `cosmo_e
 |---|---|
 | `cosmo_ecosystem.config` | The 18 infrastructure env vars, `getenv`, `JOB_WORK_DIR_TEMPLATE` |
 | `cosmo_ecosystem.logger` | `PostgreSQLHandler`, log format, the dictConfig builders (domain exclusions passed in from `constants/general.py`) |
+| `cosmo_ecosystem.db_manager` | `Base`, `DbManager`, `JobColumns`, `LogTable` — `PostgresManager` subclasses `DbManager`, one engine per process |
 | `cosmo_ecosystem.object_storage_manager` | S3 access via rclone, presigned URLs via boto3, `ObjectStorageError` |
 | `cosmo_ecosystem.logs_table` | Logs table UI and formatting |
 | `cosmo_ecosystem.celery_config` | `BaseCeleryConfig` — broker, timeouts, worker limits |
 | `cosmo_ecosystem.background_job_manager` | `BackgroundJobManager` submission/inspection plumbing |
-| `cosmo_ecosystem.pydantic_models` | `BaseJobConfig`, `validate_job_id` |
-| `cosmo_ecosystem.pages.logs`, `…worker_management` | Two admin pages, mounted by shims in `pages/` |
-| `cosmo_ecosystem.layouts` | The navbar-collapse callback |
+| `cosmo_ecosystem.pydantic_models` | `UploadJobConfig`, `validate_job_id` |
+| `cosmo_ecosystem.base_job`, `…job_persistence`, `…job_log`, `…job_run`, `…job_retention` | The `Job` contract, job persistence, job log, run lifecycle, expiry and cleanup |
+| `cosmo_ecosystem.files_route` | Download routes and download button |
+| `cosmo_ecosystem.error_handling` | `handle_error` and the infrastructure exceptions |
+| `cosmo_ecosystem.pages.logs`, `…worker_management`, `…job_management` | Three admin pages, mounted by shims in `pages/` |
+| `cosmo_ecosystem.layouts` | Header, column container, the navbar-collapse callback |
 | `cosmo_ecosystem.tasks.test_tasks` | The long-running test task body |
 
-Still local, and deliberately so: `postgres_manager.py`, `job.py`, `error_handling.py`,
-`layouts.py` (rendering), `pages/job_management.py` and `files_route.py`. Each of those
-modules names its own reason in its docstring.
+Still local, each building on the framework module of the same concern:
+`postgres_manager.py`, `job.py`, `error_handling.py` and `layouts.py` (rendering). Each of
+those modules names its details in its docstring.
 
-Two consequences of this split are easy to trip over — the second engine against the same
-Postgres, and the callbacks `cosmo_ecosystem.layouts` registers at import time. Both are
+Two consequences of this split are easy to trip over — the two Celery clients against one
+broker, and the navbar callback the framework registers for this app's navbar. Both are
 explained in [`knowledge/systems/cosmo-ecosystem-boundary.md`](knowledge/systems/cosmo-ecosystem-boundary.md);
 the rules for working across the boundary are in
 [`conventions/framework_integration.md`](conventions/framework_integration.md).
