@@ -77,11 +77,13 @@ whose text contains `register_page`; the shims carry the word in their docstring
 Put developer notes under the `# Notes` marker so `clean_docstring` keeps them out of the
 user documentation.
 
-## Two Celery clients / two engines
+## One engine, two Celery clients
 
-Anything the framework provides that builds its own client — `DbManager`, the framework
-`BackgroundJobManager` — must not be widened beyond its current use without first unifying
-the mappings. The current, deliberate scope is recorded in the knowledge page above.
+Database access goes through `PostgresManager(DbManager)` on the framework `Base`: never
+build a second engine or declarative registry. The framework's `BackgroundJobManager`
+singleton is still a second Celery client (the worker-management page uses it); do not widen
+its use without first unifying it with this app's. The current scope is recorded in the
+knowledge page above.
 
 Also: the framework connects its own `worker_process_init` logging handler at import. This
 app connects its own with a different exclusion list, so it **disconnects the framework's

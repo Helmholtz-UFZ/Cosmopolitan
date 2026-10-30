@@ -61,6 +61,8 @@ Service requirements vary by test:
 | `test_env.py` | None (reads env files only) |
 | `test_smp_assumptions.py` | None (checks data structures only) |
 | `test_documentation.py` | None (reads files only) |
+| `test_results_page.py` | None (temporary work dir only) |
+| `test_job_management_page.py` | None (page registry and link seam only) |
 
 ## Fixtures (`conftest.py`)
 

@@ -29,7 +29,7 @@ Major subsystems and how they interact.
 - [job-lifecycle.md](systems/job-lifecycle.md) — end-to-end flow of a prediction job (form → Postgres → Celery → SMP → object storage → results) and the Celery/Beat setup.
 - [soil-moisture-prediction.md](systems/soil-moisture-prediction.md) — the external `soil-moisture-prediction` library, its inputs, and the assumptions the app pins to it.
 - [timeio-integration.md](systems/timeio-integration.md) — CRNS measurement acquisition from the TimeIO / STA (SensorThings) API.
-- [cosmo-ecosystem-boundary.md](systems/cosmo-ecosystem-boundary.md) — what comes from the shared framework, what stays local, and the two-engine transitional state.
+- [cosmo-ecosystem-boundary.md](systems/cosmo-ecosystem-boundary.md) — what comes from the shared framework, what stays local, the one engine and two Celery clients.
 
 > Other page types (`datasets/`, `runbooks/`, `raw/`) are not used yet — add the folder and a
 > section here when the first such page earns its place.

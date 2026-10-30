@@ -13,6 +13,13 @@ model. Newest entries go at the top.
 - Updated `path/to/file.md` — short note on what changed.
 ```
 
+## 2026-10-30
+
+- Updated `knowledge/systems/cosmo-ecosystem-boundary.md` — the two-engine section is
+  replaced by the current state (`PostgresManager(DbManager)`, one engine; two Celery
+  clients remain); `files_route.py` is gone and `error_handling.py` delegates to the
+  framework; the import table and the navbar-callback section match v0.12.0.
+
 ## 2026-10-21
 
 - Updated `knowledge/systems/cosmo-ecosystem-boundary.md` — job retention and deletion now
