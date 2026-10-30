@@ -2,12 +2,18 @@
 
 set -e
 
-# Test containers get their own names and compose project, so a test run never stops,
-# removes or reuses a dev-stack container (postgres_cosmopolitan & co.).
-export COMPOSE_PROJECT_NAME=cosmopolitan_test
-export POSTGRES_CONTAINER_NAME=postgres_cosmopolitan_test
-export OBJECT_STORAGE_CONTAINER_NAME=object_storage_cosmopolitan_test
-export REDIS_CONTAINER_NAME=redis_cosmopolitan_test
+# Every worktree gets its own test stack, so several worktrees (and the sister repos)
+# can run their suites at the same time. The compose project, and with it the
+# container names and volumes, carries a short hash of this directory's absolute
+# path: stable for one worktree, so a rerun finds and clears a crashed run's
+# leftovers, and different for every other worktree, so a run only ever stops what
+# it started. The dev stack (postgres_cosmopolitan & co.) is a different project and
+# is never touched.
+STACK_ID=$(pwd -P | sha256sum | cut -c1-8)
+export COMPOSE_PROJECT_NAME="cosmopolitan_test_${STACK_ID}"
+export POSTGRES_CONTAINER_NAME="postgres_${COMPOSE_PROJECT_NAME}"
+export OBJECT_STORAGE_CONTAINER_NAME="object_storage_${COMPOSE_PROJECT_NAME}"
+export REDIS_CONTAINER_NAME="redis_${COMPOSE_PROJECT_NAME}"
 
 trap cleaning_up EXIT
 
@@ -18,8 +24,11 @@ cleaning_up() {
         mv .env.bak .env
     fi
 
-    # COMPOSE_PROJECT_NAME scopes this to the test project; the dev stack is untouched
-    docker compose down >/dev/null 2>&1 || true
+    # COMPOSE_PROJECT_NAME scopes this to this run's project; the dev stack and other
+    # worktrees' stacks are untouched. -v: the redis_data volume would otherwise stay.
+    if [ "$START_SERVICES" -eq 1 ]; then
+        docker compose down -v >/dev/null 2>&1 || true
+    fi
 }
 
 # Service health check with retry logic
@@ -64,10 +73,11 @@ show_help() {
     echo "  -v, --verbose     Show full pytest output (default: minimal, logs go to artifacts)"
     echo "  -h, --help        Show this help message"
     echo ""
-    echo "Containers: test services run as postgres_cosmopolitan_test, redis_cosmopolitan_test"
-    echo "  and object_storage_cosmopolitan_test (compose project cosmopolitan_test). Cleanup"
-    echo "  touches only these; the dev stack (postgres_cosmopolitan & co.) is never stopped."
-    echo "  Host ports are shared with the dev stack: stop it first or the start fails."
+    echo "Containers: test services run as compose project ${COMPOSE_PROJECT_NAME}"
+    echo "  (one per worktree) on free host ports picked at start, so worktrees can run"
+    echo "  their suites in parallel. Cleanup touches only this project; the dev stack"
+    echo "  (postgres_cosmopolitan & co.) is never stopped. With --no-services the ports"
+    echo "  from env_test_local apply."
     echo ""
     echo "Environment:"
     echo "  COSMO_ECOSYSTEM_PATH  Path to a local cosmo-ecosystem checkout. When set, the"
@@ -188,12 +198,42 @@ fi
 # Use test environment configuration
 cp env_test_local .env
 
-# Source for environment variables
-source .env
-
 if [ "$START_SERVICES" -eq 1 ]; then
-    # Clean up existing containers
-    docker compose down 2>/dev/null || true
+    # Ask the OS for free host ports instead of env_test_local's fixed slot, which
+    # another worktree's test stack may hold. All five sockets are open at once, so
+    # the ports are distinct. Between closing them here and compose binding them
+    # another process could take one; that race is accepted, compose then fails
+    # loudly with "port is already allocated".
+    read -r FLASK POSTGRES REDIS OBJECT_STORAGE OBJECT_STORAGE_CONSOLE < <(python3 -c '
+import socket
+socks = [socket.socket() for _ in range(5)]
+for s in socks:
+    s.bind(("localhost", 0))
+print(*(s.getsockname()[1] for s in socks))
+')
+    # Appended, so these win over env_test_local's values in the same file
+    # (python-dotenv and compose both take the last assignment of a key). The suite
+    # runs on the host, so the app-facing port and the published host port are the
+    # same number. FLASK_PORT is where the e2e Dash server binds.
+    cat >>.env <<EOF_PORTS
+
+### Per-run ports, written by run_pytest.sh ###
+FLASK_PORT=${FLASK}
+FLASK_HOST_PORT=${FLASK}
+POSTGRES_PORT="${POSTGRES}"
+POSTGRES_HOST_PORT=${POSTGRES}
+REDIS_PORT="${REDIS}"
+REDIS_HOST_PORT=${REDIS}
+OBJECT_STORAGE_HOST="http://localhost:${OBJECT_STORAGE}"
+OBJECT_STORAGE_HOST_PORT=${OBJECT_STORAGE}
+OBJECT_STORAGE_CONSOLE_HOST_PORT=${OBJECT_STORAGE_CONSOLE}
+EOF_PORTS
+    echo "Compose project: ${COMPOSE_PROJECT_NAME}"
+    echo "Ports: flask ${FLASK}, postgres ${POSTGRES}, redis ${REDIS}," \
+        "object storage ${OBJECT_STORAGE} (console ${OBJECT_STORAGE_CONSOLE})"
+
+    # Clear leftovers of a crashed earlier run in this worktree (this project only)
+    docker compose down -v 2>/dev/null || true
 
     # Start services (quiet output)
     echo "Starting services: postgres, object-storage, redis"
