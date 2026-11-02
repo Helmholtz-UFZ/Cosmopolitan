@@ -30,8 +30,8 @@ to preserve them across runs).
 ## One test stack per worktree
 
 - **Compose project from the worktree.** The project is `cosmopolitan_test_<hash>`,
-  where `<hash>` is the first 8 hex digits of the sha256 of the worktree's absolute
-  path. Containers are `postgres_<project>`, `object_storage_<project>` and
+  where `<hash>` is the first 8 hex digits of the sha256 of `pwd -P` (the worktree's
+  absolute path, since the script runs from the worktree root). Containers are `postgres_<project>`, `object_storage_<project>` and
   `redis_<project>`; volumes carry the project prefix. The same worktree always gets
   the same name, so the `down -v` at the start of a run clears what a crashed earlier
   run left there, and the `down -v` at the end removes only this run's stack.
@@ -59,8 +59,8 @@ no longer gets in the way either. The port slots in
 `--no-services`) only.
 
 `check_parallel_runs.sh` (next to `run_pytest.sh`) is the acceptance check: it
-creates a throwaway detached worktree of `HEAD`, runs `run_pytest.sh` on one e2e test
-that runs a job through the worker in both worktrees at once, and passes when both
+creates a throwaway detached worktree of `HEAD`, runs `run_pytest.sh` on `test_env` and
+one e2e test that runs a job through the worker in both worktrees at once, and passes when both
 are green and no container or volume of either project is left. Run it after
 changing `run_pytest.sh` (commit first: the probe worktree sees only `HEAD`). It is
 not a CI job; CI has no parallel worktrees.

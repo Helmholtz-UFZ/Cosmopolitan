@@ -9,14 +9,17 @@
 # (<main clone>.wt/parallel-check-probe), so only committed changes take part on that
 # side, and removes it with `git worktree remove` at the end.
 #
-# Usage: ./check_parallel_runs.sh [TEST_PATH]
-#   TEST_PATH defaults to one e2e test that runs a job through the Celery worker: it
-#   starts the Dash server and the worker and goes through Postgres, object storage
-#   and Redis, so a shared port or container on any of them breaks it.
+# Usage: ./check_parallel_runs.sh [TEST_PATHS]
+#   TEST_PATHS (one argument, space-separated) defaults to test_env followed by one
+#   e2e test that runs a job through the Celery worker: it starts the Dash server and
+#   the worker and goes through Postgres, object storage and Redis, so a shared port
+#   or container on any of them breaks it. test_env comes first because it loads every
+#   env file: if it leaked env_test_local's slot ports into the session, the worker
+#   started after it would go to the wrong Redis.
 
 set -u
 
-SUBSET="${1:-test/test_e2e.py::test_the_page_shows_the_logs_of_a_worker_on_another_disk}"
+SUBSET="${1:-test/test_env.py test/test_e2e.py::test_the_page_shows_the_logs_of_a_worker_on_another_disk}"
 
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 # The common git dir is <main clone>/.git, also when called from a worktree.
@@ -24,7 +27,14 @@ MAIN_CLONE=$(dirname "$(git -C "$REPO_ROOT" rev-parse --path-format=absolute --g
 PROBE="${MAIN_CLONE}.wt/parallel-check-probe"
 LOG_DIR=$(mktemp -d)
 
+declare -A PIDS
 remove_probe() {
+    # On an abort (Ctrl-C) the two runs are still going: stop them first, so their
+    # own EXIT trap removes their stacks before the probe worktree disappears.
+    for pid in "${PIDS[@]}"; do
+        pkill -TERM -P "$pid" 2>/dev/null
+    done
+    wait
     git -C "$REPO_ROOT" worktree remove --force "$PROBE" 2>/dev/null || true
 }
 trap remove_probe EXIT
@@ -40,22 +50,21 @@ done
 
 echo "Running '$SUBSET' in two worktrees at once (logs: $LOG_DIR)"
 (cd "$REPO_ROOT" && ./run_pytest.sh "$SUBSET" >"$LOG_DIR/a.log" 2>&1) &
-PID_A=$!
+PIDS[a]=$!
 (cd "$PROBE" && ./run_pytest.sh "$SUBSET" >"$LOG_DIR/b.log" 2>&1) &
-PID_B=$!
-wait $PID_A
-EXIT_A=$?
-wait $PID_B
-EXIT_B=$?
+PIDS[b]=$!
 
 FAILED=0
+declare -A PROJECTS
 for run in a b; do
-    exit_var="EXIT_${run^^}"
+    wait "${PIDS[$run]}"
+    exit_code=$?
     log="$LOG_DIR/$run.log"
     # run_pytest.sh prints "Compose project: <name>" at start.
     project=$(sed -n 's/^Compose project: //p' "$log")
-    echo "--- run $run: exit ${!exit_var}, project '${project}'"
-    if [ "${!exit_var}" -ne 0 ]; then
+    PROJECTS[$run]=$project
+    echo "--- run $run: exit $exit_code, project '$project'"
+    if [ "$exit_code" -ne 0 ]; then
         FAILED=1
         tail -25 "$log"
     fi
@@ -72,10 +81,8 @@ for run in a b; do
     fi
 done
 
-PROJECT_A=$(sed -n 's/^Compose project: //p' "$LOG_DIR/a.log")
-PROJECT_B=$(sed -n 's/^Compose project: //p' "$LOG_DIR/b.log")
-if [ -n "$PROJECT_A" ] && [ "$PROJECT_A" = "$PROJECT_B" ]; then
-    echo "FAIL: both runs used compose project $PROJECT_A"
+if [ -n "${PROJECTS[a]}" ] && [ "${PROJECTS[a]}" = "${PROJECTS[b]}" ]; then
+    echo "FAIL: both runs used compose project ${PROJECTS[a]}"
     FAILED=1
 fi
 
