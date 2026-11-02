@@ -5,10 +5,10 @@ CLI). ``cosmo_ecosystem.celery_app`` imports it on first access to the Celery ap
 and builds that app from the attributes below; see
 docs/conventions/domain_module.md in cosmo-ecosystem for the contract.
 
-Importing it also wires ``DbManager.job_table`` (through ``postgres_manager``),
-so the worker, which never imports ``app.py``, has it before any task runs. The web process imports it at
-the top of ``app.py`` for the same reason. This app has no framework Job seams to
-set: its ``Job`` subclasses ``BaseJob`` and submits through
+Importing it also wires ``DbManager.job_table`` (through ``postgres_manager``), so
+the worker, which never imports ``app.py``, has it before any task runs. The web
+process imports it at the top of ``app.py`` for the same reason. This app has no
+framework Job seams to set: its ``Job`` subclasses ``BaseJob`` and submits through
 ``cosmopolitan_app.submissions`` itself.
 """
 
@@ -52,10 +52,11 @@ class CeleryConfig(BaseCeleryConfig):
     task_time_limit = 3900  # 65 minutes
 
     # BaseCeleryConfig leaves this at UTC, so crontab(hour=4) fired at 06:00 Berlin
-    # in summer — the entry names below were simply wrong, and the pods' own
-    # TZ=Europe/Berlin does not reach Beat (Celery schedules in conf.timezone, not
-    # in the process timezone). Set here rather than in the framework: the run time
-    # of these two jobs is a domain decision, and cosmo-ecosystem has other consumers.
+    # in summer, and the pods' own TZ=Europe/Berlin does not reach Beat (Celery
+    # schedules in conf.timezone, not in the process timezone). Set here rather than
+    # in the framework: the run time of the nightly update_db and of the framework's
+    # 03:00 cleanup, which is scheduled in this timezone too, is a domain decision,
+    # and cosmo-ecosystem has other consumers.
     timezone = "Europe/Berlin"
 
 
