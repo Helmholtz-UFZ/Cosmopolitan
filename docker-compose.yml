@@ -1,7 +1,8 @@
 # Host-published ports read ${<SERVICE>_HOST_PORT:-<default>}: host side variable,
 # container side fixed. cosmopolitan keeps the defaults; the other two stacks shift
-# theirs so all three can run at once — see
-# ../cosmo-ecosystem/docs/plan/local-port-allocation.md.
+# theirs so all three dev stacks can run at once — see
+# ../cosmo-ecosystem/docs/plan/local-port-allocation.md. run_pytest.sh sets every
+# *_HOST_PORT to a free port per run instead.
 # FLASK_PORT keeps its double role (container port and Dash test-server port), so
 # the webserver falls back to it rather than to a literal.
 services:
