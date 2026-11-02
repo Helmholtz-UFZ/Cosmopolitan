@@ -63,7 +63,7 @@ def submitted_job_id(job_id):
     return job_id
 
 
-def _beat(job_id):
+def _set_heartbeat(job_id):
     """Give job_id's row a heartbeat, as a claimed run has: the database's now()."""
     with DbManager.session_scope() as session:
         session.execute(
@@ -324,7 +324,7 @@ def test_an_enqueue_reporting_failure_ends_failed_with_the_reason_in_the_job_log
 
 def test_submit_queues_the_run_with_no_heartbeat(job_id, monkeypatch):
     """A resubmitted job's old heartbeat is gone before the worker sees the message."""
-    _beat(job_id)
+    _set_heartbeat(job_id)
     row_at_enqueue = []
 
     def enqueue(submitted_job):
@@ -342,7 +342,7 @@ def test_submit_queues_the_run_with_no_heartbeat(job_id, monkeypatch):
 def test_saving_a_job_keeps_its_runs_heartbeat(submitted_job_id):
     """A page that saves the job during a run does not write the heartbeat back."""
     job = Job(submitted_job_id)
-    _beat(submitted_job_id)
+    _set_heartbeat(submitted_job_id)
     beat = DbManager.get_job_columns(submitted_job_id)["heartbeat_at"]
 
     job.save()
@@ -360,7 +360,7 @@ def test_a_dropped_delivery_sends_no_mails_and_leaves_the_row(
         "smp_main",
         _prediction_raising(AssertionError("a dropped delivery must not compute")),
     )
-    _beat(submitted_job_id)
+    _set_heartbeat(submitted_job_id)
 
     computation_tasks.start_computation_task(None, submitted_job_id)
 
