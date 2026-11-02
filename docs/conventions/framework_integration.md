@@ -78,15 +78,16 @@ whose text contains `register_page`; the shims carry the word in their docstring
 Put developer notes under the `# Notes` marker so `clean_docstring` keeps them out of the
 user documentation.
 
-## One engine, two Celery clients
+## One engine, one Celery app
 
 Database access goes through `PostgresManager(DbManager)` on the framework `Base`: never
-build a second engine or declarative registry. The framework's `BackgroundJobManager`
-singleton is still a second Celery client (the worker-management page uses it); do not widen
-its use without first unifying it with this app's. The current scope is recorded in the
-knowledge page above.
+build a second engine or declarative registry.
 
-Also: the framework connects its own `worker_process_init` logging handler at import. This
-app connects its own with a different exclusion list, so it **disconnects the framework's
-explicitly** in `background_job_manager.py`. Without that, import order decides which
-logging config a worker gets.
+Celery likewise: the framework assembles the process's one Celery app from
+`cosmopolitan_app/domain.py`, named by `COSMO_DOMAIN` (cosmo-ecosystem
+`docs/conventions/domain_module.md`). Never build a `Celery()`, subclass
+`BackgroundJobManager` or connect a Celery signal here. Domain submissions are module
+functions in `submissions.py`; reach the manager through its module at call time, never with
+`from cosmo_ecosystem.background_job_manager import background_job_manager` in a module that
+`domain.py` imports (`job.py`, the tasks): that would assemble the app while `domain.py` is
+still half-imported.

@@ -69,7 +69,7 @@ The worker runs Celery Beat embedded (`--beat`). By default Celery hijacks the
 root logger on startup, replacing all handlers with its own stdout-only handler. This
 silently drops the PostgreSQL handler.
 
-**Always keep this in `CeleryConfig`:**
+**The framework's `BaseCeleryConfig` sets this; never override it in `domain.CeleryConfig`:**
 
 ```python
 worker_hijack_root_logger = False
@@ -85,4 +85,4 @@ the database, and the `/logs` page shows nothing.
 - `ExcludeSubmodulesFilter` suppresses noisy third-party loggers. The framework
   excludes `watchdog` and `selenium`; this app adds `matplotlib`, `PIL` and
   `rasterio` via `EXCLUDED_LOG_PACKAGES` in `constants/general.py`, which is passed
-  to the `get_logger_config_*` builders
+  to the `get_logger_config_*` builders (to the worker's through `domain.excluded_log_packages`)
