@@ -15,8 +15,6 @@ export POSTGRES_CONTAINER_NAME="postgres_${COMPOSE_PROJECT_NAME}"
 export OBJECT_STORAGE_CONTAINER_NAME="object_storage_${COMPOSE_PROJECT_NAME}"
 export REDIS_CONTAINER_NAME="redis_${COMPOSE_PROJECT_NAME}"
 
-trap cleaning_up EXIT
-
 # Cleanup function - restores environment and stops services
 cleaning_up() {
     # Restore original .env
@@ -189,6 +187,11 @@ if [ -n "${COSMO_ECOSYSTEM_PATH:-}" ]; then
     # The same for every nested `uv run`, such as the Celery worker conftest starts.
     export UV_NO_SYNC=1
 fi
+
+# Set only after argument parsing: --help and a bad option exit above, and with the
+# trap already set they would run `compose down -v` on this worktree's project,
+# deleting the stack of a run going on here at the same time.
+trap cleaning_up EXIT
 
 # Backup existing .env
 if [ -f .env ]; then
