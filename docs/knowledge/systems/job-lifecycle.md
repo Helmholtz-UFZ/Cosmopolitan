@@ -20,6 +20,14 @@ its inputs from and writes its outputs into that directory, which are then synce
 storage. Job status moves through `COMPLETED` / `FAILED` (set in `start_computation_task`:
 `smp_main` returning `None` → `FAILED`, otherwise `COMPLETED`).
 
+`Job.submit` queues the run through the framework's `job_run.mark_queued` (RUNNING, no
+`heartbeat_at`) before the enqueue. The worker's `job_run.run` claims the row by setting
+`heartbeat_at` and refreshes it every 60 s while it computes; a delivery that loses the claim
+(a redelivery, a stale message) is dropped, and `start_computation_task` then sends no mails.
+A run killed hard (OOM, the 3900 s limit, pod restart, admin kill) stops beating, and the
+framework's sweep ends it FAILED with a "Worker lost" line in the job log; the user resubmits
+it. See ADR 0004 in cosmo-ecosystem.
+
 ## Celery topology
 
 The process's one Celery app is the framework's: `cosmo_ecosystem.celery_app` assembles it from
@@ -33,7 +41,8 @@ backend are Redis.
   framework rejects a config that does.
 - **Task specs** (`domain.task_specs`) register, route and schedule the app's tasks:
   `start_computation` → `computation`, `update_db` → `maintenance` (beat 04:00). The framework
-  adds its own `cleanup` (`maintenance`, beat 03:00) and test task (`test`).
+  adds its own `cleanup` (`maintenance`, beat 03:00), `sweep_lost_runs` (`maintenance`, beat
+  every 5 min) and test task (`test`).
 - **Task names** are explicit constants in [`submissions.py`](../../../cosmopolitan_app/submissions.py),
   next to the domain submissions (`submit_computation_job`, `submit_update_db_task`), which are
   module functions over the framework's `background_job_manager`.
@@ -50,10 +59,12 @@ task's name can still be recovered after it is revoked.
 
 ## Beat scheduler (periodic maintenance)
 
-Two scheduled tasks, built by the framework from the task specs, in Europe/Berlin time:
+Three scheduled tasks, built by the framework from the task specs, in Europe/Berlin time:
 
 - `cosmo_ecosystem.tasks.maintenance_tasks.cleanup` — 03:00, the framework's cleanup (deletes
   logs older than `domain.log_retention_days` = 60, then expired jobs).
+- `cosmo_ecosystem.tasks.sweep_tasks.sweep_lost_runs` — every 5 min, the framework's sweep (ends
+  RUNNING rows whose heartbeat is older than 10 min as FAILED).
 - `cosmopolitan_app.tasks.maintenance_tasks.update_db` — 04:00 (refreshes CRNS measurements; see
   [`timeio-integration.md`](timeio-integration.md)).
 
@@ -70,8 +81,8 @@ submission. See `docs/conventions/celery_beat.md` in cosmo-ecosystem.
 
 ## Worker tuning
 
-From the framework's `BaseCeleryConfig` and `domain.CeleryConfig`: `worker_prefetch_multiplier=1` and `task_acks_late=True` (fair dispatch,
-re-queue on crash), `worker_max_tasks_per_child=50` and `worker_max_memory_per_child≈512 MB`
+From the framework's `BaseCeleryConfig` and `domain.CeleryConfig`: `worker_prefetch_multiplier=1` and `task_acks_late=True` (fair dispatch;
+a redelivery after a pod crash is dropped by the claim, nothing is retried), `worker_max_tasks_per_child=50` and `worker_max_memory_per_child≈512 MB`
 (recycle workers to bound memory), `task_soft_time_limit=3600` / `task_time_limit=3900`, 3 retries.
 Celery's own logging is disabled (`worker_hijack_root_logger=False`) in favour of the PostgreSQL
 log handler (see [`../../conventions/logging.md`](../../conventions/logging.md)).
