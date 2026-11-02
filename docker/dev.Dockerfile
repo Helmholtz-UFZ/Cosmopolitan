@@ -3,6 +3,8 @@ FROM python:3.13-slim-bookworm
 
 ENV MPLCONFIGDIR=/python_docker/cosmopolitan/.config/matplotlib
 ENV PATH=$PATH:/home/appuser/rclone-binaries/
+# The domain module the framework assembles the Celery app from (cosmo-ecosystem ADR 0003).
+ENV COSMO_DOMAIN=cosmopolitan_app.domain
 
 # Create non-root user early
 RUN useradd -m -u 1000 appuser

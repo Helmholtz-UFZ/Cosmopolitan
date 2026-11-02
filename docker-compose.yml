@@ -15,6 +15,7 @@ services:
     env_file: .env
     environment:
       TZ: Europe/Berlin
+      COSMO_DOMAIN: cosmopolitan_app.domain
     user: "${DOCKER_UID}:${DOCKER_GID}"
     ports:
       - "${FLASK_HOST_PORT:-${FLASK_PORT}}:${FLASK_PORT}"
@@ -38,6 +39,7 @@ services:
     env_file: .env
     environment:
       TZ: Europe/Berlin
+      COSMO_DOMAIN: cosmopolitan_app.domain
     user: "${DOCKER_UID}:${DOCKER_GID}"
     depends_on:
       postgres:
