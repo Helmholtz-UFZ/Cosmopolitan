@@ -348,3 +348,22 @@ def test_saving_a_job_keeps_its_runs_heartbeat(submitted_job_id):
     job.save()
 
     assert DbManager.get_job_columns(submitted_job_id)["heartbeat_at"] == beat
+
+
+def test_a_dropped_delivery_sends_no_mails_and_leaves_the_row(
+    submitted_job_id, monkeypatch, caplog
+):
+    """A redelivery of a claimed run is dropped: no computation, no end mail."""
+    caplog.set_level(logging.INFO)
+    monkeypatch.setattr(
+        computation_tasks,
+        "smp_main",
+        _prediction_raising(AssertionError("a dropped delivery must not compute")),
+    )
+    _beat(submitted_job_id)
+
+    computation_tasks.start_computation_task(None, submitted_job_id)
+
+    row = DbManager.get_job_columns(submitted_job_id)
+    assert (row["status"], row["notified_end"]) == ("RUNNING", False)
+    assert _mails(caplog) == []

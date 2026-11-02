@@ -35,7 +35,8 @@ def start_computation_task(self, job_id):
     Runs the submission mail and the prediction as a job run, then sends the
     finished mail for either outcome, from the job's row as the run left it, and
     the maintainer mail for a failed run that was not an aborted prediction. A job
-    deleted during its run gets no mails.
+    deleted during its run gets no mails, and neither does a delivery the run's
+    claim dropped.
 
     Args:
         job_id: ID of the job to process
@@ -59,6 +60,11 @@ def start_computation_task(self, job_id):
             raise
 
     status = job_run.run(job_id, compute, EXCLUDED_LOG_PACKAGES)
+    if status is None:
+        # The claim dropped this delivery (a redelivery, or the job is no longer
+        # queued): the run belongs to another delivery or is over, and its end
+        # mails are not this one's to send (cosmo-ecosystem ADR 0004).
+        return
     log.info(f"Computation of job {job_id} finished with status {status}")
 
     try:
