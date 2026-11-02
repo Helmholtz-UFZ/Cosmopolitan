@@ -1,8 +1,5 @@
 """General application constants for COSMOPOLITAN."""
 
-# Number of days to keep the logs
-LOG_RETENTION_DAYS = 60
-
 # Consecutive failed nightly CRNS update runs before the maintainer is mailed.
 # The upstream STA is briefly unavailable during its own maintenance, which used
 # to cost one mail every night; three in a row is a real outage worth reporting.

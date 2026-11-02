@@ -6,14 +6,13 @@ import shutil
 
 from cosmo_ecosystem.constants import DAYS_DELETE_SUBMITTED
 from cosmo_ecosystem.db_manager import DbManager
+from cosmo_ecosystem.celery_app import NAME_CLEANUP_TASK, celery
 from cosmo_ecosystem.object_storage_manager import (
     delete_directory_from_storage,
     get_remote_files,
     save_files,
 )
 
-from cosmopolitan_app.background_job_manager import NAME_CLEANUP_TASK
-from cosmopolitan_app.celery_app import celery
 from cosmopolitan_app.config import (
     JOB_WORK_DIR_TEMPLATE,
     OBJECT_STORAGE_BUCKET,

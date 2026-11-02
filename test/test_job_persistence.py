@@ -16,7 +16,7 @@ from cosmo_ecosystem.object_storage_manager import get_remote_files
 
 from soil_moisture_prediction.plot_functions import CONSTANT_TIME_STEP, SCALE_FILE_NAME
 
-from cosmopolitan_app.background_job_manager import background_job_manager
+from cosmopolitan_app import submissions
 from cosmopolitan_app.config import (
     JOB_WORK_DIR_TEMPLATE,
     OBJECT_STORAGE_BUCKET,
@@ -242,7 +242,7 @@ def test_submit_syncs_nothing_after_the_enqueue(job_id, rclone_calls, monkeypatc
         _write(job_id, FRESH)  # the worker's first output
         return "task-id", False
 
-    monkeypatch.setattr(background_job_manager, "submit_computation_job", enqueue)
+    monkeypatch.setattr(submissions, "submit_computation_job", enqueue)
 
     job.submit()
 

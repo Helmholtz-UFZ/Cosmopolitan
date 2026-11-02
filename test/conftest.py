@@ -322,7 +322,8 @@ def celery_worker(request, tmp_path_factory):
     """Start a Celery worker for testing job processing.
 
     Spawns a Celery worker subprocess that:
-    - Listens to computation, maintenance, and celery queues
+    - Runs the framework's Celery app, assembled from COSMO_DOMAIN, like the worker
+      image, and consumes every queue a task spec routes to
     - Uses concurrency=1 for deterministic testing
     - Uses prefork pool for proper task termination
     - Enables task events for inspect() API functionality
@@ -357,12 +358,13 @@ def celery_worker(request, tmp_path_factory):
             "run",
             "celery",
             "-A",
-            "cosmopolitan_app.celery_app.celery",
+            # The framework's app, assembled from COSMO_DOMAIN, as in the worker
+            # image; no --queues, so a task routed to an unconsumed queue fails here.
+            "cosmo_ecosystem.celery_app.celery",
             "worker",
             "--loglevel=debug",
             "--concurrency=1",
             "--pool=prefork",
-            "--queues=computation,maintenance,celery,test",
             "--hostname=worker@test",
             "-E",
         ],

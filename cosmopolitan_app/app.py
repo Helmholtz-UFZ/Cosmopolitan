@@ -7,6 +7,10 @@ from functools import partial
 
 from dash import Dash
 
+# The domain module (COSMO_DOMAIN) wires DbManager.job_table on import and is what
+# the framework assembles this process's one Celery app from. Imported first, so
+# both are in place before any page module is imported.
+import cosmopolitan_app.domain  # noqa: F401
 from cosmo_ecosystem.files_route import serve_files
 from cosmo_ecosystem.logger import get_logger_config_web
 
