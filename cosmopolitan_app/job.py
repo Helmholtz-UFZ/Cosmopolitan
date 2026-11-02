@@ -29,7 +29,8 @@ from soil_moisture_prediction.input_file_parser import (
 )
 from werkzeug.utils import secure_filename
 
-from cosmopolitan_app.background_job_manager import background_job_manager
+# The module, not the function: tests replace submit_computation_job on it.
+from cosmopolitan_app import submissions
 from cosmopolitan_app.config import MAINTAINER_EMAIL
 from cosmopolitan_app.constants import LOG_FILE_NAME
 from cosmopolitan_app.error_handling import (
@@ -676,9 +677,7 @@ class Job(BaseJob):
             self.working_dir = job_persistence.work_dir(self.job_id)
             self.save()
             try:
-                celery_task_id, failed = background_job_manager.submit_computation_job(
-                    self
-                )
+                celery_task_id, failed = submissions.submit_computation_job(self)
 
             except Exception as e:  # catch-all: submission can fail for many reasons; must report all  # noqa
                 if "Error -3 connecting to redis" in str(e):

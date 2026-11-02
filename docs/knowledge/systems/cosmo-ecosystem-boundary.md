@@ -54,11 +54,12 @@ code and the framework pages. `postgres_manager.py` assigns `DbManager.job_table
 directly — so framework code reaches this app's wider `jobs` row (it has `prepared_input`).
 The schema still comes from `docker/init.sql`; nothing calls `Base.metadata.create_all()`.
 
-Celery is **not** unified. The worker-management page uses the framework's module-level
-`background_job_manager`, a Celery client configured from `BaseCeleryConfig`; the domain
-code uses this app's subclass, configured from its own `CeleryConfig`. Both talk to the same
-broker. This app also disconnects the framework's `worker_process_init` logging handler, see
-[`../../conventions/framework_integration.md`](../../conventions/framework_integration.md).
+Celery is unified too: every process holds one Celery app, the framework's, assembled by
+`cosmo_ecosystem.celery_app` from this app's domain module `cosmopolitan_app/domain.py`
+(named by `COSMO_DOMAIN`). The worker-management page and the domain submissions
+(`submissions.py`) both go through the framework's `background_job_manager`. The assembly
+also connects worker logging with this app's `EXCLUDED_LOG_PACKAGES`; the app connects no
+signal itself. See [`../../conventions/framework_integration.md`](../../conventions/framework_integration.md).
 
 ## Callbacks the framework registers
 

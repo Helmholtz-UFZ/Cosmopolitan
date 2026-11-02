@@ -1,47 +1,20 @@
-"""Maintenance tasks for periodic cleanup and database updates."""
+"""Maintenance tasks: the nightly CRNS database update.
+
+The nightly cleanup of old jobs and logs is the framework's
+(``cosmo_ecosystem.tasks.maintenance_tasks``), scheduled by its Celery assembly.
+"""
 
 import logging
 import os
 import traceback
-from datetime import datetime, timedelta
-
-from celery import Task
-from cosmo_ecosystem.job_retention import clean_up_jobs
 
 from cosmopolitan_app.config import MAINTAINER_EMAIL
-from cosmopolitan_app.constants import (
-    CONSECUTIVE_FAILURES_BEFORE_MAIL,
-    LOG_RETENTION_DAYS,
-)
+from cosmopolitan_app.constants import CONSECUTIVE_FAILURES_BEFORE_MAIL
 from cosmopolitan_app.postgres_manager import PostgresManager
 from cosmopolitan_app.timeio_manager import update_crns_measurments
 from cosmopolitan_app.email_service import send_mail
 
 log = logging.getLogger(__name__)
-
-
-class MaintenanceTask(Task):
-    """Base class for maintenance tasks with custom error handling."""
-
-    def on_failure(self, exc, task_id, args, kwargs, einfo):
-        """Handle task failure."""
-        log.error(f"Maintenance task {task_id} failed: {exc}")
-        log.error(f"Traceback: {einfo}")
-
-
-def cleanup_task(self):
-    """Delete old logs, then every expired job through the framework retention.
-
-    Log retention runs first: the job cleanup raises JobCleanupFailed when any
-    job could not be deleted, which marks the task failed, and the logs must
-    still be pruned on such a night.
-    """
-    log.info("Start cleaning up.")
-    log_cutoff = datetime.now() - timedelta(days=LOG_RETENTION_DAYS)
-    log.info(f"Cleaning up logs older than {log_cutoff}")
-    PostgresManager.delete_logs_older_than(log_cutoff)
-
-    clean_up_jobs()
 
 
 def update_db_task(self):

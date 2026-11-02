@@ -132,15 +132,6 @@ class PostgresManager(DbManager):
         return logs
 
     @classmethod
-    def delete_logs_older_than(cls, cutoff_datetime):
-        """Delete all log records older than the given datetime."""
-        log.info(f"Deleting logs older than {cutoff_datetime}")
-        with cls.session_scope() as session:
-            session.query(LogTable).filter(LogTable.timestamp < cutoff_datetime).delete(
-                synchronize_session=False
-            )
-
-    @classmethod
     def check_existence(cls, job_id):
         """Check if a job with the given job ID exists in the database.
 

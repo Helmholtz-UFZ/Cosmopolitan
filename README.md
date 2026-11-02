@@ -38,7 +38,8 @@ The web service is built as a Dash web application with the following key compon
 - `pages/` - Individual page components for the multi-page application
 - `job.py` - Job processing and workflow management
 - `form_factory.py` - Dynamic form generation from Pydantic models
-- `background_job_manager.py` - Celery task management and job orchestration
+- `domain.py` - Domain module the framework assembles the Celery app from (`COSMO_DOMAIN`)
+- `submissions.py` - Domain job submissions over the framework's job manager
 - `tasks/` - Celery task definitions for computation and maintenance
 
 ### Data Flow

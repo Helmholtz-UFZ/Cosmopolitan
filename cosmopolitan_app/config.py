@@ -41,6 +41,9 @@ domain_env_vars = [
     "EMAIL_PASSWORD",
     "EMAIL_SENDER",
     "MAINTAINER_EMAIL",
+    # No constant below: cosmo_ecosystem.domain reads it lazily, on first access to
+    # the Celery app. Listed so test_env.py checks every env file sets it.
+    "COSMO_DOMAIN",
 ]
 
 env_vars = framework_env_vars + domain_env_vars

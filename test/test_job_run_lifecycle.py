@@ -17,7 +17,7 @@ from cosmo_ecosystem.db_manager import DbManager
 from cosmo_ecosystem.job_log import JobLogHandler
 from cosmo_ecosystem.object_storage_manager import get_remote_files
 
-from cosmopolitan_app.background_job_manager import background_job_manager
+from cosmopolitan_app import submissions
 from cosmopolitan_app.config import (
     MAINTAINER_EMAIL,
     OBJECT_STORAGE_BUCKET,
@@ -273,7 +273,7 @@ def test_submit_writes_running_before_the_enqueue(job_id, monkeypatch):
         job_persistence.update_columns(job_id, {"status": "COMPLETED"})
         return "task-id", False
 
-    monkeypatch.setattr(background_job_manager, "submit_computation_job", enqueue)
+    monkeypatch.setattr(submissions, "submit_computation_job", enqueue)
 
     Job(job_id).submit()
 
@@ -287,7 +287,7 @@ def test_a_failed_enqueue_ends_failed_with_the_reason_in_the_job_log(
     def enqueue(submitted_job):
         raise ConnectionError("Error -3 connecting to redis")
 
-    monkeypatch.setattr(background_job_manager, "submit_computation_job", enqueue)
+    monkeypatch.setattr(submissions, "submit_computation_job", enqueue)
 
     Job(job_id).submit()
 
@@ -303,7 +303,7 @@ def test_an_enqueue_reporting_failure_ends_failed_with_the_reason_in_the_job_log
     def enqueue(submitted_job):
         return None, True
 
-    monkeypatch.setattr(background_job_manager, "submit_computation_job", enqueue)
+    monkeypatch.setattr(submissions, "submit_computation_job", enqueue)
 
     Job(job_id).submit()
 

@@ -34,7 +34,7 @@ import dash_bootstrap_components as dbc
 from dash import Input, Output, State, callback, dcc, html, register_page
 
 
-from cosmopolitan_app.background_job_manager import background_job_manager
+from cosmopolitan_app.submissions import submit_update_db_task
 from cosmopolitan_app.constants import (
     DUMMY_DIV_CRNS_ADMIN_ID,
     END_DATE_INPUT_CRNS_ADMIN_ID,
@@ -359,7 +359,7 @@ def start_update(n_clicks):
         )
 
     # Submit task to Celery
-    task_id, failed = background_job_manager.submit_update_db_task()
+    task_id, failed = submit_update_db_task()
     if failed:
         raise RedisConnectionError()
 

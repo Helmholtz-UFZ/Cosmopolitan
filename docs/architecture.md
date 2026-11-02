@@ -24,8 +24,8 @@ See [Framework boundary](#framework-boundary) below.
 | `pydantic_models.py` | Pydantic models for job-input validation |
 | `form_template_factory.py` | Builds form views from selected inputs (predictors + CRNS); pairs with the `dash-form-factory` dependency |
 | `job.py` | The Cosmopolitan Job model and its workflow |
-| `background_job_manager.py` | The domain job submissions on top of the framework's `BackgroundJobManager` |
-| `celery_app.py`, `celery_config.py` | Celery app and broker (Redis) configuration |
+| `domain.py` | The domain module (`COSMO_DOMAIN`): task specs, domain Celery settings, log settings; the framework assembles the Celery app from it |
+| `submissions.py` | The domain job submissions, module functions over the framework's `BackgroundJobManager` |
 | `tasks/` | Celery task definitions — computation jobs and periodic maintenance |
 | `postgres_manager.py` | SQLAlchemy ORM models and DB operations (PostGIS) |
 | `timeio_manager.py`, `timeio_info.py` | Data acquisition from the TimeIO / STI API (CRNS measurements) |
@@ -73,7 +73,7 @@ the rules for working across the boundary are in
 ```text
 1. User submits a prediction job through a Dash web form (pages/ + form_template_factory)
 2. Job is validated (pydantic_models) and stored in PostgreSQL (postgres_manager)
-3. Job is queued to Celery workers via Redis (background_job_manager / tasks)
+3. Job is queued to Celery workers via Redis (submissions / tasks)
 4. The soil-moisture-prediction library processes the data on a worker
 5. Results land in object storage (cosmo_ecosystem.object_storage_manager) and are displayed in the UI (pages/results)
 ```

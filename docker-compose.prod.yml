@@ -9,6 +9,7 @@ services:
       - .env.prod
     environment:
       TZ: Europe/Berlin
+      COSMO_DOMAIN: cosmopolitan_app.domain
     ports:
       - "${FLASK_PORT}:${FLASK_PORT}"
 
@@ -22,6 +23,7 @@ services:
       - env_prod
     environment:
       TZ: Europe/Berlin
+      COSMO_DOMAIN: cosmopolitan_app.domain
 # Environment variables managed by system administration
 # EMAIL_PASSWORD
 # POSTGRES_PASSWORD

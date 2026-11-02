@@ -39,7 +39,7 @@ The API exposes Things by numeric id; the app maps those ids with **hard-coded d
 
 `update_crns_measurments()` is the refresh entry point (run nightly by the `update_db` Beat task —
 see [`job-lifecycle.md`](job-lifecycle.md) — or manually via
-`background_job_manager.submit_update_db_task()`):
+`submissions.submit_update_db_task()`):
 
 - Reads `start_date` / `end_date` from the `app_config` table. If `start_date` is `None`, it
   **skips**. If `end_date` is `None` or later than yesterday, it clamps to yesterday.

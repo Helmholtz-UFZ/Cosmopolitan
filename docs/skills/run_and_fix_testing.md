@@ -102,6 +102,7 @@ Check the test function signature for fixture dependencies:
 | `test_postgres_manager.py` | `test_smp_assumptions.py` |
 | `test_update_measurements.py` | `test_documentation.py` |
 | `test_background_job_manager.py` | |
+| `test_one_celery_app.py` | |
 
 Running a service-dependent test with `--no-services` produces connection
 failures, not meaningful results. If unsure, run with services.
