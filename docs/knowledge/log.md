@@ -16,8 +16,9 @@ model. Newest entries go at the top.
 ## 2026-11-02
 
 - Updated `knowledge/systems/job-lifecycle.md` — lost job runs: submit queues through
-  `job_run.mark_queued`, the claim drops redeliveries (no mails), the framework sweep (beat every
-  5 min) ends runs without a heartbeat as FAILED.
+  `job_run.mark_queued`, the claim drops redeliveries (no mails), the framework sweep ends runs
+  with a stale heartbeat as FAILED (ADR 0004 in cosmo-ecosystem); the `heartbeat_at` column must be
+  on `somweb_prod` before the deploy.
 
 ## 2026-10-30
 

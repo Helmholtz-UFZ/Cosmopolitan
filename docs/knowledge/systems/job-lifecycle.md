@@ -22,11 +22,16 @@ storage. Job status moves through `COMPLETED` / `FAILED` (set in `start_computat
 
 `Job.submit` queues the run through the framework's `job_run.mark_queued` (RUNNING, no
 `heartbeat_at`) before the enqueue. The worker's `job_run.run` claims the row by setting
-`heartbeat_at` and refreshes it every 60 s while it computes; a delivery that loses the claim
+`heartbeat_at` and refreshes it while it computes; a delivery that loses the claim
 (a redelivery, a stale message) is dropped, and `start_computation_task` then sends no mails.
 A run killed hard (OOM, the 3900 s limit, pod restart, admin kill) stops beating, and the
 framework's sweep ends it FAILED with a "Worker lost" line in the job log; the user resubmits
-it. See ADR 0004 in cosmo-ecosystem.
+it. Interval, threshold and schedule are the framework's (`job_run.HEARTBEAT_INTERVAL_SECONDS`,
+`sweep_tasks.LOST_RUN_THRESHOLD`); see ADR 0004 in cosmo-ecosystem (`docs/adr/0004-lost-job-runs-are-swept-not-retried.md`).
+
+The column is a schema change: `ALTER TABLE jobs ADD COLUMN heartbeat_at TIMESTAMPTZ` must run on
+`somweb_prod` before the deploy that needs it, checked with `./schema_diff.sh` (see
+[`environment_variables.md`](../../conventions/environment_variables.md)).
 
 ## Celery topology
 
@@ -42,7 +47,7 @@ backend are Redis.
 - **Task specs** (`domain.task_specs`) register, route and schedule the app's tasks:
   `start_computation` → `computation`, `update_db` → `maintenance` (beat 04:00). The framework
   adds its own `cleanup` (`maintenance`, beat 03:00), `sweep_lost_runs` (`maintenance`, beat
-  every 5 min) and test task (`test`).
+  as the framework schedules it) and test task (`test`).
 - **Task names** are explicit constants in [`submissions.py`](../../../cosmopolitan_app/submissions.py),
   next to the domain submissions (`submit_computation_job`, `submit_update_db_task`), which are
   module functions over the framework's `background_job_manager`.
@@ -63,8 +68,8 @@ Three scheduled tasks, built by the framework from the task specs, in Europe/Ber
 
 - `cosmo_ecosystem.tasks.maintenance_tasks.cleanup` — 03:00, the framework's cleanup (deletes
   logs older than `domain.log_retention_days` = 60, then expired jobs).
-- `cosmo_ecosystem.tasks.sweep_tasks.sweep_lost_runs` — every 5 min, the framework's sweep (ends
-  RUNNING rows whose heartbeat is older than 10 min as FAILED).
+- `cosmo_ecosystem.tasks.sweep_tasks.sweep_lost_runs` — the framework's sweep, on the framework's
+  schedule: ends RUNNING rows whose heartbeat is stale as FAILED (ADR 0004 in cosmo-ecosystem).
 - `cosmopolitan_app.tasks.maintenance_tasks.update_db` — 04:00 (refreshes CRNS measurements; see
   [`timeio-integration.md`](timeio-integration.md)).
 
