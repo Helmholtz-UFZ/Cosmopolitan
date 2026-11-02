@@ -26,7 +26,7 @@ def _manager():
 
 
 def submit_computation_job(job) -> tuple[str | None, bool]:
-    """Submit a computation job to the computation queue.
+    """Submit a computation job; its task spec in ``domain`` names the queue.
 
     Args:
         job: Job instance to process
@@ -43,16 +43,15 @@ def submit_computation_job(job) -> tuple[str | None, bool]:
     return _manager().submit_job(
         NAME_COMPUTATION_TASK,
         job.job_id,
-        queue="computation",
         track_task_name=True,
     )
 
 
 def submit_update_db_task() -> tuple[str | None, bool]:
-    """Submit the update_db maintenance task to the maintenance queue.
+    """Submit the update_db task; its task spec in ``domain`` names the queue.
 
     Returns:
         tuple: (celery_task_id, failed_boolean)
                celery_task_id is None if submission failed
     """
-    return _manager().submit_named_job(NAME_UPDATE_DB_TASK, queue="maintenance")
+    return _manager().submit_named_job(NAME_UPDATE_DB_TASK)
