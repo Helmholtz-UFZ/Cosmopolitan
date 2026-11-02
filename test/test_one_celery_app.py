@@ -7,13 +7,14 @@ instance shows up here.
 """
 
 import json
-import os
 import subprocess
 import sys
 
-NAME_COMPUTATION_TASK = "cosmopolitan_app.tasks.computation_tasks.start_computation"
-NAME_UPDATE_DB_TASK = "cosmopolitan_app.tasks.maintenance_tasks.update_db"
-NAME_CLEANUP_TASK = "cosmo_ecosystem.tasks.maintenance_tasks.cleanup"
+from cosmo_ecosystem.celery_app import NAME_CLEANUP_TASK
+
+from cosmopolitan_app.submissions import NAME_COMPUTATION_TASK, NAME_UPDATE_DB_TASK
+
+SUBPROCESS_TIMEOUT = 120  # seconds; importing the app takes a few
 
 REPORT = """
 import json
@@ -23,6 +24,8 @@ from celery import _state
 import cosmopolitan_app.app  # imports every framework page
 from cosmo_ecosystem.background_job_manager import background_job_manager
 
+# Private API, on purpose: Celery offers no public way to count the apps alive in a
+# process, and counting them is the whole point of this guardrail.
 apps = list(_state._get_active_apps())
 conf = background_job_manager.app.conf
 print(json.dumps({
@@ -47,9 +50,9 @@ def _report():
     """Import the web app in a fresh interpreter and report its Celery state."""
     result = subprocess.run(
         [sys.executable, "-c", REPORT],
-        env=dict(os.environ),
         capture_output=True,
         text=True,
+        timeout=SUBPROCESS_TIMEOUT,
     )
     assert result.returncode == 0, result.stderr
     return json.loads(result.stdout.strip().splitlines()[-1])
