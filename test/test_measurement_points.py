@@ -4,6 +4,8 @@ Runs against the real Postgres with PostGIS. Only the map render, which download
 tiles, is replaced.
 """
 
+from datetime import datetime
+
 import pandas as pd
 import pytest
 from sqlalchemy import text
@@ -92,3 +94,17 @@ def test_a_sensor_added_through_the_sensor_page_is_drawn_in_the_preview(
 
     # the area and one marker for each of the measurements on the 10th and 11th
     assert len(recorded_map.objects) == 3
+
+
+@pytest.mark.parametrize(
+    "end_date", [DAY, datetime(2024, 5, 10, 23, 59, 59)], ids=["date", "end of day"]
+)
+def test_the_last_selected_day_is_part_of_the_points(
+    sensor_with_measurements, end_date
+):
+    """A single-day range holds that day's measurements; the next day's stay out."""
+    df = PostgresManager.get_measurement_points(
+        BBOX, ["station"], DAY, end_date, representative=False
+    )
+
+    assert list(df["date_time"].dt.strftime("%Y-%m-%d")) == [DAY]

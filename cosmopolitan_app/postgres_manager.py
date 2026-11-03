@@ -428,10 +428,16 @@ class PostgresManager(DbManager):
 
     @classmethod
     def get_measurement_points(cls, bbox, types, start_date, end_date, representative):
-        """Retrieve measurement points."""
+        """Retrieve measurement points.
+
+        ``start_date`` and ``end_date`` (a ``YYYY-MM-DD`` string, date or datetime)
+        name days; both are inclusive, so the whole of ``end_date`` is selected.
+        """
         log.debug(
             f"Get measurement points for types: {types} in bbox: {bbox} and date range: {start_date} to {end_date}",  # noqa: E501
         )
+        # A bare date is midnight, which would drop the last day; bound at the next one.
+        end_exclusive = pd.Timestamp(end_date).normalize() + pd.Timedelta(days=1)
         # Get type mapping from database
         type_id_dict = cls.get_timeio_type_mapping()
         sensor_ids = [id for id, t in type_id_dict.items() if t in types]
@@ -451,7 +457,7 @@ class PostgresManager(DbManager):
             query = session.query(*columns).filter(
                 CRNSMeasurement.sensor_id.in_(sensor_ids),
                 CRNSMeasurement.date_time >= start_date,
-                CRNSMeasurement.date_time <= end_date,
+                CRNSMeasurement.date_time < end_exclusive,
                 func.ST_Within(
                     CRNSMeasurement.geom,
                     func.ST_MakeEnvelope(min_lon, min_lat, max_lon, max_lat, 4326),
