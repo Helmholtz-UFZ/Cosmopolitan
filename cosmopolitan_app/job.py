@@ -35,7 +35,6 @@ from cosmopolitan_app.config import MAINTAINER_EMAIL
 from cosmopolitan_app.error_handling import (
     InvalidJobID,
     JobExists,
-    JobNotFound,
     MapTileDownloadError,
     NoMeasurementPointsError,
 )
@@ -724,24 +723,6 @@ class Job(BaseJob):
     def reload_logs(self):
         """Read the job log into ``logs``; any pod sees a running job's records."""
         self.logs = job_log.read(self.job_id)
-
-    def save_attributes(self, attribute_list):
-        """Save specicif job information to the database.
-
-        This method takes a list of attributes, collects the current information of
-        these attributes. It then uses a PostgresManager instance to add the collected
-        data as to the respective column in the database.
-        If the job can not be found in data base safe all attributes.
-        """
-        log.debug(
-            f"Save attributes {', '.join(attribute_list)} to job {self.job_id}",
-        )
-        data_to_insert = {name: self._get_column_data(name) for name in attribute_list}
-        try:
-            job_persistence.update_columns(self.job_id, data_to_insert)
-        except JobNotFound:
-            # Not saved whole: that would bring back a row deleted meanwhile.
-            log.info(f"Job {self.job_id} was deleted; its attributes are not saved.")
 
     def save(self):
         """Save the job information to the database.

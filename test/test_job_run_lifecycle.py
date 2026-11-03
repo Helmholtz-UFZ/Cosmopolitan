@@ -660,11 +660,13 @@ def test_a_start_failure_reported_after_a_worker_claimed_the_run_keeps_it_runnin
     assert f"Cannot start job {job_id}." not in job_log.read(job_id)
 
 
-def test_saving_attributes_of_a_deleted_job_does_not_bring_its_row_back(job_id):
+def test_the_end_mail_of_a_deleted_job_does_not_bring_its_row_back(job_id, monkeypatch):
     job = Job(job_id)
+    job.model.email = USER_EMAIL
+    monkeypatch.setattr(email_service, "send_mail", lambda *args: None)
     assert job.delete() is True
 
-    job.save_attributes(["notified_end"])
+    email_service.send_finished_mail(job)
 
     assert PostgresManager.check_existence(job_id) is False
 

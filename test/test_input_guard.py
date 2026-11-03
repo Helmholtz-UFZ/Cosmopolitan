@@ -204,3 +204,41 @@ def test_deleting_an_upload_in_a_stale_tab_keeps_the_files_and_says_so(
         f"{OBJECT_STORAGE_REMOTE_NAME}:{OBJECT_STORAGE_BUCKET}/{job_id}"
     )
     assert "PENDING" in str(result[HINT_DIV_INPUT_ID])
+
+
+@pytest.fixture
+def job_started_before_the_preview(monkeypatch):
+    """Make the job RUNNING right when preview_area checks that it is PENDING."""
+    real = Job.check_pending
+
+    def check_after_a_submit(self):
+        set_row_columns(self.job_id, status="RUNNING", submitted=True)
+        return real(self)
+
+    monkeypatch.setattr(Job, "check_pending", check_after_a_submit)
+
+
+def test_update_preview_that_loses_the_race_says_so(
+    input_page, job_id, job_started_before_the_preview
+):
+    """The job started between the input write and the preview: a hint, no crash."""
+    state = _form_state(job_id, input_page)
+    state["new_area_preview"] = 1
+
+    with app.server.test_request_context():
+        result = input_page.regenerate_preview(**state)
+
+    assert result["area_preview"] is dash.no_update
+    assert "PENDING" in str(result[HINT_DIV_INPUT_ID])
+
+
+def test_input_page_load_that_loses_the_race_shows_no_preview(
+    input_page, job_id, job_started_before_the_preview
+):
+    with app.server.test_request_context():
+        header_class, subtitle, content = input_page.load_submission_content(
+            job_id, "bg-info"
+        )
+
+    assert subtitle == job_id
+    assert content is not None

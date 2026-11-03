@@ -185,8 +185,13 @@ def load_submission_content(job_id, header_class_name):
         log.info("No preview path found, generating new preview.")
         job.preview_area()
         preview_path = job.get_preview_path()
-    preview_file_name = os.path.basename(preview_path)
-    preview_src = url_for("serve_file", job_id=job.job_id, filename=preview_file_name)
+    # None: a job that started meanwhile draws no preview, so it has none to show.
+    preview_src = None
+    if preview_path is not None:
+        preview_file_name = os.path.basename(preview_path)
+        preview_src = url_for(
+            "serve_file", job_id=job.job_id, filename=preview_file_name
+        )
 
     template_factory = FormTemplateFactory(
         job_id=job.job_id,
@@ -411,6 +416,12 @@ def regenerate_preview(**state):
             HINT_DIV_INPUT_ID: dbc.Alert(NOT_PENDING_HINT, color="warning"),
         }
     file_name = job.preview_area()
+    if file_name is None:
+        log.info(f"Preview of job {job_id} not drawn: the job started meanwhile.")
+        return {
+            active_form_template_factory.area_preview_key: dash.no_update,
+            HINT_DIV_INPUT_ID: dbc.Alert(NOT_PENDING_HINT, color="warning"),
+        }
     image_src = url_for("serve_file", job_id=job.job_id, filename=file_name)
 
     return {

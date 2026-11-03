@@ -107,7 +107,6 @@ def test_the_status_poll_makes_no_rclone_call(job_id, rclone_calls):
     job = Job(job_id)
     job.reload_logs()
     job.time_to_live()
-    job.save_attributes(["notified_end"])
 
     assert rclone_calls == []
 
