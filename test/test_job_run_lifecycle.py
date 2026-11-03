@@ -339,6 +339,22 @@ def test_submit_queues_the_run_with_no_heartbeat(job_id, monkeypatch):
     assert row_at_enqueue == [("RUNNING", None)]
 
 
+def test_a_resubmitted_job_is_queued_with_its_end_mail_pending(job_id, monkeypatch):
+    """A failed run has sent its end mail; the next run must send its own."""
+    job_persistence.update_columns(job_id, {"status": "FAILED", "notified_end": True})
+    notified_at_enqueue = []
+
+    def enqueue(submitted_job):
+        notified_at_enqueue.append(DbManager.get_job_columns(job_id)["notified_end"])
+        return "task-id", False
+
+    monkeypatch.setattr(submissions, "submit_computation_job", enqueue)
+
+    Job(job_id).submit()
+
+    assert notified_at_enqueue == [False]
+
+
 def test_saving_a_job_keeps_its_runs_heartbeat(submitted_job_id):
     """A page that saves the job during a run does not write the heartbeat back."""
     job = Job(submitted_job_id)

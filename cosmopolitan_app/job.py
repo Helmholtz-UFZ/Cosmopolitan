@@ -682,6 +682,9 @@ class Job(BaseJob):
             # enqueue, because a worker on a shared disk may already be writing
             # files; only a failure is written then.
             self.working_dir = job_persistence.work_dir(self.job_id)
+            # A resubmitted FAILED job has sent its end mail; the new run must send
+            # its own, so the flag is reset before the row is written.
+            self.notified_end = False
             self.save()
             job_run.mark_queued(self.job_id)
             self.status = "RUNNING"
