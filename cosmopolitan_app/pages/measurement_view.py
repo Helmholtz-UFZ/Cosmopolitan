@@ -415,6 +415,11 @@ def transform_coordinates_to_projection(df, target_proj="EPSG:4326"):
     return df_copy
 
 
+def _has_cleared_input(*values):
+    """Return whether a date picker or number input was cleared (it sends None)."""
+    return any(value is None for value in values)
+
+
 @callback(
     Output(PREVIEW_IMAGE_DIV_MEASUREMENT_VIEW_ID, "children"),
     [Input(LOAD_BUTTON_MEASUREMENT_VIEW_ID, "n_clicks")],
@@ -442,7 +447,11 @@ def update_preview_image(
     projection,
 ):
     """Update the preview image independently of the data loading."""
-    if not n_clicks or not selected_types:
+    if (
+        not n_clicks
+        or not selected_types
+        or _has_cleared_input(start_date, end_date, min_lon, min_lat, max_lon, max_lat)
+    ):
         return html.P(
             "No preview available. Please select filters and click 'Load Data'.",
             className="text-muted",
@@ -538,7 +547,11 @@ def load_measurement_data(
     projection,
 ):
     """Load measurement data based on the selected filters."""
-    if not n_clicks or not selected_types:
+    if (
+        not n_clicks
+        or not selected_types
+        or _has_cleared_input(start_date, end_date, min_lon, min_lat, max_lon, max_lat)
+    ):
         return (
             [],
             html.P("No data loaded. Please select filters and click 'Load Data'."),
