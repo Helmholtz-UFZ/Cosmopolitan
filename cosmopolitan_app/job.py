@@ -215,16 +215,60 @@ class Job(BaseJob):
         self,
         job_id=None,
         new_job_id=None,
-        model=None,
     ):
-        """Init class either by id, by html form or make a new one."""
+        """Init class either by id or make a new one.
+
+        A job with a given model is made by ``create``; a model is put onto an
+        existing job by ``update_input``.
+        """
         if job_id is not None:
             self.job_id = job_id
             self.load()
-        elif model is not None:
-            self._init_from_model(model)
         else:
             self._blank_job(new_job_id)
+
+    @classmethod
+    def create(cls, model) -> Self:
+        """Create a new job holding model; its id is ``model.job_id``.
+
+        Inserts a new PENDING row and refuses an id that is taken: a model is
+        never written over an existing job's row (cosmo-ecosystem ADR 0005); that
+        is ``update_input``.
+
+        Raises:
+            JobExists: If a job with that id exists.
+        """
+        if PostgresManager.check_existence(model.job_id):
+            raise JobExists(model.job_id)
+        job = cls.__new__(cls)
+        job._init_from_model(model)
+        return job
+
+    def update_input(self, model) -> bool:
+        """Write model as the job's input onto its existing row, only while PENDING.
+
+        One conditional update of the ``input_data`` column
+        (``job_persistence.update_input``); then the work dir is pulled,
+        ``parameters.json`` written and the work dir uploaded. A job that started,
+        finished or was reset meanwhile keeps its input and its files: nothing is
+        written, nothing is uploaded, and False is returned. It never writes
+        ``start_date`` or the run-owned columns.
+
+        Returns:
+            Whether the input was written.
+        """
+        log.debug(f"Update the input of job {self.job_id}")
+        self.model = model
+        if not job_persistence.update_input(
+            self.job_id, {"input_data": self._get_column_data("input_data")}
+        ):
+            log.debug(f"Job {self.job_id} is not PENDING; its input is kept.")
+            return False
+        # After the guard: a refused update leaves the work dir as it is.
+        self.working_dir = job_persistence.work_dir(self.job_id)
+        self.dump_parameters()
+        job_persistence.upload_work_dir(self.job_id)
+        return True
 
     @property
     def job_id(self) -> str:
@@ -787,13 +831,26 @@ class Job(BaseJob):
                 break
             i += 1
 
-        new_job = Job(model=new_model)
+        new_job = Job.create(new_model)
         new_job.copy_input_files(self.working_dir)
         new_job.save()
         return new_job
 
-    def clean_work_dir(self):
-        """Clean the working directory."""
+    def clean_work_dir(self) -> bool:
+        """Reset the job to PENDING and clean the working directory.
+
+        For "Change input": the job's input is written only while it is PENDING, so
+        a FAILED job is reset first. The reset is the first write, a conditional
+        ``job_run.mark_pending``: a RUNNING job is refused before anything is
+        deleted (cosmo-ecosystem ADR 0005).
+
+        Returns:
+            Whether the job was reset and cleaned; False means it is RUNNING.
+        """
+        if not job_run.mark_pending(self.job_id):
+            log.debug(f"Job {self.job_id} runs and is not reset.")
+            return False
+        self.status = "PENDING"
         self.working_dir = job_persistence.work_dir(self.job_id)
         log.info(f"Clean work dir {self.working_dir}")
 
@@ -807,6 +864,7 @@ class Job(BaseJob):
         self.dump_parameters()
 
         self.save()
+        return True
 
     def delete_logs(self):
         """Clear the job log."""

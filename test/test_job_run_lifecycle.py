@@ -10,6 +10,7 @@ prediction outcome; mails are observed through the test-mode mail log.
 import json
 import logging
 import os
+from datetime import date
 
 import pytest
 from sqlalchemy import text
@@ -29,6 +30,7 @@ from cosmopolitan_app.config import (
     OBJECT_STORAGE_REMOTE_NAME,
 )
 from cosmopolitan_app.constants.general import LOG_FILE_NAME
+from cosmopolitan_app.error_handling import JobExists
 from cosmopolitan_app.job import Job
 from cosmopolitan_app.tasks import computation_tasks
 from test.help_functions_tests import remove_job, set_row_columns
@@ -450,3 +452,83 @@ def test_saving_a_stale_job_never_writes_its_status(job_id):
 
     row = DbManager.get_job_columns(job_id)
     assert (row["status"], row["submitted"]) == ("COMPLETED", True)
+
+
+def _model_with_email(job_id, email):
+    """Return a valid model for job_id that differs from a new job's in its email."""
+    model = Job(job_id).model
+    model.email = email
+    return model
+
+
+def test_update_input_on_a_pending_job_writes_only_the_input(job_id):
+    start_date = DbManager.get_job_columns(job_id)["start_date"]
+    set_row_columns(job_id, start_date=date(2020, 1, 1))
+    model = _model_with_email(job_id, USER_EMAIL)
+
+    applied = Job(job_id).update_input(model)
+
+    row = DbManager.get_job_columns(job_id)
+    assert applied is True
+    assert json.loads(row["input_data"])["email"] == USER_EMAIL
+    assert (row["status"], row["submitted"]) == ("PENDING", False)
+    assert row["start_date"] == date(2020, 1, 1) != start_date
+
+
+@pytest.mark.parametrize("status", ["RUNNING", "COMPLETED"])
+def test_update_input_on_a_job_that_is_not_pending_changes_nothing(job_id, status):
+    """A stale tab's preview or check input must not rewrite a run's input."""
+    stale = Job(job_id)
+    set_row_columns(job_id, status=status, submitted=True)
+    before = DbManager.get_job_columns(job_id)
+    model = _model_with_email(job_id, USER_EMAIL)
+
+    applied = stale.update_input(model)
+
+    assert applied is False
+    assert DbManager.get_job_columns(job_id) == before
+
+
+def test_create_inserts_a_new_pending_job_and_refuses_an_existing_id(job_id):
+    set_row_columns(job_id, status="COMPLETED", submitted=True)
+    model = _model_with_email(job_id, USER_EMAIL)
+
+    with pytest.raises(JobExists):
+        Job.create(model)
+
+    remove_job(job_id)
+    created = Job.create(model)
+
+    row = DbManager.get_job_columns(job_id)
+    assert created.job_id == job_id
+    assert (row["status"], row["submitted"]) == ("PENDING", False)
+    assert row["start_date"] == date.today()
+    assert json.loads(row["input_data"])["email"] == USER_EMAIL
+
+
+def test_change_input_on_a_running_job_is_refused_and_deletes_nothing(job_id):
+    job = Job(job_id)
+    job.save()
+    assert job_run.mark_queued(job_id)
+    with open(os.path.join(job.working_dir, OUTPUT_FILE), "w", encoding="UTF-8") as f:
+        f.write("a file the run uses\n")
+    job.save()
+    before = DbManager.get_job_columns(job_id)
+
+    cleaned = Job(job_id).clean_work_dir()
+
+    assert cleaned is False
+    assert DbManager.get_job_columns(job_id) == before
+    assert OUTPUT_FILE in get_remote_files(
+        f"{OBJECT_STORAGE_REMOTE_NAME}:{OBJECT_STORAGE_BUCKET}/{job_id}"
+    )
+
+
+def test_change_input_on_a_failed_job_resets_it_to_pending(job_id):
+    set_row_columns(job_id, status="FAILED", submitted=True)
+
+    cleaned = Job(job_id).clean_work_dir()
+
+    row = DbManager.get_job_columns(job_id)
+    assert cleaned is True
+    assert (row["status"], row["submitted"]) == ("PENDING", True)
