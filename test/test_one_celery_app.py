@@ -10,7 +10,7 @@ import json
 import subprocess
 import sys
 
-from cosmo_ecosystem.celery_app import NAME_CLEANUP_TASK
+from cosmo_ecosystem.celery_app import NAME_CLEANUP_TASK, NAME_SWEEP_TASK
 
 from cosmopolitan_app.submissions import NAME_COMPUTATION_TASK, NAME_UPDATE_DB_TASK
 
@@ -70,11 +70,17 @@ def test_web_process_holds_one_celery_app_with_the_domain_settings():
     assert report["time_limits"] == [3600, 3900]
 
 
-def test_beat_runs_cleanup_at_three_and_update_db_at_four_berlin_time():
+def test_beat_runs_cleanup_at_three_update_db_at_four_and_the_sweep_every_5_min():
     report = _report()
 
     assert report["beat"] == {
         NAME_CLEANUP_TASK: {"hour": [3], "minute": [0], "queue": "maintenance"},
         NAME_UPDATE_DB_TASK: {"hour": [4], "minute": [0], "queue": "maintenance"},
+        # The framework's sweep of lost job runs; the app declares nothing for it.
+        NAME_SWEEP_TASK: {
+            "hour": list(range(24)),
+            "minute": list(range(0, 60, 5)),
+            "queue": "maintenance",
+        },
     }
     assert report["timezone"] == "Europe/Berlin"

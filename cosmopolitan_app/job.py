@@ -40,8 +40,9 @@ from cosmopolitan_app.error_handling import (
     MapTileDownloadError,
     NoMeasurementPointsError,
 )
-from cosmo_ecosystem import job_log, job_persistence
+from cosmo_ecosystem import job_log, job_persistence, job_run
 from cosmo_ecosystem.base_job import BaseJob
+from cosmo_ecosystem.job import RUN_OWNED_COLUMNS
 from cosmo_ecosystem.job_retention import days_to_live
 from cosmopolitan_app.postgres_manager import JobTable, PostgresManager
 from cosmopolitan_app.pydantic_models import ModelWebsite, validate_job_id
@@ -644,7 +645,13 @@ class Job(BaseJob):
         data as a new entry in the database.
         """
         log.debug(f"Save job {self.job_id}")
-        column_names = JobTable.__table__.columns.keys()
+        # The run owns the heartbeat: a save during a run would put the heartbeat
+        # this job loaded over the run's newer one (cosmo-ecosystem ADR 0004).
+        column_names = [
+            name
+            for name in JobTable.__table__.columns.keys()
+            if name not in RUN_OWNED_COLUMNS
+        ]
         data_to_insert = {name: self._get_column_data(name) for name in column_names}
         for key, value in data_to_insert.items():
             # Try to load json data into model -> assures that only vaild data is saved
@@ -666,16 +673,18 @@ class Job(BaseJob):
 
         if PostgresManager.set_submitted(self.job_id):
             self.submitted = True
-            # Save BEFORE enqueuing, RUNNING included: pull first so the dir exists
-            # and holds nothing stale, then upload and write the submitted row. A
-            # fast worker may write COMPLETED or FAILED before the enqueue returns,
-            # and a RUNNING written after it would overwrite that (ADR 0002 of
-            # cosmo-ecosystem). Nothing is synced after the enqueue, because a
-            # worker on a shared disk may already be writing files; only a
-            # failure is written then.
-            self.status = "RUNNING"
+            # Save and queue BEFORE enqueuing: pull first so the dir exists and
+            # holds nothing stale, upload and write the submitted row, then queue
+            # the run (RUNNING, no heartbeat; the run claims only such a row). A
+            # fast worker may claim the run and write COMPLETED or FAILED before
+            # the enqueue returns, and a RUNNING written after it would overwrite
+            # that (ADR 0002 of cosmo-ecosystem). Nothing is synced after the
+            # enqueue, because a worker on a shared disk may already be writing
+            # files; only a failure is written then.
             self.working_dir = job_persistence.work_dir(self.job_id)
             self.save()
+            job_run.mark_queued(self.job_id)
+            self.status = "RUNNING"
             try:
                 celery_task_id, failed = submissions.submit_computation_job(self)
 

@@ -13,6 +13,13 @@ model. Newest entries go at the top.
 - Updated `path/to/file.md` — short note on what changed.
 ```
 
+## 2026-11-02
+
+- Updated `knowledge/systems/job-lifecycle.md` — lost job runs: submit queues through
+  `job_run.mark_queued`, the claim drops redeliveries (no mails), the framework sweep ends runs
+  with a stale heartbeat as FAILED (ADR 0004 in cosmo-ecosystem); the `heartbeat_at` column must be
+  on `somweb_prod` before the deploy.
+
 ## 2026-10-30
 
 - Updated `knowledge/systems/cosmo-ecosystem-boundary.md` — the two-engine section is

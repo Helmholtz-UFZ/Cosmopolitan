@@ -12,6 +12,8 @@ import logging
 import os
 
 import pytest
+from sqlalchemy import text
+
 from cosmo_ecosystem import job_log, job_persistence
 from cosmo_ecosystem.db_manager import DbManager
 from cosmo_ecosystem.job_log import JobLogHandler
@@ -59,6 +61,15 @@ def submitted_job_id(job_id):
     job.status = "RUNNING"
     job.save()
     return job_id
+
+
+def _set_heartbeat(job_id):
+    """Give job_id's row a heartbeat, as a claimed run has: the database's now()."""
+    with DbManager.session_scope() as session:
+        session.execute(
+            text("UPDATE jobs SET heartbeat_at = now() WHERE job_id = :job_id"),
+            {"job_id": job_id},
+        )
 
 
 def _prediction_returning(model):
@@ -309,3 +320,50 @@ def test_an_enqueue_reporting_failure_ends_failed_with_the_reason_in_the_job_log
 
     assert DbManager.get_job_columns(job_id)["status"] == "FAILED"
     assert f"Cannot start job {job_id}." in job_log.read(job_id)
+
+
+def test_submit_queues_the_run_with_no_heartbeat(job_id, monkeypatch):
+    """A resubmitted job's old heartbeat is gone before the worker sees the message."""
+    _set_heartbeat(job_id)
+    row_at_enqueue = []
+
+    def enqueue(submitted_job):
+        row = DbManager.get_job_columns(job_id)
+        row_at_enqueue.append((row["status"], row["heartbeat_at"]))
+        return "task-id", False
+
+    monkeypatch.setattr(submissions, "submit_computation_job", enqueue)
+
+    Job(job_id).submit()
+
+    assert row_at_enqueue == [("RUNNING", None)]
+
+
+def test_saving_a_job_keeps_its_runs_heartbeat(submitted_job_id):
+    """A page that saves the job during a run does not write the heartbeat back."""
+    job = Job(submitted_job_id)
+    _set_heartbeat(submitted_job_id)
+    beat = DbManager.get_job_columns(submitted_job_id)["heartbeat_at"]
+
+    job.save()
+
+    assert DbManager.get_job_columns(submitted_job_id)["heartbeat_at"] == beat
+
+
+def test_a_dropped_delivery_sends_no_mails_and_leaves_the_row(
+    submitted_job_id, monkeypatch, caplog
+):
+    """A redelivery of a claimed run is dropped: no computation, no end mail."""
+    caplog.set_level(logging.INFO)
+    monkeypatch.setattr(
+        computation_tasks,
+        "smp_main",
+        _prediction_raising(AssertionError("a dropped delivery must not compute")),
+    )
+    _set_heartbeat(submitted_job_id)
+
+    computation_tasks.start_computation_task(None, submitted_job_id)
+
+    row = DbManager.get_job_columns(submitted_job_id)
+    assert (row["status"], row["notified_end"]) == ("RUNNING", False)
+    assert _mails(caplog) == []

@@ -95,6 +95,7 @@ Service requirements vary by test:
 | `test_cleanup.py` | Postgres, object storage |
 | `test_update_measurements.py` | Postgres |
 | `test_background_job_manager.py` | Redis, Celery worker |
+| `test_job_run_lifecycle.py` | Postgres, object storage |
 | `test_one_celery_app.py` | Object storage (imports `app.py` in a subprocess) |
 | `test_env.py` | None (reads env files only) |
 | `test_smp_assumptions.py` | None (checks data structures only) |

@@ -935,8 +935,9 @@ class TaskLockTable(Base):
 class JobTable(JobColumns, Base):
     """Represents the 'jobs' table in the database.
 
-    The six columns every app's job table has come from the framework's
-    ``JobColumns`` mixin; only this app's own columns are declared here.
+    The seven columns every app's job table has, ``heartbeat_at`` among them, come
+    from the framework's ``JobColumns`` mixin; only this app's own columns are
+    declared here.
     """
 
     __tablename__ = "jobs"
