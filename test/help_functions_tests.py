@@ -3,7 +3,10 @@
 import logging
 
 import pytest
+from cosmo_ecosystem import job_log, job_persistence
+from cosmo_ecosystem.db_manager import DbManager
 from playwright.sync_api import expect
+from sqlalchemy import update
 
 from cosmopolitan_app.config import PORT
 from cosmopolitan_app.constants import (
@@ -21,6 +24,7 @@ from cosmopolitan_app.form_template_factory import (
     active_form_factory,
     active_form_template_factory,
 )
+from cosmopolitan_app.postgres_manager import JobTable, PostgresManager
 
 
 def wait_for_dash_callback(page):
@@ -346,3 +350,28 @@ def submit_default_job(page, pred_file_paths, crns_file_path):
     setup_default_uploads(page, pred_file_paths, crns_file_path)
     check_input_and_submit(page)
     wait_for_job_completion(page)
+
+
+def set_row_columns(job_id, **columns):
+    """Write columns of a job's row directly, to arrange a test.
+
+    A save never writes ``status``, ``submitted``, ``heartbeat_at`` or ``run_id``
+    (cosmo-ecosystem ADR 0005); this stands in for the run, the worker or the
+    other tab that would have left the row in that state.
+    """
+    with DbManager.session_scope() as session:
+        session.execute(
+            update(JobTable).where(JobTable.job_id == job_id).values(**columns)
+        )
+
+
+def remove_job(job_id):
+    """Delete a test job whatever status the test left it, job log included.
+
+    ``job_persistence.delete_job`` refuses a RUNNING job (ADR 0005), so a job a
+    test left running is put back to PENDING first.
+    """
+    if PostgresManager.check_existence(job_id):
+        set_row_columns(job_id, status="PENDING")
+        job_persistence.delete_job(job_id)
+    job_log.clear(job_id)

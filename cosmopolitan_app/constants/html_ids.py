@@ -67,6 +67,8 @@ DELETE_PREDICTOR_UPLOAD_BUTTON_INPUT_ID = "delete_predictor_upload"
 HEADER_DIV_INPUT_ID = "header-div-input-id"
 HEADER_SUBTITLE_DIV_INPUT_ID = "header-div-input-id-subtitle"
 MAIN_CONTENT_DIV_INPUT_ID = "main-content-div-input-id"
+# Underscores: it is a key of the dict-style callbacks' outputs.
+HINT_DIV_INPUT_ID = "hint_div_input_id"
 
 # --- FormTexts ---
 CRNS_UPLOAD_FEEDBACK_FORMTEXT_INPUT_ID = "crns_upload_feedback"
@@ -99,6 +101,7 @@ HEADER_SUBTITLE_DIV_SUBMISSION_ID = "header-div-submission-id-subtitle"
 MAIN_CONTENT_DIV_SUBMISSION_ID = "main-content-div-submission-id"
 JOB_LOGS_DIV_SUBMISSION_ID = "job-logs-div-submission-id"
 STATUS_DIV_SUBMISSION_ID = "status-div-submission-id"
+HINT_DIV_SUBMISSION_ID = "hint-div-submission-id"
 
 # --- Stores ---
 JOB_STORE_SUBMISSION_ID = "job-store-submission-id"

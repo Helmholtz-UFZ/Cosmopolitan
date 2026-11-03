@@ -14,6 +14,7 @@ from cosmopolitan_app.constants import (
     CRNS_UPLOAD_INPUT_ID,
     DELETE_CRNS_UPLOAD_BUTTON_INPUT_ID,
     DELETE_PREDICTOR_UPLOAD_BUTTON_INPUT_ID,
+    HINT_DIV_INPUT_ID,
     HIDDEN_CRNS_UPLOAD_INPUT_INPUT_ID,
     HIDDEN_PREDICTOR_UPLOAD_INPUT_INPUT_ID,
     PREDICTOR_UPLOAD_FEEDBACK_FORMTEXT_INPUT_ID,
@@ -210,6 +211,10 @@ class FormTemplateFactory:
                 className="text-center",
             ),
         ]
+
+        if self.active:
+            # Where a refused write of a stale tab says so (see pages/input.py).
+            job_id_information.append(html.Div(id=HINT_DIV_INPUT_ID, className="my-2"))
 
         selected_predictors = [
             html.H5("Selected Predictors", className="text-center"),

@@ -32,11 +32,9 @@ from werkzeug.utils import secure_filename
 # The module, not the function: tests replace submit_computation_job on it.
 from cosmopolitan_app import submissions
 from cosmopolitan_app.config import MAINTAINER_EMAIL
-from cosmopolitan_app.constants import LOG_FILE_NAME
 from cosmopolitan_app.error_handling import (
     InvalidJobID,
     JobExists,
-    JobNotFound,
     MapTileDownloadError,
     NoMeasurementPointsError,
 )
@@ -49,6 +47,9 @@ from cosmopolitan_app.pydantic_models import ModelWebsite, validate_job_id
 from cosmopolitan_app.email_service import send_mail
 
 log = logging.getLogger(__name__)
+
+# How often spawn takes the next id when another tab took the one it picked.
+SPAWN_ATTEMPTS = 10
 
 
 def find_unique_job_id() -> str:
@@ -215,16 +216,60 @@ class Job(BaseJob):
         self,
         job_id=None,
         new_job_id=None,
-        model=None,
     ):
-        """Init class either by id, by html form or make a new one."""
+        """Init class either by id or make a new one.
+
+        A job with a given model is made by ``create``; a model is put onto an
+        existing job by ``update_input``.
+        """
         if job_id is not None:
             self.job_id = job_id
             self.load()
-        elif model is not None:
-            self._init_from_model(model)
         else:
             self._blank_job(new_job_id)
+
+    @classmethod
+    def create(cls, model) -> Self:
+        """Create a new job holding model; its id is ``model.job_id``.
+
+        Inserts a new PENDING row and refuses an id that is taken: a model is
+        never written over an existing job's row (cosmo-ecosystem ADR 0005); that
+        is ``update_input``.
+
+        Raises:
+            JobExists: If a job with that id exists.
+        """
+        if PostgresManager.check_existence(model.job_id):
+            raise JobExists(model.job_id)
+        job = cls.__new__(cls)
+        job._init_from_model(model)
+        return job
+
+    def update_input(self, model) -> bool:
+        """Write model as the job's input onto its existing row, only while PENDING.
+
+        One conditional update of the ``input_data`` column
+        (``job_persistence.update_input``); then the work dir is pulled,
+        ``parameters.json`` written and the work dir uploaded. A job that started,
+        finished or was reset meanwhile keeps its input and its files: nothing is
+        written, nothing is uploaded, and False is returned. It never writes
+        ``start_date`` or the run-owned columns.
+
+        Returns:
+            Whether the input was written.
+        """
+        log.debug(f"Update the input of job {self.job_id}")
+        self.model = model
+        if not job_persistence.update_input(
+            self.job_id, {"input_data": self._get_column_data("input_data")}
+        ):
+            log.debug(f"Job {self.job_id} is not PENDING; its input is kept.")
+            return False
+        # After the guard: a refused update leaves the work dir as it is.
+        self.working_dir = job_persistence.work_dir(self.job_id)
+        self.dump_parameters()
+        job_persistence.upload_work_dir(self.job_id)
+        return True
 
     @property
     def job_id(self) -> str:
@@ -266,6 +311,42 @@ class Job(BaseJob):
 
         self.logs = ""
         self.working_dir = job_persistence.local_dir(self.job_id)
+
+    def check_pending(self) -> bool:
+        """Say whether the job is PENDING, by writing its input back as it is.
+
+        The guard of every edit of the work dir: one conditional update of the
+        input columns (``job_persistence.update_input``), so it is the database
+        that says whether this job may still be edited, not the status this object
+        loaded. The caller does nothing to the work dir when it returns False.
+        """
+        return job_persistence.update_input(self.job_id, self._input_columns())
+
+    def _input_columns(self):
+        """Return the input columns of this job as written to its row."""
+        return {
+            "input_data": self._get_column_data("input_data"),
+            "prepared_input": self.prepared_input,
+        }
+
+    def _save_input_files(self) -> bool:
+        """Write the input onto the existing row while PENDING, then upload the dir.
+
+        The replacement of ``save`` for a job that exists: the input columns only
+        (``job_persistence.update_input``), never ``start_date`` or the run's
+        columns, and no upload when the job is not PENDING. ``parameters.json``
+        is written after the guard, so a refused write leaves the work dir as it
+        is.
+
+        Returns:
+            Whether the input was written and the work dir uploaded.
+        """
+        if not job_persistence.update_input(self.job_id, self._input_columns()):
+            log.debug(f"Job {self.job_id} is not PENDING; its input is kept.")
+            return False
+        self.dump_parameters()
+        job_persistence.upload_work_dir(self.job_id)
+        return True
 
     def _init_from_model(self, model):
         """Initialize job from model."""
@@ -340,9 +421,20 @@ class Job(BaseJob):
 
         job_persistence.delete_files(self.job_id, [item_name])
 
-    def preview_area(self, draw_empty: bool = True):
-        """Draw a preview of the area and add measurement points."""
+    def preview_area(self, draw_empty: bool = True) -> str | None:
+        """Draw a preview of the area and add measurement points.
+
+        Only while the job is PENDING (``check_pending``, cosmo-ecosystem ADR
+        0005): the work dir of a job that started or finished is not drawn into.
+
+        Returns:
+            The preview's file name; None if the job is not PENDING and nothing was
+            done.
+        """
         log.debug("Draw preview")
+        if not self.check_pending():
+            log.debug(f"Job {self.job_id} is not PENDING; no preview is drawn.")
+            return None
         # The save below uploads the whole work dir, so it must not hold
         # anything staler than the remote prefix.
         self.working_dir = job_persistence.work_dir(self.job_id)
@@ -391,7 +483,8 @@ class Job(BaseJob):
             start_date,
             end_date,
         )
-        self.save()
+        if not self._save_input_files():
+            return None
         return filename
 
     def get_preview_path(self):
@@ -416,13 +509,20 @@ class Job(BaseJob):
             if file_name.startswith(input_type):
                 self.delete_item(file_name)
 
-    def prepare_input_files(self):
+    def prepare_input_files(self) -> bool:
         """Prepare input files for the job.
 
         This method parses all input files once more but cut them to the area of the
-        model.
+        model. Only while the job is PENDING (``check_pending``): a job that
+        started meanwhile keeps its input and its work dir, and False is returned.
+
+        Returns:
+            Whether the input files were prepared and the input written.
         """
         log.debug("Prepare input files")
+        if not self.check_pending():
+            log.debug(f"Job {self.job_id} is not PENDING; no input is prepared.")
+            return False
         self.working_dir = job_persistence.work_dir(self.job_id)
         crns_upload = {}
         predictors_upload = {}
@@ -460,8 +560,8 @@ class Job(BaseJob):
 
         self.prepared_input = True
         self.model.predictor_upload = predictors_upload
-        self.dump_parameters()
-        self.save()
+        # The model changed since the guard: write it again.
+        return self._save_input_files()
 
     def _write_crns(self):
         """Write CRNS data to CSV file."""
@@ -604,7 +704,9 @@ class Job(BaseJob):
         file_information = parser.get_file_information()
         if input_type == "pred":
             file_information["file_path"] = base_file_name
-        self.save()
+        if upload and not self._save_input_files():
+            # The caller's guard passed, so the job started in between.
+            log.warning(f"Job {self.job_id} started while a file was uploaded.")
         return base_file_name, file_information
 
     def _get_column_data(self, name):
@@ -622,23 +724,6 @@ class Job(BaseJob):
         """Read the job log into ``logs``; any pod sees a running job's records."""
         self.logs = job_log.read(self.job_id)
 
-    def save_attributes(self, attribute_list):
-        """Save specicif job information to the database.
-
-        This method takes a list of attributes, collects the current information of
-        these attributes. It then uses a PostgresManager instance to add the collected
-        data as to the respective column in the database.
-        If the job can not be found in data base safe all attributes.
-        """
-        log.debug(
-            f"Save attributes {', '.join(attribute_list)} to job {self.job_id}",
-        )
-        data_to_insert = {name: self._get_column_data(name) for name in attribute_list}
-        try:
-            job_persistence.update_columns(self.job_id, data_to_insert)
-        except JobNotFound:
-            self.save()
-
     def save(self):
         """Save the job information to the database.
 
@@ -647,8 +732,8 @@ class Job(BaseJob):
         data as a new entry in the database.
         """
         log.debug(f"Save job {self.job_id}")
-        # The run owns the heartbeat: a save during a run would put the heartbeat
-        # this job loaded over the run's newer one (cosmo-ecosystem ADR 0004).
+        # The run owns status, submitted, heartbeat and run id: a save would put the
+        # values this job loaded over the run's newer ones (cosmo-ecosystem ADR 0005).
         column_names = [
             name
             for name in JobTable.__table__.columns.keys()
@@ -661,81 +746,90 @@ class Job(BaseJob):
                 ModelWebsite(**json.loads(value))
         job_persistence.save(self.job_id, data_to_insert)
 
-    def delete(self):
+    def delete(self) -> bool:
         """Delete the job everywhere: its remote prefix, local work dir and row.
 
         Delegates to the framework, so the dashboard "Delete", the nightly
         cleanup and this method share one definition of deleting a job.
-        """
-        job_persistence.delete_job(self.job_id)
 
-    def submit(self):
-        """Submit job to Celery queue for background processing."""
+        Returns:
+            False if the job is RUNNING and nothing was deleted.
+        """
+        return job_persistence.delete_job(self.job_id)
+
+    def submit(self) -> bool:
+        """Submit job to Celery queue for background processing.
+
+        The first write is the guard, ``job_run.mark_queued``: one conditional
+        update from PENDING or FAILED to RUNNING. A submit that loses it (a second
+        click, a second tab) logs at DEBUG and returns False before it touches the
+        work dir, the row, the job log or the queue (cosmo-ecosystem ADR 0005).
+
+        Returns:
+            Whether this call queued a run.
+        """
         log.info(f"Submit job {self.job_id}.")
 
-        if PostgresManager.set_submitted(self.job_id):
-            self.submitted = True
-            # Save and queue BEFORE enqueuing: pull first so the dir exists and
-            # holds nothing stale, upload and write the submitted row, then queue
-            # the run (RUNNING, no heartbeat; the run claims only such a row). A
-            # fast worker may claim the run and write COMPLETED or FAILED before
-            # the enqueue returns, and a RUNNING written after it would overwrite
-            # that (ADR 0002 of cosmo-ecosystem). Nothing is synced after the
-            # enqueue, because a worker on a shared disk may already be writing
-            # files; only a failure is written then.
+        if not job_run.mark_queued(self.job_id):
+            log.debug(f"Job {self.job_id} was already submitted.")
+            return False
+        self.submitted = True
+        self.status = "RUNNING"
+
+        # Pull and save BEFORE enqueuing: pull first so the dir exists and holds
+        # nothing stale, upload and write the row, then enqueue. A fast worker may
+        # claim the run and write COMPLETED or FAILED before the enqueue returns,
+        # and the row is RUNNING already (ADR 0002 of cosmo-ecosystem). Nothing is
+        # synced after the enqueue, because a worker on a shared disk may already
+        # be writing files; only a failure is written then.
+        try:
             self.working_dir = job_persistence.work_dir(self.job_id)
             # A resubmitted FAILED job has sent its end mail; the new run must send
-            # its own, so the flag is reset before the row is written.
+            # its own. Reset after the won guard: a lost submit must not touch it.
             self.notified_end = False
             self.save()
-            job_run.mark_queued(self.job_id)
-            self.status = "RUNNING"
-            try:
-                celery_task_id, failed = submissions.submit_computation_job(self)
+        except Exception:  # noqa: BLE001
+            # Convention exception (CLAUDE.md: specific exceptions only): the pull
+            # and the save raise storage, database and file errors alike, and
+            # whatever they raise, the queued run has no message and the RUNNING
+            # written above must not outlive it. Re-raised.
+            self._fail_to_start()
+            raise
 
-            except Exception as e:  # catch-all: submission can fail for many reasons; must report all  # noqa
-                if "Error -3 connecting to redis" in str(e):
-                    message = "Redis server is not running"
-                    email_body = f"""
-                    Redis server is not running.\n\n
-                    Error: {str(e)}\n\n
-                    Traceback info: {traceback.format_exc()}\n\n
-                    """
-                else:
-                    message = f"{repr(e)}\n\n{traceback.format_exc()}"
-                    email_body = f"""
-                    Error: {str(e)}\n\n
-                    Traceback info: {traceback.format_exc()}\n\n
-                    """
-
-                log.error(
-                    f"Job {self.job_id} failed to start.\n{message}",
-                )
-
-                email_subject = f"Failed to start job {self.job_id}"
-                email_body = f"""
-                Error: {str(e)}\n\n
-                Traceback info: {traceback.format_exc()}\n\n
-                """
-
-                send_mail(MAINTAINER_EMAIL, email_subject, email_body)
-                failed = True
-                celery_task_id = None
-        else:
-            log.debug(
-                f"Job {self.job_id} was already submitted.",
+        try:
+            celery_task_id, failed = submissions.submit_computation_job(self)
+        except Exception as e:  # catch-all: submission can fail for many reasons; must report all  # noqa
+            if "Error -3 connecting to redis" in str(e):
+                message = "Redis server is not running"
+            else:
+                message = f"{repr(e)}\n\n{traceback.format_exc()}"
+            log.error(f"Job {self.job_id} failed to start.\n{message}")
+            send_mail(
+                MAINTAINER_EMAIL,
+                f"Failed to start job {self.job_id}",
+                f"Error: {str(e)}\n\nTraceback info: {traceback.format_exc()}\n\n",
             )
-            return
+            failed = True
+            celery_task_id = None
 
         if failed:
-            # The user sees the job log, not the worker log; an enqueue reporting
-            # failure without raising says why nowhere else.
-            message = f"Cannot start job {self.job_id}."
-            log.error(message)
-            job_log.append(self.job_id, message, level=logging.ERROR)
             self.celery_task_id = celery_task_id
+            self._fail_to_start()
+        return True
+
+    def _fail_to_start(self):
+        """Write FAILED and say so in the job log: the job was never enqueued.
+
+        Only while the row is still a queued run; a run a worker already claimed
+        is not failed from here.
+        """
+        # The user sees the job log, not the worker log; an enqueue reporting
+        # failure without raising says why nowhere else.
+        message = f"Cannot start job {self.job_id}."
+        log.error(message)
+        if job_run.mark_start_failed(self.job_id):
+            job_log.append(self.job_id, message, level=logging.ERROR)
             self.status = "FAILED"
-            job_persistence.update_columns(self.job_id, {"status": self.status})
 
     def time_to_live(self):
         """Return the number of days after which this job will be deleted.
@@ -775,19 +869,39 @@ class Job(BaseJob):
         self.working_dir = job_persistence.work_dir(self.job_id)
         new_model = deepcopy(self.model)
         i = 1
-        while True:
+        # Two tabs spawning at once pick the same free id; the insert refuses the
+        # second, which takes the next one. Bounded: a loop with no end is worse
+        # than the error modal.
+        for _ in range(SPAWN_ATTEMPTS):
+            while PostgresManager.check_existence(f"{self.job_id}_child_{i}"):
+                i += 1
             new_model.job_id = f"{self.job_id}_child_{i}"
-            if not PostgresManager.check_existence(new_model.job_id):
+            try:
+                new_job = Job.create(new_model)
                 break
-            i += 1
-
-        new_job = Job(model=new_model)
+            except JobExists:
+                log.info(f"Job {new_model.job_id} was taken meanwhile; try the next.")
+        else:
+            raise JobExists(new_model.job_id)
         new_job.copy_input_files(self.working_dir)
         new_job.save()
         return new_job
 
-    def clean_work_dir(self):
-        """Clean the working directory."""
+    def clean_work_dir(self) -> bool:
+        """Reset the job to PENDING and clean the working directory.
+
+        For "Change input": the job's input is written only while it is PENDING, so
+        a FAILED job is reset first. The reset is the first write, a conditional
+        ``job_run.mark_pending``: a RUNNING job is refused before anything is
+        deleted (cosmo-ecosystem ADR 0005).
+
+        Returns:
+            Whether the job was reset and cleaned; False means it is RUNNING.
+        """
+        if not job_run.mark_pending(self.job_id):
+            log.debug(f"Job {self.job_id} runs and is not reset.")
+            return False
+        self.status = "PENDING"
         self.working_dir = job_persistence.work_dir(self.job_id)
         log.info(f"Clean work dir {self.working_dir}")
 
@@ -797,17 +911,9 @@ class Job(BaseJob):
 
             self.delete_item(file)
 
+        # The input columns are all the reset needs written; the preview below
+        # writes them (and uploads), and nothing else of the stale object is
+        # written back over the row.
+        self.prepared_input = False
         self.preview_area()
-        self.dump_parameters()
-
-        self.save()
-
-    def delete_logs(self):
-        """Clear the job log."""
-        log.info(f"Delete logs of job {self.job_id}")
-        job_log.clear(self.job_id)
-        self.logs = ""
-        # A work dir from before the job log moved into the database may still
-        # hold the old log file. Removing it stays for one release, and with it
-        # LOG_FILE_NAME, as in the framework Job.
-        self.delete_item(LOG_FILE_NAME)
+        return True

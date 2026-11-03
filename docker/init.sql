@@ -30,7 +30,10 @@ CREATE TABLE jobs (
     celery_task_id VARCHAR,
     -- Written with the database's now() by the job run (cosmo_ecosystem.job_run);
     -- NULL while the run is queued and unclaimed.
-    heartbeat_at TIMESTAMPTZ
+    heartbeat_at TIMESTAMPTZ,
+    -- The identity of the run that claimed the row (cosmo_ecosystem.job_run); NULL
+    -- while the run is queued, and after a reset.
+    run_id UUID
 );
 
 -- Create logs table for application logging

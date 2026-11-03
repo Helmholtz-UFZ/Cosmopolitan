@@ -20,6 +20,7 @@ from sqlalchemy import (
     Text,
     or_,
     text,
+    update,
 )
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.sql import func
@@ -33,7 +34,6 @@ from cosmopolitan_app.constants.general import (
     CONSECUTIVE_FAILURES_BEFORE_MAIL,
     UPDATE_RUN_HARD_LIMIT_SECONDS,
 )
-from cosmopolitan_app.error_handling import JobNotFound
 
 log = logging.getLogger(__name__)
 
@@ -154,38 +154,27 @@ class PostgresManager(DbManager):
         return job_row is not None
 
     @classmethod
-    def set_submitted(cls, job_id):
-        """Update the 'submitted' column in the 'JobTable' for a given job ID.
+    def mark_end_notified(cls, job_id) -> bool:
+        """Set ``notified_end`` of a job whose run has ended, and say if it applied.
 
-        The method works as well as a lock so that the job is not submitted twice.
-
-        Parameters:
-        job_id (str): The unique identifier for the job.
+        One conditional update, ``WHERE status IN ('COMPLETED', 'FAILED')``: a job
+        resubmitted while the end mail went out is RUNNING again, and the flag its
+        submit reset must not be set back, or the new run's end mail is silenced
+        (cosmo-ecosystem ADR 0005). A job deleted meanwhile has no row to update.
 
         Returns:
-        bool: True if the job was successfully marked as submitted, False if it was
-        already submitted.
-
-        Raises:
-        JobNotFound: If the job with the provided job ID does not exist.
+            Whether the job's run had ended and the flag was set.
         """
-        log.debug(f"Set submitted for job: {job_id}")
-
         with cls.session_scope() as session:
-            job = (
-                session.query(JobTable)
-                .filter_by(job_id=job_id)
-                .with_for_update()
-                .first()
+            result = session.execute(
+                update(JobTable)
+                .where(
+                    JobTable.job_id == job_id,
+                    JobTable.status.in_(["COMPLETED", "FAILED"]),
+                )
+                .values(notified_end=True)
             )
-            if job is None:
-                raise JobNotFound(job_id)
-
-            if job.submitted and job.status in ["RUNNING", "COMPLETED"]:
-                return False
-            else:
-                job.submitted = True
-                return True
+            return result.rowcount == 1
 
     @classmethod
     def _extract_date(cls, date_input: Union[date, datetime]) -> date:

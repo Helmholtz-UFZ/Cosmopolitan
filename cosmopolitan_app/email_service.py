@@ -16,6 +16,8 @@ from cosmopolitan_app.config import (
     WEB_OUTSIDE_URL,
 )
 
+from cosmopolitan_app.postgres_manager import PostgresManager
+
 log = logging.getLogger(__name__)
 
 submission_url = "{external_url}/submission/{job_id}"
@@ -89,8 +91,12 @@ def send_finished_mail(job):
     )
 
     send_mail(job.model.email, f'Job "{job.job_id}" {outcome}', content)
-    job.notified_end = True
-    job.save_attributes(["notified_end"])
+    if PostgresManager.mark_end_notified(job.job_id):
+        job.notified_end = True
+    else:
+        log.info(
+            f"Job {job.job_id} is deleted or runs again; its end mail stays pending."
+        )
 
 
 def send_submission_mail(job):
