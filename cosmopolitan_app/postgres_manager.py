@@ -20,6 +20,7 @@ from sqlalchemy import (
     Text,
     or_,
     text,
+    update,
 )
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.sql import func
@@ -151,6 +152,29 @@ class PostgresManager(DbManager):
         with cls.session_scope() as session:
             job_row = session.query(JobTable.job_id).filter_by(job_id=job_id).first()
         return job_row is not None
+
+    @classmethod
+    def mark_end_notified(cls, job_id) -> bool:
+        """Set ``notified_end`` of a job whose run has ended, and say if it applied.
+
+        One conditional update, ``WHERE status IN ('COMPLETED', 'FAILED')``: a job
+        resubmitted while the end mail went out is RUNNING again, and the flag its
+        submit reset must not be set back, or the new run's end mail is silenced
+        (cosmo-ecosystem ADR 0005). A job deleted meanwhile has no row to update.
+
+        Returns:
+            Whether the job's run had ended and the flag was set.
+        """
+        with cls.session_scope() as session:
+            result = session.execute(
+                update(JobTable)
+                .where(
+                    JobTable.job_id == job_id,
+                    JobTable.status.in_(["COMPLETED", "FAILED"]),
+                )
+                .values(notified_end=True)
+            )
+            return result.rowcount == 1
 
     @classmethod
     def _extract_date(cls, date_input: Union[date, datetime]) -> date:

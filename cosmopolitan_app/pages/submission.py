@@ -196,8 +196,13 @@ def load_submission_content(job_id, header_class_name):
         job.preview_area()
         preview_path = job.get_preview_path()
 
-    preview_file_name = os.path.basename(preview_path)
-    preview_src = url_for("serve_file", job_id=job.job_id, filename=preview_file_name)
+    # None: a job that is not PENDING draws no preview, so it has none to show.
+    preview_src = None
+    if preview_path is not None:
+        preview_file_name = os.path.basename(preview_path)
+        preview_src = url_for(
+            "serve_file", job_id=job.job_id, filename=preview_file_name
+        )
 
     # Construct form components
     selected_predictors = construct_selected_input(

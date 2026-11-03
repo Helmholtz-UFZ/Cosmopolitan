@@ -152,11 +152,15 @@ def load_submission_content(job_id, header_class_name):
     job = Job(job_id)
     log.debug(job.start_date)
 
-    if job.status not in ["PENDING", "FAILED"]:
+    if job.status != "PENDING":
         if job.status == "RUNNING":
             header_subtitle = "Job is running. You can only spawn a new job."
         elif job.status == "COMPLETED":
             header_subtitle = "Job is completed. You can only spawn a new job."
+        elif job.status == "FAILED":
+            # The input is written only while PENDING: "Change input" on the
+            # submission page resets a FAILED job first.
+            header_subtitle = "Job failed. Use Change input on its submission page."
         header_class_name = swap_classes("bg-danger", header_class_name)
 
         base_path_submission = dash.page_registry["pages.input"]["path_template"]
@@ -236,6 +240,7 @@ dash.clientside_callback(
             "children",
             allow_duplicate=True,
         ),
+        HINT_DIV_INPUT_ID: Output(HINT_DIV_INPUT_ID, "children", allow_duplicate=True),
     },
     inputs={
         "crns_upload_contents": Input(CRNS_UPLOAD_INPUT_ID, "contents"),
@@ -285,7 +290,15 @@ def file_upload_callback(**state):
         ],
         CRNS_UPLOAD_FEEDBACK_FORMTEXT_INPUT_ID: "",
         PREDICTOR_UPLOAD_FEEDBACK_FORMTEXT_INPUT_ID: "",
+        HINT_DIV_INPUT_ID: None,
     }
+
+    # Before any file is deleted or written: a stale tab of a job that started or
+    # finished must not touch the files of its run (cosmo-ecosystem ADR 0005).
+    if not Job(job_id=job_id).check_pending():
+        log.info(f"Files of job {job_id} not changed: the job is not PENDING.")
+        output_dict[HINT_DIV_INPUT_ID] = dbc.Alert(NOT_PENDING_HINT, color="warning")
+        return output_dict
 
     if DELETE_CRNS_UPLOAD_BUTTON_INPUT_ID in triggered_ids:
         job = Job(job_id=job_id)
@@ -504,8 +517,7 @@ def form_validation_callback(**state):
         validated_model = active_form_factory.set_model(state)
         validated_model.__dict__["job_id"] = job_id
         job = Job(job_id)
-        if job.update_input(validated_model):
-            job.prepare_input_files()
+        if job.update_input(validated_model) and job.prepare_input_files():
             submission_base_path = dash.page_registry["pages.submission"][
                 "path_template"
             ]

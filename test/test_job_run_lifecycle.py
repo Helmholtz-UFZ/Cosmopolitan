@@ -23,7 +23,7 @@ from cosmo_ecosystem.object_storage_manager import (
     get_remote_files,
 )
 
-from cosmopolitan_app import submissions
+from cosmopolitan_app import email_service, submissions
 from cosmopolitan_app.config import (
     MAINTAINER_EMAIL,
     OBJECT_STORAGE_BUCKET,
@@ -31,6 +31,8 @@ from cosmopolitan_app.config import (
 )
 from cosmopolitan_app.constants.general import LOG_FILE_NAME
 from cosmopolitan_app.error_handling import JobExists
+from cosmopolitan_app.postgres_manager import PostgresManager
+from cosmopolitan_app.pydantic_models import ModelWebsite
 from cosmopolitan_app.job import Job
 from cosmopolitan_app.tasks import computation_tasks
 from test.help_functions_tests import remove_job, set_row_columns
@@ -545,3 +547,160 @@ def test_deleting_a_running_job_is_refused_and_says_so(job_id):
 
 def test_deleting_a_pending_job_reports_it(job_id):
     assert Job(job_id).delete() is True
+
+
+def _remote_names(job_id):
+    return get_remote_files(
+        f"{OBJECT_STORAGE_REMOTE_NAME}:{OBJECT_STORAGE_BUCKET}/{job_id}"
+    )
+
+
+def _write_and_save(job, name, content):
+    """Put a file into job's work dir and upload it."""
+    with open(os.path.join(job.working_dir, name), "w", encoding="UTF-8") as f:
+        f.write(content)
+    job.save()
+
+
+def test_prepare_input_on_a_running_job_writes_nothing(job_id):
+    """A second tab submitted during check input: the run's input and dir stay."""
+    stale = Job(job_id)
+    stale.model.train_data = True
+    assert job_run.mark_queued(job_id)
+    before = DbManager.get_job_columns(job_id)
+    remote_before = _remote_names(job_id)
+
+    prepared = stale.prepare_input_files()
+
+    assert prepared is False
+    assert DbManager.get_job_columns(job_id) == before
+    assert _remote_names(job_id) == remote_before
+    assert "crns_data.csv" not in os.listdir(job_persistence.local_dir(job_id))
+
+
+def test_preview_on_a_running_job_draws_nothing(job_id):
+    stale = Job(job_id)
+    assert job_run.mark_queued(job_id)
+    before = DbManager.get_job_columns(job_id)
+    remote_before = _remote_names(job_id)
+
+    filename = stale.preview_area()
+
+    assert filename is None
+    assert DbManager.get_job_columns(job_id) == before
+    assert _remote_names(job_id) == remote_before
+    assert not [
+        name
+        for name in os.listdir(job_persistence.local_dir(job_id))
+        if name.startswith("preview_area_")
+    ]
+
+
+def test_change_input_on_a_completed_job_resets_it_and_writes_no_stale_column(
+    job_id,
+):
+    job = Job(job_id)
+    _write_and_save(job, "prediction.csv", "result\n")
+    _write_and_save(job, f"{job.original_file_prefix}_crn_x.csv", "upload\n")
+    stale = Job(job_id)
+    set_row_columns(job_id, status="COMPLETED", submitted=True, notified_end=True)
+
+    cleaned = stale.clean_work_dir()
+
+    row = DbManager.get_job_columns(job_id)
+    assert cleaned is True
+    assert (row["status"], row["submitted"]) == ("PENDING", True)
+    assert row["notified_end"] is True
+    names = _remote_names(job_id)
+    assert "prediction.csv" not in names
+    assert f"{job.original_file_prefix}_crn_x.csv" in names
+
+
+def test_spawn_retries_with_a_fresh_id_when_another_tab_took_the_id(
+    job_id, monkeypatch
+):
+    parent = Job(job_id)
+    taken = f"{job_id}_child_1"
+    real_create = Job.create
+    calls = []
+
+    def create_after_a_rival(model):
+        calls.append(model.job_id)
+        if len(calls) == 1:
+            rival = ModelWebsite()
+            rival.job_id = model.job_id
+            real_create(rival)
+        return real_create(model)
+
+    monkeypatch.setattr(Job, "create", staticmethod(create_after_a_rival))
+    try:
+        child = parent.spawn()
+    finally:
+        remove_job(taken)
+        remove_job(f"{job_id}_child_2")
+
+    assert calls == [taken, f"{job_id}_child_2"]
+    assert child.job_id == f"{job_id}_child_2"
+
+
+def test_a_start_failure_reported_after_a_worker_claimed_the_run_keeps_it_running(
+    job_id, monkeypatch
+):
+    """The enqueue reports failure, but the row is a claimed run: not FAILED."""
+
+    def enqueue(submitted_job):
+        _set_heartbeat(job_id)
+        return None, True
+
+    monkeypatch.setattr(submissions, "submit_computation_job", enqueue)
+
+    assert Job(job_id).submit() is True
+
+    assert DbManager.get_job_columns(job_id)["status"] == "RUNNING"
+    assert f"Cannot start job {job_id}." not in job_log.read(job_id)
+
+
+def test_saving_attributes_of_a_deleted_job_does_not_bring_its_row_back(job_id):
+    job = Job(job_id)
+    assert job.delete() is True
+
+    job.save_attributes(["notified_end"])
+
+    assert PostgresManager.check_existence(job_id) is False
+
+
+def test_a_resubmit_during_the_end_mail_keeps_the_new_runs_mail_pending(
+    job_id, monkeypatch
+):
+    """The old run's notified_end write must not silence the resubmitted run's mail."""
+    job = Job(job_id)
+    job.model.email = USER_EMAIL
+    job.save()
+    set_row_columns(job_id, status="FAILED")
+    job = Job(job_id)
+
+    def send_then_resubmit(recipient, subject, content):
+        # The user resubmits while the end mail of the failed run is sent.
+        assert Job(job_id).submit() is True
+
+    monkeypatch.setattr(email_service, "send_mail", send_then_resubmit)
+    monkeypatch.setattr(
+        submissions, "submit_computation_job", lambda submitted_job: ("task-id", False)
+    )
+
+    email_service.send_finished_mail(job)
+
+    row = DbManager.get_job_columns(job_id)
+    assert (row["status"], row["notified_end"]) == ("RUNNING", False)
+
+
+def test_the_end_mail_flag_is_written_for_a_finished_run(job_id, monkeypatch):
+    job = Job(job_id)
+    job.model.email = USER_EMAIL
+    job.save()
+    set_row_columns(job_id, status="COMPLETED")
+    monkeypatch.setattr(email_service, "send_mail", lambda *args: None)
+
+    email_service.send_finished_mail(Job(job_id))
+
+    assert DbManager.get_job_columns(job_id)["notified_end"] is True

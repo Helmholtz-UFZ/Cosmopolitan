@@ -32,7 +32,6 @@ from werkzeug.utils import secure_filename
 # The module, not the function: tests replace submit_computation_job on it.
 from cosmopolitan_app import submissions
 from cosmopolitan_app.config import MAINTAINER_EMAIL
-from cosmopolitan_app.constants import LOG_FILE_NAME
 from cosmopolitan_app.error_handling import (
     InvalidJobID,
     JobExists,
@@ -49,6 +48,9 @@ from cosmopolitan_app.pydantic_models import ModelWebsite, validate_job_id
 from cosmopolitan_app.email_service import send_mail
 
 log = logging.getLogger(__name__)
+
+# How often spawn takes the next id when another tab took the one it picked.
+SPAWN_ATTEMPTS = 10
 
 
 def find_unique_job_id() -> str:
@@ -311,6 +313,42 @@ class Job(BaseJob):
         self.logs = ""
         self.working_dir = job_persistence.local_dir(self.job_id)
 
+    def check_pending(self) -> bool:
+        """Say whether the job is PENDING, by writing its input back as it is.
+
+        The guard of every edit of the work dir: one conditional update of the
+        input columns (``job_persistence.update_input``), so it is the database
+        that says whether this job may still be edited, not the status this object
+        loaded. The caller does nothing to the work dir when it returns False.
+        """
+        return job_persistence.update_input(self.job_id, self._input_columns())
+
+    def _input_columns(self):
+        """Return the input columns of this job as written to its row."""
+        return {
+            "input_data": self._get_column_data("input_data"),
+            "prepared_input": self.prepared_input,
+        }
+
+    def _save_input_files(self) -> bool:
+        """Write the input onto the existing row while PENDING, then upload the dir.
+
+        The replacement of ``save`` for a job that exists: the input columns only
+        (``job_persistence.update_input``), never ``start_date`` or the run's
+        columns, and no upload when the job is not PENDING. ``parameters.json``
+        is written after the guard, so a refused write leaves the work dir as it
+        is.
+
+        Returns:
+            Whether the input was written and the work dir uploaded.
+        """
+        if not job_persistence.update_input(self.job_id, self._input_columns()):
+            log.debug(f"Job {self.job_id} is not PENDING; its input is kept.")
+            return False
+        self.dump_parameters()
+        job_persistence.upload_work_dir(self.job_id)
+        return True
+
     def _init_from_model(self, model):
         """Initialize job from model."""
         self.job_id = model.job_id
@@ -384,9 +422,20 @@ class Job(BaseJob):
 
         job_persistence.delete_files(self.job_id, [item_name])
 
-    def preview_area(self, draw_empty: bool = True):
-        """Draw a preview of the area and add measurement points."""
+    def preview_area(self, draw_empty: bool = True) -> str | None:
+        """Draw a preview of the area and add measurement points.
+
+        Only while the job is PENDING (``check_pending``, cosmo-ecosystem ADR
+        0005): the work dir of a job that started or finished is not drawn into.
+
+        Returns:
+            The preview's file name; None if the job is not PENDING and nothing was
+            done.
+        """
         log.debug("Draw preview")
+        if not self.check_pending():
+            log.debug(f"Job {self.job_id} is not PENDING; no preview is drawn.")
+            return None
         # The save below uploads the whole work dir, so it must not hold
         # anything staler than the remote prefix.
         self.working_dir = job_persistence.work_dir(self.job_id)
@@ -435,7 +484,8 @@ class Job(BaseJob):
             start_date,
             end_date,
         )
-        self.save()
+        if not self._save_input_files():
+            return None
         return filename
 
     def get_preview_path(self):
@@ -460,13 +510,20 @@ class Job(BaseJob):
             if file_name.startswith(input_type):
                 self.delete_item(file_name)
 
-    def prepare_input_files(self):
+    def prepare_input_files(self) -> bool:
         """Prepare input files for the job.
 
         This method parses all input files once more but cut them to the area of the
-        model.
+        model. Only while the job is PENDING (``check_pending``): a job that
+        started meanwhile keeps its input and its work dir, and False is returned.
+
+        Returns:
+            Whether the input files were prepared and the input written.
         """
         log.debug("Prepare input files")
+        if not self.check_pending():
+            log.debug(f"Job {self.job_id} is not PENDING; no input is prepared.")
+            return False
         self.working_dir = job_persistence.work_dir(self.job_id)
         crns_upload = {}
         predictors_upload = {}
@@ -504,8 +561,8 @@ class Job(BaseJob):
 
         self.prepared_input = True
         self.model.predictor_upload = predictors_upload
-        self.dump_parameters()
-        self.save()
+        # The model changed since the guard: write it again.
+        return self._save_input_files()
 
     def _write_crns(self):
         """Write CRNS data to CSV file."""
@@ -648,7 +705,9 @@ class Job(BaseJob):
         file_information = parser.get_file_information()
         if input_type == "pred":
             file_information["file_path"] = base_file_name
-        self.save()
+        if upload and not self._save_input_files():
+            # The caller's guard passed, so the job started in between.
+            log.warning(f"Job {self.job_id} started while a file was uploaded.")
         return base_file_name, file_information
 
     def _get_column_data(self, name):
@@ -681,7 +740,8 @@ class Job(BaseJob):
         try:
             job_persistence.update_columns(self.job_id, data_to_insert)
         except JobNotFound:
-            self.save()
+            # Not saved whole: that would bring back a row deleted meanwhile.
+            log.info(f"Job {self.job_id} was deleted; its attributes are not saved.")
 
     def save(self):
         """Save the job information to the database.
@@ -828,13 +888,20 @@ class Job(BaseJob):
         self.working_dir = job_persistence.work_dir(self.job_id)
         new_model = deepcopy(self.model)
         i = 1
-        while True:
+        # Two tabs spawning at once pick the same free id; the insert refuses the
+        # second, which takes the next one. Bounded: a loop with no end is worse
+        # than the error modal.
+        for _ in range(SPAWN_ATTEMPTS):
+            while PostgresManager.check_existence(f"{self.job_id}_child_{i}"):
+                i += 1
             new_model.job_id = f"{self.job_id}_child_{i}"
-            if not PostgresManager.check_existence(new_model.job_id):
+            try:
+                new_job = Job.create(new_model)
                 break
-            i += 1
-
-        new_job = Job.create(new_model)
+            except JobExists:
+                log.info(f"Job {new_model.job_id} was taken meanwhile; try the next.")
+        else:
+            raise JobExists(new_model.job_id)
         new_job.copy_input_files(self.working_dir)
         new_job.save()
         return new_job
@@ -863,18 +930,9 @@ class Job(BaseJob):
 
             self.delete_item(file)
 
+        # The input columns are all the reset needs written; the preview below
+        # writes them (and uploads), and nothing else of the stale object is
+        # written back over the row.
+        self.prepared_input = False
         self.preview_area()
-        self.dump_parameters()
-
-        self.save()
         return True
-
-    def delete_logs(self):
-        """Clear the job log."""
-        log.info(f"Delete logs of job {self.job_id}")
-        job_log.clear(self.job_id)
-        self.logs = ""
-        # A work dir from before the job log moved into the database may still
-        # hold the old log file. Removing it stays for one release, and with it
-        # LOG_FILE_NAME, as in the framework Job.
-        self.delete_item(LOG_FILE_NAME)

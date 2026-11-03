@@ -8,6 +8,7 @@ object storage and calls the callbacks the way Dash does.
 """
 
 import json
+import os
 import sys
 from contextlib import contextmanager
 
@@ -15,6 +16,7 @@ import dash
 import pytest
 from cosmo_ecosystem import job_log, job_run
 from cosmo_ecosystem.db_manager import DbManager
+from cosmo_ecosystem.object_storage_manager import get_remote_files
 from dash._callback_context import context_value
 from dash._utils import AttributeDict
 
@@ -22,9 +24,14 @@ from cosmopolitan_app.app import app  # noqa: F401 - registers the pages first
 from cosmopolitan_app.constants import (
     CHANGE_INPUT_BUTTON_SUBMISSION_ID,
     CHECK_INPUT_BUTTON_INPUT_ID,
+    DELETE_CRNS_UPLOAD_BUTTON_INPUT_ID,
+    DELETE_PREDICTOR_UPLOAD_BUTTON_INPUT_ID,
+    HIDDEN_CRNS_UPLOAD_INPUT_INPUT_ID,
+    HIDDEN_PREDICTOR_UPLOAD_INPUT_INPUT_ID,
     HINT_DIV_INPUT_ID,
     SUBMIT_JOB_BUTTON_SUBMISSION_ID,
 )
+from cosmopolitan_app.config import OBJECT_STORAGE_BUCKET, OBJECT_STORAGE_REMOTE_NAME
 from cosmopolitan_app.job import Job
 from cosmopolitan_app.pydantic_models import ModelWebsite
 from test.help_functions_tests import remove_job, set_row_columns
@@ -165,3 +172,35 @@ def test_submit_does_not_clear_the_job_log_of_a_running_job(submission_page, job
     _submission_call(submission_page, job_id, SUBMIT_JOB_BUTTON_SUBMISSION_ID)
 
     assert "the live log line" in job_log.read(job_id)
+
+
+@pytest.mark.parametrize("status", ["RUNNING", "COMPLETED"])
+def test_deleting_an_upload_in_a_stale_tab_keeps_the_files_and_says_so(
+    input_page, job_id, status
+):
+    job = Job(job_id)
+    with open(os.path.join(job.working_dir, "crn_data.csv"), "w") as f_handle:
+        f_handle.write("measurements\n")
+    job.save()
+    set_row_columns(job_id, status=status, submitted=True)
+    before = DbManager.get_job_columns(job_id)
+    state = {
+        "crns_upload_contents": None,
+        "predictor_upload_contents": None,
+        DELETE_CRNS_UPLOAD_BUTTON_INPUT_ID: 1,
+        DELETE_PREDICTOR_UPLOAD_BUTTON_INPUT_ID: None,
+        "crns_upload_filename": None,
+        "predictor_upload_filename": None,
+        HIDDEN_CRNS_UPLOAD_INPUT_INPUT_ID: "{}",
+        HIDDEN_PREDICTOR_UPLOAD_INPUT_INPUT_ID: "{}",
+        "job_id": job_id,
+    }
+
+    with _dash_context(DELETE_CRNS_UPLOAD_BUTTON_INPUT_ID):
+        result = input_page.file_upload_callback(**state)
+
+    assert DbManager.get_job_columns(job_id) == before
+    assert "crn_data.csv" in get_remote_files(
+        f"{OBJECT_STORAGE_REMOTE_NAME}:{OBJECT_STORAGE_BUCKET}/{job_id}"
+    )
+    assert "PENDING" in str(result[HINT_DIV_INPUT_ID])
