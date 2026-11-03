@@ -19,7 +19,7 @@ NOTE: This docstring is displayed on the documentation webpage.
 """
 
 import logging
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 
 import dash
 import dash_ag_grid as dag
@@ -415,9 +415,9 @@ def transform_coordinates_to_projection(df, target_proj="EPSG:4326"):
     return df_copy
 
 
-def _has_cleared_input(*values):
-    """Return whether a date picker or number input was cleared (it sends None)."""
-    return any(value is None for value in values)
+def _nothing_to_load(n_clicks, selected_types, *inputs):
+    """Return whether a Load click has no types or a cleared input (it sends None)."""
+    return not n_clicks or not selected_types or any(value is None for value in inputs)
 
 
 @callback(
@@ -447,23 +447,20 @@ def update_preview_image(
     projection,
 ):
     """Update the preview image independently of the data loading."""
-    if (
-        not n_clicks
-        or not selected_types
-        or _has_cleared_input(start_date, end_date, min_lon, min_lat, max_lon, max_lat)
+    if _nothing_to_load(
+        n_clicks,
+        selected_types,
+        start_date,
+        end_date,
+        min_lon,
+        min_lat,
+        max_lon,
+        max_lat,
     ):
         return html.P(
             "No preview available. Please select filters and click 'Load Data'.",
             className="text-muted",
         )
-
-    # Convert date strings to datetime objects
-    start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
-    end_datetime = (
-        datetime.strptime(end_date, "%Y-%m-%d")
-        + timedelta(days=1)
-        - timedelta(seconds=1)
-    )
 
     # Create bounding box
     bbox = [min_lon, min_lat, max_lon, max_lat]
@@ -480,8 +477,8 @@ def update_preview_image(
         bbox[2],  # max_lon
         bbox[3],  # max_lat
         selected_types,
-        start_datetime,
-        end_datetime,
+        start_date,
+        end_date,
     )
 
     # Create HTML image element
@@ -547,10 +544,15 @@ def load_measurement_data(
     projection,
 ):
     """Load measurement data based on the selected filters."""
-    if (
-        not n_clicks
-        or not selected_types
-        or _has_cleared_input(start_date, end_date, min_lon, min_lat, max_lon, max_lat)
+    if _nothing_to_load(
+        n_clicks,
+        selected_types,
+        start_date,
+        end_date,
+        min_lon,
+        min_lat,
+        max_lon,
+        max_lat,
     ):
         return (
             [],
@@ -568,14 +570,6 @@ def load_measurement_data(
         f"bbox=({min_lon}, {min_lat}, {max_lon}, {max_lat}), projection={projection}",
     )
 
-    # Convert date strings to datetime objects
-    start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
-    end_datetime = (
-        datetime.strptime(end_date, "%Y-%m-%d")
-        + timedelta(days=1)
-        - timedelta(seconds=1)
-    )
-
     # Create bounding box
     bbox = [min_lon, min_lat, max_lon, max_lat]
 
@@ -590,8 +584,8 @@ def load_measurement_data(
     df = PostgresManager.get_measurement_points(
         bbox=bbox,
         types=selected_types,
-        start_date=start_datetime,
-        end_date=end_datetime,
+        start_date=start_date,
+        end_date=end_date,
         representative=representative_only,
     )
 
