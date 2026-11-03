@@ -532,3 +532,16 @@ def test_change_input_on_a_failed_job_resets_it_to_pending(job_id):
     row = DbManager.get_job_columns(job_id)
     assert cleaned is True
     assert (row["status"], row["submitted"]) == ("PENDING", True)
+
+
+def test_deleting_a_running_job_is_refused_and_says_so(job_id):
+    assert job_run.mark_queued(job_id)
+
+    deleted = Job(job_id).delete()
+
+    assert deleted is False
+    assert DbManager.get_job_columns(job_id)["status"] == "RUNNING"
+
+
+def test_deleting_a_pending_job_reports_it(job_id):
+    assert Job(job_id).delete() is True

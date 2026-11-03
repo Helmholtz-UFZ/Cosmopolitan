@@ -691,8 +691,8 @@ class Job(BaseJob):
         data as a new entry in the database.
         """
         log.debug(f"Save job {self.job_id}")
-        # The run owns the heartbeat: a save during a run would put the heartbeat
-        # this job loaded over the run's newer one (cosmo-ecosystem ADR 0004).
+        # The run owns status, submitted, heartbeat and run id: a save would put the
+        # values this job loaded over the run's newer ones (cosmo-ecosystem ADR 0005).
         column_names = [
             name
             for name in JobTable.__table__.columns.keys()
@@ -705,13 +705,16 @@ class Job(BaseJob):
                 ModelWebsite(**json.loads(value))
         job_persistence.save(self.job_id, data_to_insert)
 
-    def delete(self):
+    def delete(self) -> bool:
         """Delete the job everywhere: its remote prefix, local work dir and row.
 
         Delegates to the framework, so the dashboard "Delete", the nightly
         cleanup and this method share one definition of deleting a job.
+
+        Returns:
+            False if the job is RUNNING and nothing was deleted.
         """
-        job_persistence.delete_job(self.job_id)
+        return job_persistence.delete_job(self.job_id)
 
     def submit(self) -> bool:
         """Submit job to Celery queue for background processing.
