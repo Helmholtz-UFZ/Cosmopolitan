@@ -46,7 +46,6 @@ from cosmo_ecosystem.job import RUN_OWNED_COLUMNS
 from cosmo_ecosystem.job_retention import days_to_live
 from cosmopolitan_app.postgres_manager import JobTable, PostgresManager
 from cosmopolitan_app.pydantic_models import ModelWebsite, validate_job_id
-from cosmopolitan_app.timeio_info import type_id_dict
 from cosmopolitan_app.email_service import send_mail
 
 log = logging.getLogger(__name__)
@@ -135,9 +134,12 @@ def draw_preview(
         "rover": staticmaps.RED,
     }
 
+    # The points come from the live sensor table, so their types do too.
+    type_by_sensor_id = PostgresManager.get_timeio_type_mapping()
+
     # Add markers on top of area
     for _, row in points_df.iterrows():
-        sensor_type = type_id_dict[row["sensor_id"]]
+        sensor_type = type_by_sensor_id[row["sensor_id"]]
         color = type_color[sensor_type]
         context.add_object(
             staticmaps.Marker(
@@ -682,6 +684,9 @@ class Job(BaseJob):
             # enqueue, because a worker on a shared disk may already be writing
             # files; only a failure is written then.
             self.working_dir = job_persistence.work_dir(self.job_id)
+            # A resubmitted FAILED job has sent its end mail; the new run must send
+            # its own, so the flag is reset before the row is written.
+            self.notified_end = False
             self.save()
             job_run.mark_queued(self.job_id)
             self.status = "RUNNING"
