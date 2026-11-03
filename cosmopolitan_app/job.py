@@ -669,73 +669,79 @@ class Job(BaseJob):
         """
         job_persistence.delete_job(self.job_id)
 
-    def submit(self):
-        """Submit job to Celery queue for background processing."""
+    def submit(self) -> bool:
+        """Submit job to Celery queue for background processing.
+
+        The first write is the guard, ``job_run.mark_queued``: one conditional
+        update from PENDING or FAILED to RUNNING. A submit that loses it (a second
+        click, a second tab) logs at DEBUG and returns False before it touches the
+        work dir, the row, the job log or the queue (cosmo-ecosystem ADR 0005).
+
+        Returns:
+            Whether this call queued a run.
+        """
         log.info(f"Submit job {self.job_id}.")
 
-        if PostgresManager.set_submitted(self.job_id):
-            self.submitted = True
-            # Save and queue BEFORE enqueuing: pull first so the dir exists and
-            # holds nothing stale, upload and write the submitted row, then queue
-            # the run (RUNNING, no heartbeat; the run claims only such a row). A
-            # fast worker may claim the run and write COMPLETED or FAILED before
-            # the enqueue returns, and a RUNNING written after it would overwrite
-            # that (ADR 0002 of cosmo-ecosystem). Nothing is synced after the
-            # enqueue, because a worker on a shared disk may already be writing
-            # files; only a failure is written then.
+        if not job_run.mark_queued(self.job_id):
+            log.debug(f"Job {self.job_id} was already submitted.")
+            return False
+        self.submitted = True
+        self.status = "RUNNING"
+
+        # Pull and save BEFORE enqueuing: pull first so the dir exists and holds
+        # nothing stale, upload and write the row, then enqueue. A fast worker may
+        # claim the run and write COMPLETED or FAILED before the enqueue returns,
+        # and the row is RUNNING already (ADR 0002 of cosmo-ecosystem). Nothing is
+        # synced after the enqueue, because a worker on a shared disk may already
+        # be writing files; only a failure is written then.
+        try:
             self.working_dir = job_persistence.work_dir(self.job_id)
             # A resubmitted FAILED job has sent its end mail; the new run must send
-            # its own, so the flag is reset before the row is written.
+            # its own. Reset after the won guard: a lost submit must not touch it.
             self.notified_end = False
             self.save()
-            job_run.mark_queued(self.job_id)
-            self.status = "RUNNING"
-            try:
-                celery_task_id, failed = submissions.submit_computation_job(self)
+        except Exception:  # noqa: BLE001
+            # Convention exception (CLAUDE.md: specific exceptions only): the pull
+            # and the save raise storage, database and file errors alike, and
+            # whatever they raise, the queued run has no message and the RUNNING
+            # written above must not outlive it. Re-raised.
+            self._fail_to_start()
+            raise
 
-            except Exception as e:  # catch-all: submission can fail for many reasons; must report all  # noqa
-                if "Error -3 connecting to redis" in str(e):
-                    message = "Redis server is not running"
-                    email_body = f"""
-                    Redis server is not running.\n\n
-                    Error: {str(e)}\n\n
-                    Traceback info: {traceback.format_exc()}\n\n
-                    """
-                else:
-                    message = f"{repr(e)}\n\n{traceback.format_exc()}"
-                    email_body = f"""
-                    Error: {str(e)}\n\n
-                    Traceback info: {traceback.format_exc()}\n\n
-                    """
-
-                log.error(
-                    f"Job {self.job_id} failed to start.\n{message}",
-                )
-
-                email_subject = f"Failed to start job {self.job_id}"
-                email_body = f"""
-                Error: {str(e)}\n\n
-                Traceback info: {traceback.format_exc()}\n\n
-                """
-
-                send_mail(MAINTAINER_EMAIL, email_subject, email_body)
-                failed = True
-                celery_task_id = None
-        else:
-            log.debug(
-                f"Job {self.job_id} was already submitted.",
+        try:
+            celery_task_id, failed = submissions.submit_computation_job(self)
+        except Exception as e:  # catch-all: submission can fail for many reasons; must report all  # noqa
+            if "Error -3 connecting to redis" in str(e):
+                message = "Redis server is not running"
+            else:
+                message = f"{repr(e)}\n\n{traceback.format_exc()}"
+            log.error(f"Job {self.job_id} failed to start.\n{message}")
+            send_mail(
+                MAINTAINER_EMAIL,
+                f"Failed to start job {self.job_id}",
+                f"Error: {str(e)}\n\nTraceback info: {traceback.format_exc()}\n\n",
             )
-            return
+            failed = True
+            celery_task_id = None
 
         if failed:
-            # The user sees the job log, not the worker log; an enqueue reporting
-            # failure without raising says why nowhere else.
-            message = f"Cannot start job {self.job_id}."
-            log.error(message)
-            job_log.append(self.job_id, message, level=logging.ERROR)
             self.celery_task_id = celery_task_id
+            self._fail_to_start()
+        return True
+
+    def _fail_to_start(self):
+        """Write FAILED and say so in the job log: the job was never enqueued.
+
+        Only while the row is still a queued run; a run a worker already claimed
+        is not failed from here.
+        """
+        # The user sees the job log, not the worker log; an enqueue reporting
+        # failure without raising says why nowhere else.
+        message = f"Cannot start job {self.job_id}."
+        log.error(message)
+        if job_run.mark_start_failed(self.job_id):
+            job_log.append(self.job_id, message, level=logging.ERROR)
             self.status = "FAILED"
-            job_persistence.update_columns(self.job_id, {"status": self.status})
 
     def time_to_live(self):
         """Return the number of days after which this job will be deleted.

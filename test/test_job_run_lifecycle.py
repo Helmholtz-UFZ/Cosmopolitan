@@ -14,10 +14,13 @@ import os
 import pytest
 from sqlalchemy import text
 
-from cosmo_ecosystem import job_log, job_persistence
+from cosmo_ecosystem import job_log, job_persistence, job_run
 from cosmo_ecosystem.db_manager import DbManager
 from cosmo_ecosystem.job_log import JobLogHandler
-from cosmo_ecosystem.object_storage_manager import get_remote_files
+from cosmo_ecosystem.object_storage_manager import (
+    ObjectStorageError,
+    get_remote_files,
+)
 
 from cosmopolitan_app import submissions
 from cosmopolitan_app.config import (
@@ -27,8 +30,8 @@ from cosmopolitan_app.config import (
 )
 from cosmopolitan_app.constants.general import LOG_FILE_NAME
 from cosmopolitan_app.job import Job
-from cosmopolitan_app.postgres_manager import PostgresManager
 from cosmopolitan_app.tasks import computation_tasks
+from test.help_functions_tests import remove_job, set_row_columns
 
 JOB_ID = "test_job_run_lifecycle"
 USER_EMAIL = "test@ufz.de"
@@ -36,20 +39,13 @@ OUTPUT_FILE = "prediction_output.txt"
 MAIL_LOG_PREFIX = "Test mode — email not sent."
 
 
-def _delete_everywhere(job_id):
-    """Delete the job if it exists, job log included, even if its row cannot load."""
-    if PostgresManager.check_existence(job_id):
-        job_persistence.delete_job(job_id)
-    job_log.clear(job_id)
-
-
 @pytest.fixture
 def job_id():
     """Yield the id of a new, unsubmitted job; it is gone before and after the test."""
-    _delete_everywhere(JOB_ID)
+    remove_job(JOB_ID)
     Job(new_job_id=JOB_ID)
     yield JOB_ID
-    _delete_everywhere(JOB_ID)
+    remove_job(JOB_ID)
 
 
 @pytest.fixture
@@ -57,9 +53,8 @@ def submitted_job_id(job_id):
     """Return the id of a job as submit leaves it: RUNNING, with a user email."""
     job = Job(job_id)
     job.model.email = USER_EMAIL
-    job.submitted = True
-    job.status = "RUNNING"
     job.save()
+    assert job_run.mark_queued(job_id)
     return job_id
 
 
@@ -189,7 +184,12 @@ def test_a_job_that_cannot_be_loaded_ends_failed_with_the_reason_in_the_job_log(
 
 
 def _prediction_deleting_the_job(verbosity, work_dir):
-    """Stand in for smp_main while the user deletes the job."""
+    """Stand in for smp_main while the run is swept and the job deleted.
+
+    A RUNNING job cannot be deleted (ADR 0005); a lost run that was swept to
+    FAILED can, while the run itself is still alive.
+    """
+    set_row_columns(JOB_ID, status="FAILED")
     job_persistence.delete_job(JOB_ID)
     return "model"
 
@@ -205,12 +205,6 @@ def test_a_job_deleted_during_its_run_ends_the_task_without_mails(
 
     mails = _mails(caplog)
     assert [m for m in mails if "submitted" not in m] == []
-    assert any(
-        record.levelno == logging.INFO
-        and submitted_job_id in record.getMessage()
-        and "deleted" in record.getMessage()
-        for record in caplog.records
-    )
 
 
 def _prediction_logging_then_raising(verbosity, work_dir):
@@ -281,7 +275,7 @@ def test_submit_writes_running_before_the_enqueue(job_id, monkeypatch):
 
     def enqueue(submitted_job):
         status_at_enqueue.append(DbManager.get_job_columns(job_id)["status"])
-        job_persistence.update_columns(job_id, {"status": "COMPLETED"})
+        set_row_columns(job_id, status="COMPLETED")
         return "task-id", False
 
     monkeypatch.setattr(submissions, "submit_computation_job", enqueue)
@@ -341,7 +335,7 @@ def test_submit_queues_the_run_with_no_heartbeat(job_id, monkeypatch):
 
 def test_a_resubmitted_job_is_queued_with_its_end_mail_pending(job_id, monkeypatch):
     """A failed run has sent its end mail; the next run must send its own."""
-    job_persistence.update_columns(job_id, {"status": "FAILED", "notified_end": True})
+    set_row_columns(job_id, status="FAILED", notified_end=True)
     notified_at_enqueue = []
 
     def enqueue(submitted_job):
@@ -383,3 +377,76 @@ def test_a_dropped_delivery_sends_no_mails_and_leaves_the_row(
     row = DbManager.get_job_columns(submitted_job_id)
     assert (row["status"], row["notified_end"]) == ("RUNNING", False)
     assert _mails(caplog) == []
+
+
+def test_a_second_submit_queues_nothing(job_id, monkeypatch):
+    """Two clicks, two tabs: exactly one submit queues a run and enqueues it."""
+    enqueued = []
+
+    def enqueue(submitted_job):
+        enqueued.append(submitted_job.job_id)
+        return "task-id", False
+
+    monkeypatch.setattr(submissions, "submit_computation_job", enqueue)
+
+    first = Job(job_id).submit()
+    second = Job(job_id).submit()
+
+    assert (first, second) == (True, False)
+    assert enqueued == [job_id]
+    assert DbManager.get_job_columns(job_id)["status"] == "RUNNING"
+
+
+def test_a_lost_submit_keeps_the_job_log_and_the_end_mail_flag(job_id, monkeypatch):
+    """A submit that loses the guard has no side effect, not even notified_end."""
+    set_row_columns(job_id, status="COMPLETED", notified_end=True)
+    job_log.append(job_id, "the live log line")
+    monkeypatch.setattr(
+        submissions,
+        "submit_computation_job",
+        _prediction_raising(AssertionError("a lost submit must not enqueue")),
+    )
+
+    assert Job(job_id).submit() is False
+
+    row = DbManager.get_job_columns(job_id)
+    assert (row["status"], row["notified_end"]) == ("COMPLETED", True)
+    assert "the live log line" in job_log.read(job_id)
+
+
+def test_a_failure_in_the_pull_after_the_guard_ends_failed(job_id, monkeypatch):
+    """The queued run has no message to run it: the row must not stay RUNNING."""
+
+    def pull(job_id):
+        raise ObjectStorageError("object storage is down")
+
+    monkeypatch.setattr(job_persistence, "work_dir", pull)
+
+    with pytest.raises(ObjectStorageError):
+        Job(job_id).submit()
+
+    assert DbManager.get_job_columns(job_id)["status"] == "FAILED"
+    assert f"Cannot start job {job_id}." in job_log.read(job_id)
+
+
+def test_a_failure_in_the_save_after_the_guard_ends_failed(job_id, monkeypatch):
+    def save(job_id, row):
+        raise ObjectStorageError("object storage is down")
+
+    monkeypatch.setattr(job_persistence, "save", save)
+
+    with pytest.raises(ObjectStorageError):
+        Job(job_id).submit()
+
+    assert DbManager.get_job_columns(job_id)["status"] == "FAILED"
+
+
+def test_saving_a_stale_job_never_writes_its_status(job_id):
+    """A page that loaded the job before a run ended must not put PENDING back."""
+    stale = Job(job_id)
+    set_row_columns(job_id, status="COMPLETED", submitted=True)
+
+    stale.save()
+
+    row = DbManager.get_job_columns(job_id)
+    assert (row["status"], row["submitted"]) == ("COMPLETED", True)

@@ -24,7 +24,7 @@ from cosmopolitan_app.config import (
 )
 from cosmopolitan_app.job import Job
 from cosmopolitan_app.app import app  # noqa: F401 - registers the pages first
-from cosmopolitan_app.postgres_manager import PostgresManager
+from test.help_functions_tests import remove_job, set_row_columns
 
 FILE_NAME = "marker.txt"
 STALE = "stale\n"
@@ -70,9 +70,8 @@ def job_id():
 
 
 def _delete_everywhere(job_id):
-    """Delete the job if it exists; Job.delete leaves nothing behind."""
-    if PostgresManager.check_existence(job_id):
-        Job(job_id).delete()
+    """Delete the job if it exists, even a RUNNING one a test left behind."""
+    remove_job(job_id)
 
 
 def _write(job_id, content):
@@ -108,7 +107,7 @@ def test_the_status_poll_makes_no_rclone_call(job_id, rclone_calls):
     job = Job(job_id)
     job.reload_logs()
     job.time_to_live()
-    job.save_attributes(["status"])
+    job.save_attributes(["notified_end"])
 
     assert rclone_calls == []
 
@@ -156,11 +155,11 @@ def test_saving_a_job_that_never_touched_its_files_keeps_the_remote_files(job_id
     os.remove(os.path.join(JOB_WORK_DIR_TEMPLATE.format(job_id=job_id), FILE_NAME))
 
     poll_job = Job(job_id)
-    poll_job.status = "RUNNING"
+    poll_job.notified_end = True
     poll_job.save()
 
     assert FILE_NAME in _remote_files(job_id)
-    assert DbManager.get_job_columns(job_id)["status"] == "RUNNING"
+    assert DbManager.get_job_columns(job_id)["notified_end"] is True
 
 
 DATE = "2025-01-01"
@@ -190,8 +189,8 @@ def completed_job(job_id):
     for name, content in files.items():
         with open(os.path.join(work_dir, name), "w", encoding="UTF-8") as f_handle:
             f_handle.write(content)
-    job.status = "COMPLETED"
     job.save()
+    set_row_columns(job_id, status="COMPLETED")
     return job_id
 
 

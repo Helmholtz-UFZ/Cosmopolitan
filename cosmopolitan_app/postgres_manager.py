@@ -33,7 +33,6 @@ from cosmopolitan_app.constants.general import (
     CONSECUTIVE_FAILURES_BEFORE_MAIL,
     UPDATE_RUN_HARD_LIMIT_SECONDS,
 )
-from cosmopolitan_app.error_handling import JobNotFound
 
 log = logging.getLogger(__name__)
 
@@ -152,40 +151,6 @@ class PostgresManager(DbManager):
         with cls.session_scope() as session:
             job_row = session.query(JobTable.job_id).filter_by(job_id=job_id).first()
         return job_row is not None
-
-    @classmethod
-    def set_submitted(cls, job_id):
-        """Update the 'submitted' column in the 'JobTable' for a given job ID.
-
-        The method works as well as a lock so that the job is not submitted twice.
-
-        Parameters:
-        job_id (str): The unique identifier for the job.
-
-        Returns:
-        bool: True if the job was successfully marked as submitted, False if it was
-        already submitted.
-
-        Raises:
-        JobNotFound: If the job with the provided job ID does not exist.
-        """
-        log.debug(f"Set submitted for job: {job_id}")
-
-        with cls.session_scope() as session:
-            job = (
-                session.query(JobTable)
-                .filter_by(job_id=job_id)
-                .with_for_update()
-                .first()
-            )
-            if job is None:
-                raise JobNotFound(job_id)
-
-            if job.submitted and job.status in ["RUNNING", "COMPLETED"]:
-                return False
-            else:
-                job.submitted = True
-                return True
 
     @classmethod
     def _extract_date(cls, date_input: Union[date, datetime]) -> date:
