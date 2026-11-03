@@ -32,6 +32,7 @@ from cosmopolitan_app.constants import (
     CHANGE_INPUT_BUTTON_SUBMISSION_ID,
     HEADER_DIV_SUBMISSION_ID,
     HEADER_SUBTITLE_DIV_SUBMISSION_ID,
+    HINT_DIV_SUBMISSION_ID,
     ICON_SUBMISSION_ID,
     INTERVAL_SUBMISSION_ID,
     JOB_LOGS_DIV_SUBMISSION_ID,
@@ -151,6 +152,10 @@ def create_button_set(status, job_id):
 
 deletion_information_template = "The job will be deleted after {time_to_live} days."
 status_information_template = "Status:\n {status}"
+CHANGE_INPUT_REFUSED_HINT = (
+    "The job is running, so its input cannot be changed. "
+    "Wait until it has finished, or spawn a new job."
+)
 
 
 def layout(job_id):
@@ -284,6 +289,7 @@ def load_submission_content(job_id, header_class_name):
                 className="text-center fs-5 mb-2",
                 id=TIME_TO_LIFE_DIV_SUBMISSION_ID,
             ),
+            html.Div(id=HINT_DIV_SUBMISSION_ID, className="col-11 col-xl-8 mx-auto"),
             dbc.Row(
                 dbc.Col(
                     submission_layout,
@@ -331,6 +337,7 @@ dash.clientside_callback(
     Output(STATUS_DIV_SUBMISSION_ID, "children"),
     Output(TIME_TO_LIFE_DIV_SUBMISSION_ID, "children"),
     Output(ACCORDION_SUBMISSION_ID, "active_item"),
+    Output(HINT_DIV_SUBMISSION_ID, "children"),
     Input(INTERVAL_SUBMISSION_ID, "n_intervals"),
     Input(SUBMIT_JOB_BUTTON_SUBMISSION_ID, "n_clicks"),
     Input(CHANGE_INPUT_BUTTON_SUBMISSION_ID, "n_clicks"),
@@ -363,13 +370,18 @@ def submission_manager(
     input_base_path = dash.page_registry["pages.input"]["path_template"]
     log.debug(f"Triggered ids: {triggered_ids}")
     job = Job(job_id)
+    # Left alone by a poll, so a hint stays until the next click.
+    hint = dash.no_update
     if SUBMIT_JOB_BUTTON_SUBMISSION_ID in triggered_ids:
-        job.delete_logs()
+        # The job log is not cleared here: the run's claim starts an empty one, and
+        # a second click on a RUNNING job must not wipe the live log.
         job.submit()
+        hint = None
     elif CHANGE_INPUT_BUTTON_SUBMISSION_ID in triggered_ids:
-        job.clean_work_dir()
-        input_path = input_base_path.replace("<job_id>", job.job_id)
-        return tuple([input_path] + [dash.no_update] * (num_outputs - 1))
+        if job.clean_work_dir():
+            input_path = input_base_path.replace("<job_id>", job.job_id)
+            return tuple([input_path] + [dash.no_update] * (num_outputs - 1))
+        hint = dbc.Alert(CHANGE_INPUT_REFUSED_HINT, color="warning")
     elif SPAWN_BUTTON_SUBMISSION_ID in triggered_ids:
         new_job = job.spawn()
         input_path = input_base_path.replace("<job_id>", new_job.job_id)
@@ -409,4 +421,5 @@ def submission_manager(
         status_info,
         time_to_live_info,
         active_item,
+        hint,
     )

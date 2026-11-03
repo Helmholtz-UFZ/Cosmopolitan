@@ -34,6 +34,7 @@ from cosmopolitan_app.constants import (
     DELETE_PREDICTOR_UPLOAD_BUTTON_INPUT_ID,
     HEADER_DIV_INPUT_ID,
     HEADER_SUBTITLE_DIV_INPUT_ID,
+    HINT_DIV_INPUT_ID,
     HIDDEN_CRNS_UPLOAD_INPUT_INPUT_ID,
     HIDDEN_PREDICTOR_UPLOAD_INPUT_INPUT_ID,
     JOB_STORE_INPUT_ID,
@@ -60,6 +61,12 @@ log = logging.getLogger(__name__)
 dash.register_page(
     __name__,
     path_template="/input/<job_id>",
+)
+
+# Shown when a stale tab tries to write the input of a job that has moved on.
+NOT_PENDING_HINT = (
+    "The job is no longer PENDING, so its input was not changed. "
+    "Open its submission page to see its status."
 )
 
 
@@ -342,6 +349,7 @@ def file_upload_callback(**state):
             active_form_template_factory.area_preview_key,  # nocheck
             "src",  # nocheck
         ),
+        HINT_DIV_INPUT_ID: Output(HINT_DIV_INPUT_ID, "children", allow_duplicate=True),
         # fmt: on
     },
     state={
@@ -382,11 +390,20 @@ def regenerate_preview(**state):
         raise PreventUpdate
 
     validated_model.__dict__["job_id"] = job_id
-    job = Job(model=validated_model)
+    job = Job(job_id)
+    if not job.update_input(validated_model):
+        log.info(f"Preview of job {job_id} not drawn: the job is not PENDING.")
+        return {
+            active_form_template_factory.area_preview_key: dash.no_update,
+            HINT_DIV_INPUT_ID: dbc.Alert(NOT_PENDING_HINT, color="warning"),
+        }
     file_name = job.preview_area()
     image_src = url_for("serve_file", job_id=job.job_id, filename=file_name)
 
-    return {"area_preview": image_src}
+    return {
+        active_form_template_factory.area_preview_key: image_src,
+        HINT_DIV_INPUT_ID: None,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -415,6 +432,7 @@ def regenerate_preview(**state):
             "children",  # nocheck
         ),
         # fmt: on
+        HINT_DIV_INPUT_ID: Output(HINT_DIV_INPUT_ID, "children", allow_duplicate=True),
         "redirect": Output(URL_LOCATION_SHARED_ID, "pathname"),
         "loading_overlay": Output(
             LOADING_OVERLAY_MODAL_SHARED_ID, "is_open", allow_duplicate=True
@@ -477,6 +495,7 @@ def form_validation_callback(**state):
         output_dict[PREDICTOR_UPLOAD_FEEDBACK_FORMTEXT_INPUT_ID] = ""
 
     output_dict["loading_overlay"] = False
+    output_dict[HINT_DIV_INPUT_ID] = None
 
     job_id = state["job_id"]
 
@@ -484,12 +503,21 @@ def form_validation_callback(**state):
         log.debug("Submit button clicked")
         validated_model = active_form_factory.set_model(state)
         validated_model.__dict__["job_id"] = job_id
-        job = Job(model=validated_model)
-        job.prepare_input_files()
-        submission_base_path = dash.page_registry["pages.submission"]["path_template"]
-        output_dict["redirect"] = submission_base_path.replace(
-            "<job_id>", str(job.job_id)
-        )
+        job = Job(job_id)
+        if job.update_input(validated_model):
+            job.prepare_input_files()
+            submission_base_path = dash.page_registry["pages.submission"][
+                "path_template"
+            ]
+            output_dict["redirect"] = submission_base_path.replace(
+                "<job_id>", str(job.job_id)
+            )
+        else:
+            log.info(f"Input of job {job_id} not saved: the job is not PENDING.")
+            output_dict[HINT_DIV_INPUT_ID] = dbc.Alert(
+                NOT_PENDING_HINT, color="warning"
+            )
+            output_dict["redirect"] = dash.no_update
     else:
         output_dict["redirect"] = dash.no_update
 
