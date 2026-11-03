@@ -1,28 +1,5 @@
 """Information about the crns devices and their datastreams."""
 
-type_id_dict = {
-    44: "station",
-    85: "station",
-    92: "station",
-    93: "station",
-    94: "station",
-    95: "station",
-    97: "station",
-    99: "station",
-    146: "train",
-    147: "train",
-    148: "train",
-    149: "train",
-    107: "station",
-    162: "station",
-    167: "station",
-    168: "station",
-    170: "station",
-    171: "station",
-    205: "station",
-    216: "train",
-}
-
 thing_datastream_dict = {
     44: {
         3180: "Neutron counts",

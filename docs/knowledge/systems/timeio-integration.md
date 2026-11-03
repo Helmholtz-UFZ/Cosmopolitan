@@ -23,7 +23,6 @@ It uses standard STA resources — `Things`, `Datastreams`, `Locations`, `Observ
 
 The API exposes Things by numeric id; the app maps those ids with **hard-coded dictionaries**:
 
-- `type_id_dict` — Thing id → `"station"` or `"train"` (drives `is_stationary`).
 - `thing_datastream_dict` — Thing id → {datastream id → name} (e.g. `"Neutron counts"`,
   `"latitude"`, `"longitude"`). Mobile (train) things carry lat/long datastreams; stationary ones
   generally just neutron counts.
