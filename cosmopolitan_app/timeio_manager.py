@@ -12,9 +12,14 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 import requests
+from celery.exceptions import SoftTimeLimitExceeded
 from requests.exceptions import RequestException
 
-from cosmopolitan_app.error_handling import TimeIOUnavailableError
+from cosmopolitan_app.error_handling import (
+    CrnsUpdateIncomplete,
+    TimeIODayError,
+    TimeIOUnavailableError,
+)
 from cosmopolitan_app.postgres_manager import PostgresManager
 
 log = logging.getLogger(__name__)
@@ -207,7 +212,12 @@ class TimeIOManager:
         df.rename(columns={"index": "date_time"}, inplace=True)
 
         if cls.is_stationary(thing_id):
-            longitude, latitude = cls.get_location_of_thing(thing_id)
+            location = cls.get_location_of_thing(thing_id)
+            if location is None:
+                raise TimeIODayError(
+                    f"Stationary thing {thing_id} has no location in the STA."
+                )
+            longitude, latitude = location
             df["longitude"] = longitude
             df["latitude"] = latitude
 
@@ -454,6 +464,10 @@ def transfer_data_by_day(start_date: datetime) -> None:
             )
 
         df = TimeIOManager.collect_datastreams(thing_id, start_date, end_date)
+        if df is None:
+            raise TimeIODayError(
+                f"Thing {thing_name} with ID {thing_id} has no datastreams to read."
+            )
         if df.empty:
             log.debug("No data found for this thing.")
             continue
@@ -538,6 +552,7 @@ def update_crns_measurments() -> None:
         f"{end_date.strftime('%Y-%m-%d')}",
     )
 
+    failed_days = []
     while current_date <= end_date:
         if PostgresManager.was_update_successful(current_date):
             log.info(
@@ -549,13 +564,28 @@ def update_crns_measurments() -> None:
         try:
             transfer_data_by_day(current_date)
             PostgresManager.add_update_crns(current_date)
-        except Exception as e:  # catch-all: log and continue with next day  # noqa
+        except SoftTimeLimitExceeded:
+            # Ends the run now; the broad catch below must not turn it into a failed
+            # day and go on with the next one. update_db_task records the run.
+            raise
+        except TimeIODayError as error:
+            log.error(f"Cannot transfer data for {current_date.date()}: {error}")
+            PostgresManager.add_update_crns(current_date, False)
+            failed_days.append(current_date.date())
+        except (
+            Exception
+        ) as error:  # catch-all: one bad day must not stop the others  # noqa
             log.error(
-                f"Error while transferring data for {current_date}: {e}",
+                f"Error while transferring data for {current_date}: {error}",
             )
             log.error(f"Traceback: {traceback.format_exc()}")
+            PostgresManager.add_update_crns(current_date, False)
+            failed_days.append(current_date.date())
 
         current_date += timedelta(days=1)
+
+    if failed_days:
+        raise CrnsUpdateIncomplete(failed_days)
 
 
 def repopulate_crns_measurements() -> None:

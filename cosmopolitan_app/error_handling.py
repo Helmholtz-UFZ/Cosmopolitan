@@ -82,6 +82,29 @@ class TimeIOUnavailableError(Exception):
         super().__init__(f"TimeIO STA API unreachable after all retries: {query}")
 
 
+# Deliberately NOT in error_responds_dict: raised inside the nightly Celery
+# maintenance task, never inside a callback. update_crns_measurments records the
+# day as failed and carries on with the next one.
+class TimeIODayError(Exception):
+    """Raised when one day of one TimeIO thing cannot be transferred.
+
+    For a documented case where TimeIO gives nothing usable to store: a thing
+    without datastreams, or a stationary sensor without a location.
+    """
+
+
+# Deliberately NOT in error_responds_dict: raised at the end of the nightly run, so
+# that maintenance_tasks.update_db_task records the run as failed.
+class CrnsUpdateIncomplete(Exception):
+    """Raised when the nightly CRNS update finished with failed days."""
+
+    def __init__(self, failed_days):
+        """Keep the failed days as attribute and list them in the message."""
+        self.failed_days = failed_days
+        days = ", ".join(day.strftime("%Y-%m-%d") for day in failed_days)
+        super().__init__(f"CRNS update failed for {len(failed_days)} day(s): {days}")
+
+
 # Deliberately NOT in error_responds_dict: raised inside the computation task's
 # job run, never inside a callback; the job run turns it into FAILED.
 class PredictionAborted(Exception):
