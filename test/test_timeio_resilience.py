@@ -204,18 +204,21 @@ def test_an_unexpected_error_on_a_day_is_recorded_as_a_failed_day(two_day_update
     ]
 
 
-def test_a_thing_without_datastreams_fails_its_day(two_day_update):
+def test_a_thing_without_datastreams_fails_its_day(two_day_update, caplog):
     """collect_datastreams returns None for it; that is a failed day, not a crash."""
     with (
         patch.object(TimeIOManager, "get_ignore_things", return_value=[]),
         patch.object(TimeIOManager, "get_things", return_value=[THING]),
         patch.object(TimeIOManager, "get_thing_datastream_dict", return_value={1: {}}),
+        caplog.at_level(logging.ERROR),
     ):
         with pytest.raises(CrnsUpdateIncomplete) as excinfo:
             timeio_manager.update_crns_measurments()
 
     assert excinfo.value.failed_days == [DAY_ONE, DAY_TWO]
     assert two_day_update.call_args_list[0] == call(datetime(2024, 1, 1), False)
+    assert "CRNS - Test" in caplog.text
+    assert "has no datastreams" in caplog.text
 
 
 def test_a_stationary_sensor_without_location_fails_its_day(two_day_update, caplog):
@@ -244,8 +247,11 @@ def test_a_stationary_sensor_without_location_fails_its_day(two_day_update, capl
     assert "no location" in caplog.text
 
 
-def test_update_db_task_marks_the_run_failed_when_the_soft_limit_hits():
-    """The soft limit reaches the task, which records the run as failed."""
+def test_regression_guard_update_db_task_marks_the_run_failed_on_the_soft_limit():
+    """Regression guard: the soft limit reaches the task, which records a failure.
+
+    Passes without the day-loop fix too; it pins the task's side of the contract.
+    """
     with (
         patch.object(
             maintenance_tasks,
@@ -296,11 +302,54 @@ def test_a_run_killed_at_the_hard_limit_counts_as_failed(update_runs):
 
 
 def test_the_stale_run_limit_is_the_celery_hard_time_limit():
+    """The constant the counter uses cannot drift from the configured hard limit."""
     assert UPDATE_RUN_HARD_LIMIT_SECONDS == CeleryConfig.task_time_limit
 
 
 def test_a_run_inside_the_hard_limit_is_not_counted(update_runs):
+    """A 'running' row younger than the hard limit may still be executing."""
     update_runs(timedelta(days=1), "failed")
     update_runs(timedelta(seconds=CeleryConfig.task_time_limit - 60), "running")
 
     assert PostgresManager.count_consecutive_failed_update_runs() == 1
+
+
+def test_a_thing_that_fails_does_not_stop_the_other_things_of_the_day():
+    """A thing without location is skipped; the next thing's data is stored."""
+    stored = []
+    with (
+        patch.object(TimeIOManager, "get_ignore_things", return_value=[]),
+        patch.object(
+            TimeIOManager,
+            "get_things",
+            return_value=[
+                {"@iot.id": 1, "name": "CRNS - No location"},
+                {"@iot.id": 2, "name": "CRNS - Located"},
+            ],
+        ),
+        patch.object(
+            TimeIOManager,
+            "get_thing_datastream_dict",
+            return_value={1: {10: "Neutron counts"}, 2: {20: "Neutron counts"}},
+        ),
+        patch.object(
+            TimeIOManager,
+            "get_values",
+            return_value=(["2024-01-01T12:00:00"], [100.0]),
+        ),
+        patch.object(TimeIOManager, "is_stationary", return_value=True),
+        patch.object(
+            TimeIOManager,
+            "get_location_of_thing",
+            side_effect=lambda thing_id: None if thing_id == 1 else (11.0, 51.0),
+        ),
+        patch.object(
+            timeio_manager.PostgresManager,
+            "insert_crns_measurements_from_df",
+            side_effect=stored.append,
+        ),
+    ):
+        with pytest.raises(TimeIODayError, match="CRNS - No location.*no location"):
+            timeio_manager.transfer_data_by_day(datetime(2024, 1, 1))
+
+    assert [list(df["sensor_id"]) for df in stored] == [[2]]

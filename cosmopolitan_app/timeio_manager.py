@@ -444,6 +444,7 @@ def transfer_data_by_day(start_date: datetime) -> None:
     # Get ignore list from database
     ignore_things = TimeIOManager.get_ignore_things()
 
+    failed_things = []
     for thing_dict in TimeIOManager.get_things():
         thing_id = thing_dict["@iot.id"]
         thing_name = thing_dict["name"]
@@ -463,11 +464,17 @@ def transfer_data_by_day(start_date: datetime) -> None:
                 "Please add it to the timeio_info table in the database."
             )
 
-        df = TimeIOManager.collect_datastreams(thing_id, start_date, end_date)
-        if df is None:
-            raise TimeIODayError(
-                f"Thing {thing_name} with ID {thing_id} has no datastreams to read."
-            )
+        try:
+            df = TimeIOManager.collect_datastreams(thing_id, start_date, end_date)
+            if df is None:
+                raise TimeIODayError(
+                    f"Thing {thing_name} with ID {thing_id} has no datastreams to read."
+                )
+        except TimeIODayError as error:
+            # A thing that can never be read must not stop the others of the day.
+            log.error(f"Skipping thing {thing_name} (ID: {thing_id}): {error}")
+            failed_things.append(f"{thing_name}: {error}")
+            continue
         if df.empty:
             log.debug("No data found for this thing.")
             continue
@@ -507,6 +514,11 @@ def transfer_data_by_day(start_date: datetime) -> None:
         PostgresManager.insert_crns_measurements_from_df(df_new)
         log.info(
             f"Inserted {len(df_new)} measurements for {thing_name} into the database.",
+        )
+
+    if failed_things:
+        raise TimeIODayError(
+            f"{len(failed_things)} thing(s) skipped: " + "; ".join(failed_things)
         )
 
 
@@ -572,9 +584,8 @@ def update_crns_measurments() -> None:
             log.error(f"Cannot transfer data for {current_date.date()}: {error}")
             PostgresManager.add_update_crns(current_date, False)
             failed_days.append(current_date.date())
-        except (
-            Exception
-        ) as error:  # catch-all: one bad day must not stop the others  # noqa
+        # catch-all: one bad day must not stop the others
+        except Exception as error:  # noqa
             log.error(
                 f"Error while transferring data for {current_date}: {error}",
             )

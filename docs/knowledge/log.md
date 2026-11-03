@@ -13,6 +13,11 @@ model. Newest entries go at the top.
 - Updated `path/to/file.md` — short note on what changed.
 ```
 
+## 2026-11-03
+
+- Updated `knowledge/systems/timeio-integration.md` — the device registry is the `timeio_info`
+  table; the hard-coded dictionaries and `timeio_info.py` are gone.
+
 ## 2026-11-02
 
 - Updated `knowledge/systems/job-lifecycle.md` — lost job runs: submit queues through

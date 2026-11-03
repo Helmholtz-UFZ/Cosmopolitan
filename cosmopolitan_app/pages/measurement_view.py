@@ -311,6 +311,7 @@ preview_card = dbc.Card(
 
 def layout():
     """Build the page; the filters read the live sensor table on every visit."""
+    log.info("Building the measurement view layout")
     return page_container_column_layout(
         [
             create_header(

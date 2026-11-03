@@ -102,7 +102,7 @@ Service requirements vary by test:
 | `test_smp_assumptions.py` | None (checks data structures only) |
 | `test_documentation.py` | None (reads files only) |
 | `test_results_page.py` | None (temporary work dir only) |
-| `test_measurement_view_page.py` | None (page callbacks on cleared inputs only) |
+| `test_measurement_view_page.py` | Postgres (type dropdown reads `timeio_info`; the cleared-input callbacks need none) |
 | `test_job_management_page.py` | None (page registry and link seam only) |
 
 ## Fixtures (`conftest.py`)
