@@ -28,7 +28,7 @@ See [Framework boundary](#framework-boundary) below.
 | `submissions.py` | The domain job submissions, module functions over the framework's `BackgroundJobManager` |
 | `tasks/` | Celery task definitions — computation jobs and periodic maintenance |
 | `postgres_manager.py` | SQLAlchemy ORM models and DB operations (PostGIS) |
-| `timeio_manager.py`, `timeio_info.py` | Data acquisition from the TimeIO / STI API (CRNS measurements) |
+| `timeio_manager.py` | Data acquisition from the TimeIO / STI API (CRNS measurements) |
 | `map_utils.py` | Map layers (TiTiler tile layers for GeoTIFF; dash-leaflet) |
 | `error_handling.py` | Custom exceptions and the error modal |
 | `email_service.py` | Notification emails (e.g. job finished) |

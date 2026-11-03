@@ -18,6 +18,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    or_,
     text,
 )
 from sqlalchemy.dialects.postgresql import insert
@@ -28,7 +29,10 @@ from sqlalchemy.sql import func
 # ../cosmo-ecosystem/docs/conventions/database_schema.md.
 from cosmo_ecosystem.db_manager import Base, DbManager, JobColumns, LogTable
 
-from cosmopolitan_app.constants.general import CONSECUTIVE_FAILURES_BEFORE_MAIL
+from cosmopolitan_app.constants.general import (
+    CONSECUTIVE_FAILURES_BEFORE_MAIL,
+    UPDATE_RUN_HARD_LIMIT_SECONDS,
+)
 from cosmopolitan_app.error_handling import JobNotFound
 
 log = logging.getLogger(__name__)
@@ -879,16 +883,24 @@ class PostgresManager(DbManager):
 
         Counts back from the newest finished run and stops at the first one that
         did not fail. Runs still marked 'running' are skipped, so the currently
-        executing run does not have to be finished before it is counted.
+        executing run does not have to be finished before it is counted. A run
+        marked 'running' for longer than the Celery hard time limit was killed
+        before it could record its end, and counts as failed.
 
         Returns:
             Number of consecutive failed runs, newest first.
         """
+        cutoff = datetime.now() - timedelta(seconds=UPDATE_RUN_HARD_LIMIT_SECONDS)
         with cls.session_scope() as session:
             statuses = [
-                run.status
+                "failed" if run.status == "running" else run.status
                 for run in session.query(UpdateDbRuns)
-                .filter(UpdateDbRuns.status != "running")
+                .filter(
+                    or_(
+                        UpdateDbRuns.status != "running",
+                        UpdateDbRuns.start_time < cutoff,
+                    )
+                )
                 .order_by(UpdateDbRuns.start_time.desc())
                 .limit(CONSECUTIVE_FAILURES_BEFORE_MAIL)
                 .all()

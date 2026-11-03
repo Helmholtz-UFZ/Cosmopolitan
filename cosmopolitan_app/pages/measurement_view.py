@@ -50,14 +50,10 @@ from cosmopolitan_app.constants import (
 from cosmopolitan_app.job import draw_preview
 from cosmopolitan_app.layouts import create_header, page_container_column_layout
 from cosmopolitan_app.postgres_manager import PostgresManager
-from cosmopolitan_app.timeio_info import type_id_dict
 
 log = logging.getLogger(__name__)
 
 dash.register_page(__name__)
-
-# Get available measurement types from type_id_dict
-available_types = list(set(type_id_dict.values()))
 
 # Create the measurement data table
 measurement_table = dag.AgGrid(
@@ -139,22 +135,25 @@ measurement_table = dag.AgGrid(
     columnSize="responsiveSizeToFit",
 )
 
+
 # Filter controls
-_type_col = dbc.Col(
-    [
-        html.Label("Measurement Types:", className="form-label"),
-        dcc.Dropdown(
-            id=TYPE_DROPDOWN_MEASUREMENT_VIEW_ID,
-            options=[{"label": t, "value": t} for t in available_types],
-            value=(
-                available_types[:3] if len(available_types) >= 3 else available_types
+def _type_col():
+    """Build the type filter from the sensor types in the live sensor table."""
+    available_types = sorted(set(PostgresManager.get_timeio_type_mapping().values()))
+    return dbc.Col(
+        [
+            html.Label("Measurement Types:", className="form-label"),
+            dcc.Dropdown(
+                id=TYPE_DROPDOWN_MEASUREMENT_VIEW_ID,
+                options=[{"label": t, "value": t} for t in available_types],
+                value=available_types[:3],
+                multi=True,
+                placeholder="Select measurement types...",
             ),
-            multi=True,
-            placeholder="Select measurement types...",
-        ),
-    ],
-    md=4,
-)
+        ],
+        md=4,
+    )
+
 
 _date_range_col = dbc.Col(
     [
@@ -261,17 +260,22 @@ _actions_col = dbc.Col(
     md=4,
 )
 
-filter_controls = dbc.Card(
-    dbc.CardBody(
-        [
-            dbc.Row(
-                [_type_col, _date_range_col, _representative_col], className="mb-3"
-            ),
-            dbc.Row([_bbox_col, _actions_col]),
-        ]
-    ),
-    className="mb-3",
-)
+
+def _filter_controls():
+    """Build the filter card; the type column reads the live sensor table."""
+    return dbc.Card(
+        dbc.CardBody(
+            [
+                dbc.Row(
+                    [_type_col(), _date_range_col, _representative_col],
+                    className="mb-3",
+                ),
+                dbc.Row([_bbox_col, _actions_col]),
+            ]
+        ),
+        className="mb-3",
+    )
+
 
 # Statistics card
 stats_card = dbc.Card(
@@ -304,64 +308,68 @@ preview_card = dbc.Card(
     className="mb-3",
 )
 
-layout = page_container_column_layout(
-    [
-        create_header(
-            "Measurements",
-            "View and analyze measurement data",
-            bg_color="bg-info",
-        ),
-        dbc.Row(
-            [
-                dbc.Col(
-                    [
-                        filter_controls,
-                    ],
-                    className="m-3",
-                ),
-            ]
-        ),
-        dbc.Row(
-            [
-                dbc.Col(
-                    [
-                        preview_card,
-                    ],
-                    className="m-3",
-                ),
-            ]
-        ),
-        dbc.Row(
-            [
-                dbc.Col(
-                    [
-                        stats_card,
-                    ],
-                    className="mx-3",
-                ),
-            ]
-        ),
-        dbc.Row(
-            [
-                dbc.Col(
-                    [
-                        dbc.Spinner(
-                            [
-                                measurement_table,
-                            ],
-                            color="primary",
-                        ),
-                    ],
-                    className="m-3",
-                ),
-            ]
-        ),
-        # Hidden div to store the current data for export
-        html.Div(id=CURRENT_DATA_STORE_DIV_MEASUREMENT_VIEW_ID, className="d-none"),
-        # Download component for CSV export
-        dcc.Download(id=DOWNLOAD_CSV_MEASUREMENT_VIEW_ID),
-    ]
-)
+
+def layout():
+    """Build the page; the filters read the live sensor table on every visit."""
+    log.info("Building the measurement view layout")
+    return page_container_column_layout(
+        [
+            create_header(
+                "Measurements",
+                "View and analyze measurement data",
+                bg_color="bg-info",
+            ),
+            dbc.Row(
+                [
+                    dbc.Col(
+                        [
+                            _filter_controls(),
+                        ],
+                        className="m-3",
+                    ),
+                ]
+            ),
+            dbc.Row(
+                [
+                    dbc.Col(
+                        [
+                            preview_card,
+                        ],
+                        className="m-3",
+                    ),
+                ]
+            ),
+            dbc.Row(
+                [
+                    dbc.Col(
+                        [
+                            stats_card,
+                        ],
+                        className="mx-3",
+                    ),
+                ]
+            ),
+            dbc.Row(
+                [
+                    dbc.Col(
+                        [
+                            dbc.Spinner(
+                                [
+                                    measurement_table,
+                                ],
+                                color="primary",
+                            ),
+                        ],
+                        className="m-3",
+                    ),
+                ]
+            ),
+            # Hidden div to store the current data for export
+            html.Div(id=CURRENT_DATA_STORE_DIV_MEASUREMENT_VIEW_ID, className="d-none"),
+            # Download component for CSV export
+            dcc.Download(id=DOWNLOAD_CSV_MEASUREMENT_VIEW_ID),
+        ]
+    )
 
 
 def create_coordinate_transformer(source_proj, target_proj="EPSG:4326"):
