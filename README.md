@@ -81,6 +81,8 @@ cp env_dev_prod env_dev_prod_priv
 ./dev_up.sh prod
 ```
 
+Example CRNS data for a job (Harz region) lies in [`examples/harz/`](examples/harz/README.md).
+
 ### Docker Development
 
 The application runs in multiple containers:
