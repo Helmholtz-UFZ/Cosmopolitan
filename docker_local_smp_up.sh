@@ -7,5 +7,6 @@ if [ -f .env ]; then
 fi
 
 cp env_test .env
+source "$(dirname "$0")/set_docker_user.sh"
 
 docker compose -f docker-compose.yml -f docker-compose.local_smp.yml up
