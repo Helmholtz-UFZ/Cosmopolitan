@@ -10,9 +10,6 @@ frontend:
     tag: "0.2.20-2026.11.23"
   imagePullSecrets:
     - name: wombat-docker-registry-codebase
-  podAnnotations:
-    rdm.ufz.de/inception-date: "20240110"
-    rdm.ufz.de/duration-in-years: "2"
   environmentVariables:
     - name: "TZ"
       value: "Europe/Berlin"
@@ -27,7 +24,7 @@ frontend:
     - name: "EMAIL_PASSWORD"
       valueFrom:
         secretKeyRef:
-          name: "custom-met-cosmopolitan.secrets"
+          name: "cosmopolitan.secrets"
           key: "EMAIL_PASSWORD"
     - name: "FLASK_DEBUG"
       value: "0"
@@ -46,7 +43,7 @@ frontend:
     - name: "OBJECT_STORAGE_SECRET_KEY"
       valueFrom:
         secretKeyRef:
-          name: "custom-met-cosmopolitan.secrets"
+          name: "cosmopolitan.secrets"
           key: "OBJECT_STORAGE_SECRET_KEY"
     - name: "POSTGRES_DB"
       value: "somweb_prod"
@@ -59,12 +56,12 @@ frontend:
     - name: "POSTGRES_PASSWORD"
       valueFrom:
         secretKeyRef:
-          name: "custom-met-cosmopolitan.secrets"
+          name: "cosmopolitan.secrets"
           key: "DB_PW"
     - name: "CLUSTER_TOKEN"
       valueFrom:
         secretKeyRef:
-          name: "custom-met-cosmopolitan.secrets"
+          name: "cosmopolitan.secrets"
           key: "CLUSTER_TOKEN"
     - name: "WEB_OUTSIDE_URL"
       value: "https://cosmopolitan.web-intern-stage.app.ufz.de"
@@ -89,8 +86,7 @@ frontend:
       cert-manager.io/private-key-size: "384"
       cert-manager.io/private-key-rotation-policy: "Always"
       haproxy-ingress.github.io/config-backend: |
-        http-response set-header 'X-Content-Type-Options' 'nosniff';
-        http-response set-header 'Content-Security-Policy' "default-src 'self'; script-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.tile.openstreetmap.org https://*.app.ufz.de; style-src 'self' 'unsafe-inline'; font-src 'self' ; frame-src 'self' *.ufz.de ; child-src 'self' *.ufz.de ; object-src 'none' ; frame-ancestors 'self' http://*.ufz.de https://*.ufz.de ;";
+        http-response set-header 'Content-Security-Policy' "default-src 'self'; script-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.tile.openstreetmap.org https://*.app.ufz.de; style-src 'self' 'unsafe-inline'; font-src 'self' ; frame-src 'self' *.ufz.de ; child-src 'self' *.ufz.de ; object-src 'none' ; frame-ancestors 'self' https://*.ufz.de ;";
     hosts:
       - host: "cosmopolitan.web-intern-stage.app.ufz.de"
         paths:
@@ -138,7 +134,7 @@ worker:
     - name: "EMAIL_PASSWORD"
       valueFrom:
         secretKeyRef:
-          name: "custom-met-cosmopolitan.secrets"
+          name: "cosmopolitan.secrets"
           key: "EMAIL_PASSWORD"
     - name: "FLASK_DEBUG"
       value: "0"
@@ -157,7 +153,7 @@ worker:
     - name: "OBJECT_STORAGE_SECRET_KEY"
       valueFrom:
         secretKeyRef:
-          name: "custom-met-cosmopolitan.secrets"
+          name: "cosmopolitan.secrets"
           key: "OBJECT_STORAGE_SECRET_KEY"
     - name: "POSTGRES_DB"
       value: "somweb_prod"
@@ -170,12 +166,12 @@ worker:
     - name: "POSTGRES_PASSWORD"
       valueFrom:
         secretKeyRef:
-          name: "custom-met-cosmopolitan.secrets"
+          name: "cosmopolitan.secrets"
           key: "DB_PW"
     - name: "CLUSTER_TOKEN"
       valueFrom:
         secretKeyRef:
-          name: "custom-met-cosmopolitan.secrets"
+          name: "cosmopolitan.secrets"
           key: "CLUSTER_TOKEN"
     - name: "WEB_OUTSIDE_URL"
       value: "https://cosmopolitan.web-intern-stage.app.ufz.de"
@@ -230,8 +226,7 @@ tileserver:
       cert-manager.io/private-key-size: "384"
       cert-manager.io/private-key-rotation-policy: "Always"
       haproxy-ingress.github.io/config-backend: |
-        http-response set-header 'X-Content-Type-Options' 'nosniff';
-        http-response set-header 'Content-Security-Policy' "default-src 'self'; script-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.tile.openstreetmap.org; style-src 'self' 'unsafe-inline'; font-src 'self' ; frame-src 'self' *.ufz.de ; child-src 'self' *.ufz.de ; object-src 'none' ; frame-ancestors 'self' http://*.ufz.de https://*.ufz.de ;";
+        http-response set-header 'Content-Security-Policy' "default-src 'self'; script-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.tile.openstreetmap.org; style-src 'self' 'unsafe-inline'; font-src 'self' ; frame-src 'self' *.ufz.de ; child-src 'self' *.ufz.de ; object-src 'none' ; frame-ancestors 'self' https://*.ufz.de ;";
     hosts:
       - host: "cosmopolitan-ts.web-intern-stage.app.ufz.de"
         paths:
